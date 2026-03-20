@@ -1,10 +1,22 @@
-import React, { useState, useEffect, useMemo } from 'react';
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import { useState, useEffect, useMemo } from 'react';
+import { 
+  Plus, Trash2, Save, Calculator, Package, ShoppingCart, 
+  History, MessageCircle, Clock, DollarSign, Percent, 
+  Calendar, ChevronRight, Edit2, X, LogOut 
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+
+// --- IMPORTAÇÃO FIREBASE ---
 import { initializeApp } from "firebase/app";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "firebase/auth";
-import { getFirestore, collection, addDoc, onSnapshot, query, where, deleteDoc, doc } from "firebase/firestore";
-import { Plus, Trash2, Save, Calculator, Package, ShoppingCart, History, MessageCircle, Clock, DollarSign, Percent, Calendar, LogOut, X } from 'lucide-react';
+import { getFirestore, collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc } from "firebase/firestore";
 
-// --- CONFIGURAÇÃO FIREBASE ---
+// --- CONFIGURAÇÃO FIREBASE (Sua Chave Oficial) ---
 const firebaseConfig = {
   apiKey: "AIzaSyD0BWsNm9DbGGDqiHzkdDmNdxIGdJ9tWe8",
   authDomain: "precificaja-968cd.firebaseapp.com",
@@ -18,188 +30,237 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
+// --- COMPONENTE DE LOGIN ---
+const Login = () => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isRegistering, setIsRegistering] = useState(false);
+
+  const handleAuth = async () => {
+    try {
+      if (isRegistering) {
+        await createUserWithEmailAndPassword(auth, email, password);
+      } else {
+        await signInWithEmailAndPassword(auth, email, password);
+      }
+    } catch (error) {
+      alert("Erro na autenticação. Verifique seu e-mail e se a senha tem 6 dígitos.");
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+      <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="bg-white p-8 rounded-3xl shadow-xl w-full max-w-md text-center border border-slate-100">
+        <div className="bg-primary/10 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <Calculator className="text-primary w-8 h-8" />
+        </div>
+        <h1 className="text-2xl font-bold text-slate-800 mb-2">PrecificaJá</h1>
+        <p className="text-slate-500 mb-6">{isRegistering ? 'Crie sua conta profissional' : 'Acesse seu painel'}</p>
+        <input type="email" placeholder="Seu e-mail" className="w-full p-3 rounded-xl border border-slate-200 mb-3 outline-none focus:ring-2 focus:ring-primary" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <input type="password" placeholder="Sua senha" className="w-full p-3 rounded-xl border border-slate-200 mb-6 outline-none focus:ring-2 focus:ring-primary" value={password} onChange={(e) => setPassword(e.target.value)} />
+        <button onClick={handleAuth} className="w-full bg-primary text-white font-bold py-3 rounded-xl shadow-lg hover:brightness-110 mb-4 transition-all">
+          {isRegistering ? 'CADASTRAR AGORA' : 'ENTRAR NO APP'}
+        </button>
+        <button onClick={() => setIsRegistering(!isRegistering)} className="text-sm text-primary font-medium">
+          {isRegistering ? 'Já tenho conta? Entrar' : 'Não tem conta? Criar uma grátis'}
+        </button>
+      </motion.div>
+    </div>
+  );
+};
+
+// --- Types ---
+interface Material {
+  id: string;
+  nome: string;
+  valorPago: number;
+  quantidadeComprada: number;
+  unidadeMedida: string;
+  valorUnitario: number;
+  userId?: string;
+}
+
+interface MaterialUsado {
+  materialId: string;
+  quantidadeUsada: number;
+}
+
+interface Produto {
+  id: string;
+  nome: string;
+  materiais: MaterialUsado[];
+  maoDeObraHora: number;
+  tempoGastoMinutos: number;
+  custosExtras: {
+    embalagem: number;
+    energia: number;
+    taxas: number;
+    outros: number;
+  };
+  lucroPorcentagem: number;
+  descontoValor: number;
+  descontoTipo: 'fixo' | 'porcentagem';
+  quantidadePedido: number;
+  prazoEntrega: string;
+  dataCriacao: string;
+  userId?: string;
+}
+
 export default function App() {
   const [user, setUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'materiais' | 'criar' | 'salvos'>('criar');
-  const [materiais, setMateriais] = useState<any[]>([]);
-  const [produtosSalvos, setProdutosSalvos] = useState<any[]>([]);
-
-  // Estados dos Formulários
-  const [novoMaterial, setNovoMaterial] = useState({ nome: '', valorPago: '', qtdComprada: '1' });
-  const [novoProduto, setNovoProduto] = useState<any>({
-    nome: '', materiaisUsados: [], maoDeObraHora: '7', tempoGastoMinutos: '60',
-    custosExtras: { embalagem: '2', energia: '', taxas: '', outros: '' },
-    lucroPorcentagem: '101', quantidadePedido: '1', prazoEntrega: ''
+  const [materiais, setMateriais] = useState<Material[]>([]);
+  const [produtosSalvos, setProdutosSalvos] = useState<Produto[]>([]);
+  
+  const [novoProduto, setNovoProduto] = useState<Partial<Produto>>({
+    nome: '', materiais: [], maoDeObraHora: 0, tempoGastoMinutos: 0,
+    custosExtras: { embalagem: 0, energia: 0, taxas: 0, outros: 0 },
+    lucroPorcentagem: 30, descontoValor: 0, descontoTipo: 'porcentagem',
+    quantidadePedido: 1, prazoEntrega: ''
   });
 
+  const [novoMaterial, setNovoMaterial] = useState<Partial<Material>>({
+    nome: '', valorPago: 0, quantidadeComprada: 1, unidadeMedida: 'un'
+  });
+
+  // Monitorar Login
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, u => setUser(u));
-    return unsub;
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+    return () => unsubscribe();
   }, []);
 
+  // Carregar Dados do Firebase (em vez do LocalStorage)
   useEffect(() => {
     if (user) {
       const qMat = query(collection(db, "materiais"), where("userId", "==", user.uid));
       const qProd = query(collection(db, "produtos"), where("userId", "==", user.uid));
-      onSnapshot(qMat, s => setMateriais(s.docs.map(d => ({ id: d.id, ...d.data() }))));
-      onSnapshot(qProd, s => setProdutosSalvos(s.docs.map(d => ({ id: d.id, ...d.data() }))));
+
+      const unsubMat = onSnapshot(qMat, (snapshot) => {
+        setMateriais(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Material)));
+      });
+
+      const unsubProd = onSnapshot(qProd, (snapshot) => {
+        setProdutosSalvos(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Produto)));
+      });
+
+      return () => { unsubMat(); unsubProd(); };
     }
   }, [user]);
 
-  // --- LÓGICA DE MATERIAIS ---
-  const salvarMaterialNoEstoque = async () => {
-    if (!novoMaterial.nome || !novoMaterial.valorPago) return;
+  // --- Funções de Materiais ---
+  const adicionarMaterial = async () => {
+    if (!novoMaterial.nome || !novoMaterial.valorPago || !novoMaterial.quantidadeComprada) return;
+    
+    const valorUnitario = (novoMaterial.valorPago || 0) / (novoMaterial.quantidadeComprada || 1);
+    
     await addDoc(collection(db, "materiais"), {
       nome: novoMaterial.nome,
-      valorPago: parseFloat(novoMaterial.valorPago),
-      qtdComprada: parseFloat(novoMaterial.qtdComprada),
+      valorPago: novoMaterial.valorPago,
+      quantidadeComprada: novoMaterial.quantidadeComprada,
+      unidadeMedida: novoMaterial.unidadeMedida,
+      valorUnitario: valorUnitario,
       userId: user.uid
     });
-    setNovoMaterial({ nome: '', valorPago: '', qtdComprada: '1' });
+
+    setNovoMaterial({ nome: '', valorPago: 0, quantidadeComprada: 1, unidadeMedida: 'un' });
   };
 
-  const selecionarMaterialParaProduto = (id: string) => {
-    const mat = materiais.find(m => m.id === id);
-    if (!mat) return;
-    const jaTem = novoProduto.materiaisUsados.find((m: any) => m.id === id);
-    if (jaTem) return;
-    setNovoProduto({ ...novoProduto, materiaisUsados: [...novoProduto.materiaisUsados, { ...mat, qtdNoProduto: 1 }] });
+  const removerMaterial = async (id: string) => {
+    await deleteDoc(doc(db, "materiais", id));
   };
 
-  // --- CÁLCULOS (O CORAÇÃO DO APP) ---
+  // --- Funções de Produto ---
+  const adicionarMaterialAoProduto = (materialId: string) => {
+    if (!materialId) return;
+    const jaExiste = novoProduto.materiais?.find(m => m.materialId === materialId);
+    if (jaExiste) return;
+
+    setNovoProduto({
+      ...novoProduto,
+      materiais: [...(novoProduto.materiais || []), { materialId, quantidadeUsada: 1 }]
+    });
+  };
+
+  const atualizarQtdMaterialProduto = (materialId: string, qtd: number) => {
+    setNovoProduto({
+      ...novoProduto,
+      materiais: novoProduto.materiais?.map(m => 
+        m.materialId === materialId ? { ...m, quantidadeUsada: qtd } : m
+      )
+    });
+  };
+
+  const removerMaterialDoProduto = (materialId: string) => {
+    setNovoProduto({
+      ...novoProduto,
+      materiais: novoProduto.materiais?.filter(m => m.materialId !== materialId)
+    });
+  };
+
+  // --- Cálculos ---
   const calculos = useMemo(() => {
-    const custoMateriais = novoProduto.materiaisUsados.reduce((acc: number, m: any) => 
-      acc + ((m.valorPago / m.qtdComprada) * m.qtdNoProduto), 0);
-    
-    const maoDeObra = (parseFloat(novoProduto.maoDeObraHora || '0') / 60) * parseFloat(novoProduto.tempoGastoMinutos || '0');
-    const extras = Object.values(novoProduto.custosExtras).reduce((a: any, b: any) => a + (parseFloat(b) || 0), 0) as number;
-    
-    const custoBaseTotal = (custoMateriais + maoDeObra + extras) * parseFloat(novoProduto.quantidadePedido || '1');
-    const precoFinal = custoBaseTotal * (1 + (parseFloat(novoProduto.lucroPorcentagem || '0') / 100));
-    
-    return precoFinal.toFixed(2);
-  }, [novoProduto]);
+    const custoMateriais = (novoProduto.materiais || []).reduce((acc, item) => {
+      const material = materiais.find(m => m.id === item.materialId);
+      return acc + (material ? material.valorUnitario * item.quantidadeUsada : 0);
+    }, 0);
 
-  if (!user) return <div className="p-10 text-center">Carregando ou Por favor, faça login... (Verifique se a tela de login aparece)</div>;
+    const custoMaoDeObra = ((novoProduto.maoDeObraHora || 0) / 60) * (novoProduto.tempoGastoMinutos || 0);
+    const extras = novoProduto.custosExtras || { embalagem: 0, energia: 0, taxas: 0, outros: 0 };
+    const custoExtrasTotal = Object.values(extras).reduce((a, b) => a + b, 0);
+
+    const custoUnitarioBase = custoMateriais + custoMaoDeObra + custoExtrasTotal;
+    const custoTotalPedido = custoUnitarioBase * (novoProduto.quantidadePedido || 1);
+    const valorLucro = custoTotalPedido * ((novoProduto.lucroPorcentagem || 0) / 100);
+    const subtotal = custoTotalPedido + valorLucro;
+
+    let desconto = 0;
+    if (novoProduto.descontoTipo === 'fixo') {
+      desconto = novoProduto.descontoValor || 0;
+    } else {
+      desconto = subtotal * ((novoProduto.descontoValor || 0) / 100);
+    }
+
+    const precoFinalTotal = Math.max(0, subtotal - desconto);
+    const precoFinalUnitario = precoFinalTotal / (novoProduto.quantidadePedido || 1);
+
+    return { custoMateriais, custoMaoDeObra, custoExtrasTotal, custoUnitarioBase, custoTotalPedido, valorLucro, desconto, precoFinalTotal, precoFinalUnitario };
+  }, [novoProduto, materiais]);
+
+  const salvarProduto = async () => {
+    if (!novoProduto.nome) return alert('Dê um nome ao produto!');
+
+    const dadosParaSalvar = {
+      ...novoProduto,
+      userId: user.uid,
+      dataCriacao: novoProduto.dataCriacao || new Date().toISOString()
+    };
+
+    if (novoProduto.id) {
+      await updateDoc(doc(db, "produtos", novoProduto.id), dadosParaSalvar);
+    } else {
+      await addDoc(collection(db, "produtos"), dadosParaSalvar);
+    }
+
+    alert('Produto salvo na nuvem!');
+    setActiveTab('salvos');
+  };
+
+  if (!user) return <Login />;
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans">
-      {/* HEADER ROXO IGUAL AO PRINT */}
-      <header className="bg-[#6b21a8] text-white p-4 flex justify-between items-center shadow-md">
-        <div className="flex items-center gap-2 text-xl font-bold">
-          <Calculator className="bg-white text-[#6b21a8] p-1 rounded" /> PrecificaJá
-        </div>
-        <nav className="flex gap-4 text-sm font-medium">
-          <button onClick={() => setActiveTab('materiais')} className={activeTab === 'materiais' ? "bg-white text-[#6b21a8] px-3 py-1 rounded-lg" : ""}>Materiais</button>
-          <button onClick={() => setActiveTab('criar')} className={activeTab === 'criar' ? "bg-white text-[#6b21a8] px-3 py-1 rounded-lg" : ""}>Criar Produto</button>
-          <button onClick={() => setActiveTab('salvos')} className={activeTab === 'salvos' ? "bg-white text-[#6b21a8] px-3 py-1 rounded-lg" : ""}>Produtos Salvos</button>
-        </nav>
-      </header>
-
-      <main className="p-4 max-w-3xl mx-auto">
-        {/* ABA: MATERIAIS (ESTOQUE) */}
-        {activeTab === 'materiais' && (
-          <div className="space-y-4">
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-              <h2 className="text-[#6b21a8] font-bold mb-4 flex items-center gap-2"><Package size={18}/> Novo Material</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <input placeholder="Nome do Material" className="p-3 bg-slate-50 rounded-xl outline-none border border-slate-100" value={novoMaterial.nome} onChange={e => setNovoMaterial({...novoMaterial, nome: e.target.value})}/>
-                <input type="number" placeholder="Valor Pago (R$)" className="p-3 bg-slate-50 rounded-xl outline-none border border-slate-100" value={novoMaterial.valorPago} onChange={e => setNovoMaterial({...novoMaterial, valorPago: e.target.value})}/>
-                <div className="flex gap-2">
-                  <input type="number" placeholder="Qtd" className="flex-1 p-3 bg-slate-50 rounded-xl outline-none border border-slate-100" value={novoMaterial.qtdComprada} onChange={e => setNovoMaterial({...novoMaterial, qtdComprada: e.target.value})}/>
-                  <button onClick={salvarMaterialNoEstoque} className="bg-[#f97316] text-white px-6 rounded-xl font-bold shadow-md">+ Adicionar</button>
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-              <h2 className="font-bold mb-4">Materiais Cadastrados</h2>
-              {materiais.map(m => (
-                <div key={m.id} className="flex justify-between items-center py-3 border-b border-slate-50">
-                  <div>
-                    <p className="font-bold text-slate-700">{m.nome}</p>
-                    <p className="text-xs text-slate-400">Pago R$ {m.valorPago.toFixed(2)} por {m.qtdComprada} un</p>
-                  </div>
-                  <div className="text-right flex items-center gap-4">
-                    <div>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase">Unitário</p>
-                      <p className="font-bold text-[#f97316]">R$ {(m.valorPago/m.qtdComprada).toFixed(2)}</p>
-                    </div>
-                    <button onClick={() => deleteDoc(doc(db, "materiais", m.id))} className="text-red-300"><Trash2 size={18}/></button>
-                  </div>
-                </div>
-              ))}
-            </div>
+    <div className="min-h-screen pb-20 md:pb-8 bg-slate-50">
+      <header className="bg-primary text-white p-6 shadow-lg sticky top-0 z-50">
+        <div className="max-w-4xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="bg-white/20 p-2 rounded-lg"><Calculator className="w-6 h-6" /></div>
+            <h1 className="text-2xl font-bold tracking-tight">PrecificaJá</h1>
           </div>
-        )}
-
-        {/* ABA: CRIAR PRODUTO (IGUAL AO PRINT) */}
-        {activeTab === 'criar' && (
-          <div className="bg-white p-6 rounded-3xl shadow-lg border border-slate-100">
-            <h2 className="text-[#6b21a8] font-bold mb-6 flex items-center gap-2"><ShoppingCart size={18}/> Novo Produto</h2>
-            
-            <div className="grid grid-cols-3 gap-3 mb-4">
-              <div className="col-span-2">
-                <label className="text-[10px] font-bold text-slate-400 uppercase">Nome do Produto</label>
-                <input className="w-full p-3 bg-slate-50 rounded-xl outline-none border border-slate-50" value={novoProduto.nome} onChange={e => setNovoProduto({...novoProduto, nome: e.target.value})}/>
-              </div>
-              <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase">Qtd do Pedido</label>
-                <input type="number" className="w-full p-3 bg-slate-50 rounded-xl outline-none border border-slate-50" value={novoProduto.quantidadePedido} onChange={e => setNovoProduto({...novoProduto, quantidadePedido: e.target.value})}/>
-              </div>
+          <div className="flex gap-2 items-center">
+            <div className="hidden md:flex gap-2 mr-4">
+              <button onClick={() => setActiveTab('materiais')} className={`tab-btn ${activeTab === 'materiais' ? 'bg-white text-primary' : 'hover:bg-white/10'}`}>Materiais</button>
+              <button onClick={() => setActiveTab('criar')} className={`tab-btn ${activeTab === 'criar' ? 'bg-white text-primary' : 'hover:bg-white/10'}`}>Criar Produto</button>
+              <button onClick={() => setActiveTab('salvos')} className={`tab-btn ${activeTab === 'salvos' ? 'bg-white text-primary' : 'hover:bg-white/10'}`}>Produtos Salvos</button>
             </div>
-
-            <div className="mb-4">
-              <label className="text-[10px] font-bold text-slate-400 uppercase">Materiais Utilizados</label>
-              <div className="flex gap-2 mb-3">
-                <select className="flex-1 p-3 bg-slate-50 rounded-xl outline-none text-sm border border-slate-50" onChange={e => selecionarMaterialParaProduto(e.target.value)} value="">
-                  <option value="">Selecione um material...</option>
-                  {materiais.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
-                </select>
-                <button onClick={() => setActiveTab('materiais')} className="bg-[#fff7ed] text-[#f97316] p-3 rounded-xl"><Plus size={20}/></button>
-              </div>
-              {novoProduto.materiaisUsados.map((m: any, idx: number) => (
-                <div key={idx} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl mb-2 border border-slate-100">
-                  <div>
-                    <p className="text-sm font-bold">{m.nome}</p>
-                    <p className="text-[10px] text-slate-400">Custo: R$ {(m.valorPago/m.qtdComprada).toFixed(2)}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input type="number" className="w-16 p-1 text-center bg-white rounded-lg border border-slate-200" value={m.qtdNoProduto} onChange={e => {
-                      const novaLista = [...novoProduto.materiaisUsados];
-                      novaLista[idx].qtdNoProduto = parseFloat(e.target.value) || 0;
-                      setNovoProduto({...novoProduto, materiaisUsados: novaLista});
-                    }}/>
-                    <button onClick={() => {
-                      const novaLista = novoProduto.materiaisUsados.filter((_:any, i:number) => i !== idx);
-                      setNovoProduto({...novoProduto, materiaisUsados: novaLista});
-                    }} className="text-red-300"><Trash2 size={16}/></button>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 mb-6">
-              <div>
-                <label className="text-[10px] font-bold text-[#f97316] uppercase flex items-center gap-1"><DollarSign size={10}/> Valor da Hora (R$)</label>
-                <input type="number" className="w-full p-3 bg-slate-50 rounded-xl outline-none" value={novoProduto.maoDeObraHora} onChange={e => setNovoProduto({...novoProduto, maoDeObraHora: e.target.value})}/>
-              </div>
-              <div>
-                <label className="text-[10px] font-bold text-[#f97316] uppercase flex items-center gap-1"><Clock size={10}/> Tempo (minutos)</label>
-                <input type="number" className="w-full p-3 bg-slate-50 rounded-xl outline-none" value={novoProduto.tempoGastoMinutos} onChange={e => setNovoProduto({...novoProduto, tempoGastoMinutos: e.target.value})}/>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-4 gap-2 mb-6">
-              {['embalagem', 'energia', 'taxas', 'outros'].map(c => (
-                <div key={c}>
-                  <label className="text-[8px] text-slate-400 block mb-1 uppercase text-center font-bold">{c}</label>
-                  <input type="number" className="w-full p-2 bg-slate-50 rounded-lg text-center outline-none text-xs border border-slate-50" value={novoProduto.custosExtras[c]} onChange={e => setNovoProduto({...novoProduto, custosExtras: {...novoProduto.custosExtras, [c]: e.target.value}})} />
-                </div>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 mb-8">
-              <div>
-                <label className="text-[10px] font-bold text-[#f97316] uppercase flex items-center gap-1"><Percent size={10}/> Margem de Lucro (%)</label>
-                <input type="number" className="w-full p-3 bg-slate-50 rounded-xl outline-none" value={novoProduto.lucroPorcentagem} onChange={e => setNovoProduto({...novoProduto, lucroPorcentagem: e.target.value})}/>
+            <button onClick={() => signOut(auth)} className="bg-white/10 p-2 rounded-lg hover:bg-red
