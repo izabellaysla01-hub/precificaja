@@ -77,7 +77,7 @@ export default function App() {
   const enviarZap = (p: any) => {
     const cli = clientes.find(c => c.id === p.clienteSel);
     const dataFormatada = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combinar';
-    const msg = `*ORÇAMENTO - PrecificaJá*%0A---%0A*Produto:* ${p.nomeProd}%0A*Quantidade:* ${p.qtdPed} un%0A*Prazo de Entrega:* ${dataFormatada}%0A*Forma de Pagamento:* ${p.pagamento}%0A*Desconto:* R$ ${p.desconto || '0.00'}%0A---%0A*VALOR TOTAL:* R$ ${p.preco}%0A---%0AObrigado!`;
+    const msg = `*ORÇAMENTO - Loop Creative*%0A---%0A*Produto:* ${p.nomeProd}%0A*Quantidade:* ${p.qtdPed} un%0A*Prazo de Entrega:* ${dataFormatada}%0A*Forma de Pagamento:* ${p.pagamento}%0A*Desconto:* R$ ${p.desconto || '0.00'}%0A---%0A*VALOR TOTAL:* R$ ${p.preco}%0A---%0AObrigado!`;
     const fone = cli?.zap ? cli.zap.replace(/\D/g, '') : '';
     window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
   };
