@@ -1,202 +1,739 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { initializeApp } from "firebase/app";
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "firebase/auth";
-import { getFirestore, collection, addDoc, onSnapshot, query, where, deleteDoc, doc } from "firebase/firestore";
-import { Plus, Trash2, Save, Calculator, Package, ShoppingCart, History, LogOut, X, Clock, DollarSign, Percent, Calendar, Send } from 'lucide-react';
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
-// --- CONFIGURAÇÃO FIREBASE ---
-const firebaseConfig = {
-  apiKey: "AIzaSyD0BWsNm9DbGGDqiHzkdDmNdxIGdJ9tWe8",
-  authDomain: "precificaja-968cd.firebaseapp.com",
-  projectId: "precificaja-968cd",
-  storageBucket: "precificaja-968cd.firebasestorage.app",
-  messagingSenderId: "646149720985",
-  appId: "1:646149720985:web:9c04001f2c6344979a2108"
-};
+import { auth, db } from "./firebase";
+import { useState, useEffect, useMemo } from 'react';
+import { 
+  Plus, 
+  Trash2, 
+  Save, 
+  Calculator, 
+  Package, 
+  ShoppingCart, 
+  History, 
+  Share2, 
+  MessageCircle,
+  Clock,
+  DollarSign,
+  Percent,
+  Calendar,
+  ChevronRight,
+  Edit2,
+  X
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
+// --- Types ---
 
-// --- COMPONENTE DE LOGIN ---
-const Login = ({ isRegistering, setIsRegistering, email, setEmail, password, setPassword, handleAuth }: any) => (
-  <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-    <div className="bg-white p-8 rounded-3xl shadow-xl w-full max-w-md text-center border">
-      <h1 className="text-2xl font-bold text-purple-700 mb-6">PrecificaJá 🚀</h1>
-      <input type="email" placeholder="E-mail" className="w-full p-3 rounded-xl border mb-3 outline-none focus:ring-2 focus:ring-purple-600" value={email} onChange={e => setEmail(e.target.value)} />
-      <input type="password" placeholder="Senha" className="w-full p-3 rounded-xl border mb-6 outline-none focus:ring-2 focus:ring-purple-600" value={password} onChange={e => setPassword(e.target.value)} />
-      <button onClick={handleAuth} className="w-full bg-purple-600 text-white font-bold py-3 rounded-xl mb-4">{isRegistering ? 'CADASTRAR' : 'ENTRAR'}</button>
-      <button onClick={() => setIsRegistering(!isRegistering)} className="text-sm text-purple-600 font-medium underline">{isRegistering ? 'Criar conta grátis' : 'Já tenho conta'}</button>
-    </div>
-  </div>
-);
+interface Material {
+  id: string;
+  nome: string;
+  valorPago: number;
+  quantidadeComprada: number;
+  unidadeMedida: string;
+  valorUnitario: number;
+}
+
+interface MaterialUsado {
+  materialId: string;
+  quantidadeUsada: number;
+}
+
+interface Produto {
+  id: string;
+  nome: string;
+  materiais: MaterialUsado[];
+  maoDeObraHora: number;
+  tempoGastoMinutos: number;
+  custosExtras: {
+    embalagem: number;
+    energia: number;
+    taxas: number;
+    outros: number;
+  };
+  lucroPorcentagem: number;
+  descontoValor: number;
+  descontoTipo: 'fixo' | 'porcentagem';
+  quantidadePedido: number;
+  prazoEntrega: string;
+  dataCriacao: string;
+}
+
+// --- App Component ---
 
 export default function App() {
-  const [user, setUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'materiais' | 'criar' | 'salvos'>('criar');
-  const [materiais, setMateriais] = useState<any[]>([]);
-  const [produtosSalvos, setProdutosSalvos] = useState<any[]>([]);
+  const [materiais, setMateriais] = useState<Material[]>([]);
+  const [produtosSalvos, setProdutosSalvos] = useState<Produto[]>([]);
+  
+  // Estado para o formulário de novo produto
+  const [novoProduto, setNovoProduto] = useState<Partial<Produto>>({
+    nome: '',
+    materiais: [],
+    maoDeObraHora: 0,
+    tempoGastoMinutos: 0,
+    custosExtras: { embalagem: 0, energia: 0, taxas: 0, outros: 0 },
+    lucroPorcentagem: 30,
+    descontoValor: 0,
+    descontoTipo: 'porcentagem',
+    quantidadePedido: 1,
+    prazoEntrega: ''
+  });
 
-  // Estados do Produto (Baseados na sua foto)
-  const [nomeProd, setNomeProd] = useState('');
-  const [qtdPedido, setQtdPedido] = useState('1');
-  const [matsNoPedido, setMatsNoPedido] = useState<any[]>([]);
-  const [valorHora, setValorHora] = useState('7');
-  const [tempoGasto, setTempoGasto] = useState('60');
-  const [custos, setCustos] = useState({ embalagem: '2', energia: '0', taxas: '0', outros: '0' });
-  const [lucro, setLucro] = useState('101');
-  const [prazo, setPrazo] = useState('');
+  // Estado para o formulário de novo material
+  const [novoMaterial, setNovoMaterial] = useState<Partial<Material>>({
+    nome: '',
+    valorPago: 0,
+    quantidadeComprada: 1,
+    unidadeMedida: 'un'
+  });
 
-  // Estado do Estoque
-  const [novoMat, setNovoMat] = useState({ nome: '', valor: '', qtd: '1' });
-
+  // Carregar dados do LocalStorage
   useEffect(() => {
-    onAuthStateChanged(auth, u => setUser(u));
+    const savedMateriais = localStorage.getItem('precificaja_materiais');
+    const savedProdutos = localStorage.getItem('precificaja_produtos');
+    if (savedMateriais) setMateriais(JSON.parse(savedMateriais));
+    if (savedProdutos) setProdutosSalvos(JSON.parse(savedProdutos));
   }, []);
 
+  // Salvar dados no LocalStorage
   useEffect(() => {
-    if (user) {
-      const qMat = query(collection(db, "materiais"), where("userId", "==", user.uid));
-      const qProd = query(collection(db, "produtos"), where("userId", "==", user.uid));
-      onSnapshot(qMat, s => setMateriais(s.docs.map(d => ({ id: d.id, ...d.data() }))));
-      onSnapshot(qProd, s => setProdutosSalvos(s.docs.map(d => ({ id: d.id, ...d.data() }))));
+    localStorage.setItem('precificaja_materiais', JSON.stringify(materiais));
+  }, [materiais]);
+
+  useEffect(() => {
+    localStorage.setItem('precificaja_produtos', JSON.stringify(produtosSalvos));
+  }, [produtosSalvos]);
+
+  // --- Funções de Materiais ---
+
+  const adicionarMaterial = () => {
+    if (!novoMaterial.nome || !novoMaterial.valorPago || !novoMaterial.quantidadeComprada) return;
+    
+    const valorUnitario = (novoMaterial.valorPago || 0) / (novoMaterial.quantidadeComprada || 1);
+    const material: Material = {
+      id: crypto.randomUUID(),
+      nome: novoMaterial.nome || '',
+      valorPago: novoMaterial.valorPago || 0,
+      quantidadeComprada: novoMaterial.quantidadeComprada || 1,
+      unidadeMedida: novoMaterial.unidadeMedida || 'un',
+      valorUnitario
+    };
+
+    setMateriais([...materiais, material]);
+    setNovoMaterial({ nome: '', valorPago: 0, quantidadeComprada: 1, unidadeMedida: 'un' });
+  };
+
+  const removerMaterial = (id: string) => {
+    setMateriais(materiais.filter(m => m.id !== id));
+  };
+
+  // --- Funções de Produto ---
+
+  const adicionarMaterialAoProduto = (materialId: string) => {
+    if (!materialId) return;
+    const jaExiste = novoProduto.materiais?.find(m => m.materialId === materialId);
+    if (jaExiste) return;
+
+    setNovoProduto({
+      ...novoProduto,
+      materiais: [...(novoProduto.materiais || []), { materialId, quantidadeUsada: 1 }]
+    });
+  };
+
+  const atualizarQtdMaterialProduto = (materialId: string, qtd: number) => {
+    setNovoProduto({
+      ...novoProduto,
+      materiais: novoProduto.materiais?.map(m => 
+        m.materialId === materialId ? { ...m, quantidadeUsada: qtd } : m
+      )
+    });
+  };
+
+  const removerMaterialDoProduto = (materialId: string) => {
+    setNovoProduto({
+      ...novoProduto,
+      materiais: novoProduto.materiais?.filter(m => m.materialId !== materialId)
+    });
+  };
+
+  // --- Cálculos ---
+
+  const calculos = useMemo(() => {
+    const custoMateriais = (novoProduto.materiais || []).reduce((acc, item) => {
+      const material = materiais.find(m => m.id === item.materialId);
+      return acc + (material ? material.valorUnitario * item.quantidadeUsada : 0);
+    }, 0);
+
+    const custoMaoDeObra = ((novoProduto.maoDeObraHora || 0) / 60) * (novoProduto.tempoGastoMinutos || 0);
+    
+    const extras = novoProduto.custosExtras || { embalagem: 0, energia: 0, taxas: 0, outros: 0 };
+    const custoExtrasTotal = Object.values(extras).reduce((a, b) => a + b, 0);
+
+    const custoUnitarioBase = custoMateriais + custoMaoDeObra + custoExtrasTotal;
+    const custoTotalPedido = custoUnitarioBase * (novoProduto.quantidadePedido || 1);
+
+    const valorLucro = custoTotalPedido * ((novoProduto.lucroPorcentagem || 0) / 100);
+    const subtotal = custoTotalPedido + valorLucro;
+
+    let desconto = 0;
+    if (novoProduto.descontoTipo === 'fixo') {
+      desconto = novoProduto.descontoValor || 0;
+    } else {
+      desconto = subtotal * ((novoProduto.descontoValor || 0) / 100);
     }
-  }, [user]);
 
-  // CÁLCULO REAL (Igual à imagem)
-  const resultado = useMemo(() => {
-    const custoMateriais = matsNoPedido.reduce((acc, m) => acc + (m.valor / m.qtd), 0);
-    const maoDeObra = (parseFloat(valorHora || '0') / 60) * parseFloat(tempoGasto || '0');
-    const extras = parseFloat(custos.embalagem || '0') + parseFloat(custos.energia || '0') + parseFloat(custos.taxas || '0') + parseFloat(custos.outros || '0');
-    
-    const subtotalUnidade = custoMateriais + maoDeObra + extras;
-    const totalPedido = subtotalUnidade * parseFloat(qtdPedido || '1');
-    const precoFinal = totalPedido * (1 + (parseFloat(lucro || '0') / 100));
-    
-    return isNaN(precoFinal) ? "0.00" : precoFinal.toFixed(2);
-  }, [matsNoPedido, valorHora, tempoGasto, custos, lucro, qtdPedido]);
+    const precoFinalTotal = Math.max(0, subtotal - desconto);
+    const precoFinalUnitario = precoFinalTotal / (novoProduto.quantidadePedido || 1);
 
-  if (!user) return <Login handleAuth={async () => {
-    try { await signInWithEmailAndPassword(auth, 'seuemail@teste.com', '123456'); } catch(e) {}
-  }} />; // Para o teste, use o formulário de login real
+    return {
+      custoMateriais,
+      custoMaoDeObra,
+      custoExtrasTotal,
+      custoUnitarioBase,
+      custoTotalPedido,
+      valorLucro,
+      desconto,
+      precoFinalTotal,
+      precoFinalUnitario
+    };
+  }, [novoProduto, materiais]);
+
+  const salvarProduto = () => {
+    if (!novoProduto.nome) {
+      alert('Dê um nome ao produto antes de salvar.');
+      return;
+    }
+
+    const produto: Produto = {
+      ...(novoProduto as Produto),
+      id: novoProduto.id || crypto.randomUUID(),
+      dataCriacao: new Date().toISOString()
+    };
+
+    const index = produtosSalvos.findIndex(p => p.id === produto.id);
+    if (index >= 0) {
+      const novosProdutos = [...produtosSalvos];
+      novosProdutos[index] = produto;
+      setProdutosSalvos(novosProdutos);
+    } else {
+      setProdutosSalvos([produto, ...produtosSalvos]);
+    }
+
+    alert('Produto salvo com sucesso!');
+    setActiveTab('salvos');
+  };
+
+  const editarProduto = (p: Produto) => {
+    setNovoProduto(p);
+    setActiveTab('criar');
+  };
+
+  const excluirProduto = (id: string) => {
+    if (confirm('Deseja realmente excluir este produto?')) {
+      setProdutosSalvos(produtosSalvos.filter(p => p.id !== id));
+    }
+  };
+
+  // --- Orçamento e WhatsApp ---
+
+  const gerarTextoOrcamento = () => {
+    const dataFormatada = novoProduto.prazoEntrega 
+      ? new Date(novoProduto.prazoEntrega).toLocaleDateString('pt-BR') 
+      : 'A combinar';
+
+    return `*ORÇAMENTO - ${novoProduto.nome}*
+------------------------------
+*Quantidade:* ${novoProduto.quantidadePedido} un
+*Preço Unitário:* R$ ${calculos.precoFinalUnitario.toFixed(2)}
+${novoProduto.descontoValor ? `*Desconto:* R$ ${calculos.desconto.toFixed(2)}\n` : ''}
+*VALOR TOTAL:* R$ ${calculos.precoFinalTotal.toFixed(2)}
+------------------------------
+*Prazo de Entrega:* ${dataFormatada}
+------------------------------
+Obrigado pela preferência!`;
+  };
+
+  const enviarWhatsApp = () => {
+    const texto = encodeURIComponent(gerarTextoOrcamento());
+    window.open(`https://wa.me/?text=${texto}`, '_blank');
+  };
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-24 font-sans text-slate-700">
-      <header className="bg-white p-4 flex justify-between items-center shadow-sm border-b sticky top-0 z-10">
-        <div className="flex items-center gap-2 text-purple-700 font-bold"><Calculator size={20}/> PrecificaJá</div>
-        <button onClick={() => signOut(auth)}><LogOut size={20} className="text-slate-300" /></button>
+    <div className="min-h-screen pb-20 md:pb-8">
+      {/* Header */}
+      <header className="bg-primary text-white p-6 shadow-lg sticky top-0 z-50">
+        <div className="max-w-4xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="bg-white/20 p-2 rounded-lg">
+              <Calculator className="w-6 h-6" />
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight">PrecificaJá</h1>
+          </div>
+          <div className="hidden md:flex gap-2">
+            <button 
+              onClick={() => setActiveTab('materiais')}
+              className={`tab-btn ${activeTab === 'materiais' ? 'bg-white text-primary' : 'hover:bg-white/10'}`}
+            >
+              Materiais
+            </button>
+            <button 
+              onClick={() => setActiveTab('criar')}
+              className={`tab-btn ${activeTab === 'criar' ? 'bg-white text-primary' : 'hover:bg-white/10'}`}
+            >
+              Criar Produto
+            </button>
+            <button 
+              onClick={() => setActiveTab('salvos')}
+              className={`tab-btn ${activeTab === 'salvos' ? 'bg-white text-primary' : 'hover:bg-white/10'}`}
+            >
+              Produtos Salvos
+            </button>
+          </div>
+        </div>
       </header>
 
-      <main className="p-4 max-w-xl mx-auto">
-        {activeTab === 'criar' && (
-          <div className="bg-white p-6 rounded-3xl shadow-xl border border-slate-100">
-            <h2 className="text-purple-700 font-bold mb-6 flex items-center gap-2"><ShoppingCart size={18}/> Novo Produto</h2>
-            
-            <div className="grid grid-cols-3 gap-3 mb-4">
-              <div className="col-span-2">
-                <label className="text-[10px] font-bold text-slate-400 uppercase">Nome do Produto</label>
-                <input className="w-full p-3 bg-slate-50 rounded-xl outline-none border-none" value={nomeProd} onChange={e => setNomeProd(e.target.value)} />
-              </div>
-              <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase">Qtd</label>
-                <input type="number" className="w-full p-3 bg-slate-50 rounded-xl outline-none border-none" value={qtdPedido} onChange={e => setQtdPedido(e.target.value)} />
-              </div>
-            </div>
-
-            <div className="mb-6">
-              <label className="text-[10px] font-bold text-slate-400 uppercase">Materiais Utilizados</label>
-              <div className="flex gap-2 mb-2">
-                <select className="flex-1 p-3 bg-slate-50 rounded-xl outline-none text-sm border-none" onChange={e => {
-                  const m = materiais.find(item => item.id === e.target.value);
-                  if (m) setMatsNoPedido([...matsNoPedido, m]);
-                }} value="">
-                  <option value="">Selecione um material...</option>
-                  {materiais.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
-                </select>
-                <button onClick={() => setActiveTab('materiais')} className="bg-orange-50 text-orange-500 p-3 rounded-xl"><Plus/></button>
-              </div>
-              {matsNoPedido.map((m, i) => (
-                <div key={i} className="flex justify-between items-center bg-purple-50 p-2 rounded-lg mb-1 text-xs font-bold text-purple-700">
-                  {m.nome} <button onClick={() => setMatsNoPedido(matsNoPedido.filter((_, idx) => idx !== i))}><X size={14}/></button>
+      <main className="max-w-4xl mx-auto p-4 md:p-6">
+        <AnimatePresence mode="wait">
+          {/* ABA MATERIAIS */}
+          {activeTab === 'materiais' && (
+            <motion.div 
+              key="materiais"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="space-y-6"
+            >
+              <section className="glass-card">
+                <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-primary">
+                  <Package className="w-5 h-5" /> Novo Material
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-slate-600 mb-1 block">Nome do Material</label>
+                    <input 
+                      type="text" 
+                      placeholder="Ex: Papel Fotográfico A4"
+                      className="input-field"
+                      value={novoMaterial.nome}
+                      onChange={e => setNovoMaterial({...novoMaterial, nome: e.target.value})}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium text-slate-600 mb-1 block">Valor Pago (R$)</label>
+                      <input 
+                        type="number" 
+                        className="input-field"
+                        value={novoMaterial.valorPago || ''}
+                        onChange={e => setNovoMaterial({...novoMaterial, valorPago: parseFloat(e.target.value)})}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-slate-600 mb-1 block">Qtd Comprada</label>
+                      <input 
+                        type="number" 
+                        className="input-field"
+                        value={novoMaterial.quantidadeComprada || ''}
+                        onChange={e => setNovoMaterial({...novoMaterial, quantidadeComprada: parseFloat(e.target.value)})}
+                      />
+                    </div>
+                  </div>
                 </div>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <div>
-                <label className="text-[10px] font-bold text-orange-500 uppercase flex items-center gap-1"><DollarSign size={10}/> Valor da Hora (R$)</label>
-                <input type="number" className="w-full p-3 bg-slate-50 rounded-xl outline-none border-none" value={valorHora} onChange={e => setValorHora(e.target.value)} />
-              </div>
-              <div>
-                <label className="text-[10px] font-bold text-orange-500 uppercase flex items-center gap-1"><Clock size={10}/> Tempo (minutos)</label>
-                <input type="number" className="w-full p-3 bg-slate-50 rounded-xl outline-none border-none" value={tempoGasto} onChange={e => setTempoGasto(e.target.value)} />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-4 gap-2 mb-6">
-              {['embalagem', 'energia', 'taxas', 'outros'].map(c => (
-                <div key={c}>
-                  <label className="text-[8px] text-slate-400 block mb-1 uppercase text-center font-bold">{c}</label>
-                  <input type="number" className="w-full p-2 bg-slate-50 rounded-lg text-center outline-none border-none text-xs" value={custos[c as keyof typeof custos]} onChange={e => setCustos({...custos, [c]: e.target.value})} />
+                <div className="mt-4 flex justify-between items-center">
+                  <div className="text-sm text-slate-500">
+                    Valor Unitário: <span className="font-bold text-primary">
+                      R$ {((novoMaterial.valorPago || 0) / (novoMaterial.quantidadeComprada || 1)).toFixed(2)}
+                    </span>
+                  </div>
+                  <button onClick={adicionarMaterial} className="btn-accent">
+                    <Plus className="w-5 h-5" /> Adicionar
+                  </button>
                 </div>
-              ))}
-            </div>
+              </section>
 
-            <div className="grid grid-cols-2 gap-3 mb-8">
-              <div>
-                <label className="text-[10px] font-bold text-orange-500 uppercase flex items-center gap-1"><Percent size={10}/> Lucro (%)</label>
-                <input type="number" className="w-full p-3 bg-slate-50 rounded-xl outline-none border-none" value={lucro} onChange={e => setLucro(e.target.value)} />
-              </div>
-              <div>
-                <label className="text-[10px] font-bold text-orange-500 uppercase flex items-center gap-1"><Calendar size={10}/> Prazo</label>
-                <input type="date" className="w-full p-3 bg-slate-50 rounded-xl outline-none border-none text-xs" value={prazo} onChange={e => setPrazo(e.target.value)} />
-              </div>
-            </div>
+              <section className="glass-card">
+                <h2 className="text-xl font-bold mb-4">Materiais Cadastrados</h2>
+                {materiais.length === 0 ? (
+                  <div className="text-center py-12 text-slate-400">
+                    <Package className="w-12 h-12 mx-auto mb-2 opacity-20" />
+                    <p>Nenhum material cadastrado ainda.</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-100">
+                    {materiais.map(m => (
+                      <div key={m.id} className="py-4 flex items-center justify-between">
+                        <div>
+                          <h3 className="font-bold">{m.nome}</h3>
+                          <p className="text-sm text-slate-500">
+                            Pago R$ {m.valorPago.toFixed(2)} por {m.quantidadeComprada} {m.unidadeMedida}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <div className="text-right">
+                            <p className="text-xs text-slate-400 uppercase font-bold">Unitário</p>
+                            <p className="font-bold text-accent">R$ {m.valorUnitario.toFixed(2)}</p>
+                          </div>
+                          <button 
+                            onClick={() => removerMaterial(m.id)}
+                            className="p-2 text-red-400 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+            </motion.div>
+          )}
 
-            <div className="flex items-center justify-between pt-6 border-t">
-              <div className="text-orange-500 font-black text-4xl">R$ {resultado}</div>
-              <div className="flex gap-2">
-                <button onClick={async () => {
-                  await addDoc(collection(db, "produtos"), { nome: nomeProd, preco: resultado, userId: user.uid, data: new Date().toISOString() });
-                  alert("Salvo!");
-                  setActiveTab('salvos');
-                }} className="bg-orange-500 text-white p-3 px-5 rounded-xl font-bold flex items-center gap-2 shadow-lg"><Save size={18}/> SALVAR</button>
-                <button className="bg-emerald-500 text-white p-3 px-5 rounded-xl font-bold flex items-center gap-2 shadow-lg"><Send size={18}/> ORÇAMENTO</button>
-              </div>
-            </div>
-          </div>
-        )}
+          {/* ABA CRIAR PRODUTO */}
+          {activeTab === 'criar' && (
+            <motion.div 
+              key="criar"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="space-y-6"
+            >
+              <div className="glass-card">
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-xl font-bold text-primary flex items-center gap-2">
+                    <ShoppingCart className="w-5 h-5" /> {novoProduto.id ? 'Editar Produto' : 'Novo Produto'}
+                  </h2>
+                  {novoProduto.id && (
+                    <button 
+                      onClick={() => setNovoProduto({
+                        nome: '', materiais: [], maoDeObraHora: 0, tempoGastoMinutos: 0,
+                        custosExtras: { embalagem: 0, energia: 0, taxas: 0, outros: 0 },
+                        lucroPorcentagem: 30, descontoValor: 0, descontoTipo: 'porcentagem',
+                        quantidadePedido: 1, prazoEntrega: ''
+                      })}
+                      className="text-sm text-slate-400 hover:text-red-500 flex items-center gap-1"
+                    >
+                      <X className="w-4 h-4" /> Cancelar Edição
+                    </button>
+                  )}
+                </div>
 
-        {activeTab === 'materiais' && (
-          <div className="space-y-4">
-            <div className="bg-white p-6 rounded-3xl shadow-md">
-              <h2 className="text-purple-700 font-bold mb-4">Adicionar ao Estoque</h2>
-              <input placeholder="Nome do Material" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none" value={novoMat.nome} onChange={e => setNovoMat({...novoMat, nome: e.target.value})} />
-              <div className="flex gap-2 mb-6">
-                <input type="number" placeholder="Preço" className="flex-1 p-4 bg-slate-50 rounded-2xl outline-none" value={novoMat.valor} onChange={e => setNovoMat({...novoMat, valor: e.target.value})} />
-                <input type="number" placeholder="Qtd" className="w-24 p-4 bg-slate-50 rounded-2xl outline-none" value={novoMat.qtd} onChange={e => setNovoMat({...novoMat, qtd: e.target.value})} />
+                <div className="space-y-6">
+                  {/* Nome e Qtd */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="md:col-span-2">
+                      <label className="text-sm font-medium text-slate-600 mb-1 block">Nome do Produto</label>
+                      <input 
+                        type="text" 
+                        placeholder="Ex: Caneca Personalizada Dia das Mães"
+                        className="input-field"
+                        value={novoProduto.nome}
+                        onChange={e => setNovoProduto({...novoProduto, nome: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-slate-600 mb-1 block">Qtd do Pedido</label>
+                      <input 
+                        type="number" 
+                        className="input-field"
+                        value={novoProduto.quantidadePedido || ''}
+                        onChange={e => setNovoProduto({...novoProduto, quantidadePedido: parseInt(e.target.value) || 1})}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Seleção de Materiais */}
+                  <div className="border-t border-slate-100 pt-6">
+                    <label className="text-sm font-medium text-slate-600 mb-2 block">Materiais Utilizados</label>
+                    <div className="flex gap-2 mb-4">
+                      <select 
+                        className="input-field flex-1"
+                        onChange={(e) => adicionarMaterialAoProduto(e.target.value)}
+                        value=""
+                      >
+                        <option value="" disabled>Selecione um material...</option>
+                        {materiais.map(m => (
+                          <option key={m.id} value={m.id}>{m.nome} (R$ {m.valorUnitario.toFixed(2)})</option>
+                        ))}
+                      </select>
+                      <button 
+                        onClick={() => setActiveTab('materiais')}
+                        className="btn-secondary px-4"
+                        title="Cadastrar novo material"
+                      >
+                        <Plus className="w-5 h-5" />
+                      </button>
+                    </div>
+
+                    <div className="space-y-2">
+                      {novoProduto.materiais?.map(item => {
+                        const m = materiais.find(mat => mat.id === item.materialId);
+                        if (!m) return null;
+                        return (
+                          <div key={item.materialId} className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                            <div className="flex-1">
+                              <p className="font-medium text-sm">{m.nome}</p>
+                              <p className="text-xs text-slate-400">Custo: R$ {(m.valorUnitario * item.quantidadeUsada).toFixed(2)}</p>
+                            </div>
+                            <div className="w-24">
+                              <input 
+                                type="number" 
+                                className="input-field py-1 text-center"
+                                value={item.quantidadeUsada}
+                                onChange={e => atualizarQtdMaterialProduto(item.materialId, parseFloat(e.target.value) || 0)}
+                              />
+                            </div>
+                            <button 
+                              onClick={() => removerMaterialDoProduto(item.materialId)}
+                              className="text-red-400 p-1"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Mão de Obra */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-slate-100 pt-6">
+                    <div>
+                      <label className="text-sm font-medium text-slate-600 mb-1 block flex items-center gap-1">
+                        <DollarSign className="w-4 h-4 text-accent" /> Valor da Hora (R$)
+                      </label>
+                      <input 
+                        type="number" 
+                        className="input-field"
+                        value={novoProduto.maoDeObraHora || ''}
+                        onChange={e => setNovoProduto({...novoProduto, maoDeObraHora: parseFloat(e.target.value) || 0})}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-slate-600 mb-1 block flex items-center gap-1">
+                        <Clock className="w-4 h-4 text-accent" /> Tempo Gasto (minutos)
+                      </label>
+                      <input 
+                        type="number" 
+                        className="input-field"
+                        value={novoProduto.tempoGastoMinutos || ''}
+                        onChange={e => setNovoProduto({...novoProduto, tempoGastoMinutos: parseFloat(e.target.value) || 0})}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Custos Extras */}
+                  <div className="border-t border-slate-100 pt-6">
+                    <label className="text-sm font-medium text-slate-600 mb-3 block">Custos Extras (Opcional)</label>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {['embalagem', 'energia', 'taxas', 'outros'].map(key => (
+                        <div key={key}>
+                          <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">{key}</label>
+                          <input 
+                            type="number" 
+                            className="input-field py-1 text-sm"
+                            value={(novoProduto.custosExtras as any)?.[key] || ''}
+                            onChange={e => setNovoProduto({
+                              ...novoProduto, 
+                              custosExtras: { ...novoProduto.custosExtras!, [key]: parseFloat(e.target.value) || 0 }
+                            })}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Lucro e Desconto */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-slate-100 pt-6">
+                    <div>
+                      <label className="text-sm font-medium text-slate-600 mb-1 block flex items-center gap-1">
+                        <Percent className="w-4 h-4 text-accent" /> Margem de Lucro (%)
+                      </label>
+                      <input 
+                        type="number" 
+                        className="input-field"
+                        value={novoProduto.lucroPorcentagem || ''}
+                        onChange={e => setNovoProduto({...novoProduto, lucroPorcentagem: parseFloat(e.target.value) || 0})}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-slate-600 mb-1 block flex items-center gap-1">
+                        <Calendar className="w-4 h-4 text-accent" /> Prazo de Entrega
+                      </label>
+                      <input 
+                        type="date" 
+                        className="input-field"
+                        value={novoProduto.prazoEntrega || ''}
+                        onChange={e => setNovoProduto({...novoProduto, prazoEntrega: e.target.value})}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Desconto */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium text-slate-600 mb-1 block">Valor do Desconto</label>
+                      <div className="flex gap-2">
+                        <input 
+                          type="number" 
+                          className="input-field flex-1"
+                          value={novoProduto.descontoValor || ''}
+                          onChange={e => setNovoProduto({...novoProduto, descontoValor: parseFloat(e.target.value) || 0})}
+                        />
+                        <select 
+                          className="input-field w-24"
+                          value={novoProduto.descontoTipo}
+                          onChange={e => setNovoProduto({...novoProduto, descontoTipo: e.target.value as any})}
+                        >
+                          <option value="porcentagem">%</option>
+                          <option value="fixo">R$</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <button onClick={async () => {
-                if (!novoMat.nome || !novoMat.valor) return;
-                await addDoc(collection(db, "materiais"), { ...novoMat, valor: parseFloat(novoMat.valor), qtd: parseFloat(novoMat.qtd), userId: user.uid });
-                setNovoMat({ nome: '', valor: '', qtd: '1' });
-                alert("Material Adicionado!");
-              }} className="w-full bg-orange-500 text-white p-4 rounded-2xl font-black shadow-lg">CADASTRAR MATERIAL</button>
-            </div>
-            {materiais.map(m => (
-              <div key={m.id} className="bg-white p-4 rounded-2xl flex justify-between items-center shadow-sm border border-slate-100">
-                <div><p className="font-bold text-slate-700">{m.nome}</p><p className="text-xs text-slate-400">R$ {m.valor.toFixed(2)} por {m.qtd} un</p></div>
-                <button onClick={() => deleteDoc(doc(db, "materiais", m.id))} className="text-red-300"><Trash2 size={20}/></button>
+
+              {/* Resumo de Preços */}
+              <div className="glass-card bg-primary text-white border-none">
+                <h3 className="text-lg font-bold mb-4 border-b border-white/20 pb-2">Resumo da Precificação</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                  <div>
+                    <p className="text-xs text-white/60 uppercase font-bold">Custo Unitário</p>
+                    <p className="text-xl font-bold">R$ {calculos.custoUnitarioBase.toFixed(2)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-white/60 uppercase font-bold">Lucro Total</p>
+                    <p className="text-xl font-bold">R$ {calculos.valorLucro.toFixed(2)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-white/60 uppercase font-bold">Desconto</p>
+                    <p className="text-xl font-bold">R$ {calculos.desconto.toFixed(2)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-white/60 uppercase font-bold">Qtd Pedido</p>
+                    <p className="text-xl font-bold">{novoProduto.quantidadePedido} un</p>
+                  </div>
+                </div>
+                
+                <div className="flex flex-col md:flex-row items-center justify-between gap-4 pt-4 border-t border-white/20">
+                  <div className="text-center md:text-left">
+                    <p className="text-xs text-white/60 uppercase font-bold">Preço Final de Venda (Total)</p>
+                    <p className="text-4xl font-black text-accent">R$ {calculos.precoFinalTotal.toFixed(2)}</p>
+                    <p className="text-sm text-white/80 mt-1">Unitário: R$ {calculos.precoFinalUnitario.toFixed(2)}</p>
+                  </div>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    <button onClick={salvarProduto} className="btn-accent">
+                      <Save className="w-5 h-5" /> Salvar Produto
+                    </button>
+                    <button onClick={enviarWhatsApp} className="bg-emerald-500 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-emerald-600 transition-all">
+                      <MessageCircle className="w-5 h-5" /> Enviar Orçamento
+                    </button>
+                  </div>
+                </div>
               </div>
-            ))}
-          </div>
-        )}
+            </motion.div>
+          )}
+
+          {/* ABA PRODUTOS SALVOS */}
+          {activeTab === 'salvos' && (
+            <motion.div 
+              key="salvos"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="space-y-4"
+            >
+              <h2 className="text-xl font-bold text-primary flex items-center gap-2 mb-4">
+                <History className="w-5 h-5" /> Histórico de Produtos
+              </h2>
+              
+              {produtosSalvos.length === 0 ? (
+                <div className="glass-card text-center py-16 text-slate-400">
+                  <History className="w-12 h-12 mx-auto mb-2 opacity-20" />
+                  <p>Nenhum produto salvo ainda.</p>
+                  <button onClick={() => setActiveTab('criar')} className="text-accent font-bold mt-2 underline">
+                    Criar meu primeiro produto
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {produtosSalvos.map(p => (
+                    <div key={p.id} className="glass-card hover:border-accent/30 transition-all group">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <h3 className="font-bold text-lg leading-tight">{p.nome}</h3>
+                          <p className="text-xs text-slate-400">{new Date(p.dataCriacao).toLocaleDateString()}</p>
+                        </div>
+                        <div className="flex gap-1">
+                          <button 
+                            onClick={() => editarProduto(p)}
+                            className="p-2 text-slate-400 hover:text-accent hover:bg-accent/5 rounded-lg transition-all"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={() => excluirProduto(p.id)}
+                            className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                      
+                      <div className="bg-orange-50 rounded-xl p-3 mb-4 flex justify-between items-center">
+                        <div>
+                          <p className="text-[10px] uppercase font-bold text-orange-400">Preço Sugerido</p>
+                          <p className="text-xl font-black text-accent">R$ {((p.quantidadePedido || 1) * 10).toFixed(2)}*</p>
+                          <p className="text-[10px] text-slate-400">*Recalcule para ver o preço atual</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[10px] uppercase font-bold text-slate-400">Qtd</p>
+                          <p className="font-bold">{p.quantidadePedido} un</p>
+                        </div>
+                      </div>
+
+                      <button 
+                        onClick={() => editarProduto(p)}
+                        className="w-full btn-secondary py-2 text-sm"
+                      >
+                        Ver Detalhes & Recalcular <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
 
-      <nav className="fixed bottom-0 w-full bg-white border-t p-4 flex justify-around shadow-2xl z-50">
-        <button onClick={() => setActiveTab('materiais')} className={activeTab === 'materiais' ? 'text-purple-600' : 'text-slate-300'}><Package/></button>
-        <button onClick={() => setActiveTab('criar')} className="bg-orange-500 -mt-12 w-16 h-16 rounded-2xl flex items-center justify-center text-white shadow-xl border-4 border-white"><Plus size={30}/></button>
-        <button onClick={() => setActiveTab('salvos')} className={activeTab === 'salvos' ? 'text-purple-600' : 'text-slate-300'}><History/></button>
+      {/* Mobile Navigation */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex justify-around p-2 z-50 shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
+        <button 
+          onClick={() => setActiveTab('materiais')}
+          className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-all ${activeTab === 'materiais' ? 'text-primary' : 'text-slate-400'}`}
+        >
+          <Package className="w-6 h-6" />
+          <span className="text-[10px] font-bold uppercase">Materiais</span>
+        </button>
+        <button 
+          onClick={() => setActiveTab('criar')}
+          className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-all ${activeTab === 'criar' ? 'text-primary' : 'text-slate-400'}`}
+        >
+          <div className={`p-2 rounded-full -mt-8 shadow-lg transition-all ${activeTab === 'criar' ? 'bg-primary text-white' : 'bg-slate-200 text-slate-500'}`}>
+            <Plus className="w-6 h-6" />
+          </div>
+          <span className="text-[10px] font-bold uppercase">Criar</span>
+        </button>
+        <button 
+          onClick={() => setActiveTab('salvos')}
+          className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-all ${activeTab === 'salvos' ? 'text-primary' : 'text-slate-400'}`}
+        >
+          <History className="w-6 h-6" />
+          <span className="text-[10px] font-bold uppercase">Salvos</span>
+        </button>
       </nav>
     </div>
   );
