@@ -1,15 +1,18 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
-
-import { useState, useEffect, useMemo } from "react";
-
-import {
-  Plus,
-  Trash2,
-  Save,
-  Calculator,
-  Package,
-  ShoppingCart,
-  History,
+import { useState, useEffect, useMemo } from 'react';
+import { 
+  Plus, 
+  Trash2, 
+  Save, 
+  Calculator, 
+  Package, 
+  ShoppingCart, 
+  History, 
+  Share2, 
   MessageCircle,
   Clock,
   DollarSign,
@@ -18,9 +21,8 @@ import {
   ChevronRight,
   Edit2,
   X
-} from "lucide-react";
-
-import { motion, AnimatePresence } from "framer-motion";
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // --- Types ---
 
