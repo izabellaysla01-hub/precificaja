@@ -36,20 +36,18 @@ export default function App() {
   const [pedidos, setPedidos] = useState<any[]>([]);
   const [clientes, setClientes] = useState<any[]>([]);
 
-  // Estados Calculadora
   const [nomeProd, setNomeProd] = useState('');
   const [qtdPed, setQtdPed] = useState('1');
   const [matsNoPed, setMatsNoPed] = useState<any[]>([]);
   const [vHora, setVHora] = useState('9');
   const [tGasto, setTGasto] = useState('60');
-  const [custos, setCustos] = useState({ emb: '0', luz: '0', tax: '0', out: '0' });
+  const [custos, setCustos] = useState({ embalagem: '0', energia: '0', taxas: '0', outros: '0' });
   const [lucro, setLucro] = useState('100');
   const [desconto, setDesconto] = useState('0');
   const [prazo, setPrazo] = useState('');
   const [clienteSel, setClienteSel] = useState('');
   const [pagamento, setPagamento] = useState('PIX');
 
-  // Estados Cadastros
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
@@ -68,7 +66,7 @@ export default function App() {
   const precoFinal = useMemo(() => {
     const cMat = matsNoPed.reduce((acc, m) => acc + (Number(m.valor || 0) / Number(m.qtd || 1)), 0);
     const mObra = (Number(vHora || 0) / 60) * Number(tGasto || 0);
-    const ex = Number(custos.emb || 0) + Number(custos.luz || 0) + Number(custos.tax || 0) + Number(custos.out || 0);
+    const ex = Number(custos.embalagem || 0) + Number(custos.energia || 0) + Number(custos.taxas || 0) + Number(custos.outros || 0);
     const subtotal = (cMat + mObra + ex) * Number(qtdPed || 1);
     const total = subtotal * (1 + (Number(lucro || 0) / 100)) - Number(desconto || 0);
     return isNaN(total) ? "0.00" : total.toFixed(2);
@@ -77,13 +75,9 @@ export default function App() {
   const enviarZap = (p: any) => {
     const cli = clientes.find(c => c.id === p.clienteSel);
     const dataFormatada = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combinar';
-    const msg = `*ORÇAMENTO - Loop Creative*%0A---%0A*Produto:* ${p.nomeProd}%0A*Quantidade:* ${p.qtdPed} un%0A*Prazo de Entrega:* ${dataFormatada}%0A*Forma de Pagamento:* ${p.pagamento}%0A*Desconto:* R$ ${p.desconto || '0.00'}%0A---%0A*VALOR TOTAL:* R$ ${p.preco}%0A---%0AObrigado!`;
+    const msg = `*ORÇAMENTO - Loop Creative*%0A---%0A*Produto:* ${p.nomeProd}%0A*Quantidade:* ${p.qtdPed} un%0A*Prazo:* ${dataFormatada}%0A*Pagamento:* ${p.pagamento}%0A---%0A*TOTAL:* R$ ${p.preco}%0A---%0AObrigado!`;
     const fone = cli?.zap ? cli.zap.replace(/\D/g, '') : '';
     window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
-  };
-
-  const limparCampos = () => {
-    setNomeProd(''); setQtdPed('1'); setMatsNoPed([]); setDesconto('0'); setPrazo(''); setClienteSel('');
   };
 
   const handleAuth = async () => {
@@ -99,11 +93,15 @@ export default function App() {
     <div className="min-h-screen bg-slate-50 pb-32 font-sans text-slate-700">
       <main className="p-4 max-w-xl mx-auto">
         
+        {/* ABA: CALCULADORA */}
         {activeTab === 'criar' && (
           <div className="bg-white p-6 rounded-[35px] shadow-xl border mt-2">
-            <h2 className="text-purple-700 font-bold mb-6 flex items-center gap-2"><ShoppingCart size={20}/> NOVO PEDIDO</h2>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-purple-700 font-bold flex items-center gap-2"><ShoppingCart size={20}/> NOVO PEDIDO</h2>
+              <button onClick={() => signOut(auth)} className="text-slate-300"><LogOut size={18}/></button>
+            </div>
             
-            <input className="w-full p-4 bg-slate-50 rounded-2xl mb-4 outline-none border-none" placeholder="Nome do Produto" value={nomeProd} onChange={e => setNomeProd(e.target.value)} />
+            <input className="w-full p-4 bg-slate-50 rounded-2xl mb-4 outline-none" placeholder="Nome do Produto" value={nomeProd} onChange={e => setNomeProd(e.target.value)} />
             
             <div className="grid grid-cols-2 gap-3 mb-6">
                <select className="p-4 bg-slate-50 rounded-2xl outline-none text-slate-500" onChange={e => setClienteSel(e.target.value)} value={clienteSel}>
@@ -138,120 +136,16 @@ export default function App() {
               <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={tGasto} onChange={e => setTGasto(e.target.value)} /></div>
             </div>
 
+            {/* CUSTOS EXTRAS DESCRITOS */}
             <div className="mb-6">
-              <label className="text-[10px] font-bold text-slate-400 uppercase text-center block mb-2 text-center">Custos Extras</label>
+              <label className="text-[10px] font-bold text-slate-400 uppercase block mb-3 text-center">Custos Extras (Opcional)</label>
               <div className="grid grid-cols-4 gap-2">
-                {['emb', 'luz', 'tax', 'out'].map(c => (
-                  <input key={c} type="number" placeholder={c} className="p-2 bg-slate-50 rounded-xl text-center text-[9px] outline-none" value={custos[c as keyof typeof custos]} onChange={e => setCustos({...custos, [c]: e.target.value})} />
-                ))}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              <div><label className="text-[10px] font-bold text-orange-400 uppercase">Lucro (%)</label>
-              <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={lucro} onChange={e => setLucro(e.target.value)} /></div>
-              <div><label className="text-[10px] font-bold text-orange-400 uppercase">Prazo Entrega</label>
-              <input type="date" className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-xs" value={prazo} onChange={e => setPrazo(e.target.value)} /></div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 mb-10">
-               <div><label className="text-[10px] font-bold text-slate-400 uppercase">Pagamento</label>
-               <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={pagamento} onChange={e => setPagamento(e.target.value)}>
-                  <option value="PIX">PIX</option><option value="CARTÃO">CARTÃO</option><option value="DINHEIRO">DINHEIRO</option>
-               </select></div>
-               <div><label className="text-[10px] font-bold text-slate-400 uppercase">Desconto (R$)</label>
-               <input className="w-full p-4 bg-slate-50 rounded-2xl outline-none" type="number" value={desconto} onChange={e => setDesconto(e.target.value)} /></div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="text-orange-500 font-black text-4xl">R$ {precoFinal}</div>
-              <div className="flex gap-2">
-                <button onClick={async () => {
-                   if(!nomeProd) return alert("Dê um nome ao produto!");
-                   await addDoc(collection(db, "pedidos"), { nomeProd, preco: precoFinal, clienteSel, pagamento, prazo, desconto, qtdPed, userId: user.uid, data: new Date().toLocaleDateString() });
-                   alert("Pedido Salvo com Sucesso!");
-                   limparCampos();
-                   setActiveTab('pedidos');
-                }} className="bg-orange-500 text-white p-5 rounded-3xl font-black shadow-lg uppercase text-xs">Salvar</button>
-                <button onClick={() => enviarZap({nomeProd, preco: precoFinal, clienteSel, pagamento, prazo, desconto, qtdPed})} className="bg-emerald-500 text-white p-5 rounded-3xl shadow-lg"><MessageCircle size={24}/></button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ABA: HISTÓRICO COM BOTÃO DE REENVIAR */}
-        {activeTab === 'pedidos' && (
-          <div className="space-y-3">
-            <h2 className="text-purple-700 font-bold mb-4">Pedidos Salvos</h2>
-            {pedidos.map(p => (
-              <div key={p.id} className="bg-white p-6 rounded-[30px] shadow-sm flex justify-between items-center border border-slate-50">
-                <div>
-                  <p className="font-bold text-xs uppercase">{p.nomeProd}</p>
-                  <p className="text-[10px] text-slate-300 font-bold">{p.data} - {p.pagamento}</p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="text-orange-500 font-black text-xl">R$ {p.preco}</div>
-                  <button onClick={() => enviarZap(p)} className="text-emerald-400"><MessageCircle size={20}/></button>
-                  <button onClick={() => deleteDoc(doc(db, "pedidos", p.id))} className="text-red-100"><Trash2 size={18}/></button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* ABAS DE MATERIAIS E CLIENTES SEGUEM O MESMO PADRÃO */}
-        {activeTab === 'materiais' && (
-           <div className="space-y-4 pt-2">
-           <div className="bg-white p-8 rounded-[40px] shadow-md border">
-             <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2"><Package/> Estoque</h2>
-             <input placeholder="Nome" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border-none" value={novoMat.nome} onChange={e => setNovoMat({...novoMat, nome: e.target.value})} />
-             <div className="flex gap-3 mb-6">
-               <input type="number" placeholder="Preço" className="flex-1 p-4 bg-slate-50 rounded-2xl outline-none" value={novoMat.valor} onChange={e => setNovoMat({...novoMat, valor: e.target.value})} />
-               <input type="number" placeholder="Qtd" className="w-24 p-4 bg-slate-50 rounded-2xl outline-none text-center" value={novoMat.qtd} onChange={e => setNovoMat({...novoMat, qtd: e.target.value})} />
-             </div>
-             <button onClick={async () => {
-               if(!novoMat.nome) return;
-               await addDoc(collection(db, "materiais"), { ...novoMat, userId: user.uid });
-               setNovoMat({ nome: '', valor: '', qtd: '1' });
-             }} className="w-full bg-orange-500 text-white p-5 rounded-2xl font-black shadow-lg">ADICIONAR MATERIAL</button>
-           </div>
-           {materiais.map(m => (
-             <div key={m.id} className="bg-white p-5 rounded-3xl flex justify-between items-center shadow-sm">
-               <span className="font-bold">{m.nome}</span>
-               <button onClick={() => deleteDoc(doc(db, "materiais", m.id))} className="text-red-200"><Trash2 size={18}/></button>
-             </div>
-           ))}
-         </div>
-        )}
-
-        {activeTab === 'clientes' && (
-           <div className="space-y-4 pt-2">
-           <div className="bg-white p-8 rounded-[40px] shadow-md border">
-             <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2"><User/> Clientes</h2>
-             <input placeholder="Nome do Cliente" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border-none" value={novoCli.nome} onChange={e => setNovoCli({...novoCli, nome: e.target.value})} />
-             <input placeholder="Zap (Ex: 11999999999)" className="w-full p-4 bg-slate-50 rounded-2xl mb-6 outline-none" value={novoCli.zap} onChange={e => setNovoCli({...novoCli, zap: e.target.value})} />
-             <button onClick={async () => {
-               if(!novoCli.nome) return;
-               await addDoc(collection(db, "clientes"), { ...novoCli, userId: user.uid });
-               setNovoCli({ nome: '', zap: '' });
-             }} className="w-full bg-orange-500 text-white p-5 rounded-2xl font-black shadow-lg">SALVAR CLIENTE</button>
-           </div>
-           {clientes.map(c => (
-             <div key={c.id} className="bg-white p-5 rounded-3xl flex justify-between items-center shadow-sm">
-               <span className="font-bold">{c.nome}</span>
-               <button onClick={() => deleteDoc(doc(db, "clientes", c.id))} className="text-red-200"><Trash2 size={18}/></button>
-             </div>
-           ))}
-         </div>
-        )}
-      </main>
-
-      <div className="fixed bottom-6 w-full flex justify-around px-4 items-center">
-          <button onClick={() => setActiveTab('materiais')} className={`p-4 rounded-2xl ${activeTab === 'materiais' ? 'bg-purple-100 text-purple-700' : 'text-slate-300'}`}><Package size={22}/></button>
-          <button onClick={() => setActiveTab('clientes')} className={`p-4 rounded-2xl ${activeTab === 'clientes' ? 'bg-purple-100 text-purple-700' : 'text-slate-300'}`}><User size={22}/></button>
-          <button onClick={() => setActiveTab('criar')} className={`bg-orange-500 p-5 rounded-[22px] text-white shadow-xl border-4 border-white ${activeTab === 'criar' ? 'scale-110' : ''}`}><Plus size={28}/></button>
-          <button onClick={() => setActiveTab('pedidos')} className={`p-4 rounded-2xl ${activeTab === 'pedidos' ? 'bg-purple-100 text-purple-700' : 'text-slate-300'}`}><History size={22}/></button>
-      </div>
-    </div>
-  );
-}
+                {[
+                  { id: 'embalagem', label: 'EMBAL.' },
+                  { id: 'energia', label: 'LUZ' },
+                  { id: 'taxas', label: 'TAXAS' },
+                  { id: 'outros', label: 'OUTROS' }
+                ].map(c => (
+                  <div key={c.id} className="flex flex-col items-center">
+                    <span className="text-[8px] font-bold text-slate-300 mb-1">{c.label}</span>
+                    <input type="number" className="w-full p-2 bg-slate-50 rounded-xl text
