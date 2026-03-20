@@ -1,5 +1,8 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
-import { auth, db } from "./firebase";
 import { useState, useEffect, useMemo } from 'react';
 import { 
   Plus, 
