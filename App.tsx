@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { initializeApp } from "firebase/app";
 import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
 import { getFirestore, collection, addDoc, onSnapshot, query, where, deleteDoc, doc } from "firebase/firestore";
-import { Plus, Trash2, Save, Calculator, Package, ShoppingCart, History, LogOut, X, Clock, DollarSign, Percent, User, MessageCircle, Calendar, Tag } from 'lucide-react';
+import { Plus, Trash2, Save, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle } from 'lucide-react';
 
 const firebaseConfig = {
   apiKey: "AIzaSyD0BWsNm9DbGGDqiHzkdDmNdxIGdJ9tWe8",
@@ -20,11 +20,11 @@ const db = getFirestore(app);
 const Login = ({ isRegistering, setIsRegistering, email, setEmail, password, setPassword, handleAuth }: any) => (
   <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
     <div className="bg-white p-8 rounded-[40px] shadow-xl w-full max-w-md text-center border">
-      <h1 className="text-2xl font-bold text-purple-700 mb-6 font-sans">PrecificaJá 🚀</h1>
-      <input type="email" placeholder="Seu E-mail" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none" value={email} onChange={e => setEmail(e.target.value)} />
+      <h1 className="text-2xl font-bold text-purple-700 mb-6">PrecificaJá 🚀</h1>
+      <input type="email" placeholder="E-mail" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none" value={email} onChange={e => setEmail(e.target.value)} />
       <input type="password" placeholder="Senha" className="w-full p-4 bg-slate-50 rounded-2xl mb-6 outline-none" value={password} onChange={e => setPassword(e.target.value)} />
       <button onClick={handleAuth} className="w-full bg-orange-500 text-white font-bold py-4 rounded-2xl shadow-lg uppercase">{isRegistering ? 'Cadastrar' : 'Entrar'}</button>
-      <button onClick={() => setIsRegistering(!isRegistering)} className="mt-4 text-sm text-purple-600 underline block w-full">{isRegistering ? 'Já tenho conta' : 'Criar conta grátis'}</button>
+      <button onClick={() => setIsRegistering(!isRegistering)} className="mt-4 text-sm text-purple-600 underline block w-full">{isRegistering ? 'Voltar' : 'Criar conta grátis'}</button>
     </div>
   </div>
 );
@@ -72,19 +72,11 @@ export default function App() {
     return isNaN(total) ? "0.00" : total.toFixed(2);
   }, [matsNoPed, vHora, tGasto, custos, lucro, qtdPed, desconto]);
 
-  const enviarZap = (p: any) => {
-    const cli = clientes.find(c => c.id === p.clienteSel);
-    const dataFormatada = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combinar';
-    const msg = `*ORÇAMENTO - Loop Creative*%0A---%0A*Produto:* ${p.nomeProd}%0A*Quantidade:* ${p.qtdPed} un%0A*Prazo:* ${dataFormatada}%0A*Pagamento:* ${p.pagamento}%0A---%0A*TOTAL:* R$ ${p.preco}%0A---%0AObrigado!`;
-    const fone = cli?.zap ? cli.zap.replace(/\D/g, '') : '';
-    window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
-  };
-
   const handleAuth = async () => {
     try {
       if (isRegistering) await createUserWithEmailAndPassword(auth, email, password);
       else await signInWithEmailAndPassword(auth, email, password);
-    } catch (e) { alert("Erro de acesso!"); }
+    } catch (e) { alert("Erro!"); }
   };
 
   if (!user) return <Login {...{isRegistering, setIsRegistering, email, setEmail, password, setPassword, handleAuth}} />;
@@ -93,18 +85,17 @@ export default function App() {
     <div className="min-h-screen bg-slate-50 pb-32 font-sans text-slate-700">
       <main className="p-4 max-w-xl mx-auto">
         
-        {/* ABA: CALCULADORA */}
         {activeTab === 'criar' && (
           <div className="bg-white p-6 rounded-[35px] shadow-xl border mt-2">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-purple-700 font-bold flex items-center gap-2"><ShoppingCart size={20}/> NOVO PEDIDO</h2>
+              <h2 className="text-purple-700 font-bold flex items-center gap-2 tracking-tight"><ShoppingCart size={20}/> NOVO PEDIDO</h2>
               <button onClick={() => signOut(auth)} className="text-slate-300"><LogOut size={18}/></button>
             </div>
             
-            <input className="w-full p-4 bg-slate-50 rounded-2xl mb-4 outline-none" placeholder="Nome do Produto" value={nomeProd} onChange={e => setNomeProd(e.target.value)} />
+            <input className="w-full p-4 bg-slate-50 rounded-2xl mb-4 outline-none border-none shadow-inner" placeholder="Nome do Produto" value={nomeProd} onChange={e => setNomeProd(e.target.value)} />
             
             <div className="grid grid-cols-2 gap-3 mb-6">
-               <select className="p-4 bg-slate-50 rounded-2xl outline-none text-slate-500" onChange={e => setClienteSel(e.target.value)} value={clienteSel}>
+               <select className="p-4 bg-slate-50 rounded-2xl outline-none text-slate-500 border-none" onChange={e => setClienteSel(e.target.value)} value={clienteSel}>
                   <option value="">👤 Cliente</option>
                   {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
                </select>
@@ -112,12 +103,11 @@ export default function App() {
             </div>
 
             <div className="mb-6">
-              <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Materiais</label>
-              <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none mb-2" onChange={e => {
+              <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none mb-3 border-none" onChange={e => {
                 const m = materiais.find(item => item.id === e.target.value);
                 if (m) setMatsNoPed([...matsNoPed, m]);
               }} value="">
-                <option value="">+ Selecionar Material</option>
+                <option value="">+ Adicionar Material</option>
                 {materiais.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
               </select>
               <div className="space-y-2">
@@ -130,15 +120,14 @@ export default function App() {
             </div>
 
             <div className="grid grid-cols-2 gap-4 mb-6">
-              <div><label className="text-[10px] font-bold text-orange-400 uppercase">Valor Hora (R$)</label>
+              <div><label className="text-[10px] font-bold text-orange-500 uppercase mb-1 block">Valor Hora (R$)</label>
               <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={vHora} onChange={e => setVHora(e.target.value)} /></div>
-              <div><label className="text-[10px] font-bold text-orange-400 uppercase">Tempo (Min)</label>
+              <div><label className="text-[10px] font-bold text-orange-500 uppercase mb-1 block">Minutos</label>
               <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={tGasto} onChange={e => setTGasto(e.target.value)} /></div>
             </div>
 
-            {/* CUSTOS EXTRAS DESCRITOS */}
             <div className="mb-6">
-              <label className="text-[10px] font-bold text-slate-400 uppercase block mb-3 text-center">Custos Extras (Opcional)</label>
+              <p className="text-[10px] font-bold text-slate-400 uppercase text-center mb-3">Custos Extras (Opcional)</p>
               <div className="grid grid-cols-4 gap-2">
                 {[
                   { id: 'embalagem', label: 'EMBAL.' },
@@ -146,6 +135,75 @@ export default function App() {
                   { id: 'taxas', label: 'TAXAS' },
                   { id: 'outros', label: 'OUTROS' }
                 ].map(c => (
-                  <div key={c.id} className="flex flex-col items-center">
-                    <span className="text-[8px] font-bold text-slate-300 mb-1">{c.label}</span>
-                    <input type="number" className="w-full p-2 bg-slate-50 rounded-xl text
+                  <div key={c.id} className="flex flex-col items-center bg-slate-50 p-2 rounded-xl">
+                    <span className="text-[8px] font-black text-slate-300 mb-1">{c.label}</span>
+                    <input type="number" className="w-full bg-transparent text-center text-xs outline-none font-bold" value={(custos as any)[c.id]} onChange={e => setCustos({...custos, [c.id]: e.target.value})} />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 mb-8">
+              <div><label className="text-[10px] font-bold text-orange-500 uppercase mb-1 block">Lucro (%)</label>
+              <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={lucro} onChange={e => setLucro(e.target.value)} /></div>
+              <div><label className="text-[10px] font-bold text-orange-500 uppercase mb-1 block">Prazo</label>
+              <input type="date" className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-xs" value={prazo} onChange={e => setPrazo(e.target.value)} /></div>
+            </div>
+
+            <div className="flex items-center justify-between border-t pt-6">
+              <div className="text-orange-500 font-black text-4xl">R$ {precoFinal}</div>
+              <button onClick={async () => {
+                await addDoc(collection(db, "pedidos"), { nomeProd, preco: precoFinal, userId: user.uid, data: new Date().toLocaleDateString() });
+                alert("Salvo!");
+                setActiveTab('pedidos');
+              }} className="bg-orange-500 text-white px-8 py-4 rounded-3xl font-black shadow-lg uppercase text-xs">Salvar</button>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'materiais' && (
+          <div className="space-y-4">
+            <div className="bg-white p-8 rounded-[40px] shadow-md border">
+              <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2"><Package/> Estoque</h2>
+              <input placeholder="Material" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none" value={novoMat.nome} onChange={e => setNovoMat({...novoMat, nome: e.target.value})} />
+              <button onClick={async () => {
+                await addDoc(collection(db, "materiais"), { ...novoMat, userId: user.uid });
+                setNovoMat({ nome: '', valor: '', qtd: '1' });
+              }} className="w-full bg-orange-500 text-white p-5 rounded-2xl font-black shadow-lg">ADICIONAR</button>
+            </div>
+            {materiais.map(m => <div key={m.id} className="bg-white p-5 rounded-3xl flex justify-between items-center shadow-sm border"><span className="font-bold">{m.nome}</span><button onClick={() => deleteDoc(doc(db, "materiais", m.id))} className="text-red-200"><Trash2/></button></div>)}
+          </div>
+        )}
+
+        {activeTab === 'clientes' && (
+          <div className="space-y-4">
+            <div className="bg-white p-8 rounded-[40px] shadow-md border">
+              <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2"><User/> Clientes</h2>
+              <input placeholder="Nome" className="w-full p-4 bg-slate-50 rounded-2xl mb-6 outline-none" value={novoCli.nome} onChange={e => setNovoCli({...novoCli, nome: e.target.value})} />
+              <button onClick={async () => {
+                await addDoc(collection(db, "clientes"), { ...novoCli, userId: user.uid });
+                setNovoCli({ nome: '', zap: '' });
+              }} className="w-full bg-orange-500 text-white p-5 rounded-2xl font-black shadow-lg">SALVAR</button>
+            </div>
+            {clientes.map(c => <div key={c.id} className="bg-white p-5 rounded-3xl flex justify-between items-center shadow-sm border"><span className="font-bold">{c.nome}</span><button onClick={() => deleteDoc(doc(db, "clientes", c.id))} className="text-red-200"><Trash2/></button></div>)}
+          </div>
+        )}
+
+        {activeTab === 'pedidos' && (
+          <div className="space-y-3">
+             <h2 className="text-purple-700 font-bold mb-4 tracking-tight">Pedidos Salvos</h2>
+             {pedidos.map(p => <div key={p.id} className="bg-white p-6 rounded-[30px] shadow-sm flex justify-between items-center border border-slate-100"><div><p className="font-black text-xs uppercase">{p.nomeProd}</p><p className="text-[10px] text-slate-300 font-bold">{p.data}</p></div><div className="text-orange-500 font-black text-xl">R$ {p.preco}</div></div>)}
+          </div>
+        )}
+      </main>
+
+      {/* RODAPÉ COM BOTÕES QUE FICAM LARANJAS QUANDO ATIVOS */}
+      <div className="fixed bottom-6 w-full flex justify-around px-4 items-center">
+          <button onClick={() => setActiveTab('materiais')} className={`p-4 rounded-2xl transition-all ${activeTab === 'materiais' ? 'bg-orange-500 text-white shadow-lg' : 'bg-white text-slate-300'}`}><Package size={22}/></button>
+          <button onClick={() => setActiveTab('clientes')} className={`p-4 rounded-2xl transition-all ${activeTab === 'clientes' ? 'bg-orange-500 text-white shadow-lg' : 'bg-white text-slate-300'}`}><User size={22}/></button>
+          <button onClick={() => setActiveTab('criar')} className={`p-5 rounded-[22px] transition-all border-4 border-white shadow-xl ${activeTab === 'criar' ? 'bg-orange-500 text-white scale-110 shadow-orange-200' : 'bg-white text-slate-300'}`}><Plus size={28}/></button>
+          <button onClick={() => setActiveTab('pedidos')} className={`p-4 rounded-2xl transition-all ${activeTab === 'pedidos' ? 'bg-orange-500 text-white shadow-lg' : 'bg-white text-slate-300'}`}><History size={22}/></button>
+      </div>
+    </div>
+  );
+}
