@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { initializeApp } from "firebase/app";
 import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { getFirestore, collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc } from "firebase/firestore";
-import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar } from 'lucide-react';
+import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer } from 'lucide-react';
 
 const firebaseConfig = {
   apiKey: "AIzaSyD0BWsNm9DbGGDqiHzkdDmNdxIGdJ9tWe8",
@@ -71,6 +71,16 @@ export default function App() {
   const [novoCli, setNovoCli] = useState({ nome: '', zap: '' });
 
   useEffect(() => { return onAuthStateChanged(auth, u => setUser(u)); }, []);
+  
+  // Carrega dinamicamente a biblioteca html2pdf para não pesar no app
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+    script.async = true;
+    document.body.appendChild(script);
+    return () => { document.body.removeChild(script); };
+  }, []);
+
   useEffect(() => {
     if (user) {
       onSnapshot(query(collection(db, "materiais"), where("userId", "==", user.uid)), s => setMaterials(s.docs.map(d => ({ id: d.id, ...d.data() }))));
@@ -94,6 +104,62 @@ export default function App() {
     const msg = `*RESUMO ORÇAMENTO*%0A---%0A*Cliente:* ${cli?.nome || 'Cliente'}%0A*Produto:* ${p.nomeProd}%0A*Qtd:* ${p.qtdPed || 1} un%0A*Prazo:* ${dataP}%0A*VALOR TOTAL:* R$ ${p.preco}%0A---%0AObrigado!`;
     const fone = cli?.zap ? cli.zap.replace(/\D/g, '') : '';
     window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
+  };
+
+  // Nova função para gerar o arquivo PDF formatado
+  const gerarPDF = (p: any) => {
+    const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
+    const dataP = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combinar';
+    
+    const elemento = document.createElement('div');
+    elemento.innerHTML = `
+      <div style="padding: 40px; font-family: sans-serif; color: #334155;">
+        <h1 style="color: #6b21a8; margin-bottom: 5px; font-size: 28px;">PrecificaJá 🚀</h1>
+        <p style="color: #94a3b8; font-size: 12px; text-transform: uppercase; margin-bottom: 30px; font-weight: bold;">Orçamento Comercial</p>
+        
+        <div style="background-color: #f8fafc; padding: 20px; border-radius: 16px; margin-bottom: 25px;">
+          <p style="margin: 0 0 8px 0;"><strong>Cliente:</strong> ${cli?.nome || 'Cliente'}</p>
+          <p style="margin: 0;"><strong>WhatsApp:</strong> ${cli?.zap || 'Não informado'}</p>
+        </div>
+
+        <table style="w-full; width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+          <thead>
+            <tr style="border-bottom: 2px solid #e2e8f0; text-align: left;">
+              <th style="padding: 10px 0; color: #94a3b8; font-size: 12px; text-transform: uppercase;">Descrição do Produto</th>
+              <th style="padding: 10px 0; color: #94a3b8; font-size: 12px; text-transform: uppercase; text-align: center;">Qtd</th>
+              <th style="padding: 10px 0; color: #94a3b8; font-size: 12px; text-transform: uppercase; text-align: right;">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom: 1px solid #f1f5f9;">
+              <td style="padding: 15px 0; font-weight: bold; color: #1e293b;">${p.nomeProd || 'Produto Personalizado'}</td>
+              <td style="padding: 15px 0; text-align: center;">${p.qtdPed || 1} un</td>
+              <td style="padding: 15px 0; text-align: right; font-weight: bold; color: #ea580c;">R$ ${p.preco}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div style="margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 20px;">
+          <p style="margin: 0 0 5px 0; font-size: 14px;"><strong>Prazo de Entrega:</strong> ${dataP}</p>
+          <p style="margin: 0; font-size: 12px; color: #64748b;">Orçamento válido por 7 dias.</p>
+        </div>
+
+        <div style="margin-top: 50px; text-align: center; font-size: 12px; color: #94a3b8;">
+          Gerado automaticamente por PrecificaJá - Sua empresa lucrando mais.
+        </div>
+      </div>
+    `;
+
+    const opcoes = {
+      margin: 10,
+      filename: `Orcamento_${p.nomeProd || 'cliente'}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    // Executa a biblioteca instalada dinamicamente
+    (window as any).html2pdf().from(elemento).set(opcoes).save();
   };
 
   const handleAuth = async () => {
@@ -199,8 +265,9 @@ export default function App() {
                 <button onClick={async () => {
                    await addDoc(collection(db, "pedidos"), { nomeProd, preco: precoFinal, clienteId: clienteSel, prazo, qtdPed, userId: user.uid, data: new Date().toLocaleDateString() });
                    alert("Salvo!"); setActiveTab('pedidos');
-                }} className="bg-orange-500 text-white px-8 py-5 rounded-[25px] font-black uppercase text-xs shadow-lg">Salvar</button>
-                <button onClick={() => enviarZap({nomeProd, preco: precoFinal, clienteId: clienteSel, prazo, qtdPed})} className="bg-emerald-500 text-white p-5 rounded-[25px] shadow-lg"><MessageCircle/></button>
+                }} className="bg-orange-500 text-white px-6 py-5 rounded-[25px] font-black uppercase text-xs shadow-lg">Salvar</button>
+                <button onClick={() => gerarPDF({nomeProd, preco: precoFinal, clienteId: clienteSel, prazo, qtdPed})} className="bg-orange-500 text-white p-5 rounded-[25px] shadow-lg hover:bg-orange-600 transition-all active:scale-95"><Printer size={20}/></button>
+                <button onClick={() => enviarZap({nomeProd, preco: precoFinal, clienteId: clienteSel, prazo, qtdPed})} className="bg-emerald-500 text-white p-5 rounded-[25px] shadow-lg"><MessageCircle size={20}/></button>
               </div>
             </div>
           </div>
@@ -221,6 +288,7 @@ export default function App() {
                    </div>
                    <div className="flex items-center gap-2">
                       <div className="text-orange-500 font-black text-xl mr-2">R$ {p.preco}</div>
+                      <button onClick={() => gerarPDF(p)} className="text-orange-500 p-2 bg-orange-50 rounded-xl mr-1"><Printer size={20}/></button>
                       <button onClick={() => enviarZap(p)} className="text-emerald-500 p-2 bg-emerald-50 rounded-xl"><MessageCircle size={20}/></button>
                       <button onClick={() => confirmarExcluir('pedido', p.id)} className="text-red-200 p-2"><Trash2 size={20}/></button>
                    </div>
