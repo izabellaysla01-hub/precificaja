@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { initializeApp } from "firebase/app";
 import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { getFirestore, collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc } from "firebase/firestore";
-import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer } from 'lucide-react';
+import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle } from 'lucide-react';
 
 const firebaseConfig = {
   apiKey: "AIzaSyD0BWsNm9DbGGDqiHzkdDmNdxIGdJ9tWe8",
@@ -35,7 +35,7 @@ const Login = ({ isRegistering, setIsRegistering, email, setEmail, password, set
         <input type="email" placeholder="Seu e-mail" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none focus:ring-2 focus:ring-purple-600" value={email} onChange={e => setEmail(e.target.value)} />
         <input type="password" placeholder="Senha" className="w-full p-4 bg-slate-50 rounded-2xl mb-2 outline-none focus:ring-2 focus:ring-purple-600" value={password} onChange={e => setPassword(e.target.value)} />
         
-        <button onClick={recuperarSenha} className="text-[10px] text-purple-400 font-bold uppercase mb-6 hover:text-purple-600 block w-full text-right pr-2">Esqueci minha senha</button>
+        <button onClick={recurarSenha} className="text-[10px] text-purple-400 font-bold uppercase mb-6 hover:text-purple-600 block w-full text-right pr-2">Esqueci minha senha</button>
         
         <button onClick={handleAuth} className="w-full bg-orange-500 text-white font-bold py-4 rounded-2xl shadow-lg hover:bg-orange-600 transition-all uppercase">{isRegistering ? 'Criar Conta Grátis' : 'Entrar no App'}</button>
         <button onClick={() => setIsRegistering(!isRegistering)} className="mt-4 text-sm text-purple-600 underline block w-full font-medium">{isRegistering ? 'Já tenho login' : 'Cadastrar novo usuário'}</button>
@@ -186,6 +186,31 @@ export default function App() {
     }
   };
 
+  // FUNÇÃO REVISADA QUE FAZ A BAIXA DO MATERIAL APENAS NA CONFIRMAÇÃO DA VENDA
+  const confirmarVendaPedido = async (pedido: any) => {
+    if (!pedido.materiaisUsados || pedido.materiaisUsados.length === 0) {
+      // Se não tiver nenhum insumo anexado ao pedido, apenas atualiza o status
+      await updateDoc(doc(db, "pedidos", pedido.id), { status: 'Vendido 💰' });
+      alert("Venda confirmada!");
+      return;
+    }
+
+    for (const m of pedido.materiaisUsados) {
+      const matDoBanco = materiais.find(item => item.id === m.id);
+      if (matDoBanco) {
+        const estoqueFiscal = Number(matDoBanco.qtdAtual || 0);
+        const gastoTotal = Number(m.qtdUsada || 0) * Number(pedido.qtdPed || 1);
+        const estoqueFinal = Math.max(0, estoqueFiscal - gastoTotal);
+        
+        await updateDoc(doc(db, "materiais", m.id), { qtdAtual: estoqueFinal });
+      }
+    }
+
+    // Marca o pedido como vendido para sumir com o botão de confirmação
+    await updateDoc(doc(db, "pedidos", pedido.id), { status: 'Vendido 💰' });
+    alert("Venda registrada e materiais descontados com sucesso!");
+  };
+
   if (!user) return <Login {...{isRegistering, setIsRegistering, email, setEmail, password, setPassword, handleAuth}} />;
 
   return (
@@ -219,7 +244,7 @@ export default function App() {
                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Materiais Usados</label>
                <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none mb-3" onChange={e => {
                   const m = materiais.find(item => item.id === e.target.value);
-                  if (m) setMatsNoPed([...matsNoPed, { ...m, qtdUsada: 1 }]);
+                  if (m) setMatsNoPed([...matsNoPed, { id: m.id, nome: m.nome, qtdUsada: 1 }]);
                }} value="">
                   <option value="">+ Adicionar Material...</option>
                   {materiais.map(m => <option key={m.id} value={m.id}>{m.nome} ({m.unidade || 'un'})</option>)}
@@ -227,12 +252,11 @@ export default function App() {
                <div className="space-y-2">
                   {matsNoPed.map((m, i) => (
                     <div key={i} className="flex justify-between items-center bg-purple-50 p-3 rounded-2xl border border-purple-100 text-purple-700 font-bold text-xs">
-                      <span>{m.nome} <span className="text-[10px] text-purple-400 font-normal">({m.unidade || 'un'})</span></span>
+                      <span>{m.nome}</span>
                       <div className="flex items-center gap-2">
                         <input type="number" className="w-16 bg-white rounded-lg p-1 text-center" value={m.qtdUsada} onChange={e => {
                            const nova = [...matsNoPed]; nova[i].qtdUsada = e.target.value; setMatsNoPed(nova);
                         }} />
-                        <span className="text-[10px] text-purple-500 font-medium">{m.unidade || 'un'}</span>
                         <button onClick={() => setMatsNoPed(matsNoPed.filter((_, idx) => idx !== i))}><X size={16}/></button>
                       </div>
                     </div>
@@ -271,7 +295,6 @@ export default function App() {
                <input className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-orange-500" type="number" value={desconto} onChange={e => setDesconto(e.target.value)} />
             </div>
 
-            {/* --- BLOCO NOVO: RESUMO FINANCEIRO DOS CUSTOS --- */}
             <div className="bg-slate-50 p-4 rounded-3xl mb-8 border border-slate-100 text-xs space-y-2">
               <p className="text-[10px] font-black uppercase text-purple-700 tracking-wider mb-2">📊 Resumo Financeiro da Peça</p>
               <div className="flex justify-between text-slate-500"><span>Materiais:</span><span className="font-bold">R$ {resumoFinanceiro.materiais}</span></div>
@@ -285,8 +308,21 @@ export default function App() {
               <div className="text-orange-500 font-black text-4xl tracking-tighter">R$ {resumoFinanceiro.final}</div>
               <div className="flex gap-2">
                 <button onClick={async () => {
-                   await addDoc(collection(db, "pedidos"), { nomeProd, preco: resumoFinanceiro.final, clienteId: clienteSel, prazo, qtdPed, userId: user.uid, data: new Date().toLocaleDateString() });
-                   alert("Salvo!"); setActiveTab('pedidos');
+                   // Salva como Orçamento pendente sem retirar estoque ainda
+                   await addDoc(collection(db, "pedidos"), { 
+                     nomeProd, 
+                     preco: resumoFinanceiro.final, 
+                     clienteId: clienteSel, 
+                     prazo, 
+                     qtdPed, 
+                     userId: user.uid, 
+                     data: new Date().toLocaleDateString(),
+                     status: 'Pendente',
+                     materiaisUsados: matsNoPed // guarda a lista para quando for dar baixa
+                   });
+                   alert("Orçamento salvo no histórico!"); 
+                   setNomeProd(''); setMatsNoPed([]);
+                   setActiveTab('pedidos');
                 }} className="bg-orange-500 text-white px-5 py-4 rounded-[22px] font-black uppercase text-xs shadow-lg">Salvar</button>
                 <button onClick={() => gerarPDF({nomeProd, preco: resumoFinanceiro.final, clienteId: clienteSel, prazo, qtdPed})} className="bg-orange-500 text-white p-4 rounded-[22px] shadow-lg hover:bg-orange-600 transition-all active:scale-95"><Printer size={18}/></button>
                 <button onClick={() => enviarZap({nomeProd, preco: resumoFinanceiro.final, clienteId: clienteSel, prazo, qtdPed})} className="bg-emerald-500 text-white p-4 rounded-[22px] shadow-lg"><MessageCircle size={18}/></button>
@@ -295,24 +331,35 @@ export default function App() {
           </div>
         )}
 
-        {/* ABA HISTÓRICO */}
+        {/* ABA HISTÓRICO COM CONFIRMAÇÃO DE VENDA */}
         {activeTab === 'pedidos' && (
           <div className="space-y-3 pt-2">
             <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2"><History size={20}/> Histórico</h2>
             {pedidos.map(p => {
                const cli = clientes.find(c => c.id === p.clienteId);
+               const ehPendente = p.status !== 'Vendido 💰';
                return (
-                 <div key={p.id} className="bg-white p-5 rounded-[30px] shadow-sm flex justify-between items-center border">
-                   <div>
-                      <p className="font-black text-[10px] uppercase text-purple-700 leading-none mb-1">{cli?.nome || 'Sem Nome'}</p>
-                      <p className="font-bold text-slate-700 text-sm">{p.nomeProd}</p>
-                      <p className="text-[9px] text-slate-300 font-bold uppercase">{p.data}</p>
+                 <div key={p.id} className="bg-white p-5 rounded-[30px] shadow-sm flex flex-col gap-3 border">
+                   <div className="flex justify-between items-center">
+                     <div>
+                        <p className="font-black text-[10px] uppercase text-purple-700 leading-none mb-1">
+                          {cli?.nome || 'Sem Nome'} — <span className={ehPendente ? "text-orange-400" : "text-emerald-500"}>{p.status || 'Pendente'}</span>
+                        </p>
+                        <p className="font-bold text-slate-700 text-sm">{p.nomeProd} <span className="text-xs text-slate-400 font-normal">({p.qtdPed || 1} un)</span></p>
+                        <p className="text-[9px] text-slate-300 font-bold uppercase">{p.data}</p>
+                     </div>
+                     <div className="text-orange-500 font-black text-xl">R$ {p.preco}</div>
                    </div>
-                   <div className="flex items-center gap-2">
-                      <div className="text-orange-500 font-black text-xl mr-2">R$ {p.preco}</div>
-                      <button onClick={() => gerarPDF(p)} className="text-orange-500 p-2 bg-orange-50 rounded-xl mr-1"><Printer size={20}/></button>
-                      <button onClick={() => enviarZap(p)} className="text-emerald-500 p-2 bg-emerald-50 rounded-xl"><MessageCircle size={20}/></button>
-                      <button onClick={() => confirmarExcluir('pedido', p.id)} className="text-red-200 p-2"><Trash2 size={20}/></button>
+
+                   <div className="flex items-center justify-end border-t pt-2 gap-1">
+                      {ehPendente && (
+                        <button onClick={() => confirmarVendaPedido(p)} className="text-emerald-600 p-2 bg-emerald-50 rounded-xl text-xs font-bold flex items-center gap-1 active:scale-95 transition-all mr-auto">
+                          <CheckCircle size={16}/> Confirmar Venda
+                        </button>
+                      )}
+                      <button onClick={() => gerarPDF(p)} className="text-orange-500 p-2 bg-orange-50 rounded-xl"><Printer size={18}/></button>
+                      <button onClick={() => enviarZap(p)} className="text-emerald-500 p-2 bg-emerald-50 rounded-xl"><MessageCircle size={18}/></button>
+                      <button onClick={() => confirmarExcluir('pedido', p.id)} className="text-red-200 p-2"><Trash2 size={18}/></button>
                    </div>
                  </div>
                );
@@ -340,7 +387,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* NOVOS CAMPOS: QUANTIDADES DE ESTOQUE */}
               <div className="grid grid-cols-2 gap-3 mb-4">
                 <div>
                   <label className="text-[10px] font-bold text-purple-600 uppercase ml-1">Tem no armário hoje?</label>
