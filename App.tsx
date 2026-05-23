@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { initializeApp } from "firebase/app";
 import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { getFirestore, collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc } from "firebase/firestore";
-import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle } from 'lucide-react';
+import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, TrendingUp, AlertTriangle } from 'lucide-react';
 
 const firebaseConfig = {
   apiKey: "AIzaSyD0BWsNm9DbGGDqiHzkdDmNdxIGdJ9tWe8",
@@ -46,7 +46,8 @@ const Login = ({ isRegistering, setIsRegistering, email, setEmail, password, set
 
 export default function App() {
   const [user, setUser] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'materiais' | 'criar' | 'pedidos' | 'clientes'>('criar');
+  // Modificado para abrir direto na aba de início
+  const [activeTab, setActiveTab] = useState<'inicio' | 'materiais' | 'criar' | 'pedidos' | 'clientes'>('inicio');
   const [materiais, setMaterials] = useState<any[]>([]);
   const [pedidos, setPedidos] = useState<any[]>([]);
   const [clientes, setClientes] = useState<any[]>([]);
@@ -88,7 +89,24 @@ export default function App() {
     }
   }, [user]);
 
-  // CORREÇÃO: Lógica de cálculo ajustada para ler corretamente o valor e a quantidade total do insumo
+  // NOVO: Cálculo das Métricas da Dashboard / Tela Inicial
+  const dashboardMetrics = useMemo(() => {
+    const faturamentoTotal = pedidos
+      .filter(p => p.status === 'Vendido 💰')
+      .reduce((acc, p) => acc + Number(p.preco || 0), 0);
+
+    const pendentesCount = pedidos.filter(p => p.status !== 'Vendido 💰').length;
+    
+    const estoqueCriticoCount = materiais.filter(m => Number(m.qtdAtual || 0) <= Number(m.qtdMinima || 0)).length;
+
+    return {
+      faturamento: faturamentoTotal.toFixed(2),
+      pendentes: pendentesCount,
+      criticos: estoqueCriticoCount,
+      totalClientes: clientes.length
+    };
+  }, [pedidos, materiais, clientes]);
+
   const resumoFinanceiro = useMemo(() => {
     const totalMateriais = matsNoPed.reduce((acc, m) => {
       const valorUnitario = Number(m.valor || 0) / Number(m.qtd || 1);
@@ -113,7 +131,7 @@ export default function App() {
       lucroLivre: valorLucroLivre.toFixed(2),
       final: isNaN(precoFinalCalculado) ? "0.00" : precoFinalCalculado.toFixed(2)
     };
-  }, [matsNoPed, vHora, tGasto, custos, lucro, qtdPed, desconto]);
+  }, [matsNoPed, vHora, tGasto, custos, lucro, qtdPed, discount]);
 
   const enviarZap = (p: any) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
@@ -222,6 +240,53 @@ export default function App() {
       </header>
 
       <main className="p-4 max-w-xl mx-auto">
+        {/* TELA INICIAL / DASHBOARD COMPLETA */}
+        {activeTab === 'inicio' && (
+          <div className="space-y-5 pt-2 animate-fadeIn">
+            <div className="bg-gradient-to-tr from-purple-700 to-indigo-600 p-6 rounded-[35px] shadow-lg text-white">
+              <p className="text-xs font-bold uppercase tracking-widest text-purple-200">Faturamento Realizado</p>
+              <h2 className="text-4xl font-black mt-1 tracking-tight">R$ {dashboardMetrics.faturamento}</h2>
+              <p className="text-[10px] text-purple-100 mt-2 flex items-center gap-1 bg-purple-800/40 w-fit px-3 py-1 rounded-full font-medium">
+                <TrendingUp size={12}/> Dinheiro gerado de pedidos marcados como vendidos
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div onClick={() => setActiveTab('pedidos')} className="bg-white p-5 rounded-[30px] border shadow-sm cursor-pointer active:scale-95 transition-all">
+                <div className="w-10 h-10 rounded-2xl bg-orange-50 flex items-center justify-center text-orange-500 mb-3"><History size={20}/></div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Orcamentos</p>
+                <p className="text-2xl font-black text-slate-800 mt-0.5">{dashboardMetrics.pendentes} <span className="text-xs text-slate-400 font-bold">Abertos</span></p>
+              </div>
+
+              <div onClick={() => setActiveTab('materiais')} className={`p-5 rounded-[30px] border shadow-sm cursor-pointer active:scale-95 transition-all ${dashboardMetrics.criticos > 0 ? 'bg-red-50/50 border-red-100' : 'bg-white'}`}>
+                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center mb-3 ${dashboardMetrics.criticos > 0 ? 'bg-red-100 text-red-600' : 'bg-purple-50 text-purple-600'}`}>
+                  {dashboardMetrics.criticos > 0 ? <AlertTriangle size={20}/> : <Package size={20}/>}
+                </div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Falta Reposição</p>
+                <p className={`text-2xl font-black mt-0.5 ${dashboardMetrics.criticos > 0 ? 'text-red-600' : 'text-slate-800'}`}>{dashboardMetrics.criticos} <span className="text-xs text-slate-400 font-bold">itens</span></p>
+              </div>
+            </div>
+
+            <div onClick={() => setActiveTab('clientes')} className="bg-white p-5 rounded-[30px] border shadow-sm flex items-center justify-between cursor-pointer active:scale-95 transition-all">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-purple-50 flex items-center justify-center text-purple-600"><User size={20}/></div>
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Sua Base Comercial</p>
+                  <p className="text-lg font-black text-slate-800">Clientes Cadastrados</p>
+                </div>
+              </div>
+              <div className="text-2xl font-black text-purple-700 bg-purple-50 px-4 py-2 rounded-2xl">{dashboardMetrics.totalClientes}</div>
+            </div>
+
+            <div className="bg-white p-5 rounded-[30px] border shadow-sm text-center py-6">
+              <p className="text-sm font-bold text-slate-600">Deseja simular novos custos?</p>
+              <button onClick={() => setActiveTab('criar')} className="mt-3 bg-orange-500 text-white px-6 py-3 rounded-2xl font-black uppercase text-xs shadow-md active:scale-95 transition-all inline-flex items-center gap-1">
+                <Calculator size={14}/> Abrir Calculadora
+              </button>
+            </div>
+          </div>
+        )}
+
         {activeTab === 'criar' && (
           <div className="bg-white p-6 rounded-[35px] shadow-xl border mt-2">
             <h2 className="text-purple-700 font-bold mb-6 flex items-center gap-2 uppercase text-xs tracking-widest"><ShoppingCart size={18}/> Novo Orçamento</h2>
@@ -243,7 +308,6 @@ export default function App() {
                </select>
 
                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Materiais Usados</label>
-               {/* CORREÇÃO: Mantendo todas as propriedades do material original (valor, qtd) no matsNoPed para a calculadora poder calcular */}
                <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none mb-3" onChange={e => {
                   const m = materiais.find(item => item.id === e.target.value);
                   if (m) setMatsNoPed([...matsNoPed, { id: m.id, nome: m.nome, valor: m.valor, qtd: m.qtd, unidade: m.unidade, qtdUsada: 1 }]);
@@ -311,9 +375,7 @@ export default function App() {
               <div className="text-orange-500 font-black text-4xl tracking-tighter">R$ {resumoFinanceiro.final}</div>
               <div className="flex gap-2">
                 <button onClick={async () => {
-                   // Mapeando a lista para salvar apenas o necessário limpo no Firebase
                    const materiaisSalvar = matsNoPed.map(m => ({ id: m.id, nome: m.nome, qtdUsada: Number(m.qtdUsada || 1) }));
-                   
                    await addDoc(collection(db, "pedidos"), { 
                      nomeProd, 
                      preco: resumoFinanceiro.final, 
@@ -325,7 +387,7 @@ export default function App() {
                      status: 'Pendente',
                      materiaisUsados: materiaisSalvar 
                    });
-                   alert("Orçamento salvo no histórico!"); 
+                   alert("Orçamento saved!"); 
                    setNomeProd(''); setMatsNoPed([]);
                    setActiveTab('pedidos');
                 }} className="bg-orange-500 text-white px-5 py-4 rounded-[22px] font-black uppercase text-xs shadow-lg">Salvar</button>
@@ -336,7 +398,6 @@ export default function App() {
           </div>
         )}
 
-        {/* ABA HISTÓRICO COM CONFIRMAÇÃO DE VENDA */}
         {activeTab === 'pedidos' && (
           <div className="space-y-3 pt-2">
             <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2"><History size={20}/> Histórico</h2>
@@ -372,7 +433,6 @@ export default function App() {
           </div>
         )}
 
-        {/* ESTOQUE E GERENCIAMENTO DE MATERIAIS */}
         {activeTab === 'materiais' && (
           <div className="space-y-4 pt-2">
             <div className="bg-white p-8 rounded-[40px] shadow-md border">
@@ -468,7 +528,6 @@ export default function App() {
           </div>
         )}
 
-        {/* CLIENTES */}
         {activeTab === 'clientes' && (
            <div className="space-y-4 pt-2">
             <div className="bg-white p-8 rounded-[40px] shadow-md border">
@@ -485,10 +544,12 @@ export default function App() {
         )}
       </main>
 
-      <div className="fixed bottom-6 w-full flex justify-around px-4 items-center">
+      {/* MENU INFERIOR AJUSTADO COM 5 ÍCONES */}
+      <div className="fixed bottom-6 w-full flex justify-around px-2 items-center z-50">
+          <button onClick={() => setActiveTab('inicio')} className={`p-4 rounded-2xl transition-all ${activeTab === 'inicio' ? 'bg-orange-500 text-white shadow-lg scale-105' : 'bg-white text-slate-300'}`}><Home size={22}/></button>
           <button onClick={() => setActiveTab('materiais')} className={`p-4 rounded-2xl transition-all ${activeTab === 'materiais' ? 'bg-orange-500 text-white shadow-lg' : 'bg-white text-slate-300'}`}><Package size={22}/></button>
+          <button onClick={() => setActiveTab('criar')} className={`p-5 rounded-[22px] transition-all border-4 border-white shadow-xl ${activeTab === 'criar' ? 'bg-orange-500 text-white scale-110' : 'bg-white text-slate-300'}`}><Plus size={24}/></button>
           <button onClick={() => setActiveTab('clientes')} className={`p-4 rounded-2xl transition-all ${activeTab === 'clientes' ? 'bg-orange-500 text-white shadow-lg' : 'bg-white text-slate-300'}`}><User size={22}/></button>
-          <button onClick={() => setActiveTab('criar')} className={`p-5 rounded-[22px] transition-all border-4 border-white shadow-xl ${activeTab === 'criar' ? 'bg-orange-500 text-white scale-110' : 'bg-white text-slate-300'}`}><Plus size={28}/></button>
           <button onClick={() => setActiveTab('pedidos')} className={`p-4 rounded-2xl transition-all ${activeTab === 'pedidos' ? 'bg-orange-500 text-white shadow-lg' : 'bg-white text-slate-300'}`}><History size={22}/></button>
       </div>
     </div>
