@@ -46,10 +46,14 @@ const Login = ({ isRegistering, setIsRegistering, email, setEmail, password, set
 
 export default function App() {
   const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'inicio' | 'materiais' | 'criar' | 'pedidos' | 'clientes'>('inicio');
   const [materiais, setMaterials] = useState<any[]>([]);
   const [pedidos, setPedidos] = useState<any[]>([]);
   const [clientes, setClientes] = useState<any[]>([]);
+
+  // Estado para controlar qual pedido está sendo editado (se houver)
+  const [pedidoEditandoId, setPedidoEditandoId] = useState<string | null>(null);
 
   // Estados Calculadora
   const [nomeProd, setNomeProd] = useState('');
@@ -70,7 +74,12 @@ export default function App() {
   const [novoMat, setNovoMat] = useState({ id: '', nome: '', valor: '', qtd: '1', unidade: 'un', qtdAtual: '0', qtdMinima: '0' });
   const [novoCli, setNovoCli] = useState({ nome: '', zap: '' });
 
-  useEffect(() => { return onAuthStateChanged(auth, u => setUser(u)); }, []);
+  useEffect(() => { 
+    return onAuthStateChanged(auth, u => {
+      setUser(u);
+      setLoading(false);
+    }); 
+  }, []);
   
   useEffect(() => {
     const script = document.createElement('script');
@@ -88,6 +97,55 @@ export default function App() {
     }
   }, [user]);
 
+  // Função para limpar os campos da calculadora
+  const limparCalculadora = () => {
+    setNomeProd('');
+    setQtdPed('1');
+    setMatsNoPed([]);
+    setVHora('9');
+    setTGasto('60');
+    setCustos({ embalagem: '0', impressao: '0', energia: '0', outros: '0' });
+    setLucro('100');
+    setDesconto('0');
+    setPrazo('');
+    setClienteSel('');
+    setPedidoEditandoId(null);
+  };
+
+  // Função para carregar um pedido do histórico de volta na calculadora para edição
+  const carregarPedidoParaEdicao = (p: any) => {
+    setPedidoEditandoId(p.id);
+    setNomeProd(p.nomeProd || '');
+    setQtdPed(p.qtdPed || '1');
+    setVHora(p.vHora || '9');
+    setTGasto(p.tGasto || '60');
+    setCustos(p.custos || { embalagem: '0', impressao: '0', energia: '0', outros: '0' });
+    setLucro(p.lucro || '100');
+    setDesconto(p.desconto || '0');
+    setPrazo(p.prazo || '');
+    setClienteSel(p.clienteId || '');
+
+    // Reconectar os materiais salvos com os dados de preço completos do armário atual
+    if (p.materiaisUsados && p.materiaisUsados.length > 0) {
+      const carregados = p.materiaisUsados.map((mSalvo: any) => {
+        const matOriginal = materiais.find(item => item.id === mSalvo.id);
+        return {
+          id: mSalvo.id,
+          nome: mSalvo.nome,
+          qtdUsada: mSalvo.qtdUsada,
+          valor: matOriginal ? matOriginal.valor : 0,
+          qtd: matOriginal ? matOriginal.qtd : 1,
+          unidade: matOriginal ? matOriginal.unidade : 'un'
+        };
+      });
+      setMatsNoPed(carregados);
+    } else {
+      setMatsNoPed([]);
+    }
+
+    setActiveTab('criar'); // Muda para a aba da calculadora
+  };
+
   // Cálculo das Métricas da Dashboard / Tela Inicial
   const dashboardMetrics = useMemo(() => {
     const faturamentoTotal = pedidos
@@ -95,7 +153,6 @@ export default function App() {
       .reduce((acc, p) => acc + Number(p.preco || 0), 0);
 
     const pendentesCount = pedidos.filter(p => p.status !== 'Vendido 💰').length;
-    
     const estoqueCriticoCount = materiais.filter(m => Number(m.qtdAtual || 0) <= Number(m.qtdMinima || 0)).length;
 
     return {
@@ -106,7 +163,7 @@ export default function App() {
     };
   }, [pedidos, materiais, clientes]);
 
-  const resumoFinanceiro = useMemo(() => {
+  const resumenFinanceiro = useMemo(() => {
     const totalMateriais = matsNoPed.reduce((acc, m) => {
       const valorUnitario = Number(m.valor || 0) / Number(m.qtd || 1);
       return acc + (valorUnitario * Number(m.qtdUsada || 1));
@@ -208,7 +265,7 @@ export default function App() {
   };
 
   const confirmarVendaPedido = async (pedido: any) => {
-    if (!pedido.materiaisUsados || pedido.materialsUsados.length === 0) {
+    if (!pedido.materiaisUsados || pedido.materiaisUsados.length === 0) {
       await updateDoc(doc(db, "pedidos", pedido.id), { status: 'Vendido 💰' });
       alert("Venda confirmada!");
       return;
@@ -229,6 +286,8 @@ export default function App() {
     alert("Venda registrada e materiais descontados com sucesso!");
   };
 
+  if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando painel... 🚀</div>;
+
   if (!user) return <Login {...{isRegistering, setIsRegistering, email, setEmail, password, setPassword, handleAuth}} />;
 
   return (
@@ -241,7 +300,7 @@ export default function App() {
       <main className="p-4 max-w-xl mx-auto">
         {/* TELA INICIAL / DASHBOARD */}
         {activeTab === 'inicio' && (
-          <div className="space-y-5 pt-2 animate-fadeIn">
+          <div className="space-y-5 pt-2">
             <div className="bg-gradient-to-tr from-purple-700 to-indigo-600 p-6 rounded-[35px] shadow-lg text-white">
               <p className="text-xs font-bold uppercase tracking-widest text-purple-200">Faturamento Realizado</p>
               <h2 className="text-4xl font-black mt-1 tracking-tight">R$ {dashboardMetrics.faturamento}</h2>
@@ -279,16 +338,27 @@ export default function App() {
 
             <div className="bg-white p-5 rounded-[30px] border shadow-sm text-center py-6">
               <p className="text-sm font-bold text-slate-600">Deseja simular novos custos?</p>
-              <button onClick={() => setActiveTab('criar')} className="mt-3 bg-orange-500 text-white px-6 py-3 rounded-2xl font-black uppercase text-xs shadow-md active:scale-95 transition-all inline-flex items-center gap-1">
+              <button onClick={() => { limparCalculadora(); setActiveTab('criar'); }} className="mt-3 bg-orange-500 text-white px-6 py-3 rounded-2xl font-black uppercase text-xs shadow-md active:scale-95 transition-all inline-flex items-center gap-1">
                 <Calculator size={14}/> Abrir Calculadora
               </button>
             </div>
           </div>
         )}
 
+        {/* CALCULADORA (CRIAÇÃO / EDIÇÃO) */}
         {activeTab === 'criar' && (
           <div className="bg-white p-6 rounded-[35px] shadow-xl border mt-2">
-            <h2 className="text-purple-700 font-bold mb-6 flex items-center gap-2 uppercase text-xs tracking-widest"><ShoppingCart size={18}/> Novo Orçamento</h2>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-purple-700 font-bold flex items-center gap-2 uppercase text-xs tracking-widest">
+                <ShoppingCart size={18}/> {pedidoEditandoId ? '✏️ Editando Orçamento' : 'Novo Orçamento'}
+              </h2>
+              {pedidoEditandoId && (
+                <button onClick={limparCalculadora} className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-500 px-3 py-1.5 rounded-xl font-bold uppercase active:scale-95">
+                  Cancelar
+                </button>
+              )}
+            </div>
+
             <div className="grid grid-cols-3 gap-3 mb-6">
                <div className="col-span-2">
                   <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Produto</label>
@@ -363,40 +433,60 @@ export default function App() {
 
             <div className="bg-slate-50 p-4 rounded-3xl mb-8 border border-slate-100 text-xs space-y-2">
               <p className="text-[10px] font-black uppercase text-purple-700 tracking-wider mb-2">📊 Resumo Financeiro da Peça</p>
-              <div className="flex justify-between text-slate-500"><span>Materiais:</span><span className="font-bold">R$ {resumoFinanceiro.materiais}</span></div>
-              <div className="flex justify-between text-slate-500"><span>Mão de Obra:</span><span className="font-bold">R$ {resumoFinanceiro.maoObra}</span></div>
-              <div className="flex justify-between text-slate-500"><span>Extras / Custo Manual:</span><span className="font-bold">R$ {resumoFinanceiro.extras}</span></div>
-              <div className="flex justify-between text-slate-800 font-bold border-t pt-2 mt-1"><span>Custo Total da Peça:</span><span className="text-purple-700">R$ {resumoFinanceiro.custoPeca}</span></div>
-              <div className="flex justify-between text-emerald-600 font-bold"><span>Lucro Livre Gerado ({lucro}%):</span><span>R$ {resumoFinanceiro.lucroLivre}</span></div>
+              <div className="flex justify-between text-slate-500"><span>Materiais:</span><span className="font-bold">R$ {resumenFinanceiro.materiais}</span></div>
+              <div className="flex justify-between text-slate-500"><span>Mão de Obra:</span><span className="font-bold">R$ {resumenFinanceiro.maoObra}</span></div>
+              <div className="flex justify-between text-slate-500"><span>Extras / Custo Manual:</span><span className="font-bold">R$ {resumenFinanceiro.extras}</span></div>
+              <div className="flex justify-between text-slate-800 font-bold border-t pt-2 mt-1"><span>Custo Total da Peça:</span><span className="text-purple-700">R$ {resumenFinanceiro.custoPeca}</span></div>
+              <div className="flex justify-between text-emerald-600 font-bold"><span>Lucro Livre Gerado ({lucro}%):</span><span>R$ {resumenFinanceiro.lucroLivre}</span></div>
             </div>
 
             <div className="flex items-center justify-between border-t pt-6">
-              <div className="text-orange-500 font-black text-4xl tracking-tighter">R$ {resumoFinanceiro.final}</div>
+              <div className="text-orange-500 font-black text-4xl tracking-tighter">R$ {resumenFinanceiro.final}</div>
               <div className="flex gap-2">
                 <button onClick={async () => {
                    const materiaisSalvar = matsNoPed.map(m => ({ id: m.id, nome: m.nome, qtdUsada: Number(m.qtdUsada || 1) }));
-                   await addDoc(collection(db, "pedidos"), { 
+                   const dadosPedido = { 
                      nomeProd, 
-                     preco: resumoFinanceiro.final, 
+                     preco: resumenFinanceiro.final, 
                      clienteId: clienteSel, 
                      prazo, 
                      qtdPed, 
+                     vHora,
+                     tGasto,
+                     custos,
+                     lucro,
+                     desconto,
                      userId: user.uid, 
-                     data: new Date().toLocaleDateString(),
-                     status: 'Pendente',
                      materiaisUsados: materiaisSalvar 
-                   });
-                   alert("Orçamento salvo!"); 
-                   setNomeProd(''); setMatsNoPed([]);
+                   };
+
+                   if (pedidoEditandoId) {
+                     // ATUALIZA o orçamento existente
+                     await updateDoc(doc(db, "pedidos", pedidoEditandoId), dadosPedido);
+                     alert("Orçamento atualizado com sucesso!");
+                   } else {
+                     // CRIA um novo orçamento do zero
+                     await addDoc(collection(db, "pedidos"), { 
+                       ...dadosPedido,
+                       data: new Date().toLocaleDateString(),
+                       status: 'Pendente'
+                     });
+                     alert("Orçamento salvo!");
+                   }
+                   
+                   limparCalculadora();
                    setActiveTab('pedidos');
-                }} className="bg-orange-500 text-white px-5 py-4 rounded-[22px] font-black uppercase text-xs shadow-lg">Salvar</button>
-                <button onClick={() => gerarPDF({nomeProd, preco: resumoFinanceiro.final, clienteId: clienteSel, prazo, qtdPed})} className="bg-orange-500 text-white p-4 rounded-[22px] shadow-lg hover:bg-orange-600 transition-all active:scale-95"><Printer size={18}/></button>
-                <button onClick={() => enviarZap({nomeProd, preco: resumoFinanceiro.final, clienteId: clienteSel, prazo, qtdPed})} className="bg-emerald-500 text-white p-4 rounded-[22px] shadow-lg"><MessageCircle size={18}/></button>
+                }} className="bg-orange-500 text-white px-5 py-4 rounded-[22px] font-black uppercase text-xs shadow-lg">
+                  {pedidoEditandoId ? 'Atualizar' : 'Salvar'}
+                </button>
+                <button onClick={() => gerarPDF({nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed})} className="bg-orange-500 text-white p-4 rounded-[22px] shadow-lg hover:bg-orange-600 transition-all active:scale-95"><Printer size={18}/></button>
+                <button onClick={() => enviarZap({nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed})} className="bg-emerald-500 text-white p-4 rounded-[22px] shadow-lg"><MessageCircle size={18}/></button>
               </div>
             </div>
           </div>
         )}
 
+        {/* HISTÓRICO COM BOTÃO DE EDITAR */}
         {activeTab === 'pedidos' && (
           <div className="space-y-3 pt-2">
             <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2"><History size={20}/> Histórico</h2>
@@ -418,9 +508,15 @@ export default function App() {
 
                    <div className="flex items-center justify-end border-t pt-2 gap-1">
                       {ehPendente && (
-                        <button onClick={() => confirmarVendaPedido(p)} className="text-emerald-600 p-2 bg-emerald-50 rounded-xl text-xs font-bold flex items-center gap-1 active:scale-95 transition-all mr-auto">
-                          <CheckCircle size={16}/> Confirmar Venda
-                        </button>
+                        <>
+                          <button onClick={() => confirmarVendaPedido(p)} className="text-emerald-600 p-2 bg-emerald-50 rounded-xl text-xs font-bold flex items-center gap-1 active:scale-95 transition-all mr-auto">
+                            <CheckCircle size={16}/> Confirmar Venda
+                          </button>
+                          {/* NOVO: Botão de Lápis para carregar os dados de volta para a edição */}
+                          <button onClick={() => carregarPedidoParaEdicao(p)} className="text-purple-600 p-2 bg-purple-50 rounded-xl hover:bg-purple-100 transition-all active:scale-95" title="Editar Orçamento">
+                            <Edit2 size={18}/>
+                          </button>
+                        </>
                       )}
                       <button onClick={() => gerarPDF(p)} className="text-orange-500 p-2 bg-orange-50 rounded-xl"><Printer size={18}/></button>
                       <button onClick={() => enviarZap(p)} className="text-emerald-500 p-2 bg-emerald-50 rounded-xl"><MessageCircle size={18}/></button>
@@ -432,6 +528,7 @@ export default function App() {
           </div>
         )}
 
+        {/* ESTOQUE / ARMÁRIO */}
         {activeTab === 'materiais' && (
           <div className="space-y-4 pt-2">
             <div className="bg-white p-8 rounded-[40px] shadow-md border">
@@ -527,6 +624,7 @@ export default function App() {
           </div>
         )}
 
+        {/* CLIENTES */}
         {activeTab === 'clientes' && (
            <div className="space-y-4 pt-2">
             <div className="bg-white p-8 rounded-[40px] shadow-md border">
@@ -543,7 +641,7 @@ export default function App() {
         )}
       </main>
 
-      {/* MENU INFERIOR AJUSTADO COM 5 ÍCONES */}
+      {/* MENU INFERIOR */}
       <div className="fixed bottom-6 w-full flex justify-around px-2 items-center z-50">
           <button onClick={() => setActiveTab('inicio')} className={`p-4 rounded-2xl transition-all ${activeTab === 'inicio' ? 'bg-orange-500 text-white shadow-lg scale-105' : 'bg-white text-slate-300'}`}><Home size={22}/></button>
           <button onClick={() => setActiveTab('materiais')} className={`p-4 rounded-2xl transition-all ${activeTab === 'materiais' ? 'bg-orange-500 text-white shadow-lg' : 'bg-white text-slate-300'}`}><Package size={22}/></button>
