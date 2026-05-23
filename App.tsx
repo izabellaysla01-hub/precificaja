@@ -3,7 +3,7 @@ import { initializeApp } from "firebase/app";
 import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { getFirestore, collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc, getDocs, setDoc, getDoc } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2 } from 'lucide-react';
+import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Home, BookOpen, Camera, ImageIcon, Copy, Share2 } from 'lucide-react';
 
 const firebaseConfig = {
   apiKey: "AIzaSyD0BWsNm9DbGGDqiHzkdDmNdxIGdJ9tWe8",
@@ -19,25 +19,24 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
 
-// --- TELA DE LOGIN ---
 const Login = ({ isRegistering, setIsRegistering, email, setEmail, password, setPassword, handleAuth }: any) => {
   const recuperarSenha = async () => {
-    if (!email) return alert("Digite seu e-mail primeiro para eu te mandar o link!");
+    if (!email) return alert("Digite seu e-mail primeiro!");
     try {
       await sendPasswordResetEmail(auth, email);
       alert("Enviamos um link para o seu e-mail!");
-    } catch (e) { alert("E-mail não encontrado ou inválido."); }
+    } catch (e) { alert("E-mail inválido ou não encontrado."); }
   };
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
       <div className="bg-white p-8 rounded-[40px] shadow-xl w-full max-w-md text-center border border-slate-100">
-        <h1 className="text-3xl font-black text-purple-700 mb-2 font-sans">PrecificaJá 🚀</h1>
+        <h1 className="text-3xl font-black text-purple-700 mb-2">PrecificaJá 🚀</h1>
         <p className="text-slate-400 text-xs mb-8 uppercase font-bold tracking-widest">Sua empresa lucrando mais</p>
         <input type="email" placeholder="Seu e-mail" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none focus:ring-2 focus:ring-purple-600" value={email} onChange={e => setEmail(e.target.value)} />
         <input type="password" placeholder="Senha" className="w-full p-4 bg-slate-50 rounded-2xl mb-2 outline-none focus:ring-2 focus:ring-purple-600" value={password} onChange={e => setPassword(e.target.value)} />
-        <button onClick={recuperarSenha} className="text-[10px] text-purple-400 font-bold uppercase mb-6 hover:text-purple-600 block w-full text-right pr-2">Esqueci minha senha</button>
-        <button onClick={handleAuth} className="w-full bg-orange-500 text-white font-bold py-4 rounded-2xl shadow-lg hover:bg-orange-600 transition-all uppercase">{isRegistering ? 'Criar Conta Grátis' : 'Entrar no App'}</button>
+        <button onClick={recuperarSenha} className="text-[10px] text-purple-400 font-bold uppercase mb-6 block w-full text-right pr-2">Esqueci minha senha</button>
+        <button onClick={handleAuth} className="w-full bg-orange-500 text-white font-bold py-4 rounded-2xl shadow-lg hover:bg-orange-600 uppercase">{isRegistering ? 'Criar Conta Grátis' : 'Entrar no App'}</button>
         <button onClick={() => setIsRegistering(!isRegistering)} className="mt-4 text-sm text-purple-600 underline block w-full font-medium">{isRegistering ? 'Já tenho login' : 'Cadastrar novo usuário'}</button>
       </div>
     </div>
@@ -47,8 +46,6 @@ const Login = ({ isRegistering, setIsRegistering, email, setEmail, password, set
 export default function App() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  
-  // LÓGICA DO TRUQUE: Detectar se é um comprador acessando o catálogo público
   const [idLojaPublica, setIdLojaPublica] = useState<string | null>(null);
   const [produtosPublicos, setProdutosPublicos] = useState<any[]>([]);
   const [carregandoPublico, setCarregandoPublico] = useState(false);
@@ -62,11 +59,9 @@ export default function App() {
   const [clientes, setClientes] = useState<any[]>([]);
   const [produtos, setProdutos] = useState<any[]>([]);
 
-  // Estado Edição / Seleção do Catálogo
   const [pedidoEditandoId, setPedidoEditandoId] = useState<string | null>(null);
   const [mostrarSeletorCatalogo, setMostrarSeletorCatalogo] = useState(false);
 
-  // Estados Calculadora
   const [nomeProd, setNomeProd] = useState('');
   const [qtdPed, setQtdPed] = useState('1');
   const [matsNoPed, setMatsNoPed] = useState<any[]>([]);
@@ -79,44 +74,32 @@ export default function App() {
   const [clienteSel, setClienteSel] = useState('');
   const [precoManual, setPrecoManual] = useState<string | null>(null);
 
-  // Estados Formulários
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
   const [novoMat, setNovoMat] = useState({ id: '', nome: '', valor: '', qtd: '1', unidade: 'un', qtdAtual: '0', qtdMinima: '0' });
   const [novoCli, setNovoCli] = useState({ id: '', nome: '', zap: '' });
   
-  // Estado Produto do Catálogo + Imagem + Zap da dona da conta
   const [novoProdCatalogo, setNovoProdCatalogo] = useState({ id: '', nome: '', precoVenda: '', urlImagem: '' });
   const [zapDonaConta, setZapDonaConta] = useState('');
   const [subindoImagem, setSubindoImagem] = useState(false);
 
-  // Força as tabs a funcionarem sem travar
-  const setActiveTab = (tab: any) => {
-    useStateActiveTab(tab);
-  };
+  const setActiveTab = (tab: any) => { useStateActiveTab(tab); };
 
-  // Executa ao abrir o app para checar se há "?loja=" na URL
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const lojaId = params.get('loja');
     if (lojaId) {
       setIdLojaPublica(lojaId);
       setCarregandoPublico(true);
-      
       getDoc(doc(db, "configuracoes_loja", lojaId)).then(docSnap => {
-        if(docSnap.exists()) {
-          setZapDaLojaPublica(docSnap.data().whatsapp || '');
-        }
+        if(docSnap.exists()) setZapDaLojaPublica(docSnap.data().whatsapp || '');
       });
-
-      const q = query(collection(db, "produtos"), where("userId", "==", lojaId));
-      getDocs(q).then(snapshot => {
+      getDocs(query(collection(db, "produtos"), where("userId", "==", lojaId))).then(snapshot => {
         setProdutosPublicos(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
         setCarregandoPublico(false);
       }).catch(() => setCarregandoPublico(false));
     }
-    
     return onAuthStateChanged(auth, u => {
       setUser(u);
       if (u) {
@@ -136,27 +119,13 @@ export default function App() {
     return () => { document.body.removeChild(script); };
   }, []);
 
-  // Carregamento isolado de dados por usuário logado
   useEffect(() => {
     if (user && !idLojaPublica) {
-      const qMateriais = query(collection(db, "materiais"), where("userId", "==", user.uid));
-      const unsubMateriais = onSnapshot(qMateriais, s => setMaterials(s.docs.map(d => ({ id: d.id, ...d.data() }))));
-
-      const qPedidos = query(collection(db, "pedidos"), where("userId", "==", user.uid));
-      const unsubPedidos = onSnapshot(qPedidos, s => setPedidos(s.docs.map(d => ({ id: d.id, ...d.data() }))));
-
-      const qClientes = query(collection(db, "clientes"), where("userId", "==", user.uid));
-      const unsubClientes = onSnapshot(qClientes, s => setClientes(s.docs.map(d => ({ id: d.id, ...d.data() }))));
-
-      const qProdutos = query(collection(db, "produtos"), where("userId", "==", user.uid));
-      const unsubProdutos = onSnapshot(qProdutos, s => setProdutos(s.docs.map(d => ({ id: d.id, ...d.data() }))));
-
-      return () => {
-        unsubMateriais();
-        unsubPedidos();
-        unsubClientes();
-        unsubProdutos();
-      };
+      const unsubM = onSnapshot(query(collection(db, "materiais"), where("userId", "==", user.uid)), s => setMaterials(s.docs.map(d => ({ id: d.id, ...d.data() }))));
+      const unsubP = onSnapshot(query(collection(db, "pedidos"), where("userId", "==", user.uid)), s => setPedidos(s.docs.map(d => ({ id: d.id, ...d.data() }))));
+      const unsubC = onSnapshot(query(collection(db, "clientes"), where("userId", "==", user.uid)), s => setClientes(s.docs.map(d => ({ id: d.id, ...d.data() }))));
+      const unsubPr = onSnapshot(query(collection(db, "produtos"), where("userId", "==", user.uid)), s => setProdutos(s.docs.map(d => ({ id: d.id, ...d.data() }))));
+      return () => { unsubM(); unsubP(); unsubC(); unsubPr(); };
     }
   }, [user, idLojaPublica]);
 
@@ -167,19 +136,14 @@ export default function App() {
 
   const copiarLinkCatalogo = () => {
     navigator.clipboard.writeText(linkDoCatalogoDestaCliente);
-    alert("Link do seu catálogo copiado! Agora é só colar e mandar pros clientes. 🔗🚀");
+    alert("Link do seu catálogo copiado! 🔗🚀");
   };
-
   const finalizarPedidoPublicoWhatsapp = () => {
-    if (!nomeComprador.trim()) return alert("Por favor, digite seu nome antes de enviar!");
+    if (!nomeComprador.trim()) return alert("Por favor, digite seu nome!");
     const itensSelecionados = produtosPublicos.filter(p => carrinho[p.id] > 0);
     if (itensSelecionados.length === 0) return alert("Seu carrinho está vazio!");
 
-    let textoPedido = `*NOVO PEDIDO VIA CATÁLOGO DE VENDAS*%0A`;
-    textoPedido += `---%0A`;
-    textoPedido += `*Cliente:* ${nomeComprador.trim()}%0A%0A`;
-    textoPedido += `*Itens do Pedido:*%0A`;
-    
+    let textoPedido = `*NOVO PEDIDO VIA CATÁLOGO DE VENDAS*%0A---%0A*Cliente:* ${nomeComprador.trim()}%0A%0A*Itens:*%0A`;
     let totalGeral = 0;
     itensSelecionados.forEach(p => {
       const qtd = carrinho[p.id];
@@ -187,54 +151,24 @@ export default function App() {
       totalGeral += sub;
       textoPedido += `• ${qtd}x _${p.nome}_ — R$ ${sub.toFixed(2)}%0A`;
     });
-
-    textoPedido += `---%0A`;
-    textoPedido += `*VALOR TOTAL:* R$ ${totalGeral.toFixed(2)}%0A`;
-    textoPedido += `---%0A`;
-    textoPedido += `Aguardo a confirmação e dados para pagamento! 🙌`;
+    textoPedido += `---%0A*VALOR TOTAL:* R$ ${totalGeral.toFixed(2)}%0A---%0AAguardo confirmação!`;
 
     const numeroLimpo = zapDaLojaPublica.replace(/\D/g, '');
-    if (numeroLimpo) {
-      window.open(`https://wa.me/55${numeroLimpo}?text=${textoPedido}`, '_blank');
-    } else {
-      window.open(`https://wa.me/?text=${textoPedido}`, '_blank');
-    }
-  };
-
-  const limparCalculadora = () => {
-    setNomeProd('');
-    setQtdPed('1');
-    setMatsNoPed([]);
-    setVHora('9');
-    setTGasto('60');
-    setCustos({ embalagem: '0', impressao: '0', energia: '0', outros: '0' });
-    setLucro('100');
-    setDesconto('0');
-    setPrazo('');
-    setClienteSel('');
-    setPedidoEditandoId(null);
-    setPrecoManual(null);
+    window.open(numeroLimpo ? `https://wa.me/55${numeroLimpo}?text=${textoPedido}` : `https://wa.me/?text=${textoPedido}`, '_blank');
   };
 
   const handleUploadImagem = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
-
     setSubindoImagem(true);
     try {
-      const nomeArquivo = `${user.uid}_${Date.now()}_${file.name}`;
-      const imagemRef = ref(storage, `produtos/${nomeArquivo}`);
-      
+      const imagemRef = ref(storage, `produtos/${user.uid}_${Date.now()}_${file.name}`);
       await uploadBytes(imagemRef, file);
       const urlDisponivel = await getDownloadURL(imagemRef);
-      
       setNovoProdCatalogo(prev => ({ ...prev, urlImagem: urlDisponivel }));
       alert("Foto carregada com sucesso! 📸");
-    } catch (error) {
-      alert("Erro ao subir a foto!");
-    } finally {
-      setSubindoImagem(false);
-    }
+    } catch { alert("Erro ao subir a foto!"); }
+    finally { setSubindoImagem(false); }
   };
 
   const carregarPedidoParaEdicao = (p: any) => {
@@ -250,8 +184,8 @@ export default function App() {
     setClienteSel(p.clienteId || '');
     setPrecoManual(p.precoManual || null);
 
-    if (p.materiaisUsados && p.materiaisUsados.length > 0) {
-      const listaReconstruida = p.materiaisUsados.map((mSalvo: any) => {
+    if (p.materialsUsados && p.materialsUsados.length > 0) {
+      setMatsNoPed(p.materialsUsados.map((mSalvo: any) => {
         const matDoArmario = materiais.find(item => item.id === mSalvo.id);
         return {
           id: mSalvo.id,
@@ -261,11 +195,8 @@ export default function App() {
           qtd: matDoArmario ? Number(matDoArmario.qtd) : Number(mSalvo.qtd || 1),
           unidade: matDoArmario ? matDoArmario.unidade : (mSalvo.unidade || 'un')
         };
-      });
-      setMatsNoPed(listaReconstruida);
-    } else {
-      setMatsNoPed([]);
-    }
+      }));
+    } else { setMatsNoPed([]); }
     setActiveTab('criar');
   };
 
@@ -283,48 +214,30 @@ export default function App() {
     return { faturamento: faturamentoTotal.toFixed(2), pendentes: pendentesCount, criticos: estoqueCriticoCount, totalClientes: clientes.length };
   }, [pedidos, materiais, clientes]);
 
-  const resumenFinanceiro = useMemo(() => {
-    if (precoManual !== null) {
-      const totalCatalogo = Number(precoManual) * Number(qtdPed || 1);
-      const semDesconto = totalCatalogo - Number(desconto || 0);
-      return { materiais: "0.00", maoObra: "0.00", extras: "0.00", custoPeca: "0.00", lucroLivre: "0.00", final: isNaN(semDesconto) ? "0.00" : semDesconto.toFixed(2) };
-    }
-
-    const totalMateriais = matsNoPed.reduce((acc, m) => acc + ((Number(m.valor || 0) / Number(m.qtd || 1)) * Number(m.qtdUsada || 0)), 0);
-    const totalMaoObra = (Number(vHora || 0) / 60) * Number(tGasto || 0);
-    const totalExtras = Number(custos.embalagem || 0) + Number(custos.impressao || 0) + Number(custos.energia || 0) + Number(custos.outros || 0);
-    const custoTotalPeca = totalMateriais + totalMaoObra + totalExtras;
-    const subtotalGeral = custoTotalPeca * Number(qtdPed || 1);
-    const valorLucroLivre = subtotalGeral * (Number(lucro || 0) / 100);
-    const precoFinalCalculado = (subtotalGeral + valorLucroLivre) - Number(desconto || 0);
-
-    return { materiais: totalMateriais.toFixed(2), maoObra: totalMaoObra.toFixed(2), extras: totalExtras.toFixed(2), custoPeca: custoTotalPeca.toFixed(2), lucroLivre: valorLucroLivre.toFixed(2), final: isNaN(precoFinalCalculado) ? "0.00" : precoFinalCalculado.toFixed(2) };
-  }, [matsNoPed, vHora, tGasto, custos, lucro, qtdPed, desconto, precoManual]);
-
   const enviarZap = (p: any) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
-    const dataP = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combinar';
-    const msg = `*RESUMO ORÇAMENTO*%0A---%0A*Cliente:* ${cli?.nome || 'Cliente'}%0A*Produto:* ${p.nomeProd}%0A*Qtd:* ${p.qtdPed || 1} un%0A*Prazo:* ${dataP}%0A*VALOR TOTAL:* R$ ${p.preco}%0A---%0AObrigado!`;
-    const fone = cli?.zap ? cli.zap.replace(/\D/g, '') : '';
-    window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
+    const msg = `*RESUMO ORÇAMENTO*%0A---%0A*Cliente:* ${cli?.nome || 'Cliente'}%0A*Produto:* ${p.nomeProd}%0A*Qtd:* ${p.qtdPed || 1} un%0A*VALOR TOTAL:* R$ ${p.preco}%0A---%0AObrigado!`;
+    window.open(`https://wa.me/55${cli?.zap ? cli.zap.replace(/\D/g, '') : ''}?text=${msg}`, '_blank');
   };
 
   const gerarPDF = (p: any) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
     const dataEmissao = p.data || new Date().toLocaleDateString('pt-BR');
-    
-    const hoje = new Date();
-    hoje.setDate(hoje.getDate() + 7);
+    const hoje = new Date(); hoje.setDate(hoje.getDate() + 7);
     const dataValidade = hoje.toLocaleDateString('pt-BR');
-    
     const dataPrazo = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combinar';
     const totalNum = Number(p.preco || 0);
     const qtdNum = Number(p.qtdPed || 1);
     const precoUnitario = (totalNum / qtdNum).toFixed(2);
 
     const elemento = document.createElement('div');
+    elemento.id = "visualizador-pdf-tela";
+    elemento.style.position = "fixed"; elemento.style.top = "0"; elemento.style.left = "0";
+    elemento.style.width = "100vw"; elemento.style.height = "100vh";
+    elemento.style.backgroundColor = "white"; elemento.style.overflowY = "scroll"; elemento.style.zIndex = "99999";
+
     elemento.innerHTML = `
-      <div id="btn-fechar-pdf" style="position: fixed; top: 15px; right: 15px; background-color: #ef4444; color: white; width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: sans-serif; font-size: 20px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.25); z-index: 999999; -webkit-tap-highlight-color: transparent;" onclick="document.body.removeChild(this.parentElement); window.scrollTo(0,0);">✕</div>
+      <div style="position: fixed; top: 15px; right: 15px; background-color: #ef4444; color: white; width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: sans-serif; font-size: 20px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 999999;" onclick="const e = document.getElementById('visualizador-pdf-tela'); if(e) document.body.removeChild(e);">✕</div>
 
       <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto; background-color: white;">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px;">
@@ -389,8 +302,9 @@ export default function App() {
         </div>
       </div>
     `;
+    document.body.appendChild(elemento);
     const opcoes = { margin: 0, filename: `Orcamento_${p.nomeProd}.pdf`, html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'a4', orientation: 'portrait' } };
-    (window as any).html2pdf().from(elemento).set(opcoes).save();
+    (window as any).html2pdf().from(elemento.lastElementChild).set(opcoes).save();
   };
 
   const handleAuth = async () => {
@@ -421,7 +335,6 @@ export default function App() {
     alert("Venda confirmada!");
   };
 
-  // 🛍️ RENDERIZAÇÃO DA VITRINE PÚBLICA PARA OS COMPRADORES (Pula Login)
   if (idLojaPublica) {
     if (carregandoPublico) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando Vitrine... 🛍️</div>;
     const totalCarrinho = Object.keys(carrinho).reduce((acc, id) => {
@@ -482,7 +395,6 @@ export default function App() {
 
   if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando painel... 🚀</div>;
   if (!user) return <Login {...{isRegistering, setIsRegistering, email, setEmail, password, setPassword, handleAuth}} />;
-
   return (
     <div className="min-h-screen bg-slate-50 pb-32 font-sans text-slate-700">
       <header className="bg-white p-4 flex justify-between items-center shadow-sm sticky top-0 z-50">
@@ -491,7 +403,7 @@ export default function App() {
       </header>
 
       <main className="p-4 max-w-xl mx-auto">
-        {/* TELA INICIAL RECONSTRUÍDA COM DESIGN DE ABAS LARGAS E BOTÃO LARANJA */}
+        {/* TELA INICIAL: DESIGN MODERNO DOS QUADRADINHOS RECONSTRUÍDO PERFEITAMENTE */}
         {activeTab === 'inicio' && (
           <div className="space-y-5 pt-2">
             <div className="bg-gradient-to-tr from-purple-700 to-indigo-600 p-6 rounded-[35px] shadow-lg text-white">
@@ -500,37 +412,46 @@ export default function App() {
               <p className="text-[11px] text-purple-200 font-medium mt-2 opacity-80">📈 Dinheiro gerado de pedidos marcados como vendidos</p>
             </div>
 
+            {/* GRID DOS 4 QUADRADINHOS EM LINHA DE DOIS */}
             <div className="grid grid-cols-2 gap-4">
-              <div onClick={() => setActiveTab('pedidos')} className="bg-white p-5 rounded-[30px] border shadow-sm cursor-pointer active:scale-95 transition-all flex items-center gap-4">
-                <div className="w-10 h-10 rounded-2xl bg-orange-50 flex items-center justify-center text-orange-500 shrink-0"><History size={20}/></div>
+              {/* CARD 1: ORÇAMENTOS */}
+              <div onClick={() => setActiveTab('pedidos')} className="bg-white p-5 rounded-[30px] border shadow-sm cursor-pointer active:scale-95 transition-all flex flex-col justify-between h-32">
+                <div className="w-10 h-10 rounded-2xl bg-purple-50 flex items-center justify-center text-purple-500"><History size={20}/></div>
                 <div>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Orçamentos</p>
                   <p className="text-xl font-black text-slate-800 mt-0.5">{dashboardMetrics.pendentes} <span className="text-xs font-normal text-slate-400">Abertos</span></p>
                 </div>
               </div>
 
-              <div onClick={() => setActiveTab('materiais')} className={`p-5 rounded-[30px] border shadow-sm cursor-pointer active:scale-95 transition-all flex items-center gap-4 ${dashboardMetrics.criticos > 0 ? 'bg-red-50/40 border-red-100' : 'bg-white'}`}>
-                <div className="w-10 h-10 rounded-2xl bg-red-50 flex items-center justify-center text-red-500 shrink-0"><Package size={20}/></div>
+              {/* CARD 2: CATÁLOGO */}
+              <div onClick={() => setActiveTab('catalogo')} className="bg-white p-5 rounded-[30px] border shadow-sm cursor-pointer active:scale-95 transition-all flex flex-col justify-between h-32">
+                <div className="w-10 h-10 rounded-2xl bg-purple-50 flex items-center justify-center text-purple-500"><BookOpen size={20}/></div>
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Catálogo</p>
+                  <p className="text-xl font-black text-slate-800 mt-0.5">{produtos.length} <span className="text-xs font-normal text-slate-400">itens</span></p>
+                </div>
+              </div>
+
+              {/* CARD 3: FALTA REPOSIÇÃO */}
+              <div onClick={() => setActiveTab('materiais')} className={`p-5 rounded-[30px] border shadow-sm cursor-pointer active:scale-95 transition-all flex flex-col justify-between h-32 ${dashboardMetrics.criticos > 0 ? 'bg-red-50/40 border-red-100' : 'bg-white'}`}>
+                <div className="w-10 h-10 rounded-2xl bg-red-50 flex items-center justify-center text-red-500"><Package size={20}/></div>
                 <div>
                   <p className="text-[10px] font-bold text-slate-400 tracking-wider uppercase">Falta Reposição</p>
                   <p className="text-xl font-black text-slate-800 mt-0.5">{dashboardMetrics.criticos} <span className="text-xs font-normal text-slate-400">itens</span></p>
                 </div>
               </div>
-            </div>
 
-            {/* BARRA LARGA: SUA BASE COMERCIAL */}
-            <div onClick={() => setActiveTab('clientes')} className="bg-white p-5 rounded-[30px] border shadow-sm cursor-pointer active:scale-95 transition-all flex justify-between items-center px-6">
-              <div className="flex items-center gap-4">
+              {/* CARD 4: BASE COMERCIAL */}
+              <div onClick={() => setActiveTab('clientes')} className="bg-white p-5 rounded-[30px] border shadow-sm cursor-pointer active:scale-95 transition-all flex flex-col justify-between h-32">
                 <div className="w-10 h-10 rounded-2xl bg-purple-50 flex items-center justify-center text-purple-500"><User size={20}/></div>
                 <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Sua Base Comercial</p>
-                  <p className="text-base font-black text-slate-700">Clientes Cadastrados</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Base Comercial</p>
+                  <p className="text-xl font-black text-slate-800 mt-0.5">{dashboardMetrics.totalClientes} <span className="text-xs font-normal text-slate-400">clientes</span></p>
                 </div>
               </div>
-              <div className="bg-purple-50 text-purple-700 text-lg font-black w-10 h-10 rounded-2xl flex items-center justify-center">{dashboardMetrics.totalClientes}</div>
             </div>
 
-            {/* BLOCO CENTRAL REATIVADO: DESEJA SIMULAR NOVOS CUSTOS? */}
+            {/* BOTÃO CENTRAL LARANJA DE ABRIR CALCULADORA */}
             <div className="bg-white p-6 rounded-[35px] border shadow-sm text-center space-y-4">
               <p className="text-sm font-bold text-slate-600">Deseja simular novos custos?</p>
               <button onClick={() => { limparCalculadora(); setActiveTab('criar'); }} className="w-full max-w-sm mx-auto bg-orange-500 hover:bg-orange-600 text-white font-black py-4 rounded-2xl shadow-md flex items-center justify-center gap-2 text-xs uppercase tracking-wider active:scale-95 transition-all">
@@ -563,7 +484,7 @@ export default function App() {
                     if(!zapDonaConta.trim()) return alert("Digite o número primeiro!");
                     try {
                       await setDoc(doc(db, "configuracoes_loja", user.uid), { whatsapp: zapDonaConta.trim() }, { merge: true });
-                      alert("WhatsApp de vendas salvo com sucesso! 🚀 Agora os pedidos vão cair direto no seu número.");
+                      alert("WhatsApp de vendas salvo com sucesso! 🚀");
                     } catch { alert("Erro ao salvar número."); }
                   }} className="bg-orange-500 hover:bg-orange-600 text-white text-xs font-black uppercase px-4 rounded-xl shadow active:scale-95 transition-all">Salvar</button>
                 </div>
@@ -572,7 +493,6 @@ export default function App() {
 
             <div className="bg-white p-6 rounded-[35px] shadow-md border">
               <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2 uppercase text-xs tracking-widest"><BookOpen size={18}/> Novo Item de Venda Fixa</h2>
-              
               <div className="mb-4 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-3xl p-4 bg-slate-50 relative min-h-[140px]">
                 {novoProdCatalogo.urlImagem ? (
                   <div className="relative w-full h-32 rounded-2xl overflow-hidden">
@@ -580,9 +500,9 @@ export default function App() {
                     <button onClick={() => setNovoProdCatalogo(p => ({...p, urlImagem: ''}))} className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full"><X size={14}/></button>
                   </div>
                 ) : (
-                  <label className="cursor-pointer flex flex-col items-center gap-2 text-slate-400 hover:text-purple-600 transition-colors">
+                  <label className="cursor-pointer flex flex-col items-center gap-2 text-slate-400 hover:text-purple-600">
                     <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center shadow-sm text-purple-600"><Camera size={22} /></div>
-                    <span className="text-xs font-bold uppercase tracking-wide text-[10px]">{subindoImagem ? 'Subindo Foto...' : '📸 Adicionar Foto do Produto'}</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wide">{subindoImagem ? 'Subindo Foto...' : '📸 Adicionar Foto do Produto'}</span>
                     <input type="file" accept="image/*" className="hidden" onChange={handleUploadImagem} disabled={subindoImagem} />
                   </label>
                 )}
@@ -620,7 +540,7 @@ export default function App() {
                   <div className="flex items-center gap-1">
                     <button onClick={() => venderItemDiretoDoCatalogo(p)} className="bg-orange-500 text-white px-3 py-2 rounded-xl text-xs font-black uppercase shadow active:scale-95">Vender 🛍️</button>
                     <button onClick={() => setNovoProdCatalogo({ id: p.id, nome: p.nome, precoVenda: String(p.precoVenda), urlImagem: p.urlImagem || '' })} className="text-purple-400 p-1.5"><Edit2 size={15}/></button>
-                    <button onClick={() => deleteDoc(doc(db, "produtos", p.id))} className="text-red-200 p-1.5"><Trash2 size={15}/></button>
+                    <button onClick={() => confirmarExcluir('produto', p.id)} className="text-red-200 p-1.5"><Trash2 size={15}/></button>
                   </div>
                 </div>
               ))}
@@ -693,8 +613,8 @@ export default function App() {
               </>
             ) : (
               <div className="bg-orange-50 border border-orange-100 p-4 rounded-3xl mb-4 text-xs">
-                <p className="font-bold text-orange-600">💥 Preço travado pelo catálogo de vendas.</p>
-                <p className="text-slate-500 mt-1">Valor Unitário original: <strong>R$ {Number(precoManual).toFixed(2)}</strong></p>
+                <p className="font-bold text-orange-600">💥 Preço travado pelo catálogo.</p>
+                <p className="text-slate-500 mt-1">Valor Unitário: <strong>R$ {Number(precoManual).toFixed(2)}</strong></p>
                 <div className="mt-3"><label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Prazo</label><input type="date" className="w-full p-4 bg-white rounded-2xl outline-none text-xs font-bold border" value={prazo} onChange={e => setPrazo(e.target.value)} /></div>
               </div>
             )}
@@ -706,9 +626,9 @@ export default function App() {
                 <p className="font-black text-purple-700 uppercase tracking-wider text-[10px] mb-1">📋 RESUMO FINANCEIRO DA PEÇA</p>
                 <div className="flex justify-between text-slate-500"><span>Materiais:</span><span className="font-bold">R$ {resumenFinanceiro.materiais}</span></div>
                 <div className="flex justify-between text-slate-500"><span>Mão de Obra:</span><span className="font-bold">R$ {resumenFinanceiro.maoObra}</span></div>
-                <div className="flex justify-between text-slate-500"><span>Extras / Custo Manual:</span><span className="font-bold">R$ {resumenFinanceiro.extras}</span></div>
-                <div className="flex justify-between text-slate-800 font-bold border-t pt-2 mt-1"><span>Custo Total da Peça:</span><span className="text-purple-700">R$ {resumenFinanceiro.custoPeca}</span></div>
-                <div className="flex justify-between text-emerald-600 font-bold"><span>Lucro Livre Gerado ({lucro}%) :</span><span>R$ {resumenFinanceiro.lucroLivre}</span></div>
+                <div className="flex justify-between text-slate-500"><span>Extras:</span><span className="font-bold">R$ {resumenFinanceiro.extras}</span></div>
+                <div className="flex justify-between text-slate-800 font-bold border-t pt-2 mt-1"><span>Custo Total:</span><span className="text-purple-700">R$ {resumenFinanceiro.custoPeca}</span></div>
+                <div className="flex justify-between text-emerald-600 font-bold"><span>Lucro Livre ({lucro}%) :</span><span>R$ {resumenFinanceiro.lucroLivre}</span></div>
               </div>
             )}
 
