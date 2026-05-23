@@ -96,7 +96,7 @@ export default function App() {
     return () => { document.body.removeChild(script); };
   }, []);
 
-  // SEGURANÇA MÁXIMA: Carregamento isolado de dados por usuário logado
+  // SEGURANÇA: Dados isolados por usuário
   useEffect(() => {
     if (user) {
       const qMateriais = query(collection(db, "materiais"), where("userId", "==", user.uid));
@@ -140,7 +140,6 @@ export default function App() {
     setPrecoManual(null);
   };
 
-  // Envia a imagem para a pasta do Firebase Storage
   const handleUploadImagem = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
@@ -157,7 +156,7 @@ export default function App() {
       alert("Foto carregada com sucesso! 📸");
     } catch (error) {
       console.error(error);
-      alert("Erro ao subir a foto. Verifique as regras do Storage!");
+      alert("Erro ao subir a foto!");
     } finally {
       setSubindoImagem(false);
     }
@@ -237,7 +236,7 @@ export default function App() {
 
   const gerarPDF = (p: any) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
-    const dataP = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combinar';
+    const dataP = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combiner';
     const elemento = document.createElement('div');
     elemento.innerHTML = `
       <div style="padding: 40px; font-family: sans-serif; color: #334155;">
@@ -353,7 +352,6 @@ export default function App() {
             <div className="bg-white p-6 rounded-[35px] shadow-md border">
               <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2 uppercase text-xs tracking-widest"><BookOpen size={18}/> Novo Item de Venda Fixa</h2>
               
-              {/* Box de Upload de Imagem */}
               <div className="mb-4 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-3xl p-4 bg-slate-50 relative min-h-[140px]">
                 {novoProdCatalogo.urlImagem ? (
                   <div className="relative w-full h-32 rounded-2xl overflow-hidden">
@@ -538,12 +536,15 @@ export default function App() {
                <input className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-orange-500" type="number" value={desconto} onChange={e => setDesconto(e.target.value)} />
             </div>
 
+            {/* O SEU COMPONENTE DE RESUMO COM OS NOMES ORIGINAIS COMPLETOS */}
             {precoManual === null && (
-              <div className="bg-slate-50 p-4 rounded-3xl mb-8 border border-slate-100 text-xs space-y-2">
+              <div className="bg-slate-50 p-5 rounded-3xl mb-8 border border-slate-100 text-xs space-y-2.5">
+                <p className="font-black text-purple-700 uppercase tracking-wider text-[10px] mb-1">📋 RESUMO FINANCEIRO DA PEÇA</p>
                 <div className="flex justify-between text-slate-500"><span>Materiais:</span><span className="font-bold">R$ {resumenFinanceiro.materiais}</span></div>
                 <div className="flex justify-between text-slate-500"><span>Mão de Obra:</span><span className="font-bold">R$ {resumenFinanceiro.maoObra}</span></div>
-                <div className="flex justify-between text-slate-800 font-bold border-t pt-2 mt-1"><span>Custo Total:</span><span className="text-purple-700">R$ {resumenFinanceiro.custoPeca}</span></div>
-                <div className="flex justify-between text-emerald-600 font-bold"><span>Lucro Real ({lucro}%):</span><span>R$ {resumenFinanceiro.lucroLivre}</span></div>
+                <div className="flex justify-between text-slate-500"><span>Extras / Custo Manual:</span><span className="font-bold">R$ {resumenFinanceiro.extras}</span></div>
+                <div className="flex justify-between text-slate-800 font-bold border-t pt-2 mt-1"><span>Custo Total da Peça:</span><span className="text-purple-700">R$ {resumenFinanceiro.custoPeca}</span></div>
+                <div className="flex justify-between text-emerald-600 font-bold"><span>Lucro Livre Gerado ({lucro}%) :</span><span>R$ {resumenFinanceiro.lucroLivre}</span></div>
               </div>
             )}
 
@@ -630,7 +631,7 @@ export default function App() {
                 </div>
               </div>
               <div className="mb-6">
-                <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-xs font-bold" value={novoMat.unidade} onChange={e => setNovoMat({...novoMat, Riddle: e.target.value})}>
+                <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-xs font-bold" value={novoMat.unidade} onChange={e => setNovoMat({...novoMat, unidade: e.target.value})}>
                   <option value="un">📦 Unidade (un)</option>
                   <option value="Folha A4">📄 Folha A4</option>
                   <option value="m">📏 Metro (m)</option>
@@ -652,11 +653,13 @@ export default function App() {
             </div>
             {materiais.map(m => {
               const estaAcabando = Number(m.qtdAtual || 0) <= Number(m.qtdMinima || 0);
+              const valorUnitarioCalculado = Number(m.qtd || 1) > 0 ? (Number(m.valor || 0) / Number(m.qtd || 1)).toFixed(2) : "0.00";
               return (
                 <div key={m.id} className="bg-white p-5 rounded-3xl flex justify-between items-center border">
                   <div>
                     <p className="font-bold text-slate-800">{estaAcabando ? '🔴' : '🟢'} {m.nome}</p>
-                    <p className="text-xs text-slate-500 mt-1">Qtd: <span className="font-bold text-purple-700">{m.qtdAtual} {m.unidade}</span></p>
+                    <p className="text-xs text-slate-400 mt-1">Custo unitário: <span className="font-bold text-slate-600">R$ {valorUnitarioCalculado}</span></p>
+                    <p className="text-xs text-slate-500 mt-0.5">Qtd: <span className="font-bold text-purple-700">{m.qtdAtual} {m.unidade}</span></p>
                   </div>
                   <div className="flex items-center gap-1">
                     <button onClick={async () => await updateDoc(doc(db, "materiais", m.id), { qtdAtual: Math.max(0, Number(m.qtdAtual || 0) - 1) })} className="w-8 h-8 bg-slate-100 rounded-xl font-bold">-</button>
@@ -689,7 +692,10 @@ export default function App() {
             </div>
             {clientes.map(c => (
               <div key={c.id} className="bg-white p-5 rounded-3xl flex justify-between items-center border shadow-sm font-bold">
-                <span className="ml-2">{c.nome}</span>
+                <div className="flex flex-col ml-2">
+                  <span className="text-slate-800">{c.nome}</span>
+                  <span className="text-xs text-slate-400 font-normal">{c.zap ? `📱 ${c.zap}` : 'Sem número'}</span>
+                </div>
                 <div className="flex gap-1">
                   <button onClick={() => setNovoCli({ id: c.id, nome: c.nome, zap: c.zap || '' })} className="text-orange-400 p-2"><Edit2 size={18}/></button>
                   <button onClick={() => confirmarExcluir('cliente', c.id)} className="text-red-200 p-2"><Trash2 size={20}/></button>
