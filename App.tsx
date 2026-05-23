@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { initializeApp } from "firebase/app";
 import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
-import { getFirestore, collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc, getDocs } from "firebase/firestore";
+import { getFirestore, collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc, getDocs, setDoc, getDoc } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2 } from 'lucide-react';
 
@@ -54,8 +54,9 @@ export default function App() {
   const [carregandoPublico, setCarregandoPublico] = useState(false);
   const [carrinho, setCarrinho] = useState<{ [key: string]: number }>({});
   const [nomeComprador, setNomeComprador] = useState('');
+  const [zapDaLojaPublica, setZapDaLojaPublica] = useState('');
 
-  const [activeTab, setActiveTab] = useState<'inicio' | 'materiais' | 'criar' | 'pedidos' | 'clientes' | 'catalogo'>('inicio');
+  const [activeTab, useStateActiveTab] = useState<'inicio' | 'materiais' | 'criar' | 'pedidos' | 'clientes' | 'catalogo'>('inicio');
   const [materiais, setMaterials] = useState<any[]>([]);
   const [pedidos, setPedidos] = useState<any[]>([]);
   const [clientes, setClientes] = useState<any[]>([]);
@@ -85,9 +86,15 @@ export default function App() {
   const [novoMat, setNovoMat] = useState({ id: '', nome: '', valor: '', qtd: '1', unidade: 'un', qtdAtual: '0', qtdMinima: '0' });
   const [novoCli, setNovoCli] = useState({ id: '', nome: '', zap: '' });
   
-  // Estado Produto do Catálogo + Imagem
+  // Estado Produto do Catálogo + Imagem + Zap da dona da conta
   const [novoProdCatalogo, setNovoProdCatalogo] = useState({ id: '', nome: '', precoVenda: '', urlImagem: '' });
+  const [zapDonaConta, setZapDonaConta] = useState('');
   const [subindoImagem, setSubindoImagem] = useState(false);
+
+  // Força as tabs a funcionarem sem travar tipo
+  const setActiveTab = (tab: any) => {
+    useStateActiveTab(tab);
+  };
 
   // Executa ao abrir o app para checar se há "?loja=" na URL antes do estado de login
   useEffect(() => {
@@ -96,6 +103,14 @@ export default function App() {
     if (lojaId) {
       setIdLojaPublica(lojaId);
       setCarregandoPublico(true);
+      
+      // Puxa o whatsapp cadastrado dessa loja específica
+      getDoc(doc(db, "configuracoes_loja", lojaId)).then(docSnap => {
+        if(docSnap.exists()) {
+          setZapDaLojaPublica(docSnap.data().whatsapp || '');
+        }
+      });
+
       const q = query(collection(db, "produtos"), where("userId", "==", lojaId));
       getDocs(q).then(snapshot => {
         setProdutosPublicos(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
@@ -105,6 +120,12 @@ export default function App() {
     
     return onAuthStateChanged(auth, u => {
       setUser(u);
+      if (u) {
+        // Se a dona da conta estiver logada, puxa o zap dela atual do banco
+        getDoc(doc(db, "configuracoes_loja", u.uid)).then(docSnap => {
+          if(docSnap.exists()) setZapDonaConta(docSnap.data().whatsapp || '');
+        });
+      }
       setLoading(false);
     }); 
   }, []);
@@ -174,7 +195,12 @@ export default function App() {
     textoPedido += `---%0A`;
     textoPedido += `Aguardo a confirmação e dados para pagamento! 🙌`;
 
-    window.open(`https://wa.me/?text=${textoPedido}`, '_blank');
+    const numeroLimpo = zapDaLojaPublica.replace(/\D/g, '');
+    if (numeroLimpo) {
+      window.open(`https://wa.me/55${numeroLimpo}?text=${textoPedido}`, '_blank');
+    } else {
+      window.open(`https://wa.me/?text=${textoPedido}`, '_blank');
+    }
   };
 
   const limparCalculadora = () => {
@@ -395,7 +421,7 @@ export default function App() {
     alert("Venda confirmada!");
   };
 
-  // 🛍️ MODIFICAÇÃO DE OURO: Se tiver ID de loja na URL, renderiza a Vitrine e ignora as travas de login!
+  // 🛍️ RENDERIZAÇÃO DA VITRINE PÚBLICA PARA OS COMPRADORES (Pula Login)
   if (idLojaPublica) {
     if (carregandoPublico) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando Vitrine... 🛍️</div>;
     const totalCarrinho = Object.keys(carrinho).reduce((acc, id) => {
@@ -503,22 +529,38 @@ export default function App() {
           </div>
         )}
 
-        {/* TELA DE CATÁLOGO COM O RECURSO DE COPIAR LINK */}
+        {/* TELA DE CATÁLOGO COM CONFIGURAÇÃO DE WHATSAPP */}
         {activeTab === 'catalogo' && (
           <div className="space-y-4 pt-2">
             
-            {/* 🔗 BLOCO EXCLUSIVO: COMPARTILHAR LINK DO CATÁLOGO VISUAL */}
-            <div className="bg-gradient-to-tr from-purple-800 to-purple-600 p-6 rounded-[35px] text-white shadow-lg border border-purple-900">
-              <h3 className="text-xs font-black uppercase tracking-widest text-purple-200 flex items-center gap-1.5"><Share2 size={14}/> Link do seu Catálogo Público</h3>
-              <p className="text-xs text-purple-100 mt-1 opacity-90">Entregue essa URL para os seus clientes fazerem encomendas direto de você:</p>
-              
-              <div className="mt-4 bg-purple-900/40 p-3.5 rounded-2xl text-xs font-mono select-all break-all border border-purple-500/30 bg-black/10">
-                {linkDoCatalogoDestaCliente}
+            {/* 🔗 BLOCO DE CONFIGURAÇÃO: LINK E WHATSAPP DE RECEBIMENTO */}
+            <div className="bg-gradient-to-tr from-purple-800 to-purple-600 p-6 rounded-[35px] text-white shadow-lg border border-purple-900 space-y-4">
+              <div>
+                <h3 className="text-xs font-black uppercase tracking-widest text-purple-200 flex items-center gap-1.5"><Share2 size={14}/> Seu Catálogo Público</h3>
+                <p className="text-xs text-purple-100 mt-1 opacity-90">Link exclusivo para enviar aos seus clientes:</p>
+                <div className="mt-2 bg-purple-900/40 p-3.5 rounded-2xl text-xs font-mono select-all break-all border border-purple-500/30 bg-black/10">
+                  {linkDoCatalogoDestaCliente}
+                </div>
+                <button onClick={copiarLinkCatalogo} className="mt-2.5 w-full bg-white text-purple-800 font-bold p-3 rounded-xl text-xs uppercase shadow flex items-center justify-center gap-2 active:scale-95 transition-all">
+                  <Copy size={14}/> Copiar Link do Catálogo
+                </button>
               </div>
-              
-              <button onClick={copiarLinkCatalogo} className="mt-4 w-full bg-white text-purple-800 font-bold p-3.5 rounded-xl text-xs uppercase shadow flex items-center justify-center gap-2 active:scale-95 transition-all">
-                <Copy size={14}/> Copiar Link do Catálogo
-              </button>
+
+              <div className="border-t border-purple-500/30 pt-3">
+                <label className="text-[10px] font-black uppercase text-purple-200 block mb-1">📱 Seu WhatsApp de Vendas (Com DDD)</label>
+                <div className="flex gap-2">
+                  <input placeholder="Ex: 11999999999" className="flex-1 p-3 bg-black/20 text-white rounded-xl text-xs font-bold border border-purple-500/30 outline-none" value={zapDonaConta} onChange={e => setZapDonaConta(e.target.value)} />
+                  <button onClick={async () => {
+                    if(!zapDonaConta.trim()) return alert("Digite o número primeiro!");
+                    try {
+                      await setDoc(doc(db, "configuracoes_loja", user.uid), { whatsapp: zapDonaConta.trim() }, { merge: true });
+                      alert("WhatsApp de vendas salvo com sucesso! 🚀 Agora os pedidos vão cair direto no seu número.");
+                    } catch {
+                      alert("Erro ao salvar número.");
+                    }
+                  }} className="bg-orange-500 hover:bg-orange-600 text-white text-xs font-black uppercase px-4 rounded-xl shadow active:scale-95 transition-all">Salvar</button>
+                </div>
+              </div>
             </div>
 
             <div className="bg-white p-6 rounded-[35px] shadow-md border">
@@ -580,7 +622,7 @@ export default function App() {
                       Vender 🛍️
                     </button>
                     <button onClick={() => setNovoProdCatalogo({ id: p.id, nome: p.nome, precoVenda: String(p.precoVenda), urlImagem: p.urlImagem || '' })} className="text-purple-400 p-1.5"><Edit2 size={15}/></button>
-                    <button onClick={() => confirmarExcluir('produto', p.id)} className="text-red-200 p-1.5"><Trash2 size={15}/></button>
+                    <button onClick={() => deleteDoc(doc(db, "produtos", p.id))} className="text-red-200 p-1.5"><Trash2 size={15}/></button>
                   </div>
                 </div>
               ))}
