@@ -236,7 +236,7 @@ export default function App() {
 
   const gerarPDF = (p: any) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
-    const dataP = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combiner';
+    const dataP = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combinar';
     const elemento = document.createElement('div');
     elemento.innerHTML = `
       <div style="padding: 40px; font-family: sans-serif; color: #334155;">
@@ -536,7 +536,6 @@ export default function App() {
                <input className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-orange-500" type="number" value={desconto} onChange={e => setDesconto(e.target.value)} />
             </div>
 
-            {/* O SEU COMPONENTE DE RESUMO COM OS NOMES ORIGINAIS COMPLETOS */}
             {precoManual === null && (
               <div className="bg-slate-50 p-5 rounded-3xl mb-8 border border-slate-100 text-xs space-y-2.5">
                 <p className="font-black text-purple-700 uppercase tracking-wider text-[10px] mb-1">📋 RESUMO FINANCEIRO DA PEÇA</p>
@@ -559,7 +558,7 @@ export default function App() {
                      materiaisUsados: precoManual ? [] : matsNoPed.map(m => ({ id: m.id, nome: m.nome, qtdUsada: Number(m.qtdUsada || 1) }))
                    };
                    if (pedidoEditandoId) await updateDoc(doc(db, "pedidos", pedidoEditandoId), dadosPedido);
-                   else await addDoc(collection(db, "pedidos"), { ...dadosPedido, data: new Date().toLocaleDateString(), status: 'Pendente' });
+                   else await addDoc(collection(db, "pedidos"), { ...dadosPedido, data: new Date().toLocaleDateString('pt-BR'), status: 'Pendente' });
                    limparCalculadora(); setActiveTab('pedidos');
                    alert("Salvo!");
                 }} className="bg-orange-500 text-white px-5 py-4 rounded-[22px] font-black uppercase text-xs shadow-lg">Salvar</button>
@@ -570,7 +569,7 @@ export default function App() {
           </div>
         )}
 
-        {/* HISTÓRICO */}
+        {/* HISTÓRICO COM DATA DE VOLTA */}
         {activeTab === 'pedidos' && (
           <div className="space-y-3 pt-2">
             <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2"><History size={20}/> Histórico</h2>
@@ -581,7 +580,9 @@ export default function App() {
                  <div key={p.id} className="bg-white p-5 rounded-[30px] shadow-sm flex flex-col gap-3 border">
                    <div className="flex justify-between items-center">
                      <div>
-                        <p className="font-black text-[10px] uppercase text-purple-700 mb-1">{cli?.nome || 'Sem Cliente'} — <span className={ehPendente ? "text-orange-400" : "text-emerald-500"}>{p.status || 'Pendente'}</span></p>
+                        <p className="font-black text-[10px] uppercase text-purple-700 mb-1">
+                          {cli?.nome || 'Sem Cliente'} {p.data ? `— ${p.data}` : ''} — <span className={ehPendente ? "text-orange-400" : "text-emerald-500"}>{p.status || 'Pendente'}</span>
+                        </p>
                         <p className="font-bold text-slate-700 text-sm">{p.nomeProd} <span className="text-xs text-slate-400 font-normal">({p.qtdPed || 1} un)</span></p>
                      </div>
                      <div className="text-orange-500 font-black text-xl">R$ {p.preco}</div>
@@ -673,11 +674,11 @@ export default function App() {
           </div>
         )}
 
-        {/* CLIENTES */}
+        {/* ABA EXCLUSIVA DE CLIENTES (DE VOLTA!) */}
         {activeTab === 'clientes' && (
            <div className="space-y-4 pt-2">
             <div className="bg-white p-8 rounded-[40px] shadow-md border">
-              <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2"><User size={20}/> Novos Clientes</h2>
+              <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2"><User size={20}/> Gerenciar Clientes</h2>
               <input placeholder="Nome Comercial" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none" value={novoCli.nome} onChange={e => setNovoCli({...novoCli, nome: e.target.value})} />
               <input placeholder="WhatsApp com DDD" className="w-full p-4 bg-slate-50 rounded-2xl mb-6 outline-none" value={novoCli.zap} onChange={e => setNovoCli({...novoCli, zap: e.target.value})} />
               <button onClick={async () => {
@@ -706,12 +707,13 @@ export default function App() {
         )}
       </main>
 
-      {/* MENU INFERIOR */}
+      {/* MENU INFERIOR AJUSTADO E COMPLETO */}
       <div className="fixed bottom-6 w-full flex justify-around px-2 items-center z-50">
           <button onClick={() => setActiveTab('inicio')} className={`p-4 rounded-2xl transition-all ${activeTab === 'inicio' ? 'bg-orange-500 text-white shadow-lg' : 'bg-white text-slate-300'}`}><Home size={22}/></button>
           <button onClick={() => setActiveTab('materiais')} className={`p-4 rounded-2xl transition-all ${activeTab === 'materiais' ? 'bg-orange-500 text-white shadow-lg' : 'bg-white text-slate-300'}`}><Package size={22}/></button>
           <button onClick={() => { limparCalculadora(); setActiveTab('criar'); }} className={`p-5 rounded-[22px] transition-all border-4 border-white shadow-xl ${activeTab === 'criar' ? 'bg-orange-500 text-white scale-110' : 'bg-white text-slate-300'}`}><Plus size={24}/></button>
           <button onClick={() => setActiveTab('catalogo')} className={`p-4 rounded-2xl transition-all ${activeTab === 'catalogo' ? 'bg-orange-500 text-white shadow-lg' : 'bg-white text-slate-300'}`}><BookOpen size={22}/></button>
+          <button onClick={() => setActiveTab('clientes')} className={`p-4 rounded-2xl transition-all ${activeTab === 'clientes' ? 'bg-orange-500 text-white shadow-lg' : 'bg-white text-slate-300'}`}><User size={22}/></button>
           <button onClick={() => setActiveTab('pedidos')} className={`p-4 rounded-2xl transition-all ${activeTab === 'pedidos' ? 'bg-orange-500 text-white shadow-lg' : 'bg-white text-slate-300'}`}><History size={22}/></button>
       </div>
     </div>
