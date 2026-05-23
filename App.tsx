@@ -63,16 +63,15 @@ export default function App() {
   const [prazo, setPrazo] = useState('');
   const [clienteSel, setClienteSel] = useState('');
 
-  // Estados Login
+  // Estados Login / Cadastro
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
-  const [novoMat, setNovoMat] = useState({ id: '', nome: '', valor: '', qtd: '1' });
+  const [novoMat, setNovoMat] = useState({ id: '', nome: '', valor: '', qtd: '1', unidade: 'un' });
   const [novoCli, setNovoCli] = useState({ nome: '', zap: '' });
 
   useEffect(() => { return onAuthStateChanged(auth, u => setUser(u)); }, []);
   
-  // Carrega dinamicamente a biblioteca html2pdf para não pesar no app
   useEffect(() => {
     const script = document.createElement('script');
     script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
@@ -89,13 +88,27 @@ export default function App() {
     }
   }, [user]);
 
-  const precoFinal = useMemo(() => {
-    const cMat = matsNoPed.reduce((acc, m) => acc + ((Number(m.valor || 0) / Number(m.qtd || 1)) * Number(m.qtdUsada || 1)), 0);
-    const mObra = (Number(vHora || 0) / 60) * Number(tGasto || 0);
-    const ex = Number(custos.embalagem || 0) + Number(custos.impressao || 0) + Number(custos.energia || 0) + Number(custos.outros || 0);
-    const subtotal = (cMat + mObra + ex) * Number(qtdPed || 1);
-    const total = subtotal * (1 + (Number(lucro || 0) / 100)) - Number(desconto || 0);
-    return isNaN(total) ? "0.00" : total.toFixed(2);
+  // Cálculos detalhados para o Resumo Financeiro
+  const resumoFinanceiro = useMemo(() => {
+    const totalMateriais = matsNoPed.reduce((acc, m) => acc + ((Number(m.valor || 0) / Number(m.qtd || 1)) * Number(m.qtdUsada || 1)), 0);
+    const totalMaoObra = (Number(vHora || 0) / 60) * Number(tGasto || 0);
+    const totalExtras = Number(custos.embalagem || 0) + Number(custos.impressao || 0) + Number(custos.energia || 0) + Number(custos.outros || 0);
+    
+    const custoTotalPeca = totalMateriais + totalMaoObra + totalExtras;
+    const subtotalGeral = custoTotalPeca * Number(qtdPed || 1);
+    
+    const valorLucroLivre = subtotalGeral * (Number(lucro || 0) / 100);
+    const totalComLucro = subtotalGeral + valorLucroLivre;
+    const precoFinalCalculado = totalComLucro - Number(desconto || 0);
+
+    return {
+      materiais: totalMateriais.toFixed(2),
+      maoObra: totalMaoObra.toFixed(2),
+      extras: totalExtras.toFixed(2),
+      custoPeca: custoTotalPeca.toFixed(2),
+      lucroLivre: valorLucroLivre.toFixed(2),
+      final: isNaN(precoFinalCalculado) ? "0.00" : precoFinalCalculado.toFixed(2)
+    };
   }, [matsNoPed, vHora, tGasto, custos, lucro, qtdPed, desconto]);
 
   const enviarZap = (p: any) => {
@@ -106,7 +119,6 @@ export default function App() {
     window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
   };
 
-  // Nova função para gerar o arquivo PDF formatado
   const gerarPDF = (p: any) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
     const dataP = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combinar';
@@ -122,7 +134,7 @@ export default function App() {
           <p style="margin: 0;"><strong>WhatsApp:</strong> ${cli?.zap || 'Não informado'}</p>
         </div>
 
-        <table style="w-full; width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
           <thead>
             <tr style="border-bottom: 2px solid #e2e8f0; text-align: left;">
               <th style="padding: 10px 0; color: #94a3b8; font-size: 12px; text-transform: uppercase;">Descrição do Produto</th>
@@ -158,7 +170,6 @@ export default function App() {
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
-    // Executa a biblioteca instalada dinamicamente
     (window as any).html2pdf().from(elemento).set(opcoes).save();
   };
 
@@ -205,22 +216,23 @@ export default function App() {
                   {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
                </select>
 
-               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Materiais Usados (Folhas/Unid)</label>
+               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Materiais Usados</label>
                <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none mb-3" onChange={e => {
                   const m = materiais.find(item => item.id === e.target.value);
                   if (m) setMatsNoPed([...matsNoPed, { ...m, qtdUsada: 1 }]);
                }} value="">
                   <option value="">+ Adicionar Material...</option>
-                  {materiais.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
+                  {materiais.map(m => <option key={m.id} value={m.id}>{m.nome} ({m.unidade || 'un'})</option>)}
                </select>
                <div className="space-y-2">
                   {matsNoPed.map((m, i) => (
                     <div key={i} className="flex justify-between items-center bg-purple-50 p-3 rounded-2xl border border-purple-100 text-purple-700 font-bold text-xs">
-                      <span>{m.nome}</span>
+                      <span>{m.nome} <span className="text-[10px] text-purple-400 font-normal">({m.unidade || 'un'})</span></span>
                       <div className="flex items-center gap-2">
-                        <input type="number" className="w-12 bg-white rounded-lg p-1 text-center" value={m.qtdUsada} onChange={e => {
+                        <input type="number" className="w-16 bg-white rounded-lg p-1 text-center" value={m.qtdUsada} onChange={e => {
                            const nova = [...matsNoPed]; nova[i].qtdUsada = e.target.value; setMatsNoPed(nova);
                         }} />
+                        <span className="text-[10px] text-purple-500 font-medium">{m.unidade || 'un'}</span>
                         <button onClick={() => setMatsNoPed(matsNoPed.filter((_, idx) => idx !== i))}><X size={16}/></button>
                       </div>
                     </div>
@@ -254,20 +266,30 @@ export default function App() {
               <input type="date" className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-xs font-bold" value={prazo} onChange={e => setPrazo(e.target.value)} /></div>
             </div>
 
-            <div className="mb-10">
+            <div className="mb-6">
                <label className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1 ml-1"><Tag size={10}/> Desconto (R$)</label>
                <input className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-orange-500" type="number" value={desconto} onChange={e => setDesconto(e.target.value)} />
             </div>
 
-            <div className="flex items-center justify-between border-t pt-8">
-              <div className="text-orange-500 font-black text-5xl tracking-tighter">R$ {precoFinal}</div>
+            {/* --- BLOCO NOVO: RESUMO FINANCEIRO DOS CUSTOS --- */}
+            <div className="bg-slate-50 p-4 rounded-3xl mb-8 border border-slate-100 text-xs space-y-2">
+              <p className="text-[10px] font-black uppercase text-purple-700 tracking-wider mb-2">📊 Resumo Financeiro da Peça</p>
+              <div className="flex justify-between text-slate-500"><span>Materiais:</span><span className="font-bold">R$ {resumoFinanceiro.materiais}</span></div>
+              <div className="flex justify-between text-slate-500"><span>Mão de Obra:</span><span className="font-bold">R$ {resumoFinanceiro.maoObra}</span></div>
+              <div className="flex justify-between text-slate-500"><span>Extras / Custo Manual:</span><span className="font-bold">R$ {resumoFinanceiro.extras}</span></div>
+              <div className="flex justify-between text-slate-800 font-bold border-t pt-2 mt-1"><span>Custo Total da Peça:</span><span className="text-purple-700">R$ {resumoFinanceiro.custoPeca}</span></div>
+              <div className="flex justify-between text-emerald-600 font-bold"><span>Lucro Livre Gerado ({lucro}%):</span><span>R$ {resumoFinanceiro.lucroLivre}</span></div>
+            </div>
+
+            <div className="flex items-center justify-between border-t pt-6">
+              <div className="text-orange-500 font-black text-4xl tracking-tighter">R$ {resumoFinanceiro.final}</div>
               <div className="flex gap-2">
                 <button onClick={async () => {
-                   await addDoc(collection(db, "pedidos"), { nomeProd, preco: precoFinal, clienteId: clienteSel, prazo, qtdPed, userId: user.uid, data: new Date().toLocaleDateString() });
+                   await addDoc(collection(db, "pedidos"), { nomeProd, preco: resumoFinanceiro.final, clienteId: clienteSel, prazo, qtdPed, userId: user.uid, data: new Date().toLocaleDateString() });
                    alert("Salvo!"); setActiveTab('pedidos');
-                }} className="bg-orange-500 text-white px-6 py-5 rounded-[25px] font-black uppercase text-xs shadow-lg">Salvar</button>
-                <button onClick={() => gerarPDF({nomeProd, preco: precoFinal, clienteId: clienteSel, prazo, qtdPed})} className="bg-orange-500 text-white p-5 rounded-[25px] shadow-lg hover:bg-orange-600 transition-all active:scale-95"><Printer size={20}/></button>
-                <button onClick={() => enviarZap({nomeProd, preco: precoFinal, clienteId: clienteSel, prazo, qtdPed})} className="bg-emerald-500 text-white p-5 rounded-[25px] shadow-lg"><MessageCircle size={20}/></button>
+                }} className="bg-orange-500 text-white px-5 py-4 rounded-[22px] font-black uppercase text-xs shadow-lg">Salvar</button>
+                <button onClick={() => gerarPDF({nomeProd, preco: resumoFinanceiro.final, clienteId: clienteSel, prazo, qtdPed})} className="bg-orange-500 text-white p-4 rounded-[22px] shadow-lg hover:bg-orange-600 transition-all active:scale-95"><Printer size={18}/></button>
+                <button onClick={() => enviarZap({nomeProd, preco: resumoFinanceiro.final, clienteId: clienteSel, prazo, qtdPed})} className="bg-emerald-500 text-white p-4 rounded-[22px] shadow-lg"><MessageCircle size={18}/></button>
               </div>
             </div>
           </div>
@@ -303,23 +325,42 @@ export default function App() {
           <div className="space-y-4 pt-2">
             <div className="bg-white p-8 rounded-[40px] shadow-md border">
               <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2"><Package size={20}/> Estoque</h2>
-              <input placeholder="Material" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none" value={novoMat.nome} onChange={e => setNovoMat({...novoMat, nome: e.target.value})} />
-              <div className="flex gap-3 mb-6">
-                <input type="number" placeholder="Preço" className="flex-1 p-4 bg-slate-50 rounded-2xl outline-none" value={novoMat.valor} onChange={e => setNovoMat({...novoMat, valor: e.target.value})} />
-                <input type="number" placeholder="Qtd" className="w-24 p-4 bg-slate-50 rounded-2xl outline-none text-center" value={novoMat.qtd} onChange={e => setNovoMat({...novoMat, qtd: e.target.value})} />
+              <input placeholder="Material (Ex: Papel Fotográfico)" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none" value={novoMat.nome} onChange={e => setNovoMat({...novoMat, nome: e.target.value})} />
+              
+              <div className="grid grid-cols-3 gap-3 mb-4">
+                <input type="number" placeholder="Preço Total" className="col-span-2 p-4 bg-slate-50 rounded-2xl outline-none" value={novoMat.valor} onChange={e => setNovoMat({...novoMat, valor: e.target.value})} />
+                <input type="number" placeholder="Qtd" className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-center" value={novoMat.qtd} onChange={e => setNovoMat({...novoMat, qtd: e.target.value})} />
               </div>
+
+              {/* --- CAMPO NOVO: SELEÇÃO DE UNIDADE DE MEDIDA --- */}
+              <div className="mb-6">
+                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Medida por:</label>
+                <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-xs font-bold" value={novoMat.unidade} onChange={e => setNovoMat({...novoMat, unidade: e.target.value})}>
+                  <option value="un">📦 Unidade (un)</option>
+                  <option value="Folha A4">📄 Folha A4</option>
+                  <option value="m">📏 Metro (m)</option>
+                  <option value="cm">📐 Centímetro (cm)</option>
+                </select>
+              </div>
+
               <button onClick={async () => {
-                const d = { nome: novoMat.nome, valor: Number(novoMat.valor), qtd: Number(novoMat.qtd), userId: user.uid };
+                const d = { nome: novoMat.nome, valor: Number(novoMat.valor), qtd: Number(novoMat.qtd), unidade: novoMat.unidade, userId: user.uid };
                 if (novoMat.id) await updateDoc(doc(db, "materiais", novoMat.id), d);
                 else await addDoc(collection(db, "materiais"), d);
-                setNovoMat({ id: '', nome: '', valor: '', qtd: '1' });
+                setNovoMat({ id: '', nome: '', valor: '', qtd: '1', unidade: 'un' });
               }} className="w-full bg-orange-500 text-white p-5 rounded-2xl font-black uppercase text-xs">Salvar Material</button>
             </div>
+            
             {materiais.map(m => (
               <div key={m.id} className="bg-white p-5 rounded-3xl flex justify-between items-center border">
-                <div><p className="font-bold">{m.nome}</p><p className="text-orange-500 font-black text-sm">R$ {(Number(m.valor)/Number(m.qtd)).toFixed(2)} <span className="text-[10px] text-slate-300">/ un.</span></p></div>
+                <div>
+                  <p className="font-bold">{m.nome}</p>
+                  <p className="text-orange-500 font-black text-sm">R$ {(Number(m.valor)/Number(m.qtd)).toFixed(2)} 
+                    <span className="text-[10px] text-slate-300 font-normal"> / {m.unidade || 'un'}.</span>
+                  </p>
+                </div>
                 <div className="flex gap-1">
-                  <button onClick={() => setNovoMat({id: m.id, nome: m.nome, valor: m.valor, qtd: m.qtd})} className="text-orange-400 p-2"><Edit2 size={20}/></button>
+                  <button onClick={() => setNovoMat({id: m.id, nome: m.nome, valor: m.valor, qtd: m.qtd, unidade: m.unidade || 'un'})} className="text-orange-400 p-2"><Edit2 size={20}/></button>
                   <button onClick={() => confirmarExcluir('material', m.id)} className="text-red-200 p-2"><Trash2 size={20}/></button>
                 </div>
               </div>
