@@ -112,9 +112,16 @@ export default function App() {
     setPedidoEditandoId(null);
   };
 
-  // Função para carregar um pedido do histórico de volta na calculadora para edição
+  // CORREÇÃO: Função revisada para garantir que os materiais usados sejam carregados E fiquem visíveis
   const carregarPedidoParaEdicao = (p: any) => {
+    // 1. Limpa a calculadora primeiro para não misturar dados
+    limparCalculadora();
+
+    // 2. Define o ID do pedido que está sendo editado e muda para a aba de criar
     setPedidoEditandoId(p.id);
+    setActiveTab('criar');
+
+    // 3. Carrega os dados básicos
     setNomeProd(p.nomeProd || '');
     setQtdPed(p.qtdPed || '1');
     setVHora(p.vHora || '9');
@@ -125,25 +132,41 @@ export default function App() {
     setPrazo(p.prazo || '');
     setClienteSel(p.clienteId || '');
 
-    // Reconectar os materiais salvos com os dados de preço completos do armário atual
-    if (p.materiaisUsados && p.materiaisUsados.length > 0) {
-      const carregados = p.materiaisUsados.map((mSalvo: any) => {
-        const matOriginal = materiais.find(item => item.id === mSalvo.id);
-        return {
-          id: mSalvo.id,
-          nome: mSalvo.nome,
-          qtdUsada: mSalvo.qtdUsada,
-          valor: matOriginal ? matOriginal.valor : 0,
-          qtd: matOriginal ? matOriginal.qtd : 1,
-          unidade: matOriginal ? matOriginal.unidade : 'un'
-        };
-      });
-      setMatsNoPed(carregados);
-    } else {
-      setMatsNoPed([]);
-    }
-
-    setActiveTab('criar'); // Muda para a aba da calculadora
+    // 4. Reconectar os materiais salvos com os dados de preço completos do armário atual
+    // Usamos o setTimeout para dar tempo do React carregar os estados básicos antes de processar a lista
+    setTimeout(() => {
+      if (p.materiaisUsados && p.materiaisUsados.length > 0) {
+        const carregados = p.materiaisUsados.map((mSalvo: any) => {
+          // Busca o material original no armário para pegar o valor unitário atualizado
+          const matOriginal = materiais.find(item => item.id === mSalvo.id);
+          
+          if (matOriginal) {
+            // Se o material ainda existe no armário, carrega os dados completos dele
+            return {
+              id: mSalvo.id,
+              nome: matOriginal.nome, // Pega o nome do armário (caso tenha mudado)
+              qtdUsada: Number(mSalvo.qtdUsada), // Pega a quantidade usada salva no pedido
+              valor: matOriginal.valor, // Pega o valor total do pacote no armário
+              qtd: matOriginal.qtd, // Pega a quantidade que vem no pacote no armário
+              unidade: matOriginal.unidade // Pega a unidade de medida do armário
+            };
+          } else {
+            // Se o material foi deletado do armário, mantém o nome que estava salvo no pedido com custo zero
+            return {
+              id: mSalvo.id,
+              nome: mSalvo.nome + " (Insumo Deletado do Armário)",
+              qtdUsada: Number(mSalvo.qtdUsada),
+              valor: 0,
+              qtd: 1,
+              unidade: 'un'
+            };
+          }
+        });
+        
+        // CORREÇÃO: Salva a lista de materiais reconstruída e garante que o React veja como uma nova lista
+        setMatsNoPed([...carregados]);
+      }
+    }, 100); // Aguarda 100 milissegundos
   };
 
   // Cálculo das Métricas da Dashboard / Tela Inicial
@@ -512,7 +535,7 @@ export default function App() {
                           <button onClick={() => confirmarVendaPedido(p)} className="text-emerald-600 p-2 bg-emerald-50 rounded-xl text-xs font-bold flex items-center gap-1 active:scale-95 transition-all mr-auto">
                             <CheckCircle size={16}/> Confirmar Venda
                           </button>
-                          {/* NOVO: Botão de Lápis para carregar os dados de volta para a edição */}
+                          {/* Botão de Lápis para carregar os dados de volta para a edição */}
                           <button onClick={() => carregarPedidoParaEdicao(p)} className="text-purple-600 p-2 bg-purple-50 rounded-xl hover:bg-purple-100 transition-all active:scale-95" title="Editar Orçamento">
                             <Edit2 size={18}/>
                           </button>
@@ -624,7 +647,6 @@ export default function App() {
           </div>
         )}
 
-        {/* CLIENTES */}
         {activeTab === 'clientes' && (
            <div className="space-y-4 pt-2">
             <div className="bg-white p-8 rounded-[40px] shadow-md border">
