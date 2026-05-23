@@ -236,36 +236,96 @@ export default function App() {
 
   const gerarPDF = (p: any) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
-    const dataP = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combinar';
+    
+    const dataEmissao = p.data || new Date().toLocaleDateString('pt-BR');
+    
+    // ⏱️ ALTERADO PARA VALIDADE DE 7 DIAS AUTOMÁTICA!
+    const hoje = new Date();
+    hoje.setDate(hoje.getDate() + 7);
+    const dataValidade = hoje.toLocaleDateString('pt-BR');
+    
+    const dataPrazo = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combinar';
+    
+    const totalNum = Number(p.preco || 0);
+    const qtdNum = Number(p.qtdPed || 1);
+    const precoUnitario = (totalNum / qtdNum).toFixed(2);
+
     const elemento = document.createElement('div');
     elemento.innerHTML = `
-      <div style="padding: 40px; font-family: sans-serif; color: #334155;">
-        <h1 style="color: #6b21a8; margin-bottom: 5px; font-size: 28px;">PrecificaJá 🚀</h1>
-        <p style="color: #94a3b8; font-size: 12px; text-transform: uppercase; margin-bottom: 30px; font-weight: bold;">Orçamento Comercial</p>
-        <div style="background-color: #f8fafc; padding: 20px; border-radius: 16px; margin-bottom: 25px;">
-          <p style="margin: 0 0 8px 0;"><strong>Cliente:</strong> ${cli?.nome || 'Cliente'}</p>
-          <p style="margin: 0;"><strong>WhatsApp:</strong> ${cli?.zap || 'Não informado'}</p>
+      <div style="padding: 35px; font-family: 'Helvetica Neue', sans-serif; color: #334155; max-width: 750px; margin: 0 auto;">
+        
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px;">
+          <div>
+            <h1 style="color: #7c3aed; margin: 0; font-size: 32px; font-weight: 900; letter-spacing: -1px;">PrecificaJá 🚀</h1>
+            <p style="color: #94a3b8; font-size: 11px; text-transform: uppercase; margin: 4px 0 0 0; font-weight: bold; letter-spacing: 1px;">Documento de Orçamento Comercial</p>
+          </div>
+          <div style="text-align: right; background-color: #f8fafc; padding: 12px 20px; border-radius: 16px; border: 1px solid #e2e8f0;">
+            <span style="font-size: 10px; font-weight: bold; color: #a78bfa; text-transform: uppercase; display: block;">Código Ref</span>
+            <span style="font-size: 14px; font-weight: bold; color: #475569; display: block; margin-top: 2px;">ORC-${Math.floor(1000 + Math.random() * 9000)}</span>
+          </div>
         </div>
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+
+        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;">
+          Dados do Cliente
+        </div>
+        <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 25px; border: 1px solid #f1f5f9;">
+          <p style="margin: 0 0 6px 0; font-size: 14px;"><strong>Cliente:</strong> ${cli?.nome || 'Cliente não informado'}</p>
+          <p style="margin: 0; font-size: 13px; color: #64748b;"><strong>WhatsApp:</strong> ${cli?.zap || 'Não informado'}</p>
+        </div>
+
+        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;">
+          Informações Básicas e Prazos
+        </div>
+        <div style="display: flex; justify-content: space-between; background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 25px; border: 1px solid #f1f5f9; font-size: 13px;">
+          <div><strong>Data de Emissão:</strong><div style="margin-top: 4px; color: #64748b; font-weight: bold;">${dataEmissao}</div></div>
+          <div><strong>Validade do Orçamento:</strong><div style="margin-top: 4px; color: #ef4444; font-weight: bold;">${dataValidade} (7 dias)</div></div>
+          <div><strong>Prazo de Entrega:</strong><div style="margin-top: 4px; color: #7c3aed; font-weight: bold;">${dataPrazo}</div></div>
+        </div>
+
+        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;">
+          Produtos / Serviços Selecionados
+        </div>
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
           <thead>
-            <tr style="border-bottom: 2px solid #e2e8f0; text-align: left;">
-              <th style="padding: 10px 0; color: #94a3b8; font-size: 12px; text-transform: uppercase;">Descrição do Produto</th>
-              <th style="padding: 10px 0; color: #94a3b8; font-size: 12px; text-transform: uppercase; text-align: center;">Qtd</th>
-              <th style="padding: 10px 0; color: #94a3b8; font-size: 12px; text-transform: uppercase; text-align: right;">Total</th>
+            <tr style="border-bottom: 2px solid #e2e8f0; text-align: left; font-size: 11px; text-transform: uppercase; color: #94a3b8;">
+              <th style="padding: 10px 5px;">Descrição</th>
+              <th style="padding: 10px 5px; text-align: center;">Qtd</th>
+              <th style="padding: 10px 5px; text-align: right;">Preço Unit.</th>
+              <th style="padding: 10px 5px; text-align: right;">Subtotal</th>
             </tr>
           </thead>
           <tbody>
-            <tr style="border-bottom: 1px solid #f1f5f9;">
-              <td style="padding: 15px 0; font-weight: bold; color: #1e293b;">${p.nomeProd || 'Produto Personalizado'}</td>
-              <td style="padding: 15px 0; text-align: center;">${p.qtdPed || 1} un</td>
-              <td style="padding: 15px 0; text-align: right; font-weight: bold; color: #ea580c;">R$ ${p.preco}</td>
+            <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px;">
+              <td style="padding: 15px 5px; font-weight: bold; color: #1e293b;">${p.nomeProd}</td>
+              <td style="padding: 15px 5px; text-align: center; color: #475569;">${qtdNum}</td>
+              <td style="padding: 15px 5px; text-align: right; color: #475569;">R$ ${precoUnitario}</td>
+              <td style="padding: 15px 5px; text-align: right; font-weight: bold; color: #1e293b;">R$ ${totalNum.toFixed(2)}</td>
             </tr>
           </tbody>
         </table>
-        <p style="font-size: 14px;"><strong>Prazo de Entrega:</strong> ${dataP}</p>
+
+        <div style="display: flex; flex-direction: column; align-items: flex-end; margin-bottom: 35px; padding-right: 5px;">
+          <div style="font-size: 13px; color: #64748b; margin-bottom: 5px;">Subtotal: <strong>R$ ${totalNum.toFixed(2)}</strong></div>
+          <div style="background-color: #7c3aed; color: white; padding: 12px 25px; border-radius: 12px; font-size: 18px; font-weight: 900; text-align: right; min-width: 180px;">
+            <span style="font-size: 10px; font-weight: bold; text-transform: uppercase; display: block; opacity: 0.8; margin-bottom: 2px;">Total do Pedido</span>
+            R$ ${totalNum.toFixed(2)}
+          </div>
+        </div>
+
+        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;">
+          Forma de Pagamento
+        </div>
+        <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; border: 1px solid #f1f5f9; font-size: 13px; display: flex; justify-content: space-between;">
+          <div><strong>Forma de pagamento:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">PIX / CARTÃO</div></div>
+          <div><strong>Condições de pagamento:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">A combinar direto no WhatsApp</div></div>
+        </div>
+
+        <div style="text-align: center; font-size: 11px; color: #94a3b8; margin-top: 40px; border-top: 1px dashed #e2e8f0; padding-top: 15px;">
+          Obrigado pela preferência! Caso tenha dúvidas, entre em contato pelo nosso WhatsApp.
+        </div>
       </div>
     `;
-    const opcoes = { margin: 10, filename: `Orcamento_${p.nomeProd}.pdf`, html2canvas: { scale: 2 }, jsPDF: { format: 'a4', orientation: 'portrait' } };
+    const opcoes = { margin: 0, filename: `Orcamento_${p.nomeProd}.pdf`, html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'a4', orientation: 'portrait' } };
     (window as any).html2pdf().from(elemento).set(opcoes).save();
   };
 
@@ -666,7 +726,7 @@ export default function App() {
                     <button onClick={async () => await updateDoc(doc(db, "materiais", m.id), { qtdAtual: Math.max(0, Number(m.qtdAtual || 0) - 1) })} className="w-8 h-8 bg-slate-100 rounded-xl font-bold">-</button>
                     <button onClick={async () => await updateDoc(doc(db, "materiais", m.id), { qtdAtual: Number(m.qtdAtual || 0) + 1 })} className="w-8 h-8 bg-purple-100 rounded-xl font-bold text-purple-700">+</button>
                     <button onClick={() => setNovoMat({id: m.id, nome: m.nome, valor: String(m.valor), qtd: String(m.qtd), unidade: m.unidade, qtdAtual: String(m.qtdAtual), qtdMinima: String(m.qtdMinima)})} className="text-orange-400 p-2"><Edit2 size={16}/></button>
-                    <button onClick={() => confirmarExcluir('material', m.id)} className="text-red-200 p-2"><Trash2 size={16}/></button>
+                    <button onClick={() => microfilmExcluir('material', m.id)} className="text-red-200 p-2"><Trash2 size={16}/></button>
                   </div>
                 </div>
               );
@@ -674,7 +734,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ABA EXCLUSIVA DE CLIENTES (DE VOLTA!) */}
+        {/* ABA EXCLUSIVA DE CLIENTES */}
         {activeTab === 'clientes' && (
            <div className="space-y-4 pt-2">
             <div className="bg-white p-8 rounded-[40px] shadow-md border">
