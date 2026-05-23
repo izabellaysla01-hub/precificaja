@@ -88,9 +88,13 @@ export default function App() {
     }
   }, [user]);
 
-  // Cálculos detalhados para o Resumo Financeiro
+  // CORREÇÃO: Lógica de cálculo ajustada para ler corretamente o valor e a quantidade total do insumo
   const resumoFinanceiro = useMemo(() => {
-    const totalMateriais = matsNoPed.reduce((acc, m) => acc + ((Number(m.valor || 0) / Number(m.qtd || 1)) * Number(m.qtdUsada || 1)), 0);
+    const totalMateriais = matsNoPed.reduce((acc, m) => {
+      const valorUnitario = Number(m.valor || 0) / Number(m.qtd || 1);
+      return acc + (valorUnitario * Number(m.qtdUsada || 1));
+    }, 0);
+    
     const totalMaoObra = (Number(vHora || 0) / 60) * Number(tGasto || 0);
     const totalExtras = Number(custos.embalagem || 0) + Number(custos.impressao || 0) + Number(custos.energia || 0) + Number(custos.outros || 0);
     
@@ -186,7 +190,6 @@ export default function App() {
     }
   };
 
-  // FUNÇÃO REVISADA QUE FAZ A BAIXA DO MATERIAL APENAS NA CONFIRMAÇÃO DA VENDA
   const confirmarVendaPedido = async (pedido: any) => {
     if (!pedido.materiaisUsados || pedido.materiaisUsados.length === 0) {
       await updateDoc(doc(db, "pedidos", pedido.id), { status: 'Vendido 💰' });
@@ -240,9 +243,10 @@ export default function App() {
                </select>
 
                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Materiais Usados</label>
+               {/* CORREÇÃO: Mantendo todas as propriedades do material original (valor, qtd) no matsNoPed para a calculadora poder calcular */}
                <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none mb-3" onChange={e => {
                   const m = materiais.find(item => item.id === e.target.value);
-                  if (m) setMatsNoPed([...matsNoPed, { id: m.id, nome: m.nome, qtdUsada: 1 }]);
+                  if (m) setMatsNoPed([...matsNoPed, { id: m.id, nome: m.nome, valor: m.valor, qtd: m.qtd, unidade: m.unidade, qtdUsada: 1 }]);
                }} value="">
                   <option value="">+ Adicionar Material...</option>
                   {materiais.map(m => <option key={m.id} value={m.id}>{m.nome} ({m.unidade || 'un'})</option>)}
@@ -250,11 +254,12 @@ export default function App() {
                <div className="space-y-2">
                   {matsNoPed.map((m, i) => (
                     <div key={i} className="flex justify-between items-center bg-purple-50 p-3 rounded-2xl border border-purple-100 text-purple-700 font-bold text-xs">
-                      <span>{m.nome}</span>
+                      <span>{m.nome} <span className="text-[10px] text-purple-400 font-normal">({m.unidade || 'un'})</span></span>
                       <div className="flex items-center gap-2">
                         <input type="number" className="w-16 bg-white rounded-lg p-1 text-center" value={m.qtdUsada} onChange={e => {
                            const nova = [...matsNoPed]; nova[i].qtdUsada = e.target.value; setMatsNoPed(nova);
                         }} />
+                        <span className="text-[10px] text-purple-500 font-medium">{m.unidade || 'un'}</span>
                         <button onClick={() => setMatsNoPed(matsNoPed.filter((_, idx) => idx !== i))}><X size={16}/></button>
                       </div>
                     </div>
@@ -306,6 +311,9 @@ export default function App() {
               <div className="text-orange-500 font-black text-4xl tracking-tighter">R$ {resumoFinanceiro.final}</div>
               <div className="flex gap-2">
                 <button onClick={async () => {
+                   // Mapeando a lista para salvar apenas o necessário limpo no Firebase
+                   const materiaisSalvar = matsNoPed.map(m => ({ id: m.id, nome: m.nome, qtdUsada: Number(m.qtdUsada || 1) }));
+                   
                    await addDoc(collection(db, "pedidos"), { 
                      nomeProd, 
                      preco: resumoFinanceiro.final, 
@@ -315,7 +323,7 @@ export default function App() {
                      userId: user.uid, 
                      data: new Date().toLocaleDateString(),
                      status: 'Pendente',
-                     materiaisUsados: matsNoPed 
+                     materiaisUsados: materiaisSalvar 
                    });
                    alert("Orçamento salvo no histórico!"); 
                    setNomeProd(''); setMatsNoPed([]);
