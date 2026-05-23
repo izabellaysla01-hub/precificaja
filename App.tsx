@@ -89,7 +89,7 @@ export default function App() {
   const [novoProdCatalogo, setNovoProdCatalogo] = useState({ id: '', nome: '', precoVenda: '', urlImagem: '' });
   const [subindoImagem, setSubindoImagem] = useState(false);
 
-  // Executa ao abrir o app para checar se há "?loja=" na URL
+  // Executa ao abrir o app para checar se há "?loja=" na URL antes do estado de login
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const lojaId = params.get('loja');
@@ -394,6 +394,65 @@ export default function App() {
     await updateDoc(doc(db, "pedidos", pedido.id), { status: 'Vendido 💰' });
     alert("Venda confirmada!");
   };
+
+  // 🛍️ MODIFICAÇÃO DE OURO: Se tiver ID de loja na URL, renderiza a Vitrine e ignora as travas de login!
+  if (idLojaPublica) {
+    if (carregandoPublico) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando Vitrine... 🛍️</div>;
+    const totalCarrinho = Object.keys(carrinho).reduce((acc, id) => {
+      const prod = produtosPublicos.find(p => p.id === id);
+      return acc + (prod ? Number(prod.precoVenda) * carrinho[id] : 0);
+    }, 0);
+
+    return (
+      <div className="min-h-screen bg-slate-50 pb-40 font-sans text-slate-700">
+        <header className="bg-white p-4 text-center shadow-sm border-b sticky top-0 z-50">
+          <h1 className="text-xl font-black text-purple-700">Vitrine de Destaques 🎉</h1>
+          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">Faça suas escolhas e envie no WhatsApp</p>
+        </header>
+
+        <main className="p-4 max-w-xl mx-auto space-y-6">
+          <div className="bg-white p-5 rounded-[30px] border shadow-sm">
+            <label className="text-[10px] font-black uppercase text-purple-600 ml-1">Seu Nome Completo</label>
+            <input placeholder="Digite seu nome para o pedido..." className="w-full p-4 bg-slate-50 rounded-2xl mt-1 outline-none font-bold border border-transparent focus:border-purple-400" value={nomeComprador} onChange={e => setNomeComprador(e.target.value)} />
+          </div>
+
+          <div className="grid grid-cols-1 gap-4">
+            {produtosPublicos.map(p => {
+              const qtdNoCarinho = carrinho[p.id] || 0;
+              return (
+                <div key={p.id} className="bg-white p-4 rounded-[35px] border shadow-sm flex gap-4 items-center">
+                  <div className="w-24 h-24 rounded-2xl bg-slate-100 overflow-hidden flex items-center justify-center text-slate-300 shrink-0">
+                    {p.urlImagem ? <img src={p.urlImagem} alt={p.nome} className="w-full h-full object-cover" /> : <ImageIcon size={30} />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-black text-slate-800 text-base truncate">{p.nome}</p>
+                    <p className="text-purple-700 font-black text-lg mt-1">R$ {Number(p.precoVenda).toFixed(2)}</p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <button onClick={() => setCarrinho({ ...carrinho, [p.id]: Math.max(0, qtdNoCarinho - 1) })} className="w-8 h-8 bg-slate-100 rounded-xl font-black text-slate-600">-</button>
+                      <span className="font-bold text-sm w-6 text-center">{qtdNoCarinho}</span>
+                      <button onClick={() => setCarrinho({ ...carrinho, [p.id]: qtdNoCarinho + 1 })} className="w-8 h-8 bg-purple-100 rounded-xl font-black text-purple-700">+</button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </main>
+
+        {totalCarrinho > 0 && (
+          <div className="fixed bottom-0 left-0 right-0 bg-white p-4 border-t shadow-2xl flex flex-col items-center gap-3 z-50">
+            <div className="text-center">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Total do seu Pedido</span>
+              <div className="text-2xl font-black text-orange-500">R$ {totalCarrinho.toFixed(2)}</div>
+            </div>
+            <button onClick={finalizarPedidoPublicoWhatsapp} className="w-full max-w-md bg-emerald-500 hover:bg-emerald-600 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-lg flex items-center justify-center gap-2 tracking-wider">
+              <MessageCircle size={18}/> Encomendar no WhatsApp
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando painel... 🚀</div>;
   if (!user) return <Login {...{isRegistering, setIsRegistering, email, setEmail, password, setPassword, handleAuth}} />;
