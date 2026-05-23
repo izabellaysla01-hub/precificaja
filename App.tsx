@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { initializeApp } from "firebase/app";
 import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
-import { getFirestore, collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc } from "firebase/firestore";
+import { getFirestore, collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc, getDocs } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon } from 'lucide-react';
+import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2 } from 'lucide-react';
 
 const firebaseConfig = {
   apiKey: "AIzaSyD0BWsNm9DbGGDqiHzkdDmNdxIGdJ9tWe8",
@@ -47,6 +47,14 @@ const Login = ({ isRegistering, setIsRegistering, email, setEmail, password, set
 export default function App() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  
+  // LÓGICA DO TRUQUE: Detectar se é um comprador acessando o catálogo público
+  const [idLojaPublica, setIdLojaPublica] = useState<string | null>(null);
+  const [produtosPublicos, setProdutosPublicos] = useState<any[]>([]);
+  const [carregandoPublico, setCarregandoPublico] = useState(false);
+  const [carrinho, setCarrinho] = useState<{ [key: string]: number }>({});
+  const [nomeComprador, setNomeComprador] = useState('');
+
   const [activeTab, setActiveTab] = useState<'inicio' | 'materiais' | 'criar' | 'pedidos' | 'clientes' | 'catalogo'>('inicio');
   const [materiais, setMaterials] = useState<any[]>([]);
   const [pedidos, setPedidos] = useState<any[]>([]);
@@ -81,7 +89,20 @@ export default function App() {
   const [novoProdCatalogo, setNovoProdCatalogo] = useState({ id: '', nome: '', precoVenda: '', urlImagem: '' });
   const [subindoImagem, setSubindoImagem] = useState(false);
 
-  useEffect(() => { 
+  // Executa ao abrir o app para checar se há "?loja=" na URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const lojaId = params.get('loja');
+    if (lojaId) {
+      setIdLojaPublica(lojaId);
+      setCarregandoPublico(true);
+      const q = query(collection(db, "produtos"), where("userId", "==", lojaId));
+      getDocs(q).then(snapshot => {
+        setProdutosPublicos(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+        setCarregandoPublico(false);
+      }).catch(() => setCarregandoPublico(false));
+    }
+    
     return onAuthStateChanged(auth, u => {
       setUser(u);
       setLoading(false);
@@ -96,9 +117,9 @@ export default function App() {
     return () => { document.body.removeChild(script); };
   }, []);
 
-  // SEGURANÇA: Dados isolados por usuário
+  // SEGURANÇA: Carregamento isolado de dados por usuário logado
   useEffect(() => {
-    if (user) {
+    if (user && !idLojaPublica) {
       const qMateriais = query(collection(db, "materiais"), where("userId", "==", user.uid));
       const unsubMateriais = onSnapshot(qMateriais, s => setMaterials(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
@@ -117,13 +138,44 @@ export default function App() {
         unsubClientes();
         unsubProdutos();
       };
-    } else {
-      setMaterials([]);
-      setPedidos([]);
-      setClientes([]);
-      setProdutos([]);
     }
+  }, [user, idLojaPublica]);
+
+  const linkDoCatalogoDestaCliente = useMemo(() => {
+    if (!user) return '';
+    return `${window.location.origin}${window.location.pathname}?loja=${user.uid}`;
   }, [user]);
+
+  const copiarLinkCatalogo = () => {
+    navigator.clipboard.writeText(linkDoCatalogoDestaCliente);
+    alert("Link do seu catálogo copiado! Agora é só colar e mandar pros clientes. 🔗🚀");
+  };
+
+  const finalizarPedidoPublicoWhatsapp = () => {
+    if (!nomeComprador.trim()) return alert("Por favor, digite seu nome antes de enviar!");
+    const itensSelecionados = produtosPublicos.filter(p => carrinho[p.id] > 0);
+    if (itensSelecionados.length === 0) return alert("Seu carrinho está vazio!");
+
+    let textoPedido = `*NOVO PEDIDO VIA CATÁLOGO DE VENDAS*%0A`;
+    textoPedido += `---%0A`;
+    textoPedido += `*Cliente:* ${nomeComprador.trim()}%0A%0A`;
+    textoPedido += `*Itens do Pedido:*%0A`;
+    
+    let totalGeral = 0;
+    itensSelecionados.forEach(p => {
+      const qtd = carrinho[p.id];
+      const sub = Number(p.precoVenda) * qtd;
+      totalGeral += sub;
+      textoPedido += `• ${qtd}x _${p.nome}_ — R$ ${sub.toFixed(2)}%0A`;
+    });
+
+    textoPedido += `---%0A`;
+    textoPedido += `*VALOR TOTAL:* R$ ${totalGeral.toFixed(2)}%0A`;
+    textoPedido += `---%0A`;
+    textoPedido += `Aguardo a confirmação e dados para pagamento! 🙌`;
+
+    window.open(`https://wa.me/?text=${textoPedido}`, '_blank');
+  };
 
   const limparCalculadora = () => {
     setNomeProd('');
@@ -155,7 +207,6 @@ export default function App() {
       setNovoProdCatalogo(prev => ({ ...prev, urlImagem: urlDisponivel }));
       alert("Foto carregada com sucesso! 📸");
     } catch (error) {
-      console.error(error);
       alert("Erro ao subir a foto!");
     } finally {
       setSubindoImagem(false);
@@ -236,55 +287,44 @@ export default function App() {
 
   const gerarPDF = (p: any) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
-    
     const dataEmissao = p.data || new Date().toLocaleDateString('pt-BR');
     
-    // ⏱️ ALTERADO PARA VALIDADE DE 7 DIAS AUTOMÁTICA!
     const hoje = new Date();
     hoje.setDate(hoje.getDate() + 7);
     const dataValidade = hoje.toLocaleDateString('pt-BR');
     
     const dataPrazo = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combinar';
-    
     const totalNum = Number(p.preco || 0);
     const qtdNum = Number(p.qtdPed || 1);
     const precoUnitario = (totalNum / qtdNum).toFixed(2);
 
     const elemento = document.createElement('div');
     elemento.innerHTML = `
-      <div style="padding: 35px; font-family: 'Helvetica Neue', sans-serif; color: #334155; max-width: 750px; margin: 0 auto;">
-        
+      <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto;">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px;">
           <div>
-            <h1 style="color: #7c3aed; margin: 0; font-size: 32px; font-weight: 900; letter-spacing: -1px;">PrecificaJá 🚀</h1>
-            <p style="color: #94a3b8; font-size: 11px; text-transform: uppercase; margin: 4px 0 0 0; font-weight: bold; letter-spacing: 1px;">Documento de Orçamento Comercial</p>
+            <h1 style="color: #7c3aed; margin: 0; font-size: 32px; font-weight: 900;">PrecificaJá 🚀</h1>
+            <p style="color: #94a3b8; font-size: 11px; text-transform: uppercase; margin: 4px 0 0 0; font-weight: bold;">Documento de Orçamento Comercial</p>
           </div>
           <div style="text-align: right; background-color: #f8fafc; padding: 12px 20px; border-radius: 16px; border: 1px solid #e2e8f0;">
             <span style="font-size: 10px; font-weight: bold; color: #a78bfa; text-transform: uppercase; display: block;">Código Ref</span>
             <span style="font-size: 14px; font-weight: bold; color: #475569; display: block; margin-top: 2px;">ORC-${Math.floor(1000 + Math.random() * 9000)}</span>
           </div>
         </div>
-
-        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;">
-          Dados do Cliente
-        </div>
+        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Dados do Cliente</div>
         <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 25px; border: 1px solid #f1f5f9;">
           <p style="margin: 0 0 6px 0; font-size: 14px;"><strong>Cliente:</strong> ${cli?.nome || 'Cliente não informado'}</p>
           <p style="margin: 0; font-size: 13px; color: #64748b;"><strong>WhatsApp:</strong> ${cli?.zap || 'Não informado'}</p>
         </div>
 
-        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;">
-          Informações Básicas e Prazos
-        </div>
+        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Informações Básicas e Prazos</div>
         <div style="display: flex; justify-content: space-between; background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 25px; border: 1px solid #f1f5f9; font-size: 13px;">
           <div><strong>Data de Emissão:</strong><div style="margin-top: 4px; color: #64748b; font-weight: bold;">${dataEmissao}</div></div>
           <div><strong>Validade do Orçamento:</strong><div style="margin-top: 4px; color: #ef4444; font-weight: bold;">${dataValidade} (7 dias)</div></div>
           <div><strong>Prazo de Entrega:</strong><div style="margin-top: 4px; color: #7c3aed; font-weight: bold;">${dataPrazo}</div></div>
         </div>
 
-        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;">
-          Produtos / Serviços Selecionados
-        </div>
+        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Produtos / Serviços Selecionados</div>
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
           <thead>
             <tr style="border-bottom: 2px solid #e2e8f0; text-align: left; font-size: 11px; text-transform: uppercase; color: #94a3b8;">
@@ -312,9 +352,7 @@ export default function App() {
           </div>
         </div>
 
-        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;">
-          Forma de Pagamento
-        </div>
+        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Forma de Pagamento</div>
         <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; border: 1px solid #f1f5f9; font-size: 13px; display: flex; justify-content: space-between;">
           <div><strong>Forma de pagamento:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">PIX / CARTÃO</div></div>
           <div><strong>Condições de pagamento:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">A combinar direto no WhatsApp</div></div>
@@ -406,9 +444,24 @@ export default function App() {
           </div>
         )}
 
-        {/* TELA DE CATÁLOGO COM FOTOS */}
+        {/* TELA DE CATÁLOGO COM O RECURSO DE COPIAR LINK */}
         {activeTab === 'catalogo' && (
           <div className="space-y-4 pt-2">
+            
+            {/* 🔗 BLOCO EXCLUSIVO: COMPARTILHAR LINK DO CATÁLOGO VISUAL */}
+            <div className="bg-gradient-to-tr from-purple-800 to-purple-600 p-6 rounded-[35px] text-white shadow-lg border border-purple-900">
+              <h3 className="text-xs font-black uppercase tracking-widest text-purple-200 flex items-center gap-1.5"><Share2 size={14}/> Link do seu Catálogo Público</h3>
+              <p className="text-xs text-purple-100 mt-1 opacity-90">Entregue essa URL para os seus clientes fazerem encomendas direto de você:</p>
+              
+              <div className="mt-4 bg-purple-900/40 p-3.5 rounded-2xl text-xs font-mono select-all break-all border border-purple-500/30 bg-black/10">
+                {linkDoCatalogoDestaCliente}
+              </div>
+              
+              <button onClick={copiarLinkCatalogo} className="mt-4 w-full bg-white text-purple-800 font-bold p-3.5 rounded-xl text-xs uppercase shadow flex items-center justify-center gap-2 active:scale-95 transition-all">
+                <Copy size={14}/> Copiar Link do Catálogo
+              </button>
+            </div>
+
             <div className="bg-white p-6 rounded-[35px] shadow-md border">
               <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2 uppercase text-xs tracking-widest"><BookOpen size={18}/> Novo Item de Venda Fixa</h2>
               
@@ -726,7 +779,7 @@ export default function App() {
                     <button onClick={async () => await updateDoc(doc(db, "materiais", m.id), { qtdAtual: Math.max(0, Number(m.qtdAtual || 0) - 1) })} className="w-8 h-8 bg-slate-100 rounded-xl font-bold">-</button>
                     <button onClick={async () => await updateDoc(doc(db, "materiais", m.id), { qtdAtual: Number(m.qtdAtual || 0) + 1 })} className="w-8 h-8 bg-purple-100 rounded-xl font-bold text-purple-700">+</button>
                     <button onClick={() => setNovoMat({id: m.id, nome: m.nome, valor: String(m.valor), qtd: String(m.qtd), unidade: m.unidade, qtdAtual: String(m.qtdAtual), qtdMinima: String(m.qtdMinima)})} className="text-orange-400 p-2"><Edit2 size={16}/></button>
-                    <button onClick={() => microfilmExcluir('material', m.id)} className="text-red-200 p-2"><Trash2 size={16}/></button>
+                    <button onClick={() => confirmarExcluir('material', m.id)} className="text-red-200 p-2"><Trash2 size={16}/></button>
                   </div>
                 </div>
               );
