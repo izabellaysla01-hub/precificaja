@@ -35,7 +35,7 @@ const Login = ({ isRegistering, setIsRegistering, email, setEmail, password, set
         <input type="email" placeholder="Seu e-mail" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none focus:ring-2 focus:ring-purple-600" value={email} onChange={e => setEmail(e.target.value)} />
         <input type="password" placeholder="Senha" className="w-full p-4 bg-slate-50 rounded-2xl mb-2 outline-none focus:ring-2 focus:ring-purple-600" value={password} onChange={e => setPassword(e.target.value)} />
         
-        <button onClick={recuperarSenha} className="text-[10px] text-purple-400 font-bold uppercase mb-6 hover:text-purple-600 block w-full text-right pr-2">Esqueci minha senha</button>
+        <button onClick={recurarSenha} className="text-[10px] text-purple-400 font-bold uppercase mb-6 hover:text-purple-600 block w-full text-right pr-2">Esqueci minha senha</button>
         
         <button onClick={handleAuth} className="w-full bg-orange-500 text-white font-bold py-4 rounded-2xl shadow-lg hover:bg-orange-600 transition-all uppercase">{isRegistering ? 'Criar Conta Grátis' : 'Entrar no App'}</button>
         <button onClick={() => setIsRegistering(!isRegistering)} className="mt-4 text-sm text-purple-600 underline block w-full font-medium">{isRegistering ? 'Já tenho login' : 'Cadastrar novo usuário'}</button>
@@ -63,11 +63,11 @@ export default function App() {
   const [prazo, setPrazo] = useState('');
   const [clienteSel, setClienteSel] = useState('');
 
-  // Estados Login / Cadastro
+  // Estados Login / Cadastro / Novo Material com Campos de Estoque
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
-  const [novoMat, setNovoMat] = useState({ id: '', nome: '', valor: '', qtd: '1', unidade: 'un' });
+  const [novoMat, setNovoMat] = useState({ id: '', nome: '', valor: '', qtd: '1', unidade: 'un', qtdAtual: '0', qtdMinima: '0' });
   const [novoCli, setNovoCli] = useState({ nome: '', zap: '' });
 
   useEffect(() => { return onAuthStateChanged(auth, u => setUser(u)); }, []);
@@ -320,19 +320,38 @@ export default function App() {
           </div>
         )}
 
-        {/* ESTOQUE */}
+        {/* ESTOQUE E GERENCIAMENTO DE MATERIAIS */}
         {activeTab === 'materiais' && (
           <div className="space-y-4 pt-2">
             <div className="bg-white p-8 rounded-[40px] shadow-md border">
-              <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2"><Package size={20}/> Estoque</h2>
-              <input placeholder="Material (Ex: Papel Fotográfico)" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none" value={novoMat.nome} onChange={e => setNovoMat({...novoMat, nome: e.target.value})} />
+              <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2"><Package size={20}/> Gerenciar Armário</h2>
               
-              <div className="grid grid-cols-3 gap-3 mb-4">
-                <input type="number" placeholder="Preço Total" className="col-span-2 p-4 bg-slate-50 rounded-2xl outline-none" value={novoMat.valor} onChange={e => setNovoMat({...novoMat, valor: e.target.value})} />
-                <input type="number" placeholder="Qtd" className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-center" value={novoMat.qtd} onChange={e => setNovoMat({...novoMat, qtd: e.target.value})} />
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome do Material</label>
+              <input placeholder="Ex: Papel Fotográfico" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none" value={novoMat.nome} onChange={e => setNovoMat({...novoMat, nome: e.target.value})} />
+              
+              <div className="grid grid-cols-3 gap-3 mb-3">
+                <div className="col-span-2">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Preço Total do Pacote/Rolo</label>
+                  <input type="number" placeholder="R$ 0,00" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={novoMat.valor} onChange={e => setNovoMat({...novoMat, valor: e.target.value})} />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase block text-center">Vem Quantos?</label>
+                  <input type="number" placeholder="Ex: 100" className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-center" value={novoMat.qtd} onChange={e => setNovoMat({...novoMat, qtd: e.target.value})} />
+                </div>
               </div>
 
-              {/* --- CAMPO NOVO: SELEÇÃO DE UNIDADE DE MEDIDA --- */}
+              {/* NOVOS CAMPOS: QUANTIDADES DE ESTOQUE */}
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div>
+                  <label className="text-[10px] font-bold text-purple-600 uppercase ml-1">Tem no armário hoje?</label>
+                  <input type="number" placeholder="Ex: 50" className="w-full p-4 bg-purple-50 rounded-2xl outline-none text-center font-bold text-purple-700" value={novoMat.qtdAtual} onChange={e => setNovoMat({...novoMat, qtdAtual: e.target.value})} />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-red-500 uppercase ml-1">Avisar se chegar em:</label>
+                  <input type="number" placeholder="Ex: 5" className="w-full p-4 bg-red-50 rounded-2xl outline-none text-center font-bold text-red-700" value={novoMat.qtdMinima} onChange={e => setNovoMat({...novoMat, qtdMinima: e.target.value})} />
+                </div>
+              </div>
+
               <div className="mb-6">
                 <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Medida por:</label>
                 <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-xs font-bold" value={novoMat.unidade} onChange={e => setNovoMat({...novoMat, unidade: e.target.value})}>
@@ -344,27 +363,57 @@ export default function App() {
               </div>
 
               <button onClick={async () => {
-                const d = { nome: novoMat.nome, valor: Number(novoMat.valor), qtd: Number(novoMat.qtd), unidade: novoMat.unidade, userId: user.uid };
+                const d = { 
+                  nome: novoMat.nome, 
+                  valor: Number(novoMat.valor), 
+                  qtd: Number(novoMat.qtd), 
+                  unidade: novoMat.unidade,
+                  qtdAtual: Number(novoMat.qtdAtual || 0),
+                  qtdMinima: Number(novoMat.qtdMinima || 0),
+                  userId: user.uid 
+                };
                 if (novoMat.id) await updateDoc(doc(db, "materiais", novoMat.id), d);
                 else await addDoc(collection(db, "materiais"), d);
-                setNovoMat({ id: '', nome: '', valor: '', qtd: '1', unidade: 'un' });
-              }} className="w-full bg-orange-500 text-white p-5 rounded-2xl font-black uppercase text-xs">Salvar Material</button>
+                setNovoMat({ id: '', nome: '', valor: '', qtd: '1', unidade: 'un', qtdAtual: '0', qtdMinima: '0' });
+                alert("Material salvo com sucesso!");
+              }} className="w-full bg-orange-500 text-white p-5 rounded-2xl font-black uppercase text-xs shadow-lg active:scale-95 transition-all">
+                {novoMat.id ? 'Atualizar Insumo' : 'Salvar no Armário'}
+              </button>
             </div>
             
-            {materiais.map(m => (
-              <div key={m.id} className="bg-white p-5 rounded-3xl flex justify-between items-center border">
-                <div>
-                  <p className="font-bold">{m.nome}</p>
-                  <p className="text-orange-500 font-black text-sm">R$ {(Number(m.valor)/Number(m.qtd)).toFixed(2)} 
-                    <span className="text-[10px] text-slate-300 font-normal"> / {m.unidade || 'un'}.</span>
-                  </p>
+            <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider ml-2">📋 Itens no Armário</h3>
+            {materiais.map(m => {
+              const estaAcabando = Number(m.qtdAtual || 0) <= Number(m.qtdMinima || 0);
+              return (
+                <div key={m.id} className={`bg-white p-5 rounded-3xl flex justify-between items-center border ${estaAcabando ? 'border-red-200 bg-red-50/10' : 'border-slate-100'}`}>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm">{estaAcabando ? '🔴' : '🟢'}</span>
+                      <p className="font-bold text-slate-800">{m.nome}</p>
+                    </div>
+                    <p className="text-orange-500 font-black text-xs mt-1">
+                      Custo: R$ {(Number(m.valor)/Number(m.qtd)).toFixed(2)} <span className="text-[10px] text-slate-400 font-normal">/{m.unidade || 'un'}</span>
+                    </p>
+                    <p className="text-xs text-slate-500 mt-1 font-medium">
+                      No armário: <span className={`font-bold ${estaAcabando ? 'text-red-600' : 'text-purple-700'}`}>{m.qtdAtual || 0} {m.unidade || 'un'}</span>
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    <button onClick={async () => {
+                      await updateDoc(doc(db, "materiais", m.id), { qtdAtual: Math.max(0, Number(m.qtdAtual || 0) - 1) });
+                    }} className="p-2 bg-slate-100 rounded-xl font-bold text-slate-600 active:scale-95 w-8 h-8 flex items-center justify-center">-</button>
+                    
+                    <button onClick={async () => {
+                      await updateDoc(doc(db, "materiais", m.id), { qtdAtual: Number(m.qtdAtual || 0) + 1 });
+                    }} className="p-2 bg-purple-100 rounded-xl font-bold text-purple-700 active:scale-95 w-8 h-8 flex items-center justify-center">+</button>
+
+                    <button onClick={() => setNovoMat({id: m.id, nome: m.nome, valor: m.valor, qtd: m.qtd, unidade: m.unidade || 'un', qtdAtual: String(m.qtdAtual || 0), qtdMinima: String(m.qtdMinima || 0)})} className="text-orange-400 p-2 ml-2"><Edit2 size={18}/></button>
+                    <button onClick={() => confirmarExcluir('material', m.id)} className="text-red-200 p-2"><Trash2 size={18}/></button>
+                  </div>
                 </div>
-                <div className="flex gap-1">
-                  <button onClick={() => setNovoMat({id: m.id, nome: m.nome, valor: m.valor, qtd: m.qtd, unidade: m.unidade || 'un'})} className="text-orange-400 p-2"><Edit2 size={20}/></button>
-                  <button onClick={() => confirmarExcluir('material', m.id)} className="text-red-200 p-2"><Trash2 size={20}/></button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
