@@ -46,7 +46,6 @@ const Login = ({ isRegistering, setIsRegistering, email, setEmail, password, set
 
 export default function App() {
   const [user, setUser] = useState<any>(null);
-  // Modificado para abrir direto na aba de início
   const [activeTab, setActiveTab] = useState<'inicio' | 'materiais' | 'criar' | 'pedidos' | 'clientes'>('inicio');
   const [materiais, setMaterials] = useState<any[]>([]);
   const [pedidos, setPedidos] = useState<any[]>([]);
@@ -89,7 +88,7 @@ export default function App() {
     }
   }, [user]);
 
-  // NOVO: Cálculo das Métricas da Dashboard / Tela Inicial
+  // Cálculo das Métricas da Dashboard / Tela Inicial
   const dashboardMetrics = useMemo(() => {
     const faturamentoTotal = pedidos
       .filter(p => p.status === 'Vendido 💰')
@@ -131,7 +130,7 @@ export default function App() {
       lucroLivre: valorLucroLivre.toFixed(2),
       final: isNaN(precoFinalCalculado) ? "0.00" : precoFinalCalculado.toFixed(2)
     };
-  }, [matsNoPed, vHora, tGasto, custos, lucro, qtdPed, discount]);
+  }, [matsNoPed, vHora, tGasto, custos, lucro, qtdPed, desconto]);
 
   const enviarZap = (p: any) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
@@ -209,7 +208,7 @@ export default function App() {
   };
 
   const confirmarVendaPedido = async (pedido: any) => {
-    if (!pedido.materiaisUsados || pedido.materiaisUsados.length === 0) {
+    if (!pedido.materiaisUsados || pedido.materialsUsados.length === 0) {
       await updateDoc(doc(db, "pedidos", pedido.id), { status: 'Vendido 💰' });
       alert("Venda confirmada!");
       return;
@@ -240,7 +239,7 @@ export default function App() {
       </header>
 
       <main className="p-4 max-w-xl mx-auto">
-        {/* TELA INICIAL / DASHBOARD COMPLETA */}
+        {/* TELA INICIAL / DASHBOARD */}
         {activeTab === 'inicio' && (
           <div className="space-y-5 pt-2 animate-fadeIn">
             <div className="bg-gradient-to-tr from-purple-700 to-indigo-600 p-6 rounded-[35px] shadow-lg text-white">
@@ -254,7 +253,7 @@ export default function App() {
             <div className="grid grid-cols-2 gap-4">
               <div onClick={() => setActiveTab('pedidos')} className="bg-white p-5 rounded-[30px] border shadow-sm cursor-pointer active:scale-95 transition-all">
                 <div className="w-10 h-10 rounded-2xl bg-orange-50 flex items-center justify-center text-orange-500 mb-3"><History size={20}/></div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Orcamentos</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Orçamentos</p>
                 <p className="text-2xl font-black text-slate-800 mt-0.5">{dashboardMetrics.pendentes} <span className="text-xs text-slate-400 font-bold">Abertos</span></p>
               </div>
 
@@ -387,7 +386,7 @@ export default function App() {
                      status: 'Pendente',
                      materiaisUsados: materiaisSalvar 
                    });
-                   alert("Orçamento saved!"); 
+                   alert("Orçamento salvo!"); 
                    setNomeProd(''); setMatsNoPed([]);
                    setActiveTab('pedidos');
                 }} className="bg-orange-500 text-white px-5 py-4 rounded-[22px] font-black uppercase text-xs shadow-lg">Salvar</button>
