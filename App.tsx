@@ -314,69 +314,76 @@ export default function App() {
   const gerarPDF = (p: any) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
     const dataEmissao = p.data || new Date().toLocaleDateString('pt-BR');
+    
     const hoje = new Date();
     hoje.setDate(hoje.getDate() + 7);
     const dataValidade = hoje.toLocaleDateString('pt-BR');
-    const totalNum = Number(p.preco || 0);
-
-    // Cria o container
-    const elemento = document.createElement('div');
     
-    // Adicionamos o CSS aqui dentro para garantir que nada se perca
-    elemento.innerHTML = `
-      <style>
-        .pdf-container { font-family: sans-serif; color: #334155; padding: 40px; }
-        .header { display: flex; justify-content: space-between; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; }
-        .titulo { color: #7c3aed; font-size: 32px; font-weight: 900; }
-        .label { font-size: 11px; text-transform: uppercase; font-weight: bold; color: #94a3b8; }
-        .valor { font-size: 14px; font-weight: bold; color: #1e293b; }
-        .box-destaque { background: #f8fafc; padding: 15px; border-radius: 12px; margin: 10px 0; }
-        .total-area { background: #7c3aed; color: white; padding: 15px; border-radius: 12px; text-align: right; }
-      </style>
-      
-      <div class="pdf-container">
-        <div class="header">
-          <div>
-            <h1 class="titulo">PrecificaJá 🚀</h1>
-            <p class="label">Orçamento Comercial</p>
+    const dataPrazo = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combinar';
+    const totalNum = Number(p.preco || 0);
+    const qtdNum = Number(p.qtdPed || 1);
+    const precoUnitario = (totalNum / qtdNum).toFixed(2);
+
+    // 1. Cria o contêiner de visualização
+    const container = document.createElement('div');
+    container.id = "pdf-preview-container";
+    container.style.cssText = "position:fixed; top:0; left:0; width:100%; height:100%; background:white; z-index:99999; overflow-y:auto;";
+
+    // 2. Adiciona o botão X e o SEU código original dentro dele
+    container.innerHTML = `
+      <div style="padding: 20px; text-align: right; background: #fff; position: sticky; top: 0; border-bottom: 1px solid #eee;">
+        <button id="btn-fechar-pdf" style="background:#ef4444; color:white; border:none; padding:10px 20px; border-radius:10px; font-weight:bold; cursor:pointer;">FECHAR X</button>
+      </div>
+      <div id="conteudo-pdf-final">
+        ${/* AQUI ESTÁ O SEU CÓDIGO ORIGINAL */ ''}
+        <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto;">
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px;">
+            <div>
+              <h1 style="color: #7c3aed; margin: 0; font-size: 32px; font-weight: 900;">PrecificaJá 🚀</h1>
+              <p style="color: #94a3b8; font-size: 11px; text-transform: uppercase; margin: 4px 0 0 0; font-weight: bold;">Documento de Orçamento Comercial</p>
+            </div>
+            <div style="text-align: right; background-color: #f8fafc; padding: 12px 20px; border-radius: 16px; border: 1px solid #e2e8f0;">
+              <span style="font-size: 10px; font-weight: bold; color: #a78bfa; text-transform: uppercase; display: block;">Código Ref</span>
+              <span style="font-size: 14px; font-weight: bold; color: #475569; display: block; margin-top: 2px;">ORC-${Math.floor(1000 + Math.random() * 9000)}</span>
+            </div>
           </div>
-          <div style="text-align: right;">
-            <div class="label">Validade</div>
-            <div style="color: #ef4444; font-weight: bold;">${dataValidade}</div>
+          <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Dados do Cliente</div>
+          <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 25px; border: 1px solid #f1f5f9;">
+            <p style="margin: 0 0 6px 0; font-size: 14px;"><strong>Cliente:</strong> ${cli?.nome || 'Cliente não informado'}</p>
+            <p style="margin: 0; font-size: 13px; color: #64748b;"><strong>WhatsApp:</strong> ${cli?.zap || 'Não informado'}</p>
           </div>
-        </div>
-
-        <div class="box-destaque">
-          <div class="label">Cliente</div>
-          <div class="valor">${cli?.nome || 'Não informado'}</div>
-        </div>
-
-        <table style="width: 100%; margin-top: 30px; border-collapse: collapse;">
-          <tr style="border-bottom: 1px solid #e2e8f0;">
-            <th style="text-align: left; padding: 10px;">Produto</th>
-            <th style="text-align: right; padding: 10px;">Total</th>
-          </tr>
-          <tr>
-            <td style="padding: 10px;">${p.nomeProd}</td>
-            <td style="padding: 10px; text-align: right; font-weight: bold;">R$ ${totalNum.toFixed(2)}</td>
-          </tr>
-        </table>
-
-        <div class="total-area" style="margin-top: 30px;">
-          <div style="font-size: 12px; opacity: 0.8;">TOTAL DO PEDIDO</div>
-          <div style="font-size: 24px; font-weight: 900;">R$ ${totalNum.toFixed(2)}</div>
+          <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Informações Básicas e Prazos</div>
+          <div style="display: flex; justify-content: space-between; background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 25px; border: 1px solid #f1f5f9; font-size: 13px;">
+            <div><strong>Data de Emissão:</strong><div style="margin-top: 4px; color: #64748b; font-weight: bold;">${dataEmissao}</div></div>
+            <div><strong>Validade do Orçamento:</strong><div style="margin-top: 4px; color: #ef4444; font-weight: bold;">${dataValidade} (7 dias)</div></div>
+            <div><strong>Prazo de Entrega:</strong><div style="margin-top: 4px; color: #7c3aed; font-weight: bold;">${dataPrazo}</div></div>
+          </div>
+          <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Produtos / Serviços Selecionados</div>
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+            <thead><tr style="border-bottom: 2px solid #e2e8f0; text-align: left; font-size: 11px; text-transform: uppercase; color: #94a3b8;"><th style="padding: 10px 5px;">Descrição</th><th style="padding: 10px 5px; text-align: center;">Qtd</th><th style="padding: 10px 5px; text-align: right;">Preço Unit.</th><th style="padding: 10px 5px; text-align: right;">Subtotal</th></tr></thead>
+            <tbody><tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px;"><td style="padding: 15px 5px; font-weight: bold; color: #1e293b;">${p.nomeProd}</td><td style="padding: 15px 5px; text-align: center; color: #475569;">${qtdNum}</td><td style="padding: 15px 5px; text-align: right; color: #475569;">R$ ${precoUnitario}</td><td style="padding: 15px 5px; text-align: right; font-weight: bold; color: #1e293b;">R$ ${totalNum.toFixed(2)}</td></tr></tbody>
+          </table>
+          <div style="display: flex; flex-direction: column; align-items: flex-end; margin-bottom: 35px; padding-right: 5px;">
+            <div style="font-size: 13px; color: #64748b; margin-bottom: 5px;">Subtotal: <strong>R$ ${totalNum.toFixed(2)}</strong></div>
+            <div style="background-color: #7c3aed; color: white; padding: 12px 25px; border-radius: 12px; font-size: 18px; font-weight: 900; text-align: right; min-width: 180px;"><span style="font-size: 10px; font-weight: bold; text-transform: uppercase; display: block; opacity: 0.8; margin-bottom: 2px;">Total do Pedido</span>R$ ${totalNum.toFixed(2)}</div>
+          </div>
+          <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Forma de Pagamento</div>
+          <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; border: 1px solid #f1f5f9; font-size: 13px; display: flex; justify-content: space-between;"><div><strong>Forma de pagamento:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">PIX / CARTÃO</div></div><div><strong>Condições de pagamento:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">A combinar direto no WhatsApp</div></div></div>
+          <div style="text-align: center; font-size: 11px; color: #94a3b8; margin-top: 40px; border-top: 1px dashed #e2e8f0; padding-top: 15px;">Obrigado pela preferência!</div>
         </div>
       </div>
     `;
 
-    const opcoes = { 
-      margin: 0, 
-      filename: `Orcamento_${p.nomeProd}.pdf`, 
-      html2canvas: { scale: 2, useCORS: true }, 
-      jsPDF: { format: 'a4', orientation: 'portrait' } 
-    };
+    document.body.appendChild(container);
 
-    (window as any).html2pdf().from(elemento).set(opcoes).save();
+    // 3. Botão para fechar
+    document.getElementById('btn-fechar-pdf')?.addEventListener('click', () => {
+        document.body.removeChild(container);
+    });
+
+    // 4. Gera o PDF usando o ID do conteúdo interno
+    const opcoes = { margin: 0, filename: `Orcamento_${p.nomeProd}.pdf`, html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'a4', orientation: 'portrait' } };
+    (window as any).html2pdf().from(document.getElementById('conteudo-pdf-final')).set(opcoes).save();
 };
 
   const handleAuth = async () => {
