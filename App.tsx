@@ -945,25 +945,25 @@ export default function App() {
         )}
       </main>
 
-      {/* MENU INFERIOR CORRIGIDO, BALANCEADO E FLUIDO */}
+            {/* MENU INFERIOR 100% PLANO, ALINHADO E PERFEITO */}
       <div className="fixed bottom-0 left-0 right-0 flex justify-center p-4 z-50 bg-transparent pointer-events-none">
-        <div className="relative bg-white shadow-[0_-10px_30px_rgba(0,0,0,0.05)] rounded-[30px] flex justify-around items-center px-2 h-20 w-full max-w-xl pointer-events-auto">
+        <div className="bg-white shadow-[0_-10px_30px_rgba(0,0,0,0.05)] rounded-[30px] flex justify-around items-center px-2 h-16 w-full max-w-xl pointer-events-auto">
           
           {/* Aba: Início */}
           <button 
             onClick={() => setActiveTab('inicio')} 
             className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'inicio' ? 'text-orange-500' : 'text-slate-300'}`}
           >
-            <Home size={22} className={activeTab === 'inicio' ? 'stroke-[2.5]' : 'stroke-[2]'} />
+            <Home size={20} className={activeTab === 'inicio' ? 'stroke-[2.5]' : 'stroke-[2]'} />
             <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Início</span>
           </button>
 
           {/* Aba: Armário */}
           <button 
-            onClick={() => setActiveTab('materials') || setActiveTab('materiais')} 
+            onClick={() => setActiveTab('materiais')} 
             className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'materiais' ? 'text-orange-500' : 'text-slate-300'}`}
           >
-            <Package size={22} className={activeTab === 'materiais' ? 'stroke-[2.5]' : 'stroke-[2]'} />
+            <Package size={20} className={activeTab === 'materiais' ? 'stroke-[2.5]' : 'stroke-[2]'} />
             <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Armário</span>
           </button>
 
@@ -972,30 +972,25 @@ export default function App() {
             onClick={() => setActiveTab('catalogo')} 
             className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'catalogo' ? 'text-orange-500' : 'text-slate-300'}`}
           >
-            <BookOpen size={22} className={activeTab === 'catalogo' ? 'stroke-[2.5]' : 'stroke-[2]'} />
+            <BookOpen size={20} className={activeTab === 'catalogo' ? 'stroke-[2.5]' : 'stroke-[2]'} />
             <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Catálogo</span>
           </button>
 
-          {/* BOTÃO CENTRAL (+) COM CURVATURA FLUIDA (MUDA PARA LARANJA QUANDO ATIVO) */}
-          <div className="relative flex justify-center items-center flex-1 h-full">
-            <div className="absolute -top-7 bg-slate-50 w-20 h-20 rounded-full flex items-center justify-center z-0">
-              <div className="bg-white w-[72px] h-[72px] rounded-full shadow-[0_-8px_15px_rgba(0,0,0,0.03)]" />
-            </div>
-            <button 
-              onClick={() => { limparCalculadora(); setActiveTab('criar'); }} 
-              className={`absolute -top-5 p-4 rounded-full transition-all border-4 border-slate-50 z-10 hover:scale-105 active:scale-95 shadow-md ${activeTab === 'criar' ? 'bg-orange-500 text-white scale-110 shadow-[0_10px_20px_rgba(249,115,22,0.3)]' : 'bg-slate-300 text-white'}`}
-            >
-              <Plus size={26} className="stroke-[3]" />
-            </button>
-            <span className={`text-[9px] font-bold mt-auto mb-1.5 uppercase tracking-wider z-10 transition-colors ${activeTab === 'criar' ? 'text-orange-500 font-black' : 'text-slate-300'}`}>Orçar</span>
-          </div>
+          {/* Aba: Orçar (AGORA TOTALMENTE IGUAL E ALINHADA COM AS OUTRAS) */}
+          <button 
+            onClick={() => { limparCalculadora(); setActiveTab('criar'); }} 
+            className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'criar' ? 'text-orange-500' : 'text-slate-300'}`}
+          >
+            <Plus size={20} className={activeTab === 'criar' ? 'stroke-[3]' : 'stroke-[2]'} />
+            <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Orçar</span>
+          </button>
 
           {/* Aba: Clientes */}
           <button 
             onClick={() => setActiveTab('clientes')} 
             className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'clientes' ? 'text-orange-500' : 'text-slate-300'}`}
           >
-            <User size={22} className={activeTab === 'clientes' ? 'stroke-[2.5]' : 'stroke-[2]'} />
+            <User size={20} className={activeTab === 'clientes' ? 'stroke-[2.5]' : 'stroke-[2]'} />
             <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Clientes</span>
           </button>
 
@@ -1004,12 +999,11 @@ export default function App() {
             onClick={() => setActiveTab('pedidos')} 
             className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'pedidos' ? 'text-orange-500' : 'text-slate-300'}`}
           >
-            <History size={22} className={activeTab === 'pedidos' ? 'stroke-[2.5]' : 'stroke-[2]'} />
+            <History size={20} className={activeTab === 'pedidos' ? 'stroke-[2.5]' : 'stroke-[2]'} />
             <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Histórico</span>
           </button>
 
         </div>
       </div>
-    </div>
   );
 }
