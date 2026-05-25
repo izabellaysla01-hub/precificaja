@@ -194,83 +194,6 @@ export default function App() {
     }
   };
 
-  const limparCalculadora = () => {
-    setNomeProd('');
-    setQtdPed('1');
-    setMatsNoPed([]);
-    setVHora('9');
-    setTGasto('60');
-    setCustos({ embalagem: '0', impressao: '0', energia: '0', outros: '0' });
-    setLucro('100');
-    setDesconto('0');
-    setPrazo('');
-    setClienteSel('');
-    setPedidoEditandoId(null);
-    setPrecoManual(null);
-    setObsPedido('');
-  };
-
-  const handleUploadImagem = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !user) return;
-
-    setSubindoImagem(true);
-    try {
-      const nomeArquivo = `${user.uid}_${Date.now()}_${file.name}`;
-      const imagemRef = ref(storage, `produtos/${nomeArquivo}`);
-      
-      await uploadBytes(imagemRef, file);
-      const urlDisponivel = await getDownloadURL(imagemRef);
-      
-      setNovoProdCatalogo(prev => ({ ...prev, urlImagem: urlDisponivel }));
-      alert("Foto carregada com sucesso! 📸");
-    } catch (error) {
-      alert("Erro ao subir a foto!");
-    } finally {
-      setSubindoImagem(false);
-    }
-  };
-
-  const carregarPedidoParaEdicao = (p: any) => {
-    setPedidoEditandoId(p.id);
-    setNomeProd(p.nomeProd || '');
-    setQtdPed(p.qtdPed || '1');
-    setVHora(p.vHora || '9');
-    setTGasto(p.tGasto || '60');
-    setCustos(p.custos || { embalagem: '0', impressao: '0', energia: '0', outros: '0' });
-    setLucro(p.lucro || '100');
-    setDesconto(p.desconto || '0');
-    setPrazo(p.prazo || '');
-    setClienteSel(p.clienteId || '');
-    setPrecoManual(p.precoManual || null);
-    setObsPedido(p.obsPedido || '');
-
-    if (p.materiaisUsados && p.materiaisUsados.length > 0) {
-      const listaReconstruida = p.materiaisUsados.map((mSalvo: any) => {
-        const matDoArmario = materiais.find(item => item.id === mSalvo.id);
-        return {
-          id: mSalvo.id,
-          nome: matDoArmario ? matDoArmario.nome : mSalvo.nome,
-          qtdUsada: Number(mSalvo.qtdUsada || 1),
-          valor: matDoArmario ? Number(matDoArmario.valor) : Number(mSalvo.valor || 0),
-          qtd: matDoArmario ? Number(matDoArmario.qtd) : Number(mSalvo.qtd || 1),
-          unidade: matDoArmario ? matDoArmario.unidade : (mSalvo.unidade || 'un')
-        };
-      });
-      setMatsNoPed(listaReconstruida);
-    } else {
-      setMatsNoPed([]);
-    }
-    setActiveTab('criar');
-  };
-
-  const venderItemDiretoDoCatalogo = (prod: any) => {
-    limparCalculadora();
-    setNomeProd(prod.nome);
-    setPrecoManual(prod.precoVenda);
-    setActiveTab('criar');
-  };
-
   const dashboardMetrics = useMemo(() => {
     const faturamentoTotal = pedidos.filter(p => p.status === 'Vendido 💰').reduce((acc, p) => acc + Number(p.preco || 0), 0);
     const pendentesCount = pedidos.filter(p => p.status !== 'Vendido 💰').length;
@@ -421,6 +344,28 @@ export default function App() {
     alert("Venda confirmada!");
   };
 
+  const handleUploadImagem = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    setSubindoImagem(true);
+    try {
+      const nomeArquivo = `${user.uid}_${Date.now()}_${file.name}`;
+      const imagemRef = ref(storage, `produtos/${nomeArquivo}`);
+      
+      await uploadBytes(imagemRef, file);
+      const urlDisponivel = await getDownloadURL(imagemRef);
+      
+      setNovoProdCatalogo(prev => ({ ...prev, urlImagem: urlDisponivel }));
+      alert("Foto carregada com sucesso! 📸");
+    } catch (error) {
+      alert("Erro ao subir a foto!");
+    } finally {
+      setSubindoImagem(false);
+    }
+  };
+
+  // VITRINE PÚBLICA (Compradores)
   if (idLojaPublica) {
     if (carregandoPublico) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando Vitrine... 🛍️</div>;
     const totalCarrinho = Object.keys(carrinho).reduce((acc, id) => {
@@ -481,6 +426,179 @@ export default function App() {
 
   if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando painel... 🚀</div>;
   if (!user) return <Login {...{isRegistering, setIsRegistering, email, setEmail, password, setPassword, handleAuth}} />;
+
+  // CONSTRUTOR REUTILIZÁVEL DA CALCULADORA (CRIAR/EDITAR ORÇAMENTO)
+  const renderCalculadoraForm = () => (
+    <div className="bg-white p-6 rounded-[35px] shadow-xl border mt-2">
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-purple-700 font-bold flex items-center gap-2 uppercase text-xs tracking-widest">
+          <ShoppingCart size={18}/> {pedidoEditandoId ? '✏️ Editando Orçamento' : 'Novo Orçamento'}
+        </h2>
+        
+        {/* BOTÃO EXCLUSIVO DE CANCELAR EDIÇÃO */}
+        {pedidoEditandoId ? (
+          <button 
+            onClick={() => { limparCalculadora(); setActiveTab('pedidos'); }} 
+            className="text-xs bg-red-50 text-red-500 px-3 py-1.5 rounded-xl font-black uppercase border border-red-100 active:scale-95 transition-all"
+          >
+            Cancelar ❌
+          </button>
+        ) : (
+          <button onClick={() => setMostrarSeletorCatalogo(!mostrarSeletorCatalogo)} className="text-xs bg-purple-50 text-purple-700 px-3 py-1.5 rounded-xl font-black uppercase border border-purple-100">
+            {precoManual ? '✨ Item de Catálogo' : '📖 Usar Catálogo'}
+          </button>
+        )}
+      </div>
+
+      {mostrarSeletorCatalogo && !pedidoEditandoId && (
+        <div className="bg-purple-50/50 border border-purple-100 p-4 rounded-3xl mb-4 text-xs space-y-2">
+          <p className="font-bold text-purple-700 uppercase text-[10px]">Escolha um produto pronto:</p>
+          <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto">
+            {produtos.map(p => (
+              <div key={p.id} onClick={() => {
+                setNomeProd(p.nome);
+                setPrecoManual(String(p.precoVenda));
+                setMostrarSeletorCatalogo(false);
+              }} className="bg-white p-2.5 rounded-xl border flex justify-between items-center cursor-pointer hover:border-purple-400">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-slate-50 overflow-hidden shrink-0 flex items-center justify-center text-slate-300">
+                    {p.urlImagem ? <img src={p.urlImagem} className="w-full h-full object-cover" /> : <ImageIcon size={14}/>}
+                  </div>
+                  <span className="font-bold">{p.nome}</span>
+                </div>
+                <span className="text-purple-700 font-black">R$ {Number(p.precoVenda).toFixed(2)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-3 gap-3 mb-4">
+         <div className="col-span-2">
+            <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Produto</label>
+            <input className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={nomeProd} onChange={e => setNomeProd(e.target.value)} />
+         </div>
+         <div>
+            <label className="text-[10px] font-bold text-slate-400 uppercase text-center block">Qtd</label>
+            <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-center" value={qtdPed} onChange={e => setQtdPed(e.target.value)} />
+         </div>
+      </div>
+
+      <div className="mb-4">
+         <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Cliente</label>
+         <select className="p-4 bg-slate-50 rounded-2xl outline-none w-full" onChange={e => setClienteSel(e.target.value)} value={clienteSel}>
+            <option value="">👤 Escolher Cliente...</option>
+            {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+         </select>
+      </div>
+
+      {precoManual === null ? (
+        <>
+          <div className="mb-4">
+             <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Materiais Usados</label>
+             <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none mb-2" onChange={e => {
+                const m = materiais.find(item => item.id === e.target.value);
+                if (m) setMatsNoPed([...matsNoPed, { id: m.id, nome: m.nome, valor: m.valor, qtd: m.qtd, unidade: m.unidade, qtdUsada: 1 }]);
+             }} value="">
+                <option value="">+ Adicionar Material...</option>
+                {materiais.map(m => <option key={m.id} value={m.id}>{m.nome} ({m.unidade || 'un'})</option>)}
+             </select>
+             <div className="space-y-2">
+                {matsNoPed.map((m, i) => (
+                  <div key={i} className="flex justify-between items-center bg-purple-50 p-3 rounded-2xl border border-purple-100 text-purple-700 font-bold text-xs">
+                    <span>{m.nome}</span>
+                    <div className="flex items-center gap-2">
+                      <input type="number" className="w-16 bg-white rounded-lg p-1 text-center" value={m.qtdUsada} onChange={e => {
+                         const nova = [...matsNoPed]; nova[i].qtdUsada = e.target.value; setMatsNoPed(nova);
+                      }} />
+                      <span className="text-[10px] text-purple-500">{m.unidade || 'un'}</span>
+                      <button onClick={() => setMatsNoPed(matsNoPed.filter((_, idx) => idx !== i))}><X size={16}/></button>
+                    </div>
+                  </div>
+                ))}
+             </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div><label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Tempo Gasto (min)</label>
+            <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={tGasto} onChange={e => setTGasto(e.target.value)} /></div>
+            <div><label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Valor da Hora (R$)</label>
+            <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={vHora} onChange={e => setVHora(e.target.value)} /></div>
+          </div>
+          <div className="mb-4 text-center">
+            <div className="grid grid-cols-4 gap-2">
+              {[{id:'embalagem',label:'EMBAL.'},{id:'impressao',label:'TINTA'},{id:'energia',label:'LUZ'},{id:'outros',label:'OUTROS'}].map(c=>(
+                <div key={c.id} className="flex flex-col items-center bg-slate-50 p-2 rounded-xl">
+                  <span className="text-[8px] font-black text-slate-300 mb-1">{c.label}</span>
+                  <input type="number" className="w-full bg-transparent text-center text-xs outline-none font-bold" value={(custos as any)[c.id]} onChange={e => setCustos({...custos, [c.id]: e.target.value})} />
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div><label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Lucro %</label>
+            <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={lucro} onChange={e => setLucro(e.target.value)} /></div>
+            <div><label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Prazo</label>
+            <input type="date" className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-xs font-bold" value={prazo} onChange={e => setPrazo(e.target.value)} /></div>
+          </div>
+        </>
+      ) : (
+        <div className="bg-orange-50 border border-orange-100 p-4 rounded-3xl mb-4 text-xs">
+          <p className="font-bold text-orange-600">💥 Preço travado pelo catálogo de vendas.</p>
+          <p className="text-slate-500 mt-1">Valor Unitário original: <strong>R$ {Number(precoManual).toFixed(2)}</strong></p>
+          <div className="mt-3">
+            <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Prazo</label>
+            <input type="date" className="w-full p-4 bg-white rounded-2xl outline-none text-xs font-bold border" value={prazo} onChange={e => setPrazo(e.target.value)} />
+          </div>
+        </div>
+      )}
+
+      <div className="mb-4">
+         <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Desconto Total (R$)</label>
+         <input className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-orange-500" type="number" value={desconto} onChange={e => setDesconto(e.target.value)} />
+      </div>
+
+      <div className="mb-6">
+         <label className="text-[10px] font-bold text-purple-600 uppercase ml-1">📝 Observações do Orçamento</label>
+         <textarea 
+           placeholder="Ex: Sinal de 50% para início da produção. Restante na entrega." 
+           className="w-full p-4 bg-slate-50 rounded-2xl mt-1 outline-none text-xs font-semibold border border-transparent focus:border-purple-400 resize-none h-20" 
+           value={obsPedido} 
+           onChange={e => setObsPedido(e.target.value)} 
+         />
+      </div>
+
+      {precoManual === null && (
+        <div className="bg-slate-50 p-5 rounded-3xl mb-8 border border-slate-100 text-xs space-y-2.5">
+          <p className="font-black text-purple-700 uppercase tracking-wider text-[10px] mb-1">📋 RESUMO FINANCEIRO DA PEÇA</p>
+          <div className="flex justify-between text-slate-500"><span>Materiais:</span><span className="font-bold">R$ {resumenFinanceiro.materiais}</span></div>
+          <div className="flex justify-between text-slate-500"><span>Mão de Obra:</span><span className="font-bold">R$ {resumenFinanceiro.maoObra}</span></div>
+          <div className="flex justify-between text-slate-500"><span>Extras / Custo Manual:</span><span className="font-bold">R$ {resumenFinanceiro.extras}</span></div>
+          <div className="flex justify-between text-slate-800 font-bold border-t pt-2 mt-1"><span>Custo Total da Peça:</span><span className="text-purple-700">R$ {resumenFinanceiro.custoPeca}</span></div>
+          <div className="flex justify-between text-emerald-600 font-bold"><span>Lucro Livre Gerado ({lucro}%) :</span><span>R$ {resumenFinanceiro.lucroLivre}</span></div>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between border-t pt-6">
+        <div className="text-orange-500 font-black text-4xl tracking-tighter">R$ {resumenFinanceiro.final}</div>
+        <div className="flex gap-2">
+          <button onClick={async () => {
+             if(!nomeProd) return alert("Digite o nome do produto!");
+             const dadosPedido = { 
+               nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed, vHora, tGasto, custos, lucro, desconto, userId: user.uid,
+               precoManual: precoManual, obsPedido: obsPedido,
+               materiaisUsados: precoManual ? [] : matsNoPed.map(m => ({ id: m.id, nome: m.nome, qtdUsada: Number(m.qtdUsada || 1) }))
+             };
+             if (pedidoEditandoId) await updateDoc(doc(db, "pedidos", pedidoEditandoId), dadosPedido);
+             else await addDoc(collection(db, "pedidos"), { ...dadosPedido, data: new Date().toLocaleDateString('pt-BR'), status: 'Pendente' });
+             limparCalculadora(); setActiveTab('pedidos');
+             alert("Salvo!");
+          }} className="bg-orange-500 text-white px-5 py-4 rounded-[22px] font-black uppercase text-xs shadow-lg">Salvar</button>
+          <button onClick={() => gerarPDF({nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed, obsPedido})} className="bg-orange-500 text-white p-4 rounded-[22px] shadow-lg"><Printer size={18}/></button>
+          <button onClick={() => enviarZap({nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed})} className="bg-emerald-500 text-white p-4 rounded-[22px] shadow-lg"><MessageCircle size={18}/></button>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-slate-50 pb-32 font-sans text-slate-700">
@@ -636,169 +754,10 @@ export default function App() {
           </div>
         )}
 
-        {/* CALCULADORA / CRIAR PEDIDO */}
-        {activeTab === 'criar' && (
-          <div className="bg-white p-6 rounded-[35px] shadow-xl border mt-2">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-purple-700 font-bold flex items-center gap-2 uppercase text-xs tracking-widest">
-                <ShoppingCart size={18}/> {pedidoEditandoId ? '✏️ Editando Orçamento' : 'Novo Orçamento'}
-              </h2>
-              <button onClick={() => setMostrarSeletorCatalogo(!mostrarSeletorCatalogo)} className="text-xs bg-purple-50 text-purple-700 px-3 py-1.5 rounded-xl font-black uppercase border border-purple-100">
-                {precoManual ? '✨ Item de Catálogo' : '📖 Usar Catálogo'}
-              </button>
-            </div>
+        {/* ABA DE CONTRUÇÃO DA CALCULADORA */}
+        {activeTab === 'criar' && renderCalculadoraForm()}
 
-            {mostrarSeletorCatalogo && (
-              <div className="bg-purple-50/50 border border-purple-100 p-4 rounded-3xl mb-4 text-xs space-y-2">
-                <p className="font-bold text-purple-700 uppercase text-[10px]">Escolha um produto pronto:</p>
-                <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto">
-                  {produtos.map(p => (
-                    <div key={p.id} onClick={() => {
-                      setNomeProd(p.nome);
-                      setPrecoManual(String(p.precoVenda));
-                      setMostrarSeletorCatalogo(false);
-                    }} className="bg-white p-2.5 rounded-xl border flex justify-between items-center cursor-pointer hover:border-purple-400">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-slate-50 overflow-hidden shrink-0 flex items-center justify-center text-slate-300">
-                          {p.urlImagem ? <img src={p.urlImagem} className="w-full h-full object-cover" /> : <ImageIcon size={14}/>}
-                        </div>
-                        <span className="font-bold">{p.nome}</span>
-                      </div>
-                      <span className="text-purple-700 font-black">R$ {Number(p.precoVenda).toFixed(2)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="grid grid-cols-3 gap-3 mb-4">
-               <div className="col-span-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Produto</label>
-                  <input className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={nomeProd} onChange={e => setNomeProd(e.target.value)} />
-               </div>
-               <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase text-center block">Qtd</label>
-                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-center" value={qtdPed} onChange={e => setQtdPed(e.target.value)} />
-               </div>
-            </div>
-
-            <div className="mb-4">
-               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Cliente</label>
-               <select className="p-4 bg-slate-50 rounded-2xl outline-none w-full" onChange={e => setClienteSel(e.target.value)} value={clienteSel}>
-                  <option value="">👤 Escolher Cliente...</option>
-                  {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-               </select>
-            </div>
-
-            {precoManual === null ? (
-              <>
-                <div className="mb-4">
-                   <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Materiais Usados</label>
-                   <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none mb-2" onChange={e => {
-                      const m = materiais.find(item => item.id === e.target.value);
-                      if (m) setMatsNoPed([...matsNoPed, { id: m.id, nome: m.nome, valor: m.valor, qtd: m.qtd, unidade: m.unidade, qtdUsada: 1 }]);
-                   }} value="">
-                      <option value="">+ Adicionar Material...</option>
-                      {materiais.map(m => <option key={m.id} value={m.id}>{m.nome} ({m.unidade || 'un'})</option>)}
-                   </select>
-                   <div className="space-y-2">
-                      {matsNoPed.map((m, i) => (
-                        <div key={i} className="flex justify-between items-center bg-purple-50 p-3 rounded-2xl border border-purple-100 text-purple-700 font-bold text-xs">
-                          <span>{m.nome}</span>
-                          <div className="flex items-center gap-2">
-                            <input type="number" className="w-16 bg-white rounded-lg p-1 text-center" value={m.qtdUsada} onChange={e => {
-                               const nova = [...matsNoPed]; nova[i].qtdUsada = e.target.value; setMatsNoPed(nova);
-                            }} />
-                            <span className="text-[10px] text-purple-500">{m.unidade || 'un'}</span>
-                            <button onClick={() => setMatsNoPed(matsNoPed.filter((_, idx) => idx !== i))}><X size={16}/></button>
-                          </div>
-                        </div>
-                      ))}
-                   </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div><label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Tempo Gasto (min)</label>
-                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={tGasto} onChange={e => setTGasto(e.target.value)} /></div>
-                  <div><label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Valor da Hora (R$)</label>
-                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={vHora} onChange={e => setVHora(e.target.value)} /></div>
-                </div>
-                <div className="mb-4 text-center">
-                  <div className="grid grid-cols-4 gap-2">
-                    {[{id:'embalagem',label:'EMBAL.'},{id:'impressao',label:'TINTA'},{id:'energia',label:'LUZ'},{id:'outros',label:'OUTROS'}].map(c=>(
-                      <div key={c.id} className="flex flex-col items-center bg-slate-50 p-2 rounded-xl">
-                        <span className="text-[8px] font-black text-slate-300 mb-1">{c.label}</span>
-                        <input type="number" className="w-full bg-transparent text-center text-xs outline-none font-bold" value={(custos as any)[c.id]} onChange={e => setCustos({...custos, [c.id]: e.target.value})} />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div><label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Lucro %</label>
-                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={lucro} onChange={e => setLucro(e.target.value)} /></div>
-                  <div><label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Prazo</label>
-                  <input type="date" className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-xs font-bold" value={prazo} onChange={e => setPrazo(e.target.value)} /></div>
-                </div>
-              </>
-            ) : (
-              <div className="bg-orange-50 border border-orange-100 p-4 rounded-3xl mb-4 text-xs">
-                <p className="font-bold text-orange-600">💥 Preço travado pelo catálogo de vendas.</p>
-                <p className="text-slate-500 mt-1">Valor Unitário original: <strong>R$ {Number(precoManual).toFixed(2)}</strong></p>
-                <div className="mt-3">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Prazo</label>
-                  <input type="date" className="w-full p-4 bg-white rounded-2xl outline-none text-xs font-bold border" value={prazo} onChange={e => setPrazo(e.target.value)} />
-                </div>
-              </div>
-            )}
-
-            <div className="mb-4">
-               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Desconto Total (R$)</label>
-               <input className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-orange-500" type="number" value={desconto} onChange={e => setDesconto(e.target.value)} />
-            </div>
-
-            <div className="mb-6">
-               <label className="text-[10px] font-bold text-purple-600 uppercase ml-1">📝 Observações do Orçamento</label>
-               <textarea 
-                 placeholder="Ex: Sinal de 50% para início da produção. Restante na entrega." 
-                 className="w-full p-4 bg-slate-50 rounded-2xl mt-1 outline-none text-xs font-semibold border border-transparent focus:border-purple-400 resize-none h-20" 
-                 value={obsPedido} 
-                 onChange={e => setObsPedido(e.target.value)} 
-               />
-            </div>
-
-            {precoManual === null && (
-              <div className="bg-slate-50 p-5 rounded-3xl mb-8 border border-slate-100 text-xs space-y-2.5">
-                <p className="font-black text-purple-700 uppercase tracking-wider text-[10px] mb-1">📋 RESUMO FINANCEIRO DA PEÇA</p>
-                <div className="flex justify-between text-slate-500"><span>Materiais:</span><span className="font-bold">R$ {resumenFinanceiro.materiais}</span></div>
-                <div className="flex justify-between text-slate-500"><span>Mão de Obra:</span><span className="font-bold">R$ {resumenFinanceiro.maoObra}</span></div>
-                <div className="flex justify-between text-slate-500"><span>Extras / Custo Manual:</span><span className="font-bold">R$ {resumenFinanceiro.extras}</span></div>
-                <div className="flex justify-between text-slate-800 font-bold border-t pt-2 mt-1"><span>Custo Total da Peça:</span><span className="text-purple-700">R$ {resumenFinanceiro.custoPeca}</span></div>
-                <div className="flex justify-between text-emerald-600 font-bold"><span>Lucro Livre Gerado ({lucro}%) :</span><span>R$ {resumenFinanceiro.lucroLivre}</span></div>
-              </div>
-            )}
-
-            <div className="flex items-center justify-between border-t pt-6">
-              <div className="text-orange-500 font-black text-4xl tracking-tighter">R$ {resumenFinanceiro.final}</div>
-              <div className="flex gap-2">
-                <button onClick={async () => {
-                   if(!nomeProd) return alert("Digite o nome do produto!");
-                   const dadosPedido = { 
-                     nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed, vHora, tGasto, custos, lucro, desconto, userId: user.uid,
-                     precoManual: precoManual, obsPedido: obsPedido,
-                     materiaisUsados: precoManual ? [] : matsNoPed.map(m => ({ id: m.id, nome: m.nome, qtdUsada: Number(m.qtdUsada || 1) }))
-                   };
-                   if (pedidoEditandoId) await updateDoc(doc(db, "pedidos", pedidoEditandoId), dadosPedido);
-                   else await addDoc(collection(db, "pedidos"), { ...dadosPedido, data: new Date().toLocaleDateString('pt-BR'), status: 'Pendente' });
-                   limparCalculadora(); setActiveTab('pedidos');
-                   alert("Salvo!");
-                }} className="bg-orange-500 text-white px-5 py-4 rounded-[22px] font-black uppercase text-xs shadow-lg">Salvar</button>
-                <button onClick={() => gerarPDF({nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed, obsPedido})} className="bg-orange-500 text-white p-4 rounded-[22px] shadow-lg"><Printer size={18}/></button>
-                <button onClick={() => enviarZap({nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed})} className="bg-emerald-500 text-white p-4 rounded-[22px] shadow-lg"><MessageCircle size={18}/></button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* HISTÓRICO COM DATA DE VOLTA */}
+        {/* HISTÓRICO */}
         {activeTab === 'pedidos' && (
           <div className="space-y-3 pt-2">
             <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2"><History size={20}/> Histórico</h2>
@@ -903,7 +862,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ABA EXCLUSIVA DE CLIENTES */}
+        {/* ABA DE CLIENTES */}
         {activeTab === 'clientes' && (
            <div className="space-y-4 pt-2">
             <div className="bg-white p-8 rounded-[40px] shadow-md border">
@@ -936,11 +895,10 @@ export default function App() {
         )}
       </main>
 
-      {/* MENU INFERIOR DESIGN CORRIGIDO E FLUIDO */}
+      {/* MENU INFERIOR 100% PLANO E SIMÉTRICO */}
       <div className="fixed bottom-0 left-0 right-0 flex justify-center p-4 z-50 bg-transparent pointer-events-none">
         <div className="relative bg-white shadow-[0_-10px_30px_rgba(0,0,0,0.05)] rounded-[30px] flex justify-around items-center px-2 h-16 w-full max-w-xl pointer-events-auto">
           
-          {/* Aba: Início */}
           <button 
             onClick={() => setActiveTab('inicio')} 
             className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'inicio' ? 'text-orange-500' : 'text-slate-300'}`}
@@ -949,7 +907,6 @@ export default function App() {
             <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Início</span>
           </button>
 
-          {/* Aba: Armário */}
           <button 
             onClick={() => setActiveTab('materiais')} 
             className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'materiais' ? 'text-orange-500' : 'text-slate-300'}`}
@@ -958,7 +915,6 @@ export default function App() {
             <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Armário</span>
           </button>
 
-          {/* Aba: Catálogo */}
           <button 
             onClick={() => setActiveTab('catalogo')} 
             className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'catalogo' ? 'text-orange-500' : 'text-slate-300'}`}
@@ -967,7 +923,6 @@ export default function App() {
             <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Catálogo</span>
           </button>
 
-          {/* Aba: Orçar */}
           <button 
             onClick={() => { limparCalculadora(); setActiveTab('criar'); }} 
             className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'criar' ? 'text-orange-500' : 'text-slate-300'}`}
@@ -976,7 +931,6 @@ export default function App() {
             <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Orçar</span>
           </button>
 
-          {/* Aba: Clientes */}
           <button 
             onClick={() => setActiveTab('clientes')} 
             className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'clientes' ? 'text-orange-500' : 'text-slate-300'}`}
@@ -985,7 +939,6 @@ export default function App() {
             <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Clientes</span>
           </button>
 
-          {/* Aba: Histórico */}
           <button 
             onClick={() => setActiveTab('pedidos')} 
             className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'pedidos' ? 'text-orange-500' : 'text-slate-300'}`}
