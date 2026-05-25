@@ -201,6 +201,7 @@ export default function App() {
     return { faturamento: faturamentoTotal.toFixed(2), pendentes: pendentesCount, criticos: estoqueCriticoCount, totalClientes: clientes.length };
   }, [pedidos, materiais, clientes]);
 
+  // CORRIGIDO: Retirada a palavra "discount" que quebrava o script
   const resumenFinanceiro = useMemo(() => {
     if (precoManual !== null) {
       const totalCatalogo = Number(precoManual) * Number(qtdPed || 1);
@@ -365,7 +366,63 @@ export default function App() {
     }
   };
 
-  // VITRINE PÚBLICA (Compradores)
+  const limparCalculadora = () => {
+    setNomeProd('');
+    setQtdPed('1');
+    setMatsNoPed([]);
+    setVHora('9');
+    setTGasto('60');
+    setCustos({ embalagem: '0', impressao: '0', energia: '0', outros: '0' });
+    setLucro('100');
+    setDesconto('0');
+    setPrazo('');
+    setClienteSel('');
+    setPedidoEditandoId(null);
+    setPrecoManual(null);
+    setObsPedido('');
+  };
+
+  const carregarPedidoParaEdicao = (p: any) => {
+    setPedidoEditandoId(p.id);
+    setNomeProd(p.nomeProd || '');
+    setQtdPed(p.qtdPed || '1');
+    setVHora(p.vHora || '9');
+    setTGasto(p.tGasto || '60');
+    setCustos(p.custos || { embalagem: '0', impressao: '0', energia: '0', outros: '0' });
+    setLucro(p.lucro || '100');
+    setDesconto(p.desconto || '0');
+    setPrazo(p.prazo || '');
+    setClienteSel(p.clienteId || '');
+    setPrecoManual(p.precoManual || null);
+    setObsPedido(p.obsPedido || '');
+
+    if (p.materiaisUsados && p.materiaisUsados.length > 0) {
+      const listaReconstruida = p.materiaisUsados.map((mSalvo: any) => {
+        const matDoArmario = materiais.find(item => item.id === mSalvo.id);
+        return {
+          id: mSalvo.id,
+          nome: matDoArmario ? matDoArmario.nome : mSalvo.nome,
+          qtdUsada: Number(mSalvo.qtdUsada || 1),
+          valor: matDoArmario ? Number(matDoArmario.valor) : Number(mSalvo.valor || 0),
+          qtd: matDoArmario ? Number(matDoArmario.qtd) : Number(mSalvo.qtd || 1),
+          unidade: matDoArmario ? matDoArmario.unidade : (mSalvo.unidade || 'un')
+        };
+      });
+      setMatsNoPed(listaReconstruida);
+    } else {
+      setMatsNoPed([]);
+    }
+    setActiveTab('criar');
+  };
+
+  const venderItemDiretoDoCatalogo = (prod: any) => {
+    limparCalculadora();
+    setNomeProd(prod.nome);
+    setPrecoManual(prod.precoVenda);
+    setActiveTab('criar');
+  };
+
+  // VITRINE PÚBLICA
   if (idLojaPublica) {
     if (carregandoPublico) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando Vitrine... 🛍️</div>;
     const totalCarrinho = Object.keys(carrinho).reduce((acc, id) => {
@@ -427,23 +484,31 @@ export default function App() {
   if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando painel... 🚀</div>;
   if (!user) return <Login {...{isRegistering, setIsRegistering, email, setEmail, password, setPassword, handleAuth}} />;
 
-  // CONSTRUTOR REUTILIZÁVEL DA CALCULADORA (CRIAR/EDITAR ORÇAMENTO)
+  // FORMULÁRIO COMPLETO DA CALCULADORA
   const renderCalculadoraForm = () => (
     <div className="bg-white p-6 rounded-[35px] shadow-xl border mt-2">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-purple-700 font-bold flex items-center gap-2 uppercase text-xs tracking-widest">
-          <ShoppingCart size={18}/> {pedidoEditandoId ? '✏️ Editando Orçamento' : 'Novo Orçamento'}
-        </h2>
-        
-        {/* BOTÃO EXCLUSIVO DE CANCELAR EDIÇÃO */}
-        {pedidoEditandoId ? (
+      
+      {/* BARRA EXCLUSIVA DE EDIÇÃO NO TOPO */}
+      {pedidoEditandoId && (
+        <div className="bg-amber-50 border border-amber-200 p-4 rounded-3xl mb-6 flex justify-between items-center animate-pulse">
+          <div className="text-xs text-amber-800 font-bold">
+            <span>✏️ Você está editando um orçamento salvo!</span>
+          </div>
           <button 
             onClick={() => { limparCalculadora(); setActiveTab('pedidos'); }} 
-            className="text-xs bg-red-50 text-red-500 px-3 py-1.5 rounded-xl font-black uppercase border border-red-100 active:scale-95 transition-all"
+            className="text-[10px] bg-red-500 text-white px-3 py-1.5 rounded-xl font-black uppercase tracking-wider shadow-sm active:scale-95 transition-all"
           >
-            Cancelar ❌
+            Cancelar Edição ❌
           </button>
-        ) : (
+        </div>
+      )}
+
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-purple-700 font-bold flex items-center gap-2 uppercase text-xs tracking-widest">
+          <ShoppingCart size={18}/> {pedidoEditandoId ? 'Editando Dados' : 'Novo Orçamento'}
+        </h2>
+        
+        {!pedidoEditandoId && (
           <button onClick={() => setMostrarSeletorCatalogo(!mostrarSeletorCatalogo)} className="text-xs bg-purple-50 text-purple-700 px-3 py-1.5 rounded-xl font-black uppercase border border-purple-100">
             {precoManual ? '✨ Item de Catálogo' : '📖 Usar Catálogo'}
           </button>
@@ -754,7 +819,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ABA DE CONTRUÇÃO DA CALCULADORA */}
+        {/* ABA DA CALCULADORA */}
         {activeTab === 'criar' && renderCalculadoraForm()}
 
         {/* HISTÓRICO */}
@@ -895,10 +960,11 @@ export default function App() {
         )}
       </main>
 
-      {/* MENU INFERIOR 100% PLANO E SIMÉTRICO */}
+      {/* MENU INFERIOR CORRIGIDO, INTEGRALMENTE ESTICADO E SIMÉTRICO */}
       <div className="fixed bottom-0 left-0 right-0 flex justify-center p-4 z-50 bg-transparent pointer-events-none">
         <div className="relative bg-white shadow-[0_-10px_30px_rgba(0,0,0,0.05)] rounded-[30px] flex justify-around items-center px-2 h-16 w-full max-w-xl pointer-events-auto">
           
+          {/* Aba: Início */}
           <button 
             onClick={() => setActiveTab('inicio')} 
             className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'inicio' ? 'text-orange-500' : 'text-slate-300'}`}
@@ -907,6 +973,7 @@ export default function App() {
             <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Início</span>
           </button>
 
+          {/* Aba: Armário */}
           <button 
             onClick={() => setActiveTab('materiais')} 
             className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'materiais' ? 'text-orange-500' : 'text-slate-300'}`}
@@ -915,6 +982,7 @@ export default function App() {
             <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Armário</span>
           </button>
 
+          {/* Aba: Catálogo */}
           <button 
             onClick={() => setActiveTab('catalogo')} 
             className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'catalogo' ? 'text-orange-500' : 'text-slate-300'}`}
@@ -923,6 +991,7 @@ export default function App() {
             <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Catálogo</span>
           </button>
 
+          {/* Aba: Orçar */}
           <button 
             onClick={() => { limparCalculadora(); setActiveTab('criar'); }} 
             className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'criar' ? 'text-orange-500' : 'text-slate-300'}`}
@@ -931,6 +1000,7 @@ export default function App() {
             <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Orçar</span>
           </button>
 
+          {/* Aba: Clientes */}
           <button 
             onClick={() => setActiveTab('clientes')} 
             className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'clientes' ? 'text-orange-500' : 'text-slate-300'}`}
@@ -939,6 +1009,7 @@ export default function App() {
             <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Clientes</span>
           </button>
 
+          {/* Aba: Histórico */}
           <button 
             onClick={() => setActiveTab('pedidos')} 
             className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'pedidos' ? 'text-orange-500' : 'text-slate-300'}`}
