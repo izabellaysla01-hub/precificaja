@@ -137,7 +137,6 @@ export default function App() {
 
   useEffect(() => {
     if (user && !idLojaPublica) {
-      // CORRIGIDO: Voltou para "materiais" para o armário aparecer perfeitamente
       const qMateriais = query(collection(db, "materiais"), where("userId", "==", user.uid));
       const unsubMateriais = onSnapshot(qMateriais, s => setMaterials(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
@@ -304,7 +303,7 @@ export default function App() {
 
   const enviarZap = (p: any) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
-    const dataP = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combiner';
+    const dataP = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combinar';
     const msg = `*RESUMO ORÇAMENTO*%0A---%0A*Cliente:* ${cli?.nome || 'Cliente'}%0A*Produto:* ${p.nomeProd}%0A*Qtd:* ${p.qtdPed || 1} un%0A*Prazo:* ${dataP}%0A*VALOR TOTAL:* R$ ${p.preco}%0A---%0AObrigado!`;
     const fone = cli?.zap ? cli.zap.replace(/\D/g, '') : '';
     window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
@@ -499,14 +498,14 @@ export default function App() {
         {/* TELA INICIAL */}
         {activeTab === 'inicio' && (
           <div className="space-y-5 pt-2">
-            {/* CARD DE FATURAMENTO TOTALMENTE RETIDO */}
+            {/* CARD DE FATURAMENTO */}
             <div className="bg-gradient-to-tr from-purple-700 to-indigo-600 p-6 rounded-[35px] shadow-lg text-white">
               <p className="text-xs font-bold uppercase tracking-widest text-purple-200">Faturamento Realizado</p>
               <h2 className="text-4xl font-black mt-1 tracking-tight">R$ {dashboardMetrics.faturamento}</h2>
               <p className="text-[11px] text-purple-200 mt-2 opacity-80">📈 Dinheiro gerado de pedidos marcados como vendidos</p>
             </div>
 
-            {/* NOVA BARRA HORIZONTAL DA CALCULADORA (IGUAL AO BLOCO DE FATURAMENTO) */}
+            {/* BARRA HORIZONTAL DA CALCULADORA EM OUTRA COR */}
             <div onClick={() => { limparCalculadora(); setActiveTab('criar'); }} 
                  className="bg-gradient-to-r from-orange-500 to-amber-500 p-6 rounded-[35px] shadow-md cursor-pointer active:scale-95 transition-all text-white flex justify-between items-center">
               <div>
@@ -518,7 +517,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* SEUS OUTROS CARDS EM GRADE */}
+            {/* GRADES DE CARDS ADICIONAIS */}
             <div className="grid grid-cols-2 gap-4">
               <div onClick={() => setActiveTab('pedidos')} className="bg-white p-5 rounded-[30px] border shadow-sm cursor-pointer active:scale-95 transition-all">
                 <div className="w-10 h-10 rounded-2xl bg-orange-50 flex items-center justify-center text-orange-500 mb-3"><History size={20}/></div>
@@ -905,7 +904,7 @@ export default function App() {
                     <button onClick={async () => await updateDoc(doc(db, "materiais", m.id), { qtdAtual: Math.max(0, Number(m.qtdAtual || 0) - 1) })} className="w-8 h-8 bg-slate-100 rounded-xl font-bold">-</button>
                     <button onClick={async () => await updateDoc(doc(db, "materiais", m.id), { qtdAtual: Number(m.qtdAtual || 0) + 1 })} className="w-8 h-8 bg-purple-100 rounded-xl font-bold text-purple-700">+</button>
                     <button onClick={() => setNovoMat({id: m.id, nome: m.nome, valor: String(m.valor), qtd: String(m.qtd), unidade: m.unidade, qtdAtual: String(m.qtdAtual), qtdMinima: String(m.qtdMinima)})} className="text-orange-400 p-2"><Edit2 size={16}/></button>
-                    <button onClick={() => constfirmarExcluir('material', m.id)} className="text-red-200 p-2"><Trash2 size={16}/></button>
+                    <button onClick={() => confirmarExcluir('material', m.id)} className="text-red-200 p-2"><Trash2 size={16}/></button>
                   </div>
                 </div>
               );
@@ -938,7 +937,7 @@ export default function App() {
                 </div>
                 <div className="flex gap-1">
                   <button onClick={() => setNovoCli({ id: c.id, nome: c.nome, zap: c.zap || '' })} className="text-orange-400 p-2"><Edit2 size={18}/></button>
-                  <button onClick={() => conftirmarExcluir('cliente', c.id)} className="text-red-200 p-2"><Trash2 size={20}/></button>
+                  <button onClick={() => confirmarExcluir('cliente', c.id)} className="text-red-200 p-2"><Trash2 size={20}/></button>
                 </div>
               </div>
             ))}
@@ -946,7 +945,7 @@ export default function App() {
         )}
       </main>
 
-            {/* MENU INFERIOR DESIGN FLUIDO, EQUILIBRADO E LARANJA */}
+      {/* MENU INFERIOR CORRIGIDO, BALANCEADO E FLUIDO */}
       <div className="fixed bottom-0 left-0 right-0 flex justify-center p-4 z-50 bg-transparent pointer-events-none">
         <div className="relative bg-white shadow-[0_-10px_30px_rgba(0,0,0,0.05)] rounded-[30px] flex justify-around items-center px-2 h-20 w-full max-w-xl pointer-events-auto">
           
@@ -961,7 +960,7 @@ export default function App() {
 
           {/* Aba: Armário */}
           <button 
-            onClick={() => setActiveTab('materiais')} 
+            onClick={() => setActiveTab('materials') || setActiveTab('materiais')} 
             className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'materiais' ? 'text-orange-500' : 'text-slate-300'}`}
           >
             <Package size={22} className={activeTab === 'materiais' ? 'stroke-[2.5]' : 'stroke-[2]'} />
@@ -977,7 +976,7 @@ export default function App() {
             <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Catálogo</span>
           </button>
 
-          {/* BOTÃO CENTRAL DESTACADO (+) QUE TAMBÉM MUDA CONFORME O CLIQUE */}
+          {/* BOTÃO CENTRAL (+) COM CURVATURA FLUIDA (MUDA PARA LARANJA QUANDO ATIVO) */}
           <div className="relative flex justify-center items-center flex-1 h-full">
             <div className="absolute -top-7 bg-slate-50 w-20 h-20 rounded-full flex items-center justify-center z-0">
               <div className="bg-white w-[72px] h-[72px] rounded-full shadow-[0_-8px_15px_rgba(0,0,0,0.03)]" />
@@ -1011,5 +1010,6 @@ export default function App() {
 
         </div>
       </div>
+    </div>
   );
 }
