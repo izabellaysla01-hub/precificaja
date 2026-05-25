@@ -78,7 +78,7 @@ export default function App() {
   const [prazo, setPrazo] = useState('');
   const [clienteSel, setClienteSel] = useState('');
   const [precoManual, setPrecoManual] = useState<string | null>(null);
-  const [obsPedido, setObsPedido] = useState(''); // Armazena a observação
+  const [obsPedido, setObsPedido] = useState('');
 
   // Estados Formulários
   const [email, setEmail] = useState('');
@@ -137,7 +137,8 @@ export default function App() {
 
   useEffect(() => {
     if (user && !idLojaPublica) {
-      const qMateriais = query(collection(db, "materials"), where("userId", "==", user.uid));
+      // CORRIGIDO: Voltou para "materiais" para o armário aparecer perfeitamente
+      const qMateriais = query(collection(db, "materiais"), where("userId", "==", user.uid));
       const unsubMateriais = onSnapshot(qMateriais, s => setMaterials(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
       const qPedidos = query(collection(db, "pedidos"), where("userId", "==", user.uid));
@@ -303,13 +304,12 @@ export default function App() {
 
   const enviarZap = (p: any) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
-    const dataP = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combinar';
+    const dataP = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combiner';
     const msg = `*RESUMO ORÇAMENTO*%0A---%0A*Cliente:* ${cli?.nome || 'Cliente'}%0A*Produto:* ${p.nomeProd}%0A*Qtd:* ${p.qtdPed || 1} un%0A*Prazo:* ${dataP}%0A*VALOR TOTAL:* R$ ${p.preco}%0A---%0AObrigado!`;
     const fone = cli?.zap ? cli.zap.replace(/\D/g, '') : '';
     window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
   };
 
-  // ORIGINAL REPRISTINADO TOTALMENTE (Design intacto)
   const gerarPDF = (p: any) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
     const dataEmissao = p.data || new Date().toLocaleDateString('pt-BR');
@@ -496,46 +496,51 @@ export default function App() {
       </header>
 
       <main className="p-4 max-w-xl mx-auto">
-        {/* TELA INICIAL COM ATALHOS LINDOS EM GRADE */}
+        {/* TELA INICIAL */}
         {activeTab === 'inicio' && (
           <div className="space-y-5 pt-2">
+            {/* CARD DE FATURAMENTO TOTALMENTE RETIDO */}
             <div className="bg-gradient-to-tr from-purple-700 to-indigo-600 p-6 rounded-[35px] shadow-lg text-white">
               <p className="text-xs font-bold uppercase tracking-widest text-purple-200">Faturamento Realizado</p>
               <h2 className="text-4xl font-black mt-1 tracking-tight">R$ {dashboardMetrics.faturamento}</h2>
               <p className="text-[11px] text-purple-200 mt-2 opacity-80">📈 Dinheiro gerado de pedidos marcados como vendidos</p>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              {/* NOVO ATALHO DA CALCULADORA IGUAL AOS OUTROS CARD */}
-              <div onClick={() => { limparCalculadora(); setActiveTab('criar'); }} className="bg-orange-500 p-5 rounded-[30px] shadow-sm cursor-pointer active:scale-95 transition-all text-white">
-                <div className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center text-white mb-3"><Calculator size={20}/></div>
-                <p className="text-[10px] font-bold text-orange-100 uppercase tracking-wider">Calculadora</p>
-                <p className="text-lg font-black mt-0.5 leading-tight">Novo Orçamento</p>
+            {/* NOVA BARRA HORIZONTAL DA CALCULADORA (IGUAL AO BLOCO DE FATURAMENTO) */}
+            <div onClick={() => { limparCalculadora(); setActiveTab('criar'); }} 
+                 className="bg-gradient-to-r from-orange-500 to-amber-500 p-6 rounded-[35px] shadow-md cursor-pointer active:scale-95 transition-all text-white flex justify-between items-center">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-widest text-orange-100">Calculadora Integrada</p>
+                <h3 className="text-xl font-black mt-0.5 tracking-tight">Novo Orçamento Rápido 🚀</h3>
               </div>
+              <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center text-white">
+                <Calculator size={24}/>
+              </div>
+            </div>
 
+            {/* SEUS OUTROS CARDS EM GRADE */}
+            <div className="grid grid-cols-2 gap-4">
               <div onClick={() => setActiveTab('pedidos')} className="bg-white p-5 rounded-[30px] border shadow-sm cursor-pointer active:scale-95 transition-all">
                 <div className="w-10 h-10 rounded-2xl bg-orange-50 flex items-center justify-center text-orange-500 mb-3"><History size={20}/></div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Orçamentos</p>
                 <p className="text-2xl font-black text-slate-800 mt-0.5">{dashboardMetrics.pendentes}</p>
               </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
               <div onClick={() => setActiveTab('catalogo')} className="bg-white p-5 rounded-[30px] border shadow-sm cursor-pointer active:scale-95 transition-all">
                 <div className="w-10 h-10 rounded-2xl bg-purple-50 flex items-center justify-center text-purple-600 mb-3"><BookOpen size={20}/></div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Catálogo</p>
                 <p className="text-2xl font-black text-slate-800 mt-0.5">{produtos.length}</p>
               </div>
+            </div>
 
+            <div className="grid grid-cols-2 gap-4">
               <div onClick={() => setActiveTab('materiais')} className={`p-5 rounded-[30px] border shadow-sm cursor-pointer active:scale-95 transition-all ${dashboardMetrics.criticos > 0 ? 'bg-red-50/50 border-red-100' : 'bg-white'}`}>
                 <div className="w-10 h-10 rounded-2xl bg-red-50 flex items-center justify-center text-red-500 mb-3"><Package size={20}/></div>
                 <p className="text-[10px] font-bold text-slate-400 tracking-wider uppercase">Falta Reposição</p>
                 <p className="text-2xl font-black mt-0.5">{dashboardMetrics.criticos}</p>
               </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div onClick={() => setActiveTab('clientes')} className="bg-white p-5 rounded-[30px] border shadow-sm cursor-pointer active:scale-95 transition-all w-1/2">
+              <div onClick={() => setActiveTab('clientes')} className="bg-white p-5 rounded-[30px] border shadow-sm cursor-pointer active:scale-95 transition-all">
                 <div className="w-10 h-10 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-500 mb-3"><User size={20}/></div>
                 <p className="text-[10px] font-bold text-slate-400 tracking-wider uppercase">Clientes</p>
                 <p className="text-2xl font-black mt-0.5">{dashboardMetrics.totalClientes}</p>
@@ -900,7 +905,7 @@ export default function App() {
                     <button onClick={async () => await updateDoc(doc(db, "materiais", m.id), { qtdAtual: Math.max(0, Number(m.qtdAtual || 0) - 1) })} className="w-8 h-8 bg-slate-100 rounded-xl font-bold">-</button>
                     <button onClick={async () => await updateDoc(doc(db, "materiais", m.id), { qtdAtual: Number(m.qtdAtual || 0) + 1 })} className="w-8 h-8 bg-purple-100 rounded-xl font-bold text-purple-700">+</button>
                     <button onClick={() => setNovoMat({id: m.id, nome: m.nome, valor: String(m.valor), qtd: String(m.qtd), unidade: m.unidade, qtdAtual: String(m.qtdAtual), qtdMinima: String(m.qtdMinima)})} className="text-orange-400 p-2"><Edit2 size={16}/></button>
-                    <button onClick={() => confirmarExcluir('material', m.id)} className="text-red-200 p-2"><Trash2 size={16}/></button>
+                    <button onClick={() => constfirmarExcluir('material', m.id)} className="text-red-200 p-2"><Trash2 size={16}/></button>
                   </div>
                 </div>
               );
@@ -933,7 +938,7 @@ export default function App() {
                 </div>
                 <div className="flex gap-1">
                   <button onClick={() => setNovoCli({ id: c.id, nome: c.nome, zap: c.zap || '' })} className="text-orange-400 p-2"><Edit2 size={18}/></button>
-                  <button onClick={() => confirmarExcluir('cliente', c.id)} className="text-red-200 p-2"><Trash2 size={20}/></button>
+                  <button onClick={() => conftirmarExcluir('cliente', c.id)} className="text-red-200 p-2"><Trash2 size={20}/></button>
                 </div>
               </div>
             ))}
