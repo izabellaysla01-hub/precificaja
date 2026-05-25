@@ -36,7 +36,7 @@ const Login = ({ isRegistering, setIsRegistering, email, setEmail, password, set
         <p className="text-slate-400 text-xs mb-8 uppercase font-bold tracking-widest">Sua empresa lucrando mais</p>
         <input type="email" placeholder="Seu e-mail" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none focus:ring-2 focus:ring-purple-600" value={email} onChange={e => setEmail(e.target.value)} />
         <input type="password" placeholder="Senha" className="w-full p-4 bg-slate-50 rounded-2xl mb-2 outline-none focus:ring-2 focus:ring-purple-600" value={password} onChange={e => setPassword(e.target.value)} />
-        <button onClick={recuperarSenha} className="text-[10px] text-purple-400 font-bold uppercase mb-6 hover:text-purple-600 block w-full text-right pr-2">Esqueci minha senha</button>
+        <button onClick={recoverarSenha} className="text-[10px] text-purple-400 font-bold uppercase mb-6 hover:text-purple-600 block w-full text-right pr-2">Esqueci minha senha</button>
         <button onClick={handleAuth} className="w-full bg-orange-500 text-white font-bold py-4 rounded-2xl shadow-lg hover:bg-orange-600 transition-all uppercase">{isRegistering ? 'Criar Conta Grátis' : 'Entrar no App'}</button>
         <button onClick={() => setIsRegistering(!isRegistering)} className="mt-4 text-sm text-purple-600 underline block w-full font-medium">{isRegistering ? 'Já tenho login' : 'Cadastrar novo usuário'}</button>
       </div>
@@ -48,7 +48,6 @@ export default function App() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   
-  // LÓGICA DO TRUQUE: Detectar se é um comprador acessando o catálogo público
   const [idLojaPublica, setIdLojaPublica] = useState<string | null>(null);
   const [produtosPublicos, setProdutosPublicos] = useState<any[]>([]);
   const [carregandoPublico, setCarregandoPublico] = useState(false);
@@ -62,11 +61,9 @@ export default function App() {
   const [clientes, setClientes] = useState<any[]>([]);
   const [produtos, setProdutos] = useState<any[]>([]);
 
-  // Estado Edição / Seleção do Catálogo
   const [pedidoEditandoId, setPedidoEditandoId] = useState<string | null>(null);
   const [mostrarSeletorCatalogo, setMostrarSeletorCatalogo] = useState(false);
 
-  // Estados Calculadora
   const [nomeProd, setNomeProd] = useState('');
   const [qtdPed, setQtdPed] = useState('1');
   const [matsNoPed, setMatsNoPed] = useState<any[]>([]);
@@ -80,14 +77,12 @@ export default function App() {
   const [precoManual, setPrecoManual] = useState<string | null>(null);
   const [obsPedido, setObsPedido] = useState('');
 
-  // Estados Formulários
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
   const [novoMat, setNovoMat] = useState({ id: '', nome: '', valor: '', qtd: '1', unidade: 'un', qtdAtual: '0', qtdMinima: '0' });
   const [novoCli, setNovoCli] = useState({ id: '', nome: '', zap: '' });
   
-  // Estado Produto do Catálogo + Imagem + Zap da dona da conta
   const [novoProdCatalogo, setNovoProdCatalogo] = useState({ id: '', nome: '', precoVenda: '', urlImagem: '' });
   const [zapDonaConta, setZapDonaConta] = useState('');
   const [subindoImagem, setSubindoImagem] = useState(false);
@@ -498,14 +493,12 @@ export default function App() {
         {/* TELA INICIAL */}
         {activeTab === 'inicio' && (
           <div className="space-y-5 pt-2">
-            {/* CARD DE FATURAMENTO */}
             <div className="bg-gradient-to-tr from-purple-700 to-indigo-600 p-6 rounded-[35px] shadow-lg text-white">
               <p className="text-xs font-bold uppercase tracking-widest text-purple-200">Faturamento Realizado</p>
               <h2 className="text-4xl font-black mt-1 tracking-tight">R$ {dashboardMetrics.faturamento}</h2>
               <p className="text-[11px] text-purple-200 mt-2 opacity-80">📈 Dinheiro gerado de pedidos marcados como vendidos</p>
             </div>
 
-            {/* BARRA HORIZONTAL DA CALCULADORA EM OUTRA COR */}
             <div onClick={() => { limparCalculadora(); setActiveTab('criar'); }} 
                  className="bg-gradient-to-r from-orange-500 to-amber-500 p-6 rounded-[35px] shadow-md cursor-pointer active:scale-95 transition-all text-white flex justify-between items-center">
               <div>
@@ -517,7 +510,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* GRADES DE CARDS ADICIONAIS */}
             <div className="grid grid-cols-2 gap-4">
               <div onClick={() => setActiveTab('pedidos')} className="bg-white p-5 rounded-[30px] border shadow-sm cursor-pointer active:scale-95 transition-all">
                 <div className="w-10 h-10 rounded-2xl bg-orange-50 flex items-center justify-center text-orange-500 mb-3"><History size={20}/></div>
@@ -763,7 +755,6 @@ export default function App() {
                <input className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-orange-500" type="number" value={desconto} onChange={e => setDesconto(e.target.value)} />
             </div>
 
-            {/* CAIXA DE OBSERVAÇÃO QUE VAI PRO PDF */}
             <div className="mb-6">
                <label className="text-[10px] font-bold text-purple-600 uppercase ml-1">📝 Observações do Orçamento</label>
                <textarea 
@@ -945,9 +936,9 @@ export default function App() {
         )}
       </main>
 
-            {/* MENU INFERIOR 100% PLANO, ALINHADO E PERFEITO */}
+      {/* MENU INFERIOR CORRIGIDO, BALANCEADO E FLUIDO */}
       <div className="fixed bottom-0 left-0 right-0 flex justify-center p-4 z-50 bg-transparent pointer-events-none">
-        <div className="bg-white shadow-[0_-10px_30px_rgba(0,0,0,0.05)] rounded-[30px] flex justify-around items-center px-2 h-16 w-full max-w-xl pointer-events-auto">
+        <div className="relative bg-white shadow-[0_-10px_30px_rgba(0,0,0,0.05)] rounded-[30px] flex justify-around items-center px-2 h-16 w-full max-w-xl pointer-events-auto">
           
           {/* Aba: Início */}
           <button 
@@ -976,7 +967,7 @@ export default function App() {
             <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Catálogo</span>
           </button>
 
-          {/* Aba: Orçar (AGORA TOTALMENTE IGUAL E ALINHADA COM AS OUTRAS) */}
+          {/* Aba: Orçar */}
           <button 
             onClick={() => { limparCalculadora(); setActiveTab('criar'); }} 
             className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'criar' ? 'text-orange-500' : 'text-slate-300'}`}
@@ -1005,5 +996,6 @@ export default function App() {
 
         </div>
       </div>
+    </div>
   );
 }
