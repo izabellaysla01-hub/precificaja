@@ -78,7 +78,7 @@ export default function App() {
   const [prazo, setPrazo] = useState('');
   const [clienteSel, setClienteSel] = useState('');
   const [precoManual, setPrecoManual] = useState<string | null>(null);
-  const [obsPedido, setObsPedido] = useState(''); // Estado para Observação do Orçamento
+  const [obsPedido, setObsPedido] = useState(''); // Armazena a observação
 
   // Estados Formulários
   const [email, setEmail] = useState('');
@@ -92,12 +92,10 @@ export default function App() {
   const [zapDonaConta, setZapDonaConta] = useState('');
   const [subindoImagem, setSubindoImagem] = useState(false);
 
-  // Força as tabs a funcionarem sem travar tipo
   const setActiveTab = (tab: any) => {
     useStateActiveTab(tab);
   };
 
-  // Executa ao abrir o app para checar se há "?loja=" na URL antes do estado de login
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const lojaId = params.get('loja');
@@ -105,7 +103,6 @@ export default function App() {
       setIdLojaPublica(lojaId);
       setCarregandoPublico(true);
       
-      // Puxa o whatsapp cadastrado dessa loja específica
       getDoc(doc(db, "configuracoes_loja", lojaId)).then(docSnap => {
         if(docSnap.exists()) {
           setZapDaLojaPublica(docSnap.data().whatsapp || '');
@@ -122,7 +119,6 @@ export default function App() {
     return onAuthStateChanged(auth, u => {
       setUser(u);
       if (u) {
-        // Se a dona da conta estiver logada, puxa o zap dela atual do banco
         getDoc(doc(db, "configuracoes_loja", u.uid)).then(docSnap => {
           if(docSnap.exists()) setZapDonaConta(docSnap.data().whatsapp || '');
         });
@@ -139,10 +135,9 @@ export default function App() {
     return () => { document.body.removeChild(script); };
   }, []);
 
-  // SEGURANÇA: Carregamento isolado de dados por usuário logado
   useEffect(() => {
     if (user && !idLojaPublica) {
-      const qMateriais = query(collection(db, "materiais"), where("userId", "==", user.uid));
+      const qMateriais = query(collection(db, "materials"), where("userId", "==", user.uid));
       const unsubMateriais = onSnapshot(qMateriais, s => setMaterials(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
       const qPedidos = query(collection(db, "pedidos"), where("userId", "==", user.uid));
@@ -170,7 +165,7 @@ export default function App() {
 
   const copiarLinkCatalogo = () => {
     navigator.clipboard.writeText(linkDoCatalogoDestaCliente);
-    alert("Link do seu catálogo copied! Agora é só colar e mandar pros clientes. 🔗🚀");
+    alert("Link do seu catálogo copiado! 🔗🚀");
   };
 
   const finalizarPedidoPublicoWhatsapp = () => {
@@ -314,6 +309,7 @@ export default function App() {
     window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
   };
 
+  // ORIGINAL REPRISTINADO TOTALMENTE (Design intacto)
   const gerarPDF = (p: any) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
     const dataEmissao = p.data || new Date().toLocaleDateString('pt-BR');
@@ -327,98 +323,80 @@ export default function App() {
     const qtdNum = Number(p.qtdPed || 1);
     const precoUnitario = (totalNum / qtdNum).toFixed(2);
 
-    // CRIA CONTÊINER PREVIEW COM O BOTÃO X FIXO NO TOPO
-    const visualizador = document.createElement('div');
-    visualizador.id = "pdf-visualizador-flutuante";
-    visualizador.style.cssText = "position:fixed; top:0; left:0; width:100%; height:100%; background:white; z-index:99999; overflow-y:auto; font-family:sans-serif;";
-
-    visualizador.innerHTML = `
-      <div style="padding: 15px; text-align: right; background: #f8fafc; position: sticky; top: 0; border-bottom: 1px solid #e2e8f0; z-index: 100000;">
-        <button id="btn-fechar-preview-pdf" style="background:#ef4444; color:white; border:none; padding:10px 22px; border-radius:12px; font-weight:black; cursor:pointer; font-size:12px; uppercase tracking-wider">FECHAR X</button>
-      </div>
-      <div id="area-da-folha-pdf">
-        <div style="padding: 35px; color: #334155; max-width: 750px; margin: 0 auto; background: white;">
-          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px;">
-            <div>
-              <h1 style="color: #7c3aed; margin: 0; font-size: 32px; font-weight: 900;">PrecificaJá 🚀</h1>
-              <p style="color: #94a3b8; font-size: 11px; text-transform: uppercase; margin: 4px 0 0 0; font-weight: bold;">Documento de Orçamento Comercial</p>
-            </div>
-            <div style="text-align: right; background-color: #f8fafc; padding: 12px 20px; border-radius: 16px; border: 1px solid #e2e8f0;">
-              <span style="font-size: 10px; font-weight: bold; color: #a78bfa; text-transform: uppercase; display: block;">Código Ref</span>
-              <span style="font-size: 14px; font-weight: bold; color: #475569; display: block; margin-top: 2px;">ORC-${Math.floor(1000 + Math.random() * 9000)}</span>
-            </div>
+    const elemento = document.createElement('div');
+    elemento.innerHTML = `
+      <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px;">
+          <div>
+            <h1 style="color: #7c3aed; margin: 0; font-size: 32px; font-weight: 900;">PrecificaJá 🚀</h1>
+            <p style="color: #94a3b8; font-size: 11px; text-transform: uppercase; margin: 4px 0 0 0; font-weight: bold;">Documento de Orçamento Comercial</p>
           </div>
-          <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Dados do Cliente</div>
-          <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 25px; border: 1px solid #f1f5f9;">
-            <p style="margin: 0 0 6px 0; font-size: 14px;"><strong>Cliente:</strong> ${cli?.nome || 'Cliente não informado'}</p>
-            <p style="margin: 0; font-size: 13px; color: #64748b;"><strong>WhatsApp:</strong> ${cli?.zap || 'Não informado'}</p>
+          <div style="text-align: right; background-color: #f8fafc; padding: 12px 20px; border-radius: 16px; border: 1px solid #e2e8f0;">
+            <span style="font-size: 10px; font-weight: bold; color: #a78bfa; text-transform: uppercase; display: block;">Código Ref</span>
+            <span style="font-size: 14px; font-weight: bold; color: #475569; display: block; margin-top: 2px;">ORC-${Math.floor(1000 + Math.random() * 9000)}</span>
           </div>
+        </div>
+        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Dados do Cliente</div>
+        <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 25px; border: 1px solid #f1f5f9;">
+          <p style="margin: 0 0 6px 0; font-size: 14px;"><strong>Cliente:</strong> ${cli?.nome || 'Cliente não informado'}</p>
+          <p style="margin: 0; font-size: 13px; color: #64748b;"><strong>WhatsApp:</strong> ${cli?.zap || 'Não informado'}</p>
+        </div>
 
-          <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Informações Básicas e Prazos</div>
-          <div style="display: flex; justify-content: space-between; background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 25px; border: 1px solid #f1f5f9; font-size: 13px;">
-            <div><strong>Data de Emissão:</strong><div style="margin-top: 4px; color: #64748b; font-weight: bold;">${dataEmissao}</div></div>
-            <div><strong>Validade do Orçamento:</strong><div style="margin-top: 4px; color: #ef4444; font-weight: bold;">${dataValidade} (7 dias)</div></div>
-            <div><strong>Prazo de Entrega:</strong><div style="margin-top: 4px; color: #7c3aed; font-weight: bold;">${dataPrazo}</div></div>
+        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Informações Básicas e Prazos</div>
+        <div style="display: flex; justify-content: space-between; background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 25px; border: 1px solid #f1f5f9; font-size: 13px;">
+          <div><strong>Data de Emissão:</strong><div style="margin-top: 4px; color: #64748b; font-weight: bold;">${dataEmissao}</div></div>
+          <div><strong>Validade do Orçamento:</strong><div style="margin-top: 4px; color: #ef4444; font-weight: bold;">${dataValidade} (7 dias)</div></div>
+          <div><strong>Prazo de Entrega:</strong><div style="margin-top: 4px; color: #7c3aed; font-weight: bold;">${dataPrazo}</div></div>
+        </div>
+
+        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Produtos / Serviços Selecionados</div>
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+          <thead>
+            <tr style="border-bottom: 2px solid #e2e8f0; text-align: left; font-size: 11px; text-transform: uppercase; color: #94a3b8;">
+              <th style="padding: 10px 5px;">Descrição</th>
+              <th style="padding: 10px 5px; text-align: center;">Qtd</th>
+              <th style="padding: 10px 5px; text-align: right;">Preço Unit.</th>
+              <th style="padding: 10px 5px; text-align: right;">Subtotal</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px;">
+              <td style="padding: 15px 5px; font-weight: bold; color: #1e293b;">${p.nomeProd}</td>
+              <td style="padding: 15px 5px; text-align: center; color: #475569;">${qtdNum}</td>
+              <td style="padding: 15px 5px; text-align: right; color: #475569;">R$ ${precoUnitario}</td>
+              <td style="padding: 15px 5px; text-align: right; font-weight: bold; color: #1e293b;">R$ ${totalNum.toFixed(2)}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div style="display: flex; flex-direction: column; align-items: flex-end; margin-bottom: 35px; padding-right: 5px;">
+          <div style="font-size: 13px; color: #64748b; margin-bottom: 5px;">Subtotal: <strong>R$ ${totalNum.toFixed(2)}</strong></div>
+          <div style="background-color: #7c3aed; color: white; padding: 12px 25px; border-radius: 12px; font-size: 18px; font-weight: 900; text-align: right; min-width: 180px;">
+            <span style="font-size: 10px; font-weight: bold; text-transform: uppercase; display: block; opacity: 0.8; margin-bottom: 2px;">Total do Pedido</span>
+            R$ ${totalNum.toFixed(2)}
           </div>
+        </div>
 
-          <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Produtos / Serviços Selecionados</div>
-          <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
-            <thead>
-              <tr style="border-bottom: 2px solid #e2e8f0; text-align: left; font-size: 11px; text-transform: uppercase; color: #94a3b8;">
-                <th style="padding: 10px 5px;">Descrição</th>
-                <th style="padding: 10px 5px; text-align: center;">Qtd</th>
-                <th style="padding: 10px 5px; text-align: right;">Preço Unit.</th>
-                <th style="padding: 10px 5px; text-align: right;">Subtotal</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px;">
-                <td style="padding: 15px 5px; font-weight: bold; color: #1e293b;">${p.nomeProd}</td>
-                <td style="padding: 15px 5px; text-align: center; color: #475569;">${qtdNum}</td>
-                <td style="padding: 15px 5px; text-align: right; color: #475569;">R$ ${precoUnitario}</td>
-                <td style="padding: 15px 5px; text-align: right; font-weight: bold; color: #1e293b;">R$ ${totalNum.toFixed(2)}</td>
-              </tr>
-            </tbody>
-          </table>
+        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Forma de Pagamento</div>
+        <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; border: 1px solid #f1f5f9; font-size: 13px; display: flex; justify-content: space-between; margin-bottom: 15px;">
+          <div><strong>Forma de pagamento:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">PIX / CARTÃO</div></div>
+          <div><strong>Condições de pagamento:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">A combinar direto no WhatsApp</div></div>
+        </div>
 
-          <div style="display: flex; flex-direction: column; align-items: flex-end; margin-bottom: 35px; padding-right: 5px;">
-            <div style="font-size: 13px; color: #64748b; margin-bottom: 5px;">Subtotal: <strong>R$ ${totalNum.toFixed(2)}</strong></div>
-            <div style="background-color: #7c3aed; color: white; padding: 12px 25px; border-radius: 12px; font-size: 18px; font-weight: 900; text-align: right; min-width: 180px;">
-              <span style="font-size: 10px; font-weight: bold; text-transform: uppercase; display: block; opacity: 0.8; margin-bottom: 2px;">Total do Pedido</span>
-              R$ ${totalNum.toFixed(2)}
-            </div>
-          </div>
+        ${p.obsPedido ? `
+        <div style="background-color: #f3e8ff; border: 1px solid #e9d5ff; padding: 15px; border-radius: 16px; font-size: 13px; color: #6b21a8; margin-bottom: 15px;">
+          <strong style="text-transform: uppercase; font-size: 10px; display: block; color: #a855f7; margin-bottom: 4px;">Observações Importantes:</strong>
+          ${p.obsPedido.replace(/\n/g, '<br>')}
+        </div>
+        ` : ''}
 
-          <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Forma de Pagamento</div>
-          <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; border: 1px solid #f1f5f9; font-size: 13px; display: flex; justify-content: space-between; margin-bottom: 20px;">
-            <div><strong>Forma de pagamento:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">PIX / CARTÃO</div></div>
-            <div><strong>Condições de pagamento:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">A combinar direto no WhatsApp</div></div>
-          </div>
-
-          ${p.obsPedido ? `
-          <div style="background-color: #e0f2fe; border: 1px solid #bae6fd; padding: 15px; border-radius: 16px; margin-bottom: 25px; font-size: 13px; color: #0369a1;">
-            <strong style="text-transform: uppercase; font-size: 10px; display: block; color: #0284c7; margin-bottom: 4px;">Observações Importantes:</strong>
-            ${p.obsPedido.replace(/\n/g, '<br>')}
-          </div>
-          ` : ''}
-
-          <div style="text-align: center; font-size: 11px; color: #94a3b8; margin-top: 40px; border-top: 1px dashed #e2e8f0; padding-top: 15px;">
-            Obrigado pela preferência! Caso tenha dúvidas, entre em contato pelo nosso WhatsApp.
-          </div>
+        <div style="text-align: center; font-size: 11px; color: #94a3b8; margin-top: 40px; border-top: 1px dashed #e2e8f0; padding-top: 15px;">
+          Obrigado pela preferência! Caso tenha dúvidas, entre em contato pelo nosso WhatsApp.
         </div>
       </div>
     `;
-
-    document.body.appendChild(visualizador);
-
-    // Ação do Botão Fechar X da visualização flutuante
-    document.getElementById('btn-fechar-preview-pdf')?.addEventListener('click', () => {
-      document.body.removeChild(visualizador);
-    });
-
-    // Roda a renderização apenas do elemento interno de design
     const opcoes = { margin: 0, filename: `Orcamento_${p.nomeProd}.pdf`, html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'a4', orientation: 'portrait' } };
-    (window as any).html2pdf().from(document.getElementById('area-da-folha-pdf')).set(opcoes).save();
+    (window as any).html2pdf().from(elemento).set(opcoes).save();
   };
 
   const handleAuth = async () => {
@@ -449,7 +427,6 @@ export default function App() {
     alert("Venda confirmada!");
   };
 
-  // 🛍️ RENDERIZAÇÃO DA VITRINE PÚBLICA PARA OS COMPRADORES (Pula Login)
   if (idLojaPublica) {
     if (carregandoPublico) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando Vitrine... 🛍️</div>;
     const totalCarrinho = Object.keys(carrinho).reduce((acc, id) => {
@@ -511,170 +488,6 @@ export default function App() {
   if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando painel... 🚀</div>;
   if (!user) return <Login {...{isRegistering, setIsRegistering, email, setEmail, password, setPassword, handleAuth}} />;
 
-  // CONSTRUTOR DE CÓDIGO DA CALCULADORA REUTILIZÁVEL
-  const renderCalculadoraForm = () => (
-    <div className="bg-white p-6 rounded-[35px] shadow-xl border mt-2">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-purple-700 font-bold flex items-center gap-2 uppercase text-xs tracking-widest">
-          <ShoppingCart size={18}/> {pedidoEditandoId ? '✏️ Editando Orçamento' : 'Novo Orçamento'}
-        </h2>
-        <button onClick={() => setMostrarSeletorCatalogo(!mostrarSeletorCatalogo)} className="text-xs bg-purple-50 text-purple-700 px-3 py-1.5 rounded-xl font-black uppercase border border-purple-100">
-          {precoManual ? '✨ Item de Catálogo' : '📖 Usar Catálogo'}
-        </button>
-      </div>
-
-      {mostrarSeletorCatalogo && (
-        <div className="bg-purple-50/50 border border-purple-100 p-4 rounded-3xl mb-4 text-xs space-y-2">
-          <p className="font-bold text-purple-700 uppercase text-[10px]">Escolha um produto pronto:</p>
-          <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto">
-            {produtos.map(p => (
-              <div key={p.id} onClick={() => {
-                setNomeProd(p.nome);
-                setPrecoManual(String(p.precoVenda));
-                setMostrarSeletorCatalogo(false);
-              }} className="bg-white p-2.5 rounded-xl border flex justify-between items-center cursor-pointer hover:border-purple-400">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-slate-50 overflow-hidden shrink-0 flex items-center justify-center text-slate-300">
-                    {p.urlImagem ? <img src={p.urlImagem} className="w-full h-full object-cover" /> : <ImageIcon size={14}/>}
-                  </div>
-                  <span className="font-bold">{p.nome}</span>
-                </div>
-                <span className="text-purple-700 font-black">R$ {Number(p.precoVenda).toFixed(2)}</span>
-              </div>
-            ))}
-          </div>
-          {precoManual && <button onClick={() => setPrecoManual(null)} className="text-[10px] text-red-500 font-bold uppercase underline pt-1 block">Limpar e calcular do zero</button>}
-        </div>
-      )}
-
-      <div className="grid grid-cols-3 gap-3 mb-4">
-         <div className="col-span-2">
-            <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Produto</label>
-            <input className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={nomeProd} onChange={e => setNomeProd(e.target.value)} />
-         </div>
-         <div>
-            <label className="text-[10px] font-bold text-slate-400 uppercase text-center block">Qtd</label>
-            <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-center" value={qtdPed} onChange={e => setQtdPed(e.target.value)} />
-         </div>
-      </div>
-
-      <div className="mb-4">
-         <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Cliente</label>
-         <select className="p-4 bg-slate-50 rounded-2xl outline-none w-full" onChange={e => setClienteSel(e.target.value)} value={clienteSel}>
-            <option value="">👤 Escolher Cliente...</option>
-            {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-         </select>
-      </div>
-
-      {precoManual === null ? (
-        <>
-          <div className="mb-4">
-             <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Materiais Usados</label>
-             <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none mb-2" onChange={e => {
-                const m = materiais.find(item => item.id === e.target.value);
-                if (m) setMatsNoPed([...matsNoPed, { id: m.id, nome: m.nome, valor: m.valor, qtd: m.qtd, unidade: m.unidade, qtdUsada: 1 }]);
-             }} value="">
-                <option value="">+ Adicionar Material...</option>
-                {materiais.map(m => <option key={m.id} value={m.id}>{m.nome} ({m.unidade || 'un'})</option>)}
-             </select>
-             <div className="space-y-2">
-                {matsNoPed.map((m, i) => (
-                  <div key={i} className="flex justify-between items-center bg-purple-50 p-3 rounded-2xl border border-purple-100 text-purple-700 font-bold text-xs">
-                    <span>{m.nome}</span>
-                    <div className="flex items-center gap-2">
-                      <input type="number" className="w-16 bg-white rounded-lg p-1 text-center" value={m.qtdUsada} onChange={e => {
-                         const nova = [...matsNoPed]; nova[i].qtdUsada = e.target.value; setMatsNoPed(nova);
-                      }} />
-                      <span className="text-[10px] text-purple-500">{m.unidade || 'un'}</span>
-                      <button onClick={() => setMatsNoPed(matsNoPed.filter((_, idx) => idx !== i))}><X size={16}/></button>
-                    </div>
-                  </div>
-                ))}
-             </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div><label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Tempo Gasto (min)</label>
-            <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={tGasto} onChange={e => setTGasto(e.target.value)} /></div>
-            <div><label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Valor da Hora (R$)</label>
-            <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={vHora} onChange={e => setVHora(e.target.value)} /></div>
-          </div>
-          <div className="mb-4 text-center">
-            <div className="grid grid-cols-4 gap-2">
-              {[{id:'embalagem',label:'EMBAL.'},{id:'impressao',label:'TINTA'},{id:'energia',label:'LUZ'},{id:'outros',label:'OUTROS'}].map(c=>(
-                <div key={c.id} className="flex flex-col items-center bg-slate-50 p-2 rounded-xl">
-                  <span className="text-[8px] font-black text-slate-300 mb-1">{c.label}</span>
-                  <input type="number" className="w-full bg-transparent text-center text-xs outline-none font-bold" value={(custos as any)[c.id]} onChange={e => setCustos({...custos, [c.id]: e.target.value})} />
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div><label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Lucro %</label>
-            <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={lucro} onChange={e => setLucro(e.target.value)} /></div>
-            <div><label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Prazo</label>
-            <input type="date" className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-xs font-bold" value={prazo} onChange={e => setPrazo(e.target.value)} /></div>
-          </div>
-        </>
-      ) : (
-        <div className="bg-orange-50 border border-orange-100 p-4 rounded-3xl mb-4 text-xs">
-          <p className="font-bold text-orange-600">💥 Preço travado pelo catálogo de vendas.</p>
-          <p className="text-slate-500 mt-1">Valor Unitário original: <strong>R$ {Number(precoManual).toFixed(2)}</strong></p>
-          <div className="mt-3">
-            <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Prazo</label>
-            <input type="date" className="w-full p-4 bg-white rounded-2xl outline-none text-xs font-bold border" value={prazo} onChange={e => setPrazo(e.target.value)} />
-          </div>
-        </div>
-      )}
-
-      <div className="mb-4">
-         <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Desconto Total (R$)</label>
-         <input className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-orange-500" type="number" value={desconto} onChange={e => setDesconto(e.target.value)} />
-      </div>
-
-      {/* CAMPO EXCLUSIVO DE OBSERVAÇÃO DURANTE O PROCESSO DE ORÇAMENTO */}
-      <div className="mb-6">
-         <label className="text-[10px] font-bold text-purple-600 uppercase ml-1">📝 Observações Importantes (Aparece no PDF)</label>
-         <textarea 
-           placeholder="Ex: Entrada de 50% via PIX para iniciar produção. Frete não incluso." 
-           className="w-full p-4 bg-slate-50 rounded-2xl mt-1 outline-none text-xs font-semibold border border-transparent focus:border-purple-400 resize-none h-20" 
-           value={obsPedido} 
-           onChange={e => setObsPedido(e.target.value)} 
-         />
-      </div>
-
-      {precoManual === null && (
-        <div className="bg-slate-50 p-5 rounded-3xl mb-8 border border-slate-100 text-xs space-y-2.5">
-          <p className="font-black text-purple-700 uppercase tracking-wider text-[10px] mb-1">📋 RESUMO FINANCEIRO DA PEÇA</p>
-          <div className="flex justify-between text-slate-500"><span>Materiais:</span><span className="font-bold">R$ {resumenFinanceiro.materiais}</span></div>
-          <div className="flex justify-between text-slate-500"><span>Mão de Obra:</span><span className="font-bold">R$ {resumenFinanceiro.maoObra}</span></div>
-          <div className="flex justify-between text-slate-500"><span>Extras / Custo Manual:</span><span className="font-bold">R$ {resumenFinanceiro.extras}</span></div>
-          <div className="flex justify-between text-slate-800 font-bold border-t pt-2 mt-1"><span>Custo Total da Peça:</span><span className="text-purple-700">R$ {resumenFinanceiro.custoPeca}</span></div>
-          <div className="flex justify-between text-emerald-600 font-bold"><span>Lucro Livre Gerado ({lucro}%) :</span><span>R$ {resumenFinanceiro.lucroLivre}</span></div>
-        </div>
-      )}
-
-      <div className="flex items-center justify-between border-t pt-6">
-        <div className="text-orange-500 font-black text-4xl tracking-tighter">R$ {resumenFinanceiro.final}</div>
-        <div className="flex gap-2">
-          <button onClick={async () => {
-             if(!nomeProd) return alert("Digite o nome do produto!");
-             const dadosPedido = { 
-               nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed, vHora, tGasto, custos, lucro, desconto, userId: user.uid,
-               precoManual: precoManual, obsPedido: obsPedido,
-               materiaisUsados: precoManual ? [] : matsNoPed.map(m => ({ id: m.id, nome: m.nome, qtdUsada: Number(m.qtdUsada || 1) }))
-             };
-             if (pedidoEditandoId) await updateDoc(doc(db, "pedidos", pedidoEditandoId), dadosPedido);
-             else await addDoc(collection(db, "pedidos"), { ...dadosPedido, data: new Date().toLocaleDateString('pt-BR'), status: 'Pendente' });
-             limparCalculadora(); setActiveTab('pedidos');
-             alert("Salvo!");
-          }} className="bg-orange-500 text-white px-5 py-4 rounded-[22px] font-black uppercase text-xs shadow-lg">Salvar</button>
-          <button onClick={() => gerarPDF({nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed, obsPedido})} className="bg-orange-500 text-white p-4 rounded-[22px] shadow-lg"><Printer size={18}/></button>
-          <button onClick={() => enviarZap({nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed})} className="bg-emerald-500 text-white p-4 rounded-[22px] shadow-lg"><MessageCircle size={18}/></button>
-        </div>
-      </div>
-    </div>
-  );
-
   return (
     <div className="min-h-screen bg-slate-50 pb-32 font-sans text-slate-700">
       <header className="bg-white p-4 flex justify-between items-center shadow-sm sticky top-0 z-50">
@@ -683,7 +496,7 @@ export default function App() {
       </header>
 
       <main className="p-4 max-w-xl mx-auto">
-        {/* TELA INICIAL INTEGRANDO CALCULADORA NO DASHBOARD */}
+        {/* TELA INICIAL COM ATALHOS LINDOS EM GRADE */}
         {activeTab === 'inicio' && (
           <div className="space-y-5 pt-2">
             <div className="bg-gradient-to-tr from-purple-700 to-indigo-600 p-6 rounded-[35px] shadow-lg text-white">
@@ -693,37 +506,40 @@ export default function App() {
             </div>
 
             <div className="grid grid-cols-2 gap-4">
+              {/* NOVO ATALHO DA CALCULADORA IGUAL AOS OUTROS CARD */}
+              <div onClick={() => { limparCalculadora(); setActiveTab('criar'); }} className="bg-orange-500 p-5 rounded-[30px] shadow-sm cursor-pointer active:scale-95 transition-all text-white">
+                <div className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center text-white mb-3"><Calculator size={20}/></div>
+                <p className="text-[10px] font-bold text-orange-100 uppercase tracking-wider">Calculadora</p>
+                <p className="text-lg font-black mt-0.5 leading-tight">Novo Orçamento</p>
+              </div>
+
               <div onClick={() => setActiveTab('pedidos')} className="bg-white p-5 rounded-[30px] border shadow-sm cursor-pointer active:scale-95 transition-all">
                 <div className="w-10 h-10 rounded-2xl bg-orange-50 flex items-center justify-center text-orange-500 mb-3"><History size={20}/></div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Orçamentos</p>
                 <p className="text-2xl font-black text-slate-800 mt-0.5">{dashboardMetrics.pendentes}</p>
               </div>
+            </div>
 
+            <div className="grid grid-cols-2 gap-4">
               <div onClick={() => setActiveTab('catalogo')} className="bg-white p-5 rounded-[30px] border shadow-sm cursor-pointer active:scale-95 transition-all">
                 <div className="w-10 h-10 rounded-2xl bg-purple-50 flex items-center justify-center text-purple-600 mb-3"><BookOpen size={20}/></div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Catálogo</p>
                 <p className="text-2xl font-black text-slate-800 mt-0.5">{produtos.length}</p>
               </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
               <div onClick={() => setActiveTab('materiais')} className={`p-5 rounded-[30px] border shadow-sm cursor-pointer active:scale-95 transition-all ${dashboardMetrics.criticos > 0 ? 'bg-red-50/50 border-red-100' : 'bg-white'}`}>
                 <div className="w-10 h-10 rounded-2xl bg-red-50 flex items-center justify-center text-red-500 mb-3"><Package size={20}/></div>
                 <p className="text-[10px] font-bold text-slate-400 tracking-wider uppercase">Falta Reposição</p>
                 <p className="text-2xl font-black mt-0.5">{dashboardMetrics.criticos}</p>
               </div>
-
-              <div onClick={() => setActiveTab('clientes')} className="bg-white p-5 rounded-[30px] border shadow-sm cursor-pointer active:scale-95 transition-all">
-                <div className="w-10 h-10 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-500 mb-3"><User size={20}/></div>
-                <p className="text-[10px] font-bold text-slate-400 tracking-wider uppercase">Base Comercial</p>
-                <p className="text-2xl font-black mt-0.5">{dashboardMetrics.totalClientes}</p>
-              </div>
             </div>
 
-            {/* CHAMA A CALCULADORA DIRETO NO MEIO DA TELA INICIAL */}
-            <div className="mt-4">
-              <p className="text-xs font-black text-slate-400 uppercase tracking-wider ml-2 mb-2">Acesso Rápido</p>
-              {renderCalculadoraForm()}
+            <div className="grid grid-cols-2 gap-4">
+              <div onClick={() => setActiveTab('clientes')} className="bg-white p-5 rounded-[30px] border shadow-sm cursor-pointer active:scale-95 transition-all w-1/2">
+                <div className="w-10 h-10 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-500 mb-3"><User size={20}/></div>
+                <p className="text-[10px] font-bold text-slate-400 tracking-wider uppercase">Clientes</p>
+                <p className="text-2xl font-black mt-0.5">{dashboardMetrics.totalClientes}</p>
+              </div>
             </div>
           </div>
         )}
@@ -751,7 +567,7 @@ export default function App() {
                     if(!zapDonaConta.trim()) return alert("Digite o número primeiro!");
                     try {
                       await setDoc(doc(db, "configuracoes_loja", user.uid), { whatsapp: zapDonaConta.trim() }, { merge: true });
-                      alert("WhatsApp de vendas salvo com sucesso! 🚀 Agora os pedidos vão cair direto no seu número.");
+                      alert("WhatsApp de vendas salvo com sucesso! 🚀");
                     } catch {
                       alert("Erro ao salvar número.");
                     }
@@ -803,7 +619,6 @@ export default function App() {
             </div>
 
             <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider ml-2">Seu Catálogo Visual</h3>
-            
             <div className="grid grid-cols-1 gap-3">
               {produtos.map(p => (
                 <div key={p.id} className="bg-white p-4 rounded-[30px] flex gap-4 items-center border border-slate-100 shadow-sm">
@@ -815,9 +630,7 @@ export default function App() {
                     <p className="text-purple-700 font-black text-sm mt-0.5">R$ {Number(p.precoVenda).toFixed(2)}</p>
                   </div>
                   <div className="flex items-center gap-1">
-                    <button onClick={() => venderItemDiretoDoCatalogo(p)} className="bg-orange-500 text-white px-3 py-2 rounded-xl text-xs font-black uppercase shadow active:scale-95">
-                      Vender 🛍️
-                    </button>
+                    <button onClick={() => venderItemDiretoDoCatalogo(p)} className="bg-orange-500 text-white px-3 py-2 rounded-xl text-xs font-black uppercase shadow active:scale-95">Vender 🛍️</button>
                     <button onClick={() => setNovoProdCatalogo({ id: p.id, nome: p.nome, precoVenda: String(p.precoVenda), urlImagem: p.urlImagem || '' })} className="text-purple-400 p-1.5"><Edit2 size={15}/></button>
                     <button onClick={() => deleteDoc(doc(db, "produtos", p.id))} className="text-red-200 p-1.5"><Trash2 size={15}/></button>
                   </div>
@@ -827,8 +640,168 @@ export default function App() {
           </div>
         )}
 
-        {/* COMPONENTE CHAMADO PELA ABA DE CRIAÇÃO TRADICIONAL */}
-        {activeTab === 'criar' && renderCalculadoraForm()}
+        {/* CALCULADORA / CRIAR PEDIDO */}
+        {activeTab === 'criar' && (
+          <div className="bg-white p-6 rounded-[35px] shadow-xl border mt-2">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-purple-700 font-bold flex items-center gap-2 uppercase text-xs tracking-widest">
+                <ShoppingCart size={18}/> {pedidoEditandoId ? '✏️ Editando Orçamento' : 'Novo Orçamento'}
+              </h2>
+              <button onClick={() => setMostrarSeletorCatalogo(!mostrarSeletorCatalogo)} className="text-xs bg-purple-50 text-purple-700 px-3 py-1.5 rounded-xl font-black uppercase border border-purple-100">
+                {precoManual ? '✨ Item de Catálogo' : '📖 Usar Catálogo'}
+              </button>
+            </div>
+
+            {mostrarSeletorCatalogo && (
+              <div className="bg-purple-50/50 border border-purple-100 p-4 rounded-3xl mb-4 text-xs space-y-2">
+                <p className="font-bold text-purple-700 uppercase text-[10px]">Escolha um produto pronto:</p>
+                <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto">
+                  {produtos.map(p => (
+                    <div key={p.id} onClick={() => {
+                      setNomeProd(p.nome);
+                      setPrecoManual(String(p.precoVenda));
+                      setMostrarSeletorCatalogo(false);
+                    }} className="bg-white p-2.5 rounded-xl border flex justify-between items-center cursor-pointer hover:border-purple-400">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-slate-50 overflow-hidden shrink-0 flex items-center justify-center text-slate-300">
+                          {p.urlImagem ? <img src={p.urlImagem} className="w-full h-full object-cover" /> : <ImageIcon size={14}/>}
+                        </div>
+                        <span className="font-bold">{p.nome}</span>
+                      </div>
+                      <span className="text-purple-700 font-black">R$ {Number(p.precoVenda).toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-3 gap-3 mb-4">
+               <div className="col-span-2">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Produto</label>
+                  <input className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={nomeProd} onChange={e => setNomeProd(e.target.value)} />
+               </div>
+               <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase text-center block">Qtd</label>
+                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-center" value={qtdPed} onChange={e => setQtdPed(e.target.value)} />
+               </div>
+            </div>
+
+            <div className="mb-4">
+               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Cliente</label>
+               <select className="p-4 bg-slate-50 rounded-2xl outline-none w-full" onChange={e => setClienteSel(e.target.value)} value={clienteSel}>
+                  <option value="">👤 Escolher Cliente...</option>
+                  {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+               </select>
+            </div>
+
+            {precoManual === null ? (
+              <>
+                <div className="mb-4">
+                   <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Materiais Usados</label>
+                   <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none mb-2" onChange={e => {
+                      const m = materiais.find(item => item.id === e.target.value);
+                      if (m) setMatsNoPed([...matsNoPed, { id: m.id, nome: m.nome, valor: m.valor, qtd: m.qtd, unidade: m.unidade, qtdUsada: 1 }]);
+                   }} value="">
+                      <option value="">+ Adicionar Material...</option>
+                      {materiais.map(m => <option key={m.id} value={m.id}>{m.nome} ({m.unidade || 'un'})</option>)}
+                   </select>
+                   <div className="space-y-2">
+                      {matsNoPed.map((m, i) => (
+                        <div key={i} className="flex justify-between items-center bg-purple-50 p-3 rounded-2xl border border-purple-100 text-purple-700 font-bold text-xs">
+                          <span>{m.nome}</span>
+                          <div className="flex items-center gap-2">
+                            <input type="number" className="w-16 bg-white rounded-lg p-1 text-center" value={m.qtdUsada} onChange={e => {
+                               const nova = [...matsNoPed]; nova[i].qtdUsada = e.target.value; setMatsNoPed(nova);
+                            }} />
+                            <span className="text-[10px] text-purple-500">{m.unidade || 'un'}</span>
+                            <button onClick={() => setMatsNoPed(matsNoPed.filter((_, idx) => idx !== i))}><X size={16}/></button>
+                          </div>
+                        </div>
+                      ))}
+                   </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div><label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Tempo Gasto (min)</label>
+                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={tGasto} onChange={e => setTGasto(e.target.value)} /></div>
+                  <div><label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Valor da Hora (R$)</label>
+                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={vHora} onChange={e => setVHora(e.target.value)} /></div>
+                </div>
+                <div className="mb-4 text-center">
+                  <div className="grid grid-cols-4 gap-2">
+                    {[{id:'embalagem',label:'EMBAL.'},{id:'impressao',label:'TINTA'},{id:'energia',label:'LUZ'},{id:'outros',label:'OUTROS'}].map(c=>(
+                      <div key={c.id} className="flex flex-col items-center bg-slate-50 p-2 rounded-xl">
+                        <span className="text-[8px] font-black text-slate-300 mb-1">{c.label}</span>
+                        <input type="number" className="w-full bg-transparent text-center text-xs outline-none font-bold" value={(custos as any)[c.id]} onChange={e => setCustos({...custos, [c.id]: e.target.value})} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div><label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Lucro %</label>
+                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={lucro} onChange={e => setLucro(e.target.value)} /></div>
+                  <div><label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Prazo</label>
+                  <input type="date" className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-xs font-bold" value={prazo} onChange={e => setPrazo(e.target.value)} /></div>
+                </div>
+              </>
+            ) : (
+              <div className="bg-orange-50 border border-orange-100 p-4 rounded-3xl mb-4 text-xs">
+                <p className="font-bold text-orange-600">💥 Preço travado pelo catálogo de vendas.</p>
+                <p className="text-slate-500 mt-1">Valor Unitário original: <strong>R$ {Number(precoManual).toFixed(2)}</strong></p>
+                <div className="mt-3">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Prazo</label>
+                  <input type="date" className="w-full p-4 bg-white rounded-2xl outline-none text-xs font-bold border" value={prazo} onChange={e => setPrazo(e.target.value)} />
+                </div>
+              </div>
+            )}
+
+            <div className="mb-4">
+               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Desconto Total (R$)</label>
+               <input className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-orange-500" type="number" value={desconto} onChange={e => setDesconto(e.target.value)} />
+            </div>
+
+            {/* CAIXA DE OBSERVAÇÃO QUE VAI PRO PDF */}
+            <div className="mb-6">
+               <label className="text-[10px] font-bold text-purple-600 uppercase ml-1">📝 Observações do Orçamento</label>
+               <textarea 
+                 placeholder="Ex: Sinal de 50% para início da produção. Restante na entrega." 
+                 className="w-full p-4 bg-slate-50 rounded-2xl mt-1 outline-none text-xs font-semibold border border-transparent focus:border-purple-400 resize-none h-20" 
+                 value={obsPedido} 
+                 onChange={e => setObsPedido(e.target.value)} 
+               />
+            </div>
+
+            {precoManual === null && (
+              <div className="bg-slate-50 p-5 rounded-3xl mb-8 border border-slate-100 text-xs space-y-2.5">
+                <p className="font-black text-purple-700 uppercase tracking-wider text-[10px] mb-1">📋 RESUMO FINANCEIRO DA PEÇA</p>
+                <div className="flex justify-between text-slate-500"><span>Materiais:</span><span className="font-bold">R$ {resumenFinanceiro.materiais}</span></div>
+                <div className="flex justify-between text-slate-500"><span>Mão de Obra:</span><span className="font-bold">R$ {resumenFinanceiro.maoObra}</span></div>
+                <div className="flex justify-between text-slate-500"><span>Extras / Custo Manual:</span><span className="font-bold">R$ {resumenFinanceiro.extras}</span></div>
+                <div className="flex justify-between text-slate-800 font-bold border-t pt-2 mt-1"><span>Custo Total da Peça:</span><span className="text-purple-700">R$ {resumenFinanceiro.custoPeca}</span></div>
+                <div className="flex justify-between text-emerald-600 font-bold"><span>Lucro Livre Gerado ({lucro}%) :</span><span>R$ {resumenFinanceiro.lucroLivre}</span></div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between border-t pt-6">
+              <div className="text-orange-500 font-black text-4xl tracking-tighter">R$ {resumenFinanceiro.final}</div>
+              <div className="flex gap-2">
+                <button onClick={async () => {
+                   if(!nomeProd) return alert("Digite o nome do produto!");
+                   const dadosPedido = { 
+                     nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed, vHora, tGasto, custos, lucro, desconto, userId: user.uid,
+                     precoManual: precoManual, obsPedido: obsPedido,
+                     materiaisUsados: precoManual ? [] : matsNoPed.map(m => ({ id: m.id, nome: m.nome, qtdUsada: Number(m.qtdUsada || 1) }))
+                   };
+                   if (pedidoEditandoId) await updateDoc(doc(db, "pedidos", pedidoEditandoId), dadosPedido);
+                   else await addDoc(collection(db, "pedidos"), { ...dadosPedido, data: new Date().toLocaleDateString('pt-BR'), status: 'Pendente' });
+                   limparCalculadora(); setActiveTab('pedidos');
+                   alert("Salvo!");
+                }} className="bg-orange-500 text-white px-5 py-4 rounded-[22px] font-black uppercase text-xs shadow-lg">Salvar</button>
+                <button onClick={() => gerarPDF({nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed, obsPedido})} className="bg-orange-500 text-white p-4 rounded-[22px] shadow-lg"><Printer size={18}/></button>
+                <button onClick={() => enviarZap({nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed})} className="bg-emerald-500 text-white p-4 rounded-[22px] shadow-lg"><MessageCircle size={18}/></button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* HISTÓRICO COM DATA DE VOLTA */}
         {activeTab === 'pedidos' && (
