@@ -201,7 +201,6 @@ export default function App() {
     return { faturamento: faturamentoTotal.toFixed(2), pendentes: pendentesCount, criticos: estoqueCriticoCount, totalClientes: clientes.length };
   }, [pedidos, materiais, clientes]);
 
-  // CORRIGIDO: Retirada a palavra "discount" que quebrava o script
   const resumenFinanceiro = useMemo(() => {
     if (precoManual !== null) {
       const totalCatalogo = Number(precoManual) * Number(qtdPed || 1);
@@ -212,12 +211,20 @@ export default function App() {
     const totalMateriais = matsNoPed.reduce((acc, m) => acc + ((Number(m.valor || 0) / Number(m.qtd || 1)) * Number(m.qtdUsada || 0)), 0);
     const totalMaoObra = (Number(vHora || 0) / 60) * Number(tGasto || 0);
     const totalExtras = Number(custos.embalagem || 0) + Number(custos.impressao || 0) + Number(custos.energia || 0) + Number(custos.outros || 0);
+    
     const custoTotalPeca = totalMateriais + totalMaoObra + totalExtras;
-    const subtotalGeral = custoTotalPeca * Number(qtdPed || 1);
-    const valorLucroLivre = subtotalGeral * (Number(lucro || 0) / 100);
-    const precoFinalCalculado = (subtotalGeral + valorLucroLivre) - Number(desconto || 0);
+    const custoTotalLote = custoTotalPeca * Number(qtdPed || 1);
+    const valorLucroLivre = custoTotalLote * (Number(lucro || 0) / 100);
+    const precoFinalCalculado = (custoTotalLote + valorLucroLivre) - Number(desconto || 0);
 
-    return { materiais: totalMateriais.toFixed(2), maoObra: totalMaoObra.toFixed(2), extras: totalExtras.toFixed(2), custoPeca: custoTotalPeca.toFixed(2), lucroLivre: valorLucroLivre.toFixed(2), final: isNaN(precoFinalCalculado) ? "0.00" : precoFinalCalculado.toFixed(2) };
+    return { 
+      materiais: totalMateriais.toFixed(2), 
+      maoObra: totalMaoObra.toFixed(2), 
+      extras: totalExtras.toFixed(2), 
+      custoPeca: custoTotalPeca.toFixed(2), 
+      lucroLivre: valorLucroLivre.toFixed(2), 
+      final: isNaN(precoFinalCalculado) ? "0.00" : precoFinalCalculado.toFixed(2) 
+    };
   }, [matsNoPed, vHora, tGasto, custos, lucro, qtdPed, desconto, precoManual]);
 
   const enviarZap = (p: any) => {
@@ -486,11 +493,9 @@ export default function App() {
 
   // FORMULÁRIO COMPLETO DA CALCULADORA
   const renderCalculadoraForm = () => (
-    <div className="bg-white p-6 rounded-[35px] shadow-xl border mt-2">
-      
-      {/* BARRA EXCLUSIVA DE EDIÇÃO NO TOPO */}
+    <div className="bg-white p-6 rounded-[35px] shadow-xl border mt-2 w-full">
       {pedidoEditandoId && (
-        <div className="bg-amber-50 border border-amber-200 p-4 rounded-3xl mb-6 flex justify-between items-center animate-pulse">
+        <div className="bg-amber-50 border border-amber-200 p-4 rounded-3xl mb-6 flex justify-between items-center animate-pulse w-full">
           <div className="text-xs text-amber-800 font-bold">
             <span>✏️ Você está editando um orçamento salvo!</span>
           </div>
@@ -503,11 +508,10 @@ export default function App() {
         </div>
       )}
 
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex justify-between items-center mb-6 w-full">
         <h2 className="text-purple-700 font-bold flex items-center gap-2 uppercase text-xs tracking-widest">
           <ShoppingCart size={18}/> {pedidoEditandoId ? 'Editando Dados' : 'Novo Orçamento'}
         </h2>
-        
         {!pedidoEditandoId && (
           <button onClick={() => setMostrarSeletorCatalogo(!mostrarSeletorCatalogo)} className="text-xs bg-purple-50 text-purple-700 px-3 py-1.5 rounded-xl font-black uppercase border border-purple-100">
             {precoManual ? '✨ Item de Catálogo' : '📖 Usar Catálogo'}
@@ -516,15 +520,15 @@ export default function App() {
       </div>
 
       {mostrarSeletorCatalogo && !pedidoEditandoId && (
-        <div className="bg-purple-50/50 border border-purple-100 p-4 rounded-3xl mb-4 text-xs space-y-2">
+        <div className="bg-purple-50/50 border border-purple-100 p-4 rounded-3xl mb-4 text-xs space-y-2 w-full">
           <p className="font-bold text-purple-700 uppercase text-[10px]">Escolha um produto pronto:</p>
-          <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto">
+          <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto w-full">
             {produtos.map(p => (
               <div key={p.id} onClick={() => {
                 setNomeProd(p.nome);
                 setPrecoManual(String(p.precoVenda));
                 setMostrarSeletorCatalogo(false);
-              }} className="bg-white p-2.5 rounded-xl border flex justify-between items-center cursor-pointer hover:border-purple-400">
+              }} className="bg-white p-2.5 rounded-xl border flex justify-between items-center cursor-pointer hover:border-purple-400 w-full">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-lg bg-slate-50 overflow-hidden shrink-0 flex items-center justify-center text-slate-300">
                     {p.urlImagem ? <img src={p.urlImagem} className="w-full h-full object-cover" /> : <ImageIcon size={14}/>}
@@ -538,7 +542,7 @@ export default function App() {
         </div>
       )}
 
-      <div className="grid grid-cols-3 gap-3 mb-4">
+      <div className="grid grid-cols-3 gap-3 mb-4 w-full">
          <div className="col-span-2">
             <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Produto</label>
             <input className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={nomeProd} onChange={e => setNomeProd(e.target.value)} />
@@ -549,9 +553,9 @@ export default function App() {
          </div>
       </div>
 
-      <div className="mb-4">
+      <div className="mb-4 w-full">
          <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Cliente</label>
-         <select className="p-4 bg-slate-50 rounded-2xl outline-none w-full" onChange={e => setClienteSel(e.target.value)} value={clienteSel}>
+         <select className="p-4 bg-slate-50 rounded-2xl outline-none w-full block border border-transparent focus:border-purple-400" onChange={e => setClienteSel(e.target.value)} value={clienteSel}>
             <option value="">👤 Escolher Cliente...</option>
             {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
          </select>
@@ -559,18 +563,18 @@ export default function App() {
 
       {precoManual === null ? (
         <>
-          <div className="mb-4">
+          <div className="mb-4 w-full">
              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Materiais Usados</label>
-             <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none mb-2" onChange={e => {
+             <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none mb-2 block border border-transparent focus:border-purple-400" onChange={e => {
                 const m = materiais.find(item => item.id === e.target.value);
                 if (m) setMatsNoPed([...matsNoPed, { id: m.id, nome: m.nome, valor: m.valor, qtd: m.qtd, unidade: m.unidade, qtdUsada: 1 }]);
              }} value="">
                 <option value="">+ Adicionar Material...</option>
                 {materiais.map(m => <option key={m.id} value={m.id}>{m.nome} ({m.unidade || 'un'})</option>)}
              </select>
-             <div className="space-y-2">
+             <div className="space-y-2 w-full">
                 {matsNoPed.map((m, i) => (
-                  <div key={i} className="flex justify-between items-center bg-purple-50 p-3 rounded-2xl border border-purple-100 text-purple-700 font-bold text-xs">
+                  <div key={i} className="flex justify-between items-center bg-purple-50 p-3 rounded-2xl border border-purple-100 text-purple-700 font-bold text-xs w-full">
                     <span>{m.nome}</span>
                     <div className="flex items-center gap-2">
                       <input type="number" className="w-16 bg-white rounded-lg p-1 text-center" value={m.qtdUsada} onChange={e => {
@@ -583,46 +587,58 @@ export default function App() {
                 ))}
              </div>
           </div>
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div><label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Tempo Gasto (min)</label>
-            <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={tGasto} onChange={e => setTGasto(e.target.value)} /></div>
-            <div><label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Valor da Hora (R$)</label>
-            <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={vHora} onChange={e => setVHora(e.target.value)} /></div>
+          <div className="grid grid-cols-2 gap-4 mb-4 w-full">
+            <div className="w-full">
+              <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Tempo Gasto (min)</label>
+              <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={tGasto} onChange={e => setTGasto(e.target.value)} />
+            </div>
+            <div className="w-full">
+              <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Valor da Hora (R$)</label>
+              <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={vHora} onChange={e => setVHora(e.target.value)} />
+            </div>
           </div>
-          <div className="mb-4 text-center">
-            <div className="grid grid-cols-4 gap-2">
+
+          {/* ADICIONADO: O título de Custos Extras que tinha sumido do layout */}
+          <div className="mb-4 w-full">
+            <label className="text-[10px] font-bold text-purple-600 uppercase ml-1 block mb-1">📦 Custos Extras por Unidade (R$)</label>
+            <div className="grid grid-cols-4 gap-2 w-full">
               {[{id:'embalagem',label:'EMBAL.'},{id:'impressao',label:'TINTA'},{id:'energia',label:'LUZ'},{id:'outros',label:'OUTROS'}].map(c=>(
-                <div key={c.id} className="flex flex-col items-center bg-slate-50 p-2 rounded-xl">
+                <div key={c.id} className="flex flex-col items-center bg-slate-50 p-2 rounded-xl w-full">
                   <span className="text-[8px] font-black text-slate-300 mb-1">{c.label}</span>
                   <input type="number" className="w-full bg-transparent text-center text-xs outline-none font-bold" value={(custos as any)[c.id]} onChange={e => setCustos({...custos, [c.id]: e.target.value})} />
                 </div>
               ))}
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div><label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Lucro %</label>
-            <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={lucro} onChange={e => setLucro(e.target.value)} /></div>
-            <div><label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Prazo</label>
-            <input type="date" className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-xs font-bold" value={prazo} onChange={e => setPrazo(e.target.value)} /></div>
+          
+          <div className="grid grid-cols-2 gap-4 mb-4 w-full">
+            <div className="w-full">
+              <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Lucro %</label>
+              <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={lucro} onChange={e => setLucro(e.target.value)} />
+            </div>
+            <div className="w-full">
+              <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Prazo</label>
+              <input type="date" className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-xs font-bold block" value={prazo} onChange={e => setPrazo(e.target.value)} />
+            </div>
           </div>
         </>
       ) : (
-        <div className="bg-orange-50 border border-orange-100 p-4 rounded-3xl mb-4 text-xs">
+        <div className="bg-orange-50 border border-orange-100 p-4 rounded-3xl mb-4 text-xs w-full">
           <p className="font-bold text-orange-600">💥 Preço travado pelo catálogo de vendas.</p>
           <p className="text-slate-500 mt-1">Valor Unitário original: <strong>R$ {Number(precoManual).toFixed(2)}</strong></p>
-          <div className="mt-3">
+          <div className="mt-3 w-full">
             <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Prazo</label>
-            <input type="date" className="w-full p-4 bg-white rounded-2xl outline-none text-xs font-bold border" value={prazo} onChange={e => setPrazo(e.target.value)} />
+            <input type="date" className="w-full p-4 bg-white rounded-2xl outline-none text-xs font-bold border block" value={prazo} onChange={e => setPrazo(e.target.value)} />
           </div>
         </div>
       )}
 
-      <div className="mb-4">
+      <div className="mb-4 w-full">
          <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Desconto Total (R$)</label>
          <input className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-orange-500" type="number" value={desconto} onChange={e => setDesconto(e.target.value)} />
       </div>
 
-      <div className="mb-6">
+      <div className="mb-6 w-full">
          <label className="text-[10px] font-bold text-purple-600 uppercase ml-1">📝 Observações do Orçamento</label>
          <textarea 
            placeholder="Ex: Sinal de 50% para início da produção. Restante na entrega." 
@@ -633,17 +649,17 @@ export default function App() {
       </div>
 
       {precoManual === null && (
-        <div className="bg-slate-50 p-5 rounded-3xl mb-8 border border-slate-100 text-xs space-y-2.5">
+        <div className="bg-slate-50 p-5 rounded-3xl mb-8 border border-slate-100 text-xs space-y-2.5 w-full">
           <p className="font-black text-purple-700 uppercase tracking-wider text-[10px] mb-1">📋 RESUMO FINANCEIRO DA PEÇA</p>
-          <div className="flex justify-between text-slate-500"><span>Materiais:</span><span className="font-bold">R$ {resumenFinanceiro.materiais}</span></div>
-          <div className="flex justify-between text-slate-500"><span>Mão de Obra:</span><span className="font-bold">R$ {resumenFinanceiro.maoObra}</span></div>
-          <div className="flex justify-between text-slate-500"><span>Extras / Custo Manual:</span><span className="font-bold">R$ {resumenFinanceiro.extras}</span></div>
-          <div className="flex justify-between text-slate-800 font-bold border-t pt-2 mt-1"><span>Custo Total da Peça:</span><span className="text-purple-700">R$ {resumenFinanceiro.custoPeca}</span></div>
-          <div className="flex justify-between text-emerald-600 font-bold"><span>Lucro Livre Gerado ({lucro}%) :</span><span>R$ {resumenFinanceiro.lucroLivre}</span></div>
+          <div className="flex justify-between text-slate-500 w-full"><span>Materiais:</span><span className="font-bold">R$ {resumenFinanceiro.materiais}</span></div>
+          <div className="flex justify-between text-slate-500 w-full"><span>Mão de Obra:</span><span className="font-bold">R$ {resumenFinanceiro.maoObra}</span></div>
+          <div className="flex justify-between text-slate-500 w-full"><span>Extras / Custo Manual:</span><span className="font-bold">R$ {resumenFinanceiro.extras}</span></div>
+          <div className="flex justify-between text-slate-800 font-bold border-t pt-2 mt-1 w-full"><span>Custo Total da Peça:</span><span className="text-purple-700">R$ {resumenFinanceiro.custoPeca}</span></div>
+          <div className="flex justify-between text-emerald-600 font-bold w-full"><span>Lucro Livre Gerado ({lucro}%) :</span><span>R$ {resumenFinanceiro.lucroLivre}</span></div>
         </div>
       )}
 
-      <div className="flex items-center justify-between border-t pt-6">
+      <div className="flex items-center justify-between border-t pt-6 w-full">
         <div className="text-orange-500 font-black text-4xl tracking-tighter">R$ {resumenFinanceiro.final}</div>
         <div className="flex gap-2">
           <button onClick={async () => {
@@ -666,24 +682,24 @@ export default function App() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-32 font-sans text-slate-700">
-      <header className="bg-white p-4 flex justify-between items-center shadow-sm sticky top-0 z-50">
+    <div className="min-h-screen bg-slate-50 pb-32 font-sans text-slate-700 w-full">
+      <header className="bg-white p-4 flex justify-between items-center shadow-sm sticky top-0 z-50 w-full">
         <div className="font-black text-purple-700 text-lg flex items-center gap-2"><Calculator size={22}/> PrecificaJá</div>
         <button onClick={() => signOut(auth)} className="text-red-500 bg-red-50 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1 active:scale-95 transition-all"><LogOut size={14}/> SAIR</button>
       </header>
 
-      <main className="p-4 max-w-xl mx-auto">
+      <div className="p-4 max-w-xl mx-auto w-full">
         {/* TELA INICIAL */}
         {activeTab === 'inicio' && (
-          <div className="space-y-5 pt-2">
-            <div className="bg-gradient-to-tr from-purple-700 to-indigo-600 p-6 rounded-[35px] shadow-lg text-white">
+          <div className="space-y-5 pt-2 w-full">
+            <div className="bg-gradient-to-tr from-purple-700 to-indigo-600 p-6 rounded-[35px] shadow-lg text-white w-full">
               <p className="text-xs font-bold uppercase tracking-widest text-purple-200">Faturamento Realizado</p>
               <h2 className="text-4xl font-black mt-1 tracking-tight">R$ {dashboardMetrics.faturamento}</h2>
               <p className="text-[11px] text-purple-200 mt-2 opacity-80">📈 Dinheiro gerado de pedidos marcados como vendidos</p>
             </div>
 
             <div onClick={() => { limparCalculadora(); setActiveTab('criar'); }} 
-                 className="bg-gradient-to-r from-orange-500 to-amber-500 p-6 rounded-[35px] shadow-md cursor-pointer active:scale-95 transition-all text-white flex justify-between items-center">
+                 className="bg-gradient-to-r from-orange-500 to-amber-500 p-6 rounded-[35px] shadow-md cursor-pointer active:scale-95 transition-all text-white flex justify-between items-center w-full">
               <div>
                 <p className="text-xs font-bold uppercase tracking-widest text-orange-100">Calculadora Integrada</p>
                 <h3 className="text-xl font-black mt-0.5 tracking-tight">Novo Orçamento Rápido 🚀</h3>
@@ -693,28 +709,28 @@ export default function App() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div onClick={() => setActiveTab('pedidos')} className="bg-white p-5 rounded-[30px] border shadow-sm cursor-pointer active:scale-95 transition-all">
+            <div className="grid grid-cols-2 gap-4 w-full">
+              <div onClick={() => setActiveTab('pedidos')} className="bg-white p-5 rounded-[30px] border shadow-sm cursor-pointer active:scale-95 transition-all w-full">
                 <div className="w-10 h-10 rounded-2xl bg-orange-50 flex items-center justify-center text-orange-500 mb-3"><History size={20}/></div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Orçamentos</p>
                 <p className="text-2xl font-black text-slate-800 mt-0.5">{dashboardMetrics.pendentes}</p>
               </div>
 
-              <div onClick={() => setActiveTab('catalogo')} className="bg-white p-5 rounded-[30px] border shadow-sm cursor-pointer active:scale-95 transition-all">
+              <div onClick={() => setActiveTab('catalogo')} className="bg-white p-5 rounded-[30px] border shadow-sm cursor-pointer active:scale-95 transition-all w-full">
                 <div className="w-10 h-10 rounded-2xl bg-purple-50 flex items-center justify-center text-purple-600 mb-3"><BookOpen size={20}/></div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Catálogo</p>
                 <p className="text-2xl font-black text-slate-800 mt-0.5">{produtos.length}</p>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div onClick={() => setActiveTab('materiais')} className={`p-5 rounded-[30px] border shadow-sm cursor-pointer active:scale-95 transition-all ${dashboardMetrics.criticos > 0 ? 'bg-red-50/50 border-red-100' : 'bg-white'}`}>
+            <div className="grid grid-cols-2 gap-4 w-full">
+              <div onClick={() => setActiveTab('materiais')} className={`p-5 rounded-[30px] border shadow-sm cursor-pointer active:scale-95 transition-all w-full ${dashboardMetrics.criticos > 0 ? 'bg-red-50/50 border-red-100' : 'bg-white'}`}>
                 <div className="w-10 h-10 rounded-2xl bg-red-50 flex items-center justify-center text-red-500 mb-3"><Package size={20}/></div>
                 <p className="text-[10px] font-bold text-slate-400 tracking-wider uppercase">Falta Reposição</p>
                 <p className="text-2xl font-black mt-0.5">{dashboardMetrics.criticos}</p>
               </div>
 
-              <div onClick={() => setActiveTab('clientes')} className="bg-white p-5 rounded-[30px] border shadow-sm cursor-pointer active:scale-95 transition-all">
+              <div onClick={() => setActiveTab('clientes')} className="bg-white p-5 rounded-[30px] border shadow-sm cursor-pointer active:scale-95 transition-all w-full">
                 <div className="w-10 h-10 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-500 mb-3"><User size={20}/></div>
                 <p className="text-[10px] font-bold text-slate-400 tracking-wider uppercase">Clientes</p>
                 <p className="text-2xl font-black mt-0.5">{dashboardMetrics.totalClientes}</p>
@@ -725,12 +741,12 @@ export default function App() {
 
         {/* TELA DE CATÁLOGO COM CONFIGURAÇÃO DE WHATSAPP */}
         {activeTab === 'catalogo' && (
-          <div className="space-y-4 pt-2">
-            <div className="bg-gradient-to-tr from-purple-800 to-purple-600 p-6 rounded-[35px] text-white shadow-lg border border-purple-900 space-y-4">
-              <div>
+          <div className="space-y-4 pt-2 w-full">
+            <div className="bg-gradient-to-tr from-purple-800 to-purple-600 p-6 rounded-[35px] text-white shadow-lg border border-purple-900 space-y-4 w-full">
+              <div className="w-full">
                 <h3 className="text-xs font-black uppercase tracking-widest text-purple-200 flex items-center gap-1.5"><Share2 size={14}/> Seu Catálogo Público</h3>
                 <p className="text-xs text-purple-100 mt-1 opacity-90">Link exclusivo para enviar aos seus clientes:</p>
-                <div className="mt-2 bg-purple-900/40 p-3.5 rounded-2xl text-xs font-mono select-all break-all border border-purple-500/30 bg-black/10">
+                <div className="mt-2 bg-purple-900/40 p-3.5 rounded-2xl text-xs font-mono select-all break-all border border-purple-500/30 bg-black/10 w-full">
                   {linkDoCatalogoDestaCliente}
                 </div>
                 <div onClick={copiarLinkCatalogo} className="mt-2.5 w-full bg-white text-purple-800 font-bold p-3 rounded-xl text-xs uppercase shadow flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer">
@@ -738,9 +754,9 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="border-t border-purple-500/30 pt-3">
+              <div className="border-t border-purple-500/30 pt-3 w-full">
                 <label className="text-[10px] font-black uppercase text-purple-200 block mb-1">📱 Seu WhatsApp de Vendas (Com DDD)</label>
-                <div className="flex gap-2">
+                <div className="flex gap-2 w-full">
                   <input placeholder="Ex: 11999999999" className="flex-1 p-3 bg-black/20 text-white rounded-xl text-xs font-bold border border-purple-500/30 outline-none" value={zapDonaConta} onChange={e => setZapDonaConta(e.target.value)} />
                   <button onClick={async () => {
                     if(!zapDonaConta.trim()) return alert("Digite o número primeiro!");
@@ -755,17 +771,16 @@ export default function App() {
               </div>
             </div>
 
-            <div className="bg-white p-6 rounded-[35px] shadow-md border">
+            <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
               <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2 uppercase text-xs tracking-widest"><BookOpen size={18}/> Novo Item de Venda Fixa</h2>
-              
-              <div className="mb-4 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-3xl p-4 bg-slate-50 relative min-h-[140px]">
+              <div className="mb-4 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-3xl p-4 bg-slate-50 relative min-h-[140px] w-full">
                 {novoProdCatalogo.urlImagem ? (
                   <div className="relative w-full h-32 rounded-2xl overflow-hidden">
                     <img src={novoProdCatalogo.urlImagem} alt="Preview" className="w-full h-full object-cover" />
                     <button onClick={() => setNovoProdCatalogo(p => ({...p, urlImagem: ''}))} className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full"><X size={14}/></button>
                   </div>
                 ) : (
-                  <label className="cursor-pointer flex flex-col items-center gap-2 text-slate-400 hover:text-purple-600 transition-colors">
+                  <label className="cursor-pointer flex flex-col items-center gap-2 text-slate-400 hover:text-purple-600 transition-colors w-full h-full flex justify-center">
                     <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center shadow-sm text-purple-600">
                       <Camera size={22} />
                     </div>
@@ -779,17 +794,14 @@ export default function App() {
 
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome do Produto</label>
               <input placeholder="Ex: Caneca Alça Coração" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none" value={novoProdCatalogo.nome} onChange={e => setNovoProdCatalogo({...novoProdCatalogo, nome: e.target.value})} />
-              
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Preço Fixo de Venda (R$)</label>
               <input type="number" placeholder="Ex: 35.00" className="w-full p-4 bg-slate-50 rounded-2xl mb-4 outline-none font-bold text-purple-700" value={novoProdCatalogo.precoVenda} onChange={e => setNovoProdCatalogo({...novoProdCatalogo, precoVenda: e.target.value})} />
 
               <button onClick={async () => {
                 if(!novoProdCatalogo.nome || !novoProdCatalogo.precoVenda) return alert("Preencha o nome e o preço!");
                 const d = { nome: novoProdCatalogo.nome, precoVenda: Number(novoProdCatalogo.precoVenda), urlImagem: novoProdCatalogo.urlImagem || '', userId: user.uid };
-                
                 if (novoProdCatalogo.id) await updateDoc(doc(db, "produtos", novoProdCatalogo.id), d);
                 else await addDoc(collection(db, "produtos"), d);
-                
                 setNovoProdCatalogo({ id: '', nome: '', precoVenda: '', urlImagem: '' });
                 alert("Produto salvo no catálogo!");
               }} className="w-full bg-purple-700 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md" disabled={subindoImagem}>
@@ -798,9 +810,9 @@ export default function App() {
             </div>
 
             <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider ml-2">Seu Catálogo Visual</h3>
-            <div className="grid grid-cols-1 gap-3">
+            <div className="grid grid-cols-1 gap-3 w-full">
               {produtos.map(p => (
-                <div key={p.id} className="bg-white p-4 rounded-[30px] flex gap-4 items-center border border-slate-100 shadow-sm">
+                <div key={p.id} className="bg-white p-4 rounded-[30px] flex gap-4 items-center border border-slate-100 shadow-sm w-full">
                   <div className="w-16 h-16 rounded-2xl bg-slate-100 overflow-hidden flex items-center justify-center text-slate-300 shrink-0">
                     {p.urlImagem ? <img src={p.urlImagem} alt={p.nome} className="w-full h-full object-cover" /> : <ImageIcon size={24} />}
                   </div>
@@ -819,19 +831,19 @@ export default function App() {
           </div>
         )}
 
-        {/* ABA DA CALCULADORA */}
+        {/* ABA DA CALCULADORA COMPOSTA */}
         {activeTab === 'criar' && renderCalculadoraForm()}
 
         {/* HISTÓRICO */}
         {activeTab === 'pedidos' && (
-          <div className="space-y-3 pt-2">
+          <div className="space-y-3 pt-2 w-full">
             <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2"><History size={20}/> Histórico</h2>
             {pedidos.map(p => {
                const cli = clientes.find(c => c.id === p.clienteId);
                const ehPendente = p.status !== 'Vendido 💰';
                return (
-                 <div key={p.id} className="bg-white p-5 rounded-[30px] shadow-sm flex flex-col gap-3 border">
-                   <div className="flex justify-between items-center">
+                 <div key={p.id} className="bg-white p-5 rounded-[30px] shadow-sm flex flex-col gap-3 border w-full">
+                   <div className="flex justify-between items-center w-full">
                      <div>
                         <p className="font-black text-[10px] uppercase text-purple-700 mb-1">
                           {cli?.nome || 'Sem Cliente'} {p.data ? `— ${p.data}` : ''} — <span className={ehPendente ? "text-orange-400" : "text-emerald-500"}>{p.status || 'Pendente'}</span>
@@ -840,7 +852,7 @@ export default function App() {
                      </div>
                      <div className="text-orange-500 font-black text-xl">R$ {p.preco}</div>
                    </div>
-                   <div className="flex items-center justify-end border-t pt-2 gap-1">
+                   <div className="flex items-center justify-end border-t pt-2 gap-1 w-full">
                       {ehPendente && (
                         <>
                           <button onClick={() => confirmarVendaPedido(p)} className="text-emerald-600 p-2 bg-emerald-50 rounded-xl text-xs font-bold flex items-center gap-1 mr-auto active:scale-95"><CheckCircle size={16}/> Confirmar Venda</button>
@@ -859,12 +871,12 @@ export default function App() {
 
         {/* GERENCIAR ARMÁRIO */}
         {activeTab === 'materiais' && (
-          <div className="space-y-4 pt-2">
-            <div className="bg-white p-8 rounded-[40px] shadow-md border">
+          <div className="space-y-4 pt-2 w-full">
+            <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
               <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2"><Package size={20}/> Gerenciar Armário</h2>
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome do Insumo</label>
               <input placeholder="Ex: Caneca Cerâmica" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none" value={novoMat.nome} onChange={e => setNovoMat({...novoMat, nome: e.target.value})} />
-              <div className="grid grid-cols-3 gap-3 mb-3">
+              <div className="grid grid-cols-3 gap-3 mb-3 w-full">
                 <div className="col-span-2">
                   <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Preço Caixa/Rolo</label>
                   <input type="number" placeholder="R$ 0,00" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={novoMat.valor} onChange={e => setNovoMat({...novoMat, valor: e.target.value})} />
@@ -874,7 +886,7 @@ export default function App() {
                   <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-center" value={novoMat.qtd} onChange={e => setNovoMat({...novoMat, qtd: e.target.value})} />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="grid grid-cols-2 gap-3 mb-4 w-full">
                 <div>
                   <label className="text-[10px] font-bold text-purple-600 uppercase ml-1">Estoque Atual</label>
                   <input type="number" className="w-full p-4 bg-purple-50 rounded-2xl outline-none text-center font-bold text-purple-700" value={novoMat.qtdAtual} onChange={e => setNovoMat({...novoMat, qtdAtual: e.target.value})} />
@@ -884,8 +896,9 @@ export default function App() {
                   <input type="number" className="w-full p-4 bg-red-50 rounded-2xl outline-none text-center font-bold text-red-700" value={novoMat.qtdMinima} onChange={e => setNovoMat({...novoMat, qtdMinima: e.target.value})} />
                 </div>
               </div>
-              <div className="mb-6">
-                <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-xs font-bold" value={novoMat.unidade} onChange={e => setNovoMat({...novoMat, unidade: e.target.value})}>
+              <div className="mb-6 w-full">
+                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Unidade de Medida</label>
+                <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-xs font-bold block border border-transparent focus:border-purple-400 mt-1" value={novoMat.unidade} onChange={e => setNovoMat({...novoMat, unidade: e.target.value})}>
                   <option value="un">📦 Unidade (un)</option>
                   <option value="Folha A4">📄 Folha A4</option>
                   <option value="m">📏 Metro (m)</option>
@@ -895,10 +908,8 @@ export default function App() {
               <button onClick={async () => {
                 if(!novoMat.nome) return alert("Digite o nome do insumo!");
                 const d = { nome: novoMat.nome, valor: Number(novoMat.valor), qtd: Number(novoMat.qtd), unidade: novoMat.unidade, qtdAtual: Number(novoMat.qtdAtual || 0), qtdMinima: Number(novoMat.qtdMinima || 0), userId: user.uid };
-                
                 if (novoMat.id) await updateDoc(doc(db, "materiais", novoMat.id), d);
                 else await addDoc(collection(db, "materiais"), d);
-                
                 setNovoMat({ id: '', nome: '', valor: '', qtd: '1', unidade: 'un', qtdAtual: '0', qtdMinima: '0' });
                 alert("Material salvo!");
               }} className="w-full bg-orange-500 text-white p-5 rounded-2xl font-black uppercase text-xs">
@@ -909,7 +920,7 @@ export default function App() {
               const estaAcabando = Number(m.qtdAtual || 0) <= Number(m.qtdMinima || 0);
               const valorUnitarioCalculado = Number(m.qtd || 1) > 0 ? (Number(m.valor || 0) / Number(m.qtd || 1)).toFixed(2) : "0.00";
               return (
-                <div key={m.id} className="bg-white p-5 rounded-3xl flex justify-between items-center border">
+                <div key={m.id} className="bg-white p-5 rounded-3xl flex justify-between items-center border w-full">
                   <div>
                     <p className="font-bold text-slate-800">{estaAcabando ? '🔴' : '🟢'} {m.nome}</p>
                     <p className="text-xs text-slate-400 mt-1">Custo unitário: <span className="font-bold text-slate-600">R$ {valorUnitarioCalculado}</span></p>
@@ -929,23 +940,21 @@ export default function App() {
 
         {/* ABA DE CLIENTES */}
         {activeTab === 'clientes' && (
-           <div className="space-y-4 pt-2">
-            <div className="bg-white p-8 rounded-[40px] shadow-md border">
+           <div className="space-y-4 pt-2 w-full">
+            <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
               <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2"><User size={20}/> Gerenciar Clientes</h2>
               <input placeholder="Nome Comercial" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none" value={novoCli.nome} onChange={e => setNovoCli({...novoCli, nome: e.target.value})} />
               <input placeholder="WhatsApp com DDD" className="w-full p-4 bg-slate-50 rounded-2xl mb-6 outline-none" value={novoCli.zap} onChange={e => setNovoCli({...novoCli, zap: e.target.value})} />
               <button onClick={async () => {
                 if(!novoCli.nome) return alert("Digite o nome do cliente!");
-                
                 if(novoCli.id) await updateDoc(doc(db, "clientes", novoCli.id), { nome: novoCli.nome, zap: novoCli.zap, userId: user.uid });
                 else await addDoc(collection(db, "clientes"), { nome: novoCli.nome, zap: novoCli.zap, userId: user.uid });
-                
                 setNovoCli({ id: '', nome: '', zap: '' }); 
                 alert("Cliente Salvo!");
               }} className="w-full bg-orange-500 text-white p-5 rounded-2xl font-black uppercase text-xs">Salvar Cliente</button>
             </div>
             {clientes.map(c => (
-              <div key={c.id} className="bg-white p-5 rounded-3xl flex justify-between items-center border shadow-sm font-bold">
+              <div key={c.id} className="bg-white p-5 rounded-3xl flex justify-between items-center border shadow-sm font-bold w-full">
                 <div className="flex flex-col ml-2">
                   <span className="text-slate-800">{c.nome}</span>
                   <span className="text-xs text-slate-400 font-normal">{c.zap ? `📱 ${c.zap}` : 'Sem número'}</span>
@@ -958,66 +967,35 @@ export default function App() {
             ))}
           </div>
         )}
-      </main>
+      </div>
 
-      {/* MENU INFERIOR CORRIGIDO, INTEGRALMENTE ESTICADO E SIMÉTRICO */}
+      {/* MENU INFERIOR */}
       <div className="fixed bottom-0 left-0 right-0 flex justify-center p-4 z-50 bg-transparent pointer-events-none">
         <div className="relative bg-white shadow-[0_-10px_30px_rgba(0,0,0,0.05)] rounded-[30px] flex justify-around items-center px-2 h-16 w-full max-w-xl pointer-events-auto">
-          
-          {/* Aba: Início */}
-          <button 
-            onClick={() => setActiveTab('inicio')} 
-            className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'inicio' ? 'text-orange-500' : 'text-slate-300'}`}
-          >
+          <button onClick={() => setActiveTab('inicio')} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'inicio' ? 'text-orange-500' : 'text-slate-300'}`}>
             <Home size={20} className={activeTab === 'inicio' ? 'stroke-[2.5]' : 'stroke-[2]'} />
             <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Início</span>
           </button>
-
-          {/* Aba: Armário */}
-          <button 
-            onClick={() => setActiveTab('materiais')} 
-            className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'materiais' ? 'text-orange-500' : 'text-slate-300'}`}
-          >
+          <button onClick={() => setActiveTab('materiais')} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'materiais' ? 'text-orange-500' : 'text-slate-300'}`}>
             <Package size={20} className={activeTab === 'materiais' ? 'stroke-[2.5]' : 'stroke-[2]'} />
             <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Armário</span>
           </button>
-
-          {/* Aba: Catálogo */}
-          <button 
-            onClick={() => setActiveTab('catalogo')} 
-            className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'catalogo' ? 'text-orange-500' : 'text-slate-300'}`}
-          >
+          <button onClick={() => setActiveTab('catalogo')} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'catalogo' ? 'text-orange-500' : 'text-slate-300'}`}>
             <BookOpen size={20} className={activeTab === 'catalogo' ? 'stroke-[2.5]' : 'stroke-[2]'} />
             <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Catálogo</span>
           </button>
-
-          {/* Aba: Orçar */}
-          <button 
-            onClick={() => { limparCalculadora(); setActiveTab('criar'); }} 
-            className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'criar' ? 'text-orange-500' : 'text-slate-300'}`}
-          >
+          <button onClick={() => { limparCalculadora(); setActiveTab('criar'); }} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'criar' ? 'text-orange-500' : 'text-slate-300'}`}>
             <Plus size={20} className={activeTab === 'criar' ? 'stroke-[3]' : 'stroke-[2]'} />
             <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Orçar</span>
           </button>
-
-          {/* Aba: Clientes */}
-          <button 
-            onClick={() => setActiveTab('clientes')} 
-            className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'clientes' ? 'text-orange-500' : 'text-slate-300'}`}
-          >
+          <button onClick={() => setActiveTab('clientes')} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'clientes' ? 'text-orange-500' : 'text-slate-300'}`}>
             <User size={20} className={activeTab === 'clientes' ? 'stroke-[2.5]' : 'stroke-[2]'} />
             <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Clientes</span>
           </button>
-
-          {/* Aba: Histórico */}
-          <button 
-            onClick={() => setActiveTab('pedidos')} 
-            className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'pedidos' ? 'text-orange-500' : 'text-slate-300'}`}
-          >
+          <button onClick={() => setActiveTab('pedidos')} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'pedidos' ? 'text-orange-500' : 'text-slate-300'}`}>
             <History size={20} className={activeTab === 'pedidos' ? 'stroke-[2.5]' : 'stroke-[2]'} />
             <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Histórico</span>
           </button>
-
         </div>
       </div>
     </div>
