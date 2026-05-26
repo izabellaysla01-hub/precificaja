@@ -3,7 +3,7 @@ import { initializeApp } from "firebase/app";
 import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { getFirestore, collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc, getDocs, setDoc, getDoc } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2, Menu } from 'lucide-react';
+import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2 } from 'lucide-react';
 
 const firebaseConfig = {
   apiKey: "AIzaSyD0BWsNm9DbGGDqiHzkdDmNdxIGdJ9tWe8",
@@ -47,7 +47,6 @@ const Login = ({ isRegistering, setIsRegistering, email, setEmail, password, set
 export default function App() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
   
   const [idLojaPublica, setIdLojaPublica] = useState<string | null>(null);
   const [produtosPublicos, setProdutosPublicos] = useState<any[]>([]);
@@ -56,29 +55,14 @@ export default function App() {
   const [nomeComprador, setNomeComprador] = useState('');
   const [zapDaLojaPublica, setZapDaLojaPublica] = useState('');
 
-  const [activeTab, useStateActiveTab] = useState<'inicio' | 'materiais' | 'criar' | 'pedidos' | 'clientes' | 'catalogo' | 'moldes'>('inicio');
-  const [modoOrcamento, setModoOrcamento] = useState<'normal' | 'molde'>('normal');
-
+  const [activeTab, useStateActiveTab] = useState<'inicio' | 'materiais' | 'criar' | 'pedidos' | 'clientes' | 'catalogo'>('inicio');
   const [materiais, setMaterials] = useState<any[]>([]);
   const [pedidos, setPedidos] = useState<any[]>([]);
   const [clientes, setClientes] = useState<any[]>([]);
   const [produtos, setProdutos] = useState<any[]>([]);
-  const [moldes, setMoldes] = useState<any[]>([]);
 
-  // Estados do Orçamento expresso via Moldes
-  const [quantidadesPedidoMoldes, setQuantidadesPedidoMoldes] = useState<{ [key: string]: number }>({});
-  const [clienteSelecionadoMoldes, setClienteSelecionadoMoldes] = useState('');
-  const [obsPedidoMoldes, setObsPedidoMoldes] = useState('');
-  const [prazoPedidoMoldes, setPrazoPedidoMoldes] = useState('');
-
-  // Estados de criação de um Molde Base Novo
-  const [nomeMolde, setNomeMolde] = useState('');
-  const [matsNoMolde, setMatsNoMolde] = useState<any[]>([]);
-  const [tGastoMolde, setTGastoMolde] = useState('10');
-  const [vHoraMolde, setVHoraMolde] = useState('9');
-  const [custosMolde, setCustosMolde] = useState({ embalagem: '0', impressao: '0', energia: '0', outros: '0' });
-  const [lucroMolde, setLucroMolde] = useState('100');
-  const [moldeEditandoId, setMoldeEditandoId] = useState<string | null>(null);
+  const [pedidoEditandoId, setPedidoEditandoId] = useState<string | null>(null);
+  const [mostrarSeletorCatalogo, setMostrarSeletorCatalogo] = useState(false);
 
   const [nomeProd, setNomeProd] = useState('');
   const [qtdPed, setQtdPed] = useState('1');
@@ -92,8 +76,6 @@ export default function App() {
   const [clienteSel, setClienteSel] = useState('');
   const [precoManual, setPrecoManual] = useState<string | null>(null);
   const [obsPedido, setObsPedido] = useState('');
-  const [pedidoEditandoId, setPedidoEditandoId] = useState<string | null>(null);
-  const [mostrarSeletorCatalogo, setMostrarSeletorCatalogo] = useState(false);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -107,7 +89,6 @@ export default function App() {
 
   const setActiveTab = (tab: any) => {
     useStateActiveTab(tab);
-    setIsMenuOpen(false);
   };
 
   useEffect(() => {
@@ -163,15 +144,11 @@ export default function App() {
       const qProdutos = query(collection(db, "produtos"), where("userId", "==", user.uid));
       const unsubProdutos = onSnapshot(qProdutos, s => setProdutos(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
-      const qMoldes = query(collection(db, "moldes"), where("userId", "==", user.uid));
-      const unsubMoldes = onSnapshot(qMoldes, s => setMoldes(s.docs.map(d => ({ id: d.id, ...d.data() }))));
-
       return () => {
         unsubMateriais();
         unsubPedidos();
         unsubClientes();
         unsubProdutos();
-        unsubMoldes();
       };
     }
   }, [user, idLojaPublica]);
@@ -250,34 +227,6 @@ export default function App() {
     };
   }, [matsNoPed, vHora, tGasto, custos, lucro, qtdPed, desconto, precoManual]);
 
-  // CALCULO UNITÁRIO DO PREÇO DO MOLDE BASE
-  const valorUnitarioDoMoldeGerado = useMemo(() => {
-    const totalMateriais = matsNoMolde.reduce((acc, m) => acc + ((Number(m.valor || 0) / Number(m.qtd || 1)) * Number(m.qtdUsada || 0)), 0);
-    const totalMaoObra = (Number(vHoraMolde || 0) / 60) * Number(tGastoMolde || 0);
-    const totalExtras = Number(custosMolde.embalagem || 0) + Number(custosMolde.impressao || 0) + Number(custosMolde.energia || 0) + Number(custosMolde.outros || 0);
-    const custoPeca = totalMateriais + totalMaoObra + totalExtras;
-    const precoVendaUnitario = custoPeca + (custoPeca * (Number(lucroMolde || 0) / 100));
-    return isNaN(precoVendaUnitario) ? 0 : precoVendaUnitario;
-  }, [matsNoMolde, vHoraMolde, tGastoMolde, custosMolde, lucroMolde]);
-
-  // CALCULO DO LOTE TOTAL NO ORÇAMENTO VIA MOLDES
-  const resumoPedidoPorMoldes = useMemo(() => {
-    let subtotal = 0;
-    const itensArray: any[] = [];
-    Object.keys(quantidadesPedidoMoldes).forEach(id => {
-      const qtd = quantidadesPedidoMoldes[id];
-      if (qtd > 0) {
-        const itemMolde = moldes.find(m => m.id === id);
-        if (itemMolde) {
-          const totalItem = Number(itemMolde.precoVendaUnitario || 0) * qtd;
-          subtotal += totalItem;
-          itensArray.push({ id: itemMolde.id, nome: itemMolde.nome, qtd, subtotal: totalItem, materiaisUsados: itemMolde.materiaisUsados || [] });
-        }
-      }
-    });
-    return { total: subtotal.toFixed(2), itens: itensArray };
-  }, [quantidadesPedidoMoldes, moldes]);
-
   const enviarZap = (p: any) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
     const dataP = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combinar';
@@ -289,9 +238,11 @@ export default function App() {
   const gerarPDF = (p: any) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
     const dataEmissao = p.data || new Date().toLocaleDateString('pt-BR');
+    
     const hoje = new Date();
     hoje.setDate(hoje.getDate() + 7);
     const dataValidade = hoje.toLocaleDateString('pt-BR');
+    
     const dataPrazo = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combinar';
     const totalNum = Number(p.preco || 0);
     const qtdNum = Number(p.qtdPed || 1);
@@ -305,33 +256,89 @@ export default function App() {
             <h1 style="color: #7c3aed; margin: 0; font-size: 32px; font-weight: 900;">PrecificaJá 🚀</h1>
             <p style="color: #94a3b8; font-size: 11px; text-transform: uppercase; margin: 4px 0 0 0; font-weight: bold;">Documento de Orçamento Comercial</p>
           </div>
+          <div style="text-align: right; background-color: #f8fafc; padding: 12px 20px; border-radius: 16px; border: 1px solid #e2e8f0;">
+            <span style="font-size: 10px; font-weight: bold; color: #a78bfa; text-transform: uppercase; display: block;">Código Ref</span>
+            <span style="font-size: 14px; font-weight: bold; color: #475569; display: block; margin-top: 2px;">ORC-${Math.floor(1000 + Math.random() * 9000)}</span>
+          </div>
         </div>
-        <p style="margin: 0 0 6px 0; font-size: 14px;"><strong>Cliente:</strong> ${cli?.nome || 'Cliente não informado'}</p>
-        <p><strong>Emissão:</strong> ${dataEmissao} | <strong>Prazo:</strong> ${dataPrazo}</p>
-        <p style="font-weight: bold;">Produto: ${p.nomeProd}</p>
-        <h2 style="color: #7c3aed;">Total: R$ ${totalNum.toFixed(2)}</h2>
+        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Dados do Cliente</div>
+        <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 25px; border: 1px solid #f1f5f9;">
+          <p style="margin: 0 0 6px 0; font-size: 14px;"><strong>Cliente:</strong> ${cli?.nome || 'Cliente não informado'}</p>
+          <p style="margin: 0; font-size: 13px; color: #64748b;"><strong>WhatsApp:</strong> ${cli?.zap || 'Não informado'}</p>
+        </div>
+
+        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Informações Básicas e Prazos</div>
+        <div style="display: flex; justify-content: space-between; background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 25px; border: 1px solid #f1f5f9; font-size: 13px;">
+          <div><strong>Data de Emissão:</strong><div style="margin-top: 4px; color: #64748b; font-weight: bold;">${dataEmissao}</div></div>
+          <div><strong>Validade do Orçamento:</strong><div style="margin-top: 4px; color: #ef4444; font-weight: bold;">${dataValidade} (7 dias)</div></div>
+          <div><strong>Prazo de Entrega:</strong><div style="margin-top: 4px; color: #7c3aed; font-weight: bold;">${dataPrazo}</div></div>
+        </div>
+
+        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Produtos / Serviços Selecionados</div>
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+          <thead>
+            <tr style="border-bottom: 2px solid #e2e8f0; text-align: left; font-size: 11px; text-transform: uppercase; color: #94a3b8;">
+              <th style="padding: 10px 5px;">Descrição</th>
+              <th style="padding: 10px 5px; text-align: center;">Qtd</th>
+              <th style="padding: 10px 5px; text-align: right;">Preço Unit.</th>
+              <th style="padding: 10px 5px; text-align: right;">Subtotal</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px;">
+              <td style="padding: 15px 5px; font-weight: bold; color: #1e293b;">${p.nomeProd}</td>
+              <td style="padding: 15px 5px; text-align: center; color: #475569;">${qtdNum}</td>
+              <td style="padding: 15px 5px; text-align: right; color: #475569;">R$ ${precoUnitario}</td>
+              <td style="padding: 15px 5px; text-align: right; font-weight: bold; color: #1e293b;">R$ ${totalNum.toFixed(2)}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div style="display: flex; flex-direction: column; align-items: flex-end; margin-bottom: 35px; padding-right: 5px;">
+          <div style="font-size: 13px; color: #64748b; margin-bottom: 5px;">Subtotal: <strong>R$ ${totalNum.toFixed(2)}</strong></div>
+          <div style="background-color: #7c3aed; color: white; padding: 12px 25px; border-radius: 12px; font-size: 18px; font-weight: 900; text-align: right; min-width: 180px;">
+            <span style="font-size: 10px; font-weight: bold; text-transform: uppercase; display: block; opacity: 0.8; margin-bottom: 2px;">Total do Pedido</span>
+            R$ ${totalNum.toFixed(2)}
+          </div>
+        </div>
+
+        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Forma de Pagamento</div>
+        <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; border: 1px solid #f1f5f9; font-size: 13px; display: flex; justify-content: space-between; margin-bottom: 15px;">
+          <div><strong>Forma de pagamento:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">PIX / CARTÃO</div></div>
+          <div><strong>Condições de pagamento:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">A combinar direto no WhatsApp</div></div>
+        </div>
+
+        ${p.obsPedido ? `
+        <div style="background-color: #f3e8ff; border: 1px solid #e9d5ff; padding: 15px; border-radius: 16px; font-size: 13px; color: #6b21a8; margin-bottom: 15px;">
+          <strong style="text-transform: uppercase; font-size: 10px; display: block; color: #a855f7; margin-bottom: 4px;">Observações Importantes:</strong>
+          ${p.obsPedido.replace(/\n/g, '<br>')}
+        </div>
+        ` : ''}
+
+        <div style="text-align: center; font-size: 11px; color: #94a3b8; margin-top: 40px; border-top: 1px dashed #e2e8f0; padding-top: 15px;">
+          Obrigado pela preferência! Caso tenha dúvidas, entre em contato pelo nosso WhatsApp.
+        </div>
       </div>
     `;
     const opcoes = { margin: 0, filename: `Orcamento_${p.nomeProd}.pdf`, html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'a4', orientation: 'portrait' } };
     (window as any).html2pdf().from(elemento).set(opcoes).save();
   };
 
-  // REGRAS DE BAIXA AUTOMÁTICA ATUALIZADAS E CORRIGIDAS
+  const handleAuth = async () => {
+    try {
+      if (isRegistering) await createUserWithEmailAndPassword(auth, email, password);
+      else await signInWithEmailAndPassword(auth, email, password);
+    } catch (e) { alert("E-mail ou senha incorretos!"); }
+  };
+
+  const confirmarExcluir = async (tipo: string, id: string) => {
+    if (window.confirm(`Excluir ${tipo}?`)) {
+      await deleteDoc(doc(db, tipo === 'pedido' ? "pedidos" : tipo === 'cliente' ? "clientes" : tipo === 'produto' ? "produtos" : "materiais", id));
+    }
+  };
+
   const confirmarVendaPedido = async (pedido: any) => {
-    if (pedido.moldesVinculados && pedido.moldesVinculados.length > 0) {
-      for (const itemMolde of pedido.moldesVinculados) {
-        if (itemMolde.materiaisUsados && itemMolde.materiaisUsados.length > 0) {
-          for (const matGasto of itemMolde.materiaisUsados) {
-            const matDoBanco = materiais.find(m => m.id === matGasto.id);
-            if (matDoBanco) {
-              const estoqueAtual = Number(matDoBanco.qtdAtual || 0);
-              const totalDescontar = Number(matGasto.qtdUsada || 0) * Number(itemMolde.qtd || 1);
-              await updateDoc(doc(db, "materiais", matGasto.id), { qtdAtual: Math.max(0, estoqueAtual - totalDescontar) });
-            }
-          }
-        }
-      }
-    } else if (pedido.materiaisUsados && pedido.materiaisUsados.length > 0) {
+    if (pedido.materiaisUsados && pedido.materiaisUsados.length > 0) {
       for (const m of pedido.materiaisUsados) {
         const matDoBanco = materiais.find(item => item.id === m.id);
         if (matDoBanco) {
@@ -342,7 +349,7 @@ export default function App() {
       }
     }
     await updateDoc(doc(db, "pedidos", pedido.id), { status: 'Vendido 💰' });
-    alert("Venda confirmada e estoque atualizado! 📦📈");
+    alert("Venda confirmada!");
   };
 
   const handleUploadImagem = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -367,18 +374,37 @@ export default function App() {
   };
 
   const limparCalculadora = () => {
-    setNomeProd(''); setQtdPed('1'); setMatsNoPed([]); setVHora('9'); setTGasto('60'); setCustos({ embalagem: '0', impressao: '0', energia: '0', outros: '0' }); setLucro('100'); setDesconto('0'); setPrazo(''); setClienteSel(''); setPedidoEditandoId(null); setPrecoManual(null); setObsPedido('');
-  };
-
-  const limparFormMolde = () => {
-    setNomeMolde(''); setMatsNoMolde([]); setTGastoMolde('10'); setVHoraMolde('9'); setCustosMolde({ embalagem: '0', impressao: '0', energia: '0', outros: '0' }); setLucroMolde('100'); setMoldeEditandoId(null);
+    setNomeProd('');
+    setQtdPed('1');
+    setMatsNoPed([]);
+    setVHora('9');
+    setTGasto('60');
+    setCustos({ embalagem: '0', impressao: '0', energia: '0', outros: '0' });
+    setLucro('100');
+    setDesconto('0');
+    setPrazo('');
+    setClienteSel('');
+    setPedidoEditandoId(null);
+    setPrecoManual(null);
+    setObsPedido('');
   };
 
   const carregarPedidoParaEdicao = (p: any) => {
-    setPedidoEditandoId(p.id); setNomeProd(p.nomeProd || ''); setQtdPed(p.qtdPed || '1'); setVHora(p.vHora || '9'); setTGasto(p.tGasto || '60'); setCustos(p.custos || { embalagem: '0', impressao: '0', energia: '0', outros: '0' }); setLucro(p.lucro || '100'); setDesconto(p.desconto || '0'); setPrazo(p.prazo || ''); setClienteSel(p.clienteId || ''); setPrecoManual(p.precoManual || null); setObsPedido(p.obsPedido || '');
+    setPedidoEditandoId(p.id);
+    setNomeProd(p.nomeProd || '');
+    setQtdPed(p.qtdPed || '1');
+    setVHora(p.vHora || '9');
+    setTGasto(p.tGasto || '60');
+    setCustos(p.custos || { embalagem: '0', impressao: '0', energia: '0', outros: '0' });
+    setLucro(p.lucro || '100');
+    setDesconto(p.desconto || '0');
+    setPrazo(p.prazo || '');
+    setClienteSel(p.clienteId || '');
+    setPrecoManual(p.precoManual || null);
+    setObsPedido(p.obsPedido || '');
 
     if (p.materiaisUsados && p.materiaisUsados.length > 0) {
-      setMatsNoPed(p.materiaisUsados.map((mSalvo: any) => {
+      const listaReconstruida = p.materiaisUsados.map((mSalvo: any) => {
         const matDoArmario = materiais.find(item => item.id === mSalvo.id);
         return {
           id: mSalvo.id,
@@ -388,16 +414,19 @@ export default function App() {
           qtd: matDoArmario ? Number(matDoArmario.qtd) : Number(mSalvo.qtd || 1),
           unidade: matDoArmario ? matDoArmario.unidade : (mSalvo.unidade || 'un')
         };
-      }));
+      });
+      setMatsNoPed(listaReconstruida);
     } else {
       setMatsNoPed([]);
     }
-    setModoOrcamento('normal');
     setActiveTab('criar');
   };
 
   const venderItemDiretoDoCatalogo = (prod: any) => {
-    limparCalculadora(); setNomeProd(prod.nome); setPrecoManual(prod.precoVenda); setModoOrcamento('normal'); setActiveTab('criar');
+    limparCalculadora();
+    setNomeProd(prod.nome);
+    setPrecoManual(prod.precoVenda);
+    setActiveTab('criar');
   };
 
   // VITRINE PÚBLICA
@@ -459,20 +488,34 @@ export default function App() {
     );
   }
 
-  // INTERFACE COMPLETA DA CALCULADORA LIVRE
+  if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando painel... 🚀</div>;
+  if (!user) return <Login {...{isRegistering, setIsRegistering, email, setEmail, password, setPassword, handleAuth}} />;
+
+  // FORMULÁRIO COMPLETO DA CALCULADORA
   const renderCalculadoraForm = () => (
     <div className="bg-white p-6 rounded-[35px] shadow-xl border mt-2 w-full">
       {pedidoEditandoId && (
         <div className="bg-amber-50 border border-amber-200 p-4 rounded-3xl mb-6 flex justify-between items-center animate-pulse w-full">
-          <div className="text-xs text-amber-800 font-bold"><span>✏️ Você está editando um orçamento salvo!</span></div>
-          <button onClick={() => { limparCalculadora(); setActiveTab('pedidos'); }} className="text-[10px] bg-red-500 text-white px-3 py-1.5 rounded-xl font-black uppercase tracking-wider shadow-sm transition-all">Cancelar Edição ❌</button>
+          <div className="text-xs text-amber-800 font-bold">
+            <span>✏️ Você está editando um orçamento salvo!</span>
+          </div>
+          <button 
+            onClick={() => { limparCalculadora(); setActiveTab('pedidos'); }} 
+            className="text-[10px] bg-red-500 text-white px-3 py-1.5 rounded-xl font-black uppercase tracking-wider shadow-sm active:scale-95 transition-all"
+          >
+            Cancelar Edição ❌
+          </button>
         </div>
       )}
 
       <div className="flex justify-between items-center mb-6 w-full">
-        <h2 className="text-purple-700 font-bold flex items-center gap-2 uppercase text-xs tracking-widest"><ShoppingCart size={18}/> {pedidoEditandoId ? 'Editando Dados' : 'Novo Orçamento'}</h2>
+        <h2 className="text-purple-700 font-bold flex items-center gap-2 uppercase text-xs tracking-widest">
+          <ShoppingCart size={18}/> {pedidoEditandoId ? 'Editando Dados' : 'Novo Orçamento'}
+        </h2>
         {!pedidoEditandoId && (
-          <button onClick={() => setMostrarSeletorCatalogo(!mostrarSeletorCatalogo)} className="text-xs bg-purple-50 text-purple-700 px-3 py-1.5 rounded-xl font-black uppercase border border-purple-100">{precoManual ? '✨ Item de Catálogo' : '📖 Usar Catálogo'}</button>
+          <button onClick={() => setMostrarSeletorCatalogo(!mostrarSeletorCatalogo)} className="text-xs bg-purple-50 text-purple-700 px-3 py-1.5 rounded-xl font-black uppercase border border-purple-100">
+            {precoManual ? '✨ Item de Catálogo' : '📖 Usar Catálogo'}
+          </button>
         )}
       </div>
 
@@ -481,9 +524,15 @@ export default function App() {
           <p className="font-bold text-purple-700 uppercase text-[10px]">Escolha um produto pronto:</p>
           <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto w-full">
             {produtos.map(p => (
-              <div key={p.id} onClick={() => { setNomeProd(p.nome); setPrecoManual(String(p.precoVenda)); setMostrarSeletorCatalogo(false); }} className="bg-white p-2.5 rounded-xl border flex justify-between items-center cursor-pointer hover:border-purple-400 w-full">
+              <div key={p.id} onClick={() => {
+                setNomeProd(p.nome);
+                setPrecoManual(String(p.precoVenda));
+                setMostrarSeletorCatalogo(false);
+              }} className="bg-white p-2.5 rounded-xl border flex justify-between items-center cursor-pointer hover:border-purple-400 w-full">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-slate-50 overflow-hidden shrink-0 flex items-center justify-center text-slate-300">{p.urlImagem ? <img src={p.urlImagem} className="w-full h-full object-cover" /> : <ImageIcon size={14}/>}</div>
+                  <div className="w-8 h-8 rounded-lg bg-slate-50 overflow-hidden shrink-0 flex items-center justify-center text-slate-300">
+                    {p.urlImagem ? <img src={p.urlImagem} className="w-full h-full object-cover" /> : <ImageIcon size={14}/>}
+                  </div>
                   <span className="font-bold">{p.nome}</span>
                 </div>
                 <span className="text-purple-700 font-black">R$ {Number(p.precoVenda).toFixed(2)}</span>
@@ -521,14 +570,16 @@ export default function App() {
                 if (m) setMatsNoPed([...matsNoPed, { id: m.id, nome: m.nome, valor: m.valor, qtd: m.qtd, unidade: m.unidade, qtdUsada: 1 }]);
              }} value="">
                 <option value="">+ Adicionar Material...</option>
-                {materials.map(m => <option key={m.id} value={m.id}>{m.nome} ({m.unidade || 'un'})</option>)}
+                {materiais.map(m => <option key={m.id} value={m.id}>{m.nome} ({m.unidade || 'un'})</option>)}
              </select>
              <div className="space-y-2 w-full">
                 {matsNoPed.map((m, i) => (
                   <div key={i} className="flex justify-between items-center bg-purple-50 p-3 rounded-2xl border border-purple-100 text-purple-700 font-bold text-xs w-full">
                     <span>{m.nome}</span>
                     <div className="flex items-center gap-2">
-                      <input type="number" className="w-16 bg-white rounded-lg p-1 text-center" value={m.qtdUsada} onChange={e => { const nova = [...matsNoPed]; nova[i].qtdUsada = e.target.value; setMatsNoPed(nova); }} />
+                      <input type="number" className="w-16 bg-white rounded-lg p-1 text-center" value={m.qtdUsada} onChange={e => {
+                         const nova = [...matsNoPed]; nova[i].qtdUsada = e.target.value; setMatsNoPed(nova);
+                      }} />
                       <span className="text-[10px] text-purple-500">{m.unidade || 'un'}</span>
                       <button onClick={() => setMatsNoPed(matsNoPed.filter((_, idx) => idx !== i))}><X size={16}/></button>
                     </div>
@@ -537,10 +588,17 @@ export default function App() {
              </div>
           </div>
           <div className="grid grid-cols-2 gap-4 mb-4 w-full">
-            <div className="w-full"><label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Tempo Gasto (min)</label><input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={tGasto} onChange={e => setTGasto(e.target.value)} /></div>
-            <div className="w-full"><label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Valor da Hora (R$)</label><input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={vHora} onChange={e => setVHora(e.target.value)} /></div>
+            <div className="w-full">
+              <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Tempo Gasto (min)</label>
+              <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={tGasto} onChange={e => setTGasto(e.target.value)} />
+            </div>
+            <div className="w-full">
+              <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Valor da Hora (R$)</label>
+              <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={vHora} onChange={e => setVHora(e.target.value)} />
+            </div>
           </div>
 
+          {/* ADICIONADO: O título de Custos Extras que tinha sumido do layout */}
           <div className="mb-4 w-full">
             <label className="text-[10px] font-bold text-purple-600 uppercase ml-1 block mb-1">📦 Custos Extras por Unidade (R$)</label>
             <div className="grid grid-cols-4 gap-2 w-full">
@@ -554,15 +612,24 @@ export default function App() {
           </div>
           
           <div className="grid grid-cols-2 gap-4 mb-4 w-full">
-            <div className="w-full"><label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Lucro %</label><input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={lucro} onChange={e => setLucro(e.target.value)} /></div>
-            <div className="w-full"><label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Prazo</label><input type="date" className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-xs font-bold block" value={prazo} onChange={e => setPrazo(e.target.value)} /></div>
+            <div className="w-full">
+              <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Lucro %</label>
+              <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={lucro} onChange={e => setLucro(e.target.value)} />
+            </div>
+            <div className="w-full">
+              <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Prazo</label>
+              <input type="date" className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-xs font-bold block" value={prazo} onChange={e => setPrazo(e.target.value)} />
+            </div>
           </div>
         </>
       ) : (
         <div className="bg-orange-50 border border-orange-100 p-4 rounded-3xl mb-4 text-xs w-full">
           <p className="font-bold text-orange-600">💥 Preço travado pelo catálogo de vendas.</p>
           <p className="text-slate-500 mt-1">Valor Unitário original: <strong>R$ {Number(precoManual).toFixed(2)}</strong></p>
-          <div className="mt-3 w-full"><label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Prazo</label><input type="date" className="w-full p-4 bg-white rounded-2xl outline-none text-xs font-bold border block" value={prazo} onChange={e => setPrazo(e.target.value)} /></div>
+          <div className="mt-3 w-full">
+            <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Prazo</label>
+            <input type="date" className="w-full p-4 bg-white rounded-2xl outline-none text-xs font-bold border block" value={prazo} onChange={e => setPrazo(e.target.value)} />
+          </div>
         </div>
       )}
 
@@ -573,7 +640,12 @@ export default function App() {
 
       <div className="mb-6 w-full">
          <label className="text-[10px] font-bold text-purple-600 uppercase ml-1">📝 Observações do Orçamento</label>
-         <textarea placeholder="Ex: Sinal de 50% para início da produção. Restante na entrega." className="w-full p-4 bg-slate-50 rounded-2xl mt-1 outline-none text-xs font-semibold border border-transparent focus:border-purple-400 resize-none h-20" value={obsPedido} onChange={e => setObsPedido(e.target.value)} />
+         <textarea 
+           placeholder="Ex: Sinal de 50% para início da produção. Restante na entrega." 
+           className="w-full p-4 bg-slate-50 rounded-2xl mt-1 outline-none text-xs font-semibold border border-transparent focus:border-purple-400 resize-none h-20" 
+           value={obsPedido} 
+           onChange={e => setObsPedido(e.target.value)} 
+         />
       </div>
 
       {precoManual === null && (
@@ -592,10 +664,15 @@ export default function App() {
         <div className="flex gap-2">
           <button onClick={async () => {
              if(!nomeProd) return alert("Digite o nome do produto!");
-             const dadosPedido = { nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed, vHora, tGasto, custos, lucro, desconto, userId: user.uid, precoManual: precoManual, obsPedido: obsPedido, materiaisUsados: precoManual ? [] : matsNoPed.map(m => ({ id: m.id, nome: m.nome, qtdUsada: Number(m.qtdUsada || 1) })) };
+             const dadosPedido = { 
+               nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed, vHora, tGasto, custos, lucro, desconto, userId: user.uid,
+               precoManual: precoManual, obsPedido: obsPedido,
+               materiaisUsados: precoManual ? [] : matsNoPed.map(m => ({ id: m.id, nome: m.nome, qtdUsada: Number(m.qtdUsada || 1) }))
+             };
              if (pedidoEditandoId) await updateDoc(doc(db, "pedidos", pedidoEditandoId), dadosPedido);
-             else await addDoc(collection(db, "pedidos"), { ...dadosPedido, data: new Date().toLocaleDateString('pt-BR'), status: 'Pendente', userId: user.uid });
-             limparCalculadora(); setActiveTab('pedidos'); alert("Salvo!");
+             else await addDoc(collection(db, "pedidos"), { ...dadosPedido, data: new Date().toLocaleDateString('pt-BR'), status: 'Pendente' });
+             limparCalculadora(); setActiveTab('pedidos');
+             alert("Salvo!");
           }} className="bg-orange-500 text-white px-5 py-4 rounded-[22px] font-black uppercase text-xs shadow-lg">Salvar</button>
           <button onClick={() => gerarPDF({nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed, obsPedido})} className="bg-orange-500 text-white p-4 rounded-[22px] shadow-lg"><Printer size={18}/></button>
           <button onClick={() => enviarZap({nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed})} className="bg-emerald-500 text-white p-4 rounded-[22px] shadow-lg"><MessageCircle size={18}/></button>
@@ -605,34 +682,10 @@ export default function App() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-32 font-sans text-slate-700 w-full relative overflow-x-hidden">
-      
-      {/* MENU HAMBÚRGUER COMPLETO CONTENDO ABSOLUTAMENTE TODAS AS ABAS DO APP */}
-      <div className={`fixed inset-0 bg-black/40 z-50 transition-opacity duration-300 ${isMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`} onClick={() => setIsMenuOpen(false)}>
-        <div className={`w-72 bg-white h-full shadow-2xl p-6 flex flex-col justify-between transition-transform duration-300 ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'}`} onClick={e => e.stopPropagation()}>
-          <div className="space-y-6">
-            <div className="flex justify-between items-center border-b pb-4">
-              <div className="font-black text-purple-700 text-lg flex items-center gap-2"><Calculator size={22}/> Menu PrecificaJá</div>
-              <button onClick={() => setIsMenuOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={22}/></button>
-            </div>
-            <nav className="flex flex-col gap-1">
-              <button onClick={() => setActiveTab('inicio')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'inicio' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Home size={16}/> Início</button>
-              <button onClick={() => setActiveTab('criar')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'criar' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Plus size={16}/> Orçar</button>
-              <button onClick={() => setActiveTab('pedidos')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'pedidos' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><History size={16}/> Histórico</button>
-              <button onClick={() => setActiveTab('moldes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'moldes' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Calculator size={16}/> Moldes Salvos</button>
-              <button onClick={() => setActiveTab('materiais')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'materiais' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Package size={16}/> Armário / Insumos</button>
-              <button onClick={() => setActiveTab('clientes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'clientes' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><User size={16}/> Clientes</button>
-              <button onClick={() => setActiveTab('catalogo')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'catalogo' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><BookOpen size={16}/> Catálogo de Vitrine</button>
-            </nav>
-          </div>
-          <button onClick={() => signOut(auth)} className="w-full text-red-500 bg-red-50 p-4 rounded-xl text-xs font-black uppercase flex items-center justify-center gap-1.5"><LogOut size={16}/> Sair</button>
-        </div>
-      </div>
-
-      <header className="bg-white p-4 flex justify-between items-center shadow-sm sticky top-0 z-40 w-full">
-        <button onClick={() => setIsMenuOpen(true)} className="p-2 text-slate-700 hover:text-purple-700"><Menu size={24} /></button>
+    <div className="min-h-screen bg-slate-50 pb-32 font-sans text-slate-700 w-full">
+      <header className="bg-white p-4 flex justify-between items-center shadow-sm sticky top-0 z-50 w-full">
         <div className="font-black text-purple-700 text-lg flex items-center gap-2"><Calculator size={22}/> PrecificaJá</div>
-        <div className="w-10"></div> 
+        <button onClick={() => signOut(auth)} className="text-red-500 bg-red-50 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1 active:scale-95 transition-all"><LogOut size={14}/> SAIR</button>
       </header>
 
       <div className="p-4 max-w-xl mx-auto w-full">
@@ -648,10 +701,12 @@ export default function App() {
             <div onClick={() => { limparCalculadora(); setActiveTab('criar'); }} 
                  className="bg-gradient-to-r from-orange-500 to-amber-500 p-6 rounded-[35px] shadow-md cursor-pointer active:scale-95 transition-all text-white flex justify-between items-center w-full">
               <div>
-                <p className="text-xs font-bold uppercase tracking-widest text-orange-100">Área de Vendas</p>
-                <h3 className="text-xl font-black mt-0.5 tracking-tight">Montar Novo Orçamento ⚡</h3>
+                <p className="text-xs font-bold uppercase tracking-widest text-orange-100">Calculadora Integrada</p>
+                <h3 className="text-xl font-black mt-0.5 tracking-tight">Novo Orçamento Rápido 🚀</h3>
               </div>
-              <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center text-white"><Plus size={24}/></div>
+              <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center text-white">
+                <Calculator size={24}/>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4 w-full">
@@ -661,149 +716,114 @@ export default function App() {
                 <p className="text-2xl font-black text-slate-800 mt-0.5">{dashboardMetrics.pendentes}</p>
               </div>
 
-              <div onClick={() => setActiveTab('moldes')} className="bg-white p-5 rounded-[30px] border shadow-sm cursor-pointer active:scale-95 transition-all w-full">
-                <div className="w-10 h-10 rounded-2xl bg-purple-50 flex items-center justify-center text-purple-600 mb-3"><Calculator size={20}/></div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Seus Moldes</p>
-                <p className="text-2xl font-black text-slate-800 mt-0.5">{moldes.length}</p>
+              <div onClick={() => setActiveTab('catalogo')} className="bg-white p-5 rounded-[30px] border shadow-sm cursor-pointer active:scale-95 transition-all w-full">
+                <div className="w-10 h-10 rounded-2xl bg-purple-50 flex items-center justify-center text-purple-600 mb-3"><BookOpen size={20}/></div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Catálogo</p>
+                <p className="text-2xl font-black text-slate-800 mt-0.5">{produtos.length}</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 w-full">
+              <div onClick={() => setActiveTab('materiais')} className={`p-5 rounded-[30px] border shadow-sm cursor-pointer active:scale-95 transition-all w-full ${dashboardMetrics.criticos > 0 ? 'bg-red-50/50 border-red-100' : 'bg-white'}`}>
+                <div className="w-10 h-10 rounded-2xl bg-red-50 flex items-center justify-center text-red-500 mb-3"><Package size={20}/></div>
+                <p className="text-[10px] font-bold text-slate-400 tracking-wider uppercase">Falta Reposição</p>
+                <p className="text-2xl font-black mt-0.5">{dashboardMetrics.criticos}</p>
+              </div>
+
+              <div onClick={() => setActiveTab('clientes')} className="bg-white p-5 rounded-[30px] border shadow-sm cursor-pointer active:scale-95 transition-all w-full">
+                <div className="w-10 h-10 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-500 mb-3"><User size={20}/></div>
+                <p className="text-[10px] font-bold text-slate-400 tracking-wider uppercase">Clientes</p>
+                <p className="text-2xl font-black mt-0.5">{dashboardMetrics.totalClientes}</p>
               </div>
             </div>
           </div>
         )}
 
-        {/* ABA UNIFICADA DE ORÇAMENTOS (CALCULADORA OU MOLDES) */}
-        {activeTab === 'criar' && (
+        {/* TELA DE CATÁLOGO COM CONFIGURAÇÃO DE WHATSAPP */}
+        {activeTab === 'catalogo' && (
           <div className="space-y-4 pt-2 w-full">
-            <div className="bg-purple-700 p-2.5 rounded-[24px] grid grid-cols-2 gap-2 shadow-sm w-full">
-              <button onClick={() => setModoOrcamento('normal')} className={`py-3 rounded-xl font-black text-xs uppercase tracking-wider transition-all ${modoOrcamento === 'normal' ? 'bg-white text-purple-700 shadow' : 'text-purple-200'}`}>🧮 Calculadora Livre</button>
-              <button onClick={() => setModoOrcamento('molde')} className={`py-3 rounded-xl font-black text-xs uppercase tracking-wider transition-all ${modoOrcamento === 'molde' ? 'bg-white text-purple-700 shadow' : 'text-purple-200'}`}>✨ Usar Seus Moldes</button>
+            <div className="bg-gradient-to-tr from-purple-800 to-purple-600 p-6 rounded-[35px] text-white shadow-lg border border-purple-900 space-y-4 w-full">
+              <div className="w-full">
+                <h3 className="text-xs font-black uppercase tracking-widest text-purple-200 flex items-center gap-1.5"><Share2 size={14}/> Seu Catálogo Público</h3>
+                <p className="text-xs text-purple-100 mt-1 opacity-90">Link exclusivo para enviar aos seus clientes:</p>
+                <div className="mt-2 bg-purple-900/40 p-3.5 rounded-2xl text-xs font-mono select-all break-all border border-purple-500/30 bg-black/10 w-full">
+                  {linkDoCatalogoDestaCliente}
+                </div>
+                <div onClick={copiarLinkCatalogo} className="mt-2.5 w-full bg-white text-purple-800 font-bold p-3 rounded-xl text-xs uppercase shadow flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer">
+                  <Copy size={14}/> Copiar Link do Catálogo
+                </div>
+              </div>
+
+              <div className="border-t border-purple-500/30 pt-3 w-full">
+                <label className="text-[10px] font-black uppercase text-purple-200 block mb-1">📱 Seu WhatsApp de Vendas (Com DDD)</label>
+                <div className="flex gap-2 w-full">
+                  <input placeholder="Ex: 11999999999" className="flex-1 p-3 bg-black/20 text-white rounded-xl text-xs font-bold border border-purple-500/30 outline-none" value={zapDonaConta} onChange={e => setZapDonaConta(e.target.value)} />
+                  <button onClick={async () => {
+                    if(!zapDonaConta.trim()) return alert("Digite o número primeiro!");
+                    try {
+                      await setDoc(doc(db, "configuracoes_loja", user.uid), { whatsapp: zapDonaConta.trim() }, { merge: true });
+                      alert("WhatsApp de vendas salvo com sucesso! 🚀");
+                    } catch {
+                      alert("Erro ao salvar número.");
+                    }
+                  }} className="bg-orange-500 hover:bg-orange-600 text-white text-xs font-black uppercase px-4 rounded-xl shadow active:scale-95 transition-all">Salvar</button>
+                </div>
+              </div>
             </div>
 
-            {modoOrcamento === 'normal' && renderCalculadoraForm()}
-
-            {modoOrcamento === 'molde' && (
-              <div className="bg-white p-6 rounded-[35px] border shadow-xl w-full">
-                <div className="mb-4 w-full">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Cliente</label>
-                  <select className="p-4 bg-slate-50 rounded-2xl outline-none w-full block border" onChange={e => setClienteSelecionadoMoldes(e.target.value)} value={clienteSelecionadoMoldes}>
-                    <option value="">👤 Escolha um cliente...</option>
-                    {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-1 gap-3 max-h-72 overflow-y-auto mb-4 border-b pb-4 w-full">
-                  <p className="text-[10px] font-black uppercase text-purple-600 ml-1">Selecione as Quantidades do Kit:</p>
-                  {moldes.map(m => {
-                    const qtd = quantidadesPedidoMoldes[m.id] || 0;
-                    return (
-                      <div key={m.id} className="bg-slate-50 p-3.5 rounded-2xl flex justify-between items-center border w-full">
-                        <div>
-                          <p className="font-bold text-slate-800 text-sm">{m.nome}</p>
-                          <p className="text-[11px] text-slate-400">R$ {Number(m.precoVendaUnitario).toFixed(2)} un</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button onClick={() => setQuantidadesPedidoMoldes({ ...quantidadesPedidoMoldes, [m.id]: Math.max(0, qtd - 1) })} className="w-8 h-8 bg-white shadow-sm rounded-xl font-black text-slate-600 border">-</button>
-                          <span className="font-bold text-sm w-6 text-center">{qtd}</span>
-                          <button onClick={() => setQuantidadesPedidoMoldes({ ...quantidadesPedidoMoldes, [m.id]: qtd + 1 })} className="w-8 h-8 bg-purple-700 text-white rounded-xl font-black shadow-sm">+</button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <div className="mb-4 w-full">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Prazo de Entrega</label>
-                  <input type="date" className="w-full p-4 bg-slate-50 rounded-2xl outline-none border font-bold text-xs" value={prazoPedidoMoldes} onChange={e => setPrazoPedidoMoldes(e.target.value)} />
-                </div>
-
-                <div className="mb-5 w-full">
-                  <label className="text-[10px] font-bold text-purple-600 uppercase ml-1">📝 Observações do Combo</label>
-                  <textarea placeholder="Ex: Entrada de 50%..." className="w-full p-4 bg-slate-50 rounded-2xl mt-1 outline-none text-xs font-semibold border resize-none h-16" value={obsPedidoMoldes} onChange={e => setObsPedidoMoldes(e.target.value)} />
-                </div>
-
-                <div className="flex items-center justify-between border-t pt-5 w-full">
-                  <div className="text-orange-500 font-black text-4xl">R$ {resumoPedidoPorMoldes.total}</div>
-                  <div className="flex gap-1.5">
-                    <button onClick={async () => {
-                      if (Number(resumoPedidoPorMoldes.total) <= 0) return alert("Selecione a quantidade de algum item!");
-                      const descItens = resumoPedidoPorMoldes.itens.map(i => `${i.qtd}x ${i.nome}`).join(' + ');
-                      await addDoc(collection(db, "pedidos"), { nomeProd: descItens, preco: resumoPedidoPorMoldes.total, clienteId: clienteSelecionadoMoldes, prazo: prazoPedidoMoldes, obsPedido: obsPedidoMoldes, data: new Date().toLocaleDateString('pt-BR'), status: 'Pendente', userId: user.uid, moldesVinculados: resumoPedidoPorMoldes.itens });
-                      setQuantidadesPedidoMoldes({}); setClienteSelecionadoMoldes(''); setObsPedidoMoldes(''); setPrazoPedidoMoldes(''); setActiveTab('pedidos'); alert("Orçamento via moldes salvo!");
-                    }} className="bg-orange-500 hover:bg-orange-600 text-white px-5 py-4 rounded-2xl font-black uppercase text-xs shadow-md">Fechar Pedido</button>
-                    <button onClick={() => gerarPDF({ nomeProd: "Kit Personalizado Sob Medida", preco: resumoPedidoPorMoldes.total, clienteId: clienteSelecionadoMoldes, prazo: prazoPedidoMoldes, obsPedido: obsPedidoMoldes })} className="bg-purple-50 text-purple-700 p-4 rounded-2xl border"><Printer size={18}/></button>
+            <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
+              <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2 uppercase text-xs tracking-widest"><BookOpen size={18}/> Novo Item de Venda Fixa</h2>
+              <div className="mb-4 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-3xl p-4 bg-slate-50 relative min-h-[140px] w-full">
+                {novoProdCatalogo.urlImagem ? (
+                  <div className="relative w-full h-32 rounded-2xl overflow-hidden">
+                    <img src={novoProdCatalogo.urlImagem} alt="Preview" className="w-full h-full object-cover" />
+                    <button onClick={() => setNovoProdCatalogo(p => ({...p, urlImagem: ''}))} className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full"><X size={14}/></button>
                   </div>
-                </div>
+                ) : (
+                  <label className="cursor-pointer flex flex-col items-center gap-2 text-slate-400 hover:text-purple-600 transition-colors w-full h-full flex justify-center">
+                    <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center shadow-sm text-purple-600">
+                      <Camera size={22} />
+                    </div>
+                    <span className="text-xs font-bold uppercase tracking-wide text-[10px]">
+                      {subindoImagem ? 'Subindo Foto...' : '📸 Adicionar Foto do Produto'}
+                    </span>
+                    <input type="file" accept="image/*" className="hidden" onChange={handleUploadImagem} disabled={subindoImagem} />
+                  </label>
+                )}
               </div>
-            )}
-          </div>
-        )}
 
-        {/* FÁBRICA DE MOLDES */}
-        {activeTab === 'moldes' && (
-          <div className="space-y-4 pt-2 w-full">
-            <div className="bg-white p-6 rounded-[35px] shadow-xl border w-full">
-              <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2 uppercase text-xs tracking-widest"><Calculator size={18}/> Salvar Novo Molde Estrutural</h2>
-              <div className="mb-3 w-full">
-                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome do Molde</label>
-                <input className="w-full p-4 bg-slate-50 rounded-2xl outline-none border font-semibold" value={nomeMolde} onChange={e => setNomeMolde(e.target.value)} placeholder="Ex: Caixa Milk, Sacola G" />
-              </div>
-              <div className="mb-4 w-full">
-                <label className="text-[10px] font-bold text-purple-600 uppercase ml-1 block mb-1">Insumos Fixos Usados (Por unidade)</label>
-                <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none mb-2 block border" onChange={e => {
-                  const m = materiais.find(item => item.id === e.target.value);
-                  if (m) setMatsNoMolde([...matsNoMolde, { id: m.id, nome: m.nome, valor: m.valor, qtd: m.qtd, unidade: m.unidade, qtdUsada: 1 }]);
-                }} value="">
-                  <option value="">+ Vincular Material...</option>
-                  {materiais.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
-                </select>
-                <div className="space-y-2 w-full">
-                  {matsNoMolde.map((m, i) => (
-                    <div key={i} className="flex justify-between items-center bg-purple-50 p-3 rounded-xl text-xs font-bold text-purple-700 w-full">
-                      <span>{m.nome}</span>
-                      <div className="flex items-center gap-2">
-                        <input type="number" step="any" className="w-16 bg-white rounded-lg p-1 text-center" value={m.qtdUsada} onChange={e => { const nova = [...matsNoMolde]; nova[i].qtdUsada = e.target.value; setMatsNoMolde(nova); }} />
-                        <button onClick={() => setMatsNoMolde(matsNoMolde.filter((_, idx) => idx !== i))}><X size={14}/></button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3 mb-3 w-full">
-                <div><label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Tempo Gasto (min)</label><input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none border text-center font-bold" value={tGastoMolde} onChange={e => setTGastoMolde(e.target.value)} /></div>
-                <div><label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Valor da Hora (R$)</label><input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none border text-center font-bold" value={vHoraMolde} onChange={e => setVHoraMolde(e.target.value)} /></div>
-              </div>
-              <div className="mb-4 w-full">
-                <label className="text-[10px] font-bold text-purple-600 uppercase ml-1 block mb-1">Custos Extras Unitários (R$)</label>
-                <div className="grid grid-cols-4 gap-2 w-full">
-                  {['embalagem','impressao','energia','outros'].map(c=>(
-                    <div key={c} className="flex flex-col items-center bg-slate-50 p-2 rounded-xl border w-full">
-                      <span className="text-[8px] font-black text-slate-300 mb-1">{c.toUpperCase()}</span>
-                      <input type="number" className="w-full bg-transparent text-center text-xs font-bold" value={(custosMolde as any)[c]} onChange={e => setCustosMolde({...custosMolde, [c]: e.target.value})} />
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="mb-4 w-full">
-                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Lucro %</label>
-                <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none border font-bold text-purple-700" value={lucroMolde} onChange={e => setLucroMolde(e.target.value)} />
-              </div>
-              <div className="bg-purple-50 p-4 rounded-2xl text-xs font-bold text-purple-700 flex justify-between items-center mb-4 w-full">
-                <span>VALOR FIXADO POR PEÇA:</span><span className="text-lg font-black">R$ {valorUnitarioDoMoldeGerado.toFixed(2)}</span>
-              </div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome do Produto</label>
+              <input placeholder="Ex: Caneca Alça Coração" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none" value={novoProdCatalogo.nome} onChange={e => setNovoProdCatalogo({...novoProdCatalogo, nome: e.target.value})} />
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Preço Fixo de Venda (R$)</label>
+              <input type="number" placeholder="Ex: 35.00" className="w-full p-4 bg-slate-50 rounded-2xl mb-4 outline-none font-bold text-purple-700" value={novoProdCatalogo.precoVenda} onChange={e => setNovoProdCatalogo({...novoProdCatalogo, precoVenda: e.target.value})} />
+
               <button onClick={async () => {
-                if (!nomeMolde) return alert("Dê um nome ao molde!");
-                const dados = { nome: nomeMolde, tGasto: tGastoMolde, vHora: vHoraMolde, custos: custosMolde, lucro: lucroMolde, precoVendaUnitario: valorUnitarioDoMoldeGerado, userId: user.uid, materiaisUsados: matsNoMolde.map(m => ({ id: m.id, nome: m.nome, qtdUsada: Number(m.qtdUsada) })) };
-                if (moldeEditandoId) await updateDoc(doc(db, "moldes", moldeEditandoId), dados);
-                else await addDoc(collection(db, "moldes"), dados);
-                limparFormMolde(); alert("Molde guardado!");
-              }} className="w-full bg-purple-700 text-white p-4 rounded-2xl text-xs font-black uppercase tracking-wider">Salvar Molde Base</button>
+                if(!novoProdCatalogo.nome || !novoProdCatalogo.precoVenda) return alert("Preencha o nome e o preço!");
+                const d = { nome: novoProdCatalogo.nome, precoVenda: Number(novoProdCatalogo.precoVenda), urlImagem: novoProdCatalogo.urlImagem || '', userId: user.uid };
+                if (novoProdCatalogo.id) await updateDoc(doc(db, "produtos", novoProdCatalogo.id), d);
+                else await addDoc(collection(db, "produtos"), d);
+                setNovoProdCatalogo({ id: '', nome: '', precoVenda: '', urlImagem: '' });
+                alert("Produto salvo no catálogo!");
+              }} className="w-full bg-purple-700 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md" disabled={subindoImagem}>
+                {novoProdCatalogo.id ? 'Atualizar Item' : 'Salvar no Catálogo 📖'}
+              </button>
             </div>
-            <div className="space-y-2 w-full">
-              {moldes.map(m => (
-                <div key={m.id} className="bg-white p-4 rounded-3xl border flex justify-between items-center w-full">
-                  <div><p className="font-bold text-slate-800 text-sm">{m.nome}</p><p className="text-xs text-purple-600 font-bold">R$ {Number(m.precoVendaUnitario || 0).toFixed(2)} / un</p></div>
-                  <div className="flex gap-1">
-                    <button onClick={() => { setMoldeEditandoId(m.id); setNomeMolde(m.nome); setTGastoMolde(m.tGasto || '10'); setVHoraMolde(m.vHora || '9'); setCustosMolde(m.custos || { embalagem: '0', impressao: '0', energia: '0', outros: '0' }); setLucroMolde(m.lucro || '100'); setMatsNoMolde(m.materiaisUsados || []); }} className="text-purple-400 p-2"><Edit2 size={16}/></button>
-                    <button onClick={() => confirmarExcluir('molde', m.id)} className="text-red-200 p-2"><Trash2 size={16}/></button>
+
+            <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider ml-2">Seu Catálogo Visual</h3>
+            <div className="grid grid-cols-1 gap-3 w-full">
+              {produtos.map(p => (
+                <div key={p.id} className="bg-white p-4 rounded-[30px] flex gap-4 items-center border border-slate-100 shadow-sm w-full">
+                  <div className="w-16 h-16 rounded-2xl bg-slate-100 overflow-hidden flex items-center justify-center text-slate-300 shrink-0">
+                    {p.urlImagem ? <img src={p.urlImagem} alt={p.nome} className="w-full h-full object-cover" /> : <ImageIcon size={24} />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-slate-800 text-sm truncate">{p.nome}</p>
+                    <p className="text-purple-700 font-black text-sm mt-0.5">R$ {Number(p.precoVenda).toFixed(2)}</p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => venderItemDiretoDoCatalogo(p)} className="bg-orange-500 text-white px-3 py-2 rounded-xl text-xs font-black uppercase shadow active:scale-95">Vender 🛍️</button>
+                    <button onClick={() => setNovoProdCatalogo({ id: p.id, nome: p.nome, precoVenda: String(p.precoVenda), urlImagem: p.urlImagem || '' })} className="text-purple-400 p-1.5"><Edit2 size={15}/></button>
+                    <button onClick={() => deleteDoc(doc(db, "produtos", p.id))} className="text-red-200 p-1.5"><Trash2 size={15}/></button>
                   </div>
                 </div>
               ))}
@@ -811,25 +831,33 @@ export default function App() {
           </div>
         )}
 
+        {/* ABA DA CALCULADORA COMPOSTA */}
+        {activeTab === 'criar' && renderCalculadoraForm()}
+
         {/* HISTÓRICO */}
         {activeTab === 'pedidos' && (
           <div className="space-y-3 pt-2 w-full">
             <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2"><History size={20}/> Histórico</h2>
             {pedidos.map(p => {
-               const cli = clientes.find(c => c.id === p.clienteId || p.clienteSel);
+               const cli = clientes.find(c => c.id === p.clienteId);
                const ehPendente = p.status !== 'Vendido 💰';
                return (
                  <div key={p.id} className="bg-white p-5 rounded-[30px] shadow-sm flex flex-col gap-3 border w-full">
                    <div className="flex justify-between items-center w-full">
                      <div>
-                        <p className="font-black text-[10px] uppercase text-purple-700 mb-1">{cli?.nome || 'Sem Cliente'} {p.data ? `— ${p.data}` : ''} — <span className={ehPendente ? "text-orange-400" : "text-emerald-500"}>{p.status || 'Pendente'}</span></p>
-                        <p className="font-bold text-slate-700 text-sm">{p.nomeProd} <span className="text-xs text-slate-400 font-normal">{p.qtdPed ? `(${p.qtdPed} un)` : ''}</span></p>
+                        <p className="font-black text-[10px] uppercase text-purple-700 mb-1">
+                          {cli?.nome || 'Sem Cliente'} {p.data ? `— ${p.data}` : ''} — <span className={ehPendente ? "text-orange-400" : "text-emerald-500"}>{p.status || 'Pendente'}</span>
+                        </p>
+                        <p className="font-bold text-slate-700 text-sm">{p.nomeProd} <span className="text-xs text-slate-400 font-normal">({p.qtdPed || 1} un)</span></p>
                      </div>
                      <div className="text-orange-500 font-black text-xl">R$ {p.preco}</div>
                    </div>
                    <div className="flex items-center justify-end border-t pt-2 gap-1 w-full">
                       {ehPendente && (
-                        <button onClick={() => confirmarVendaPedido(p)} className="text-emerald-600 p-2 bg-emerald-50 rounded-xl text-xs font-bold flex items-center gap-1 mr-auto active:scale-95"><CheckCircle size={16}/> Confirmar Venda</button>
+                        <>
+                          <button onClick={() => confirmarVendaPedido(p)} className="text-emerald-600 p-2 bg-emerald-50 rounded-xl text-xs font-bold flex items-center gap-1 mr-auto active:scale-95"><CheckCircle size={16}/> Confirmar Venda</button>
+                          <button onClick={() => carregarPedidoParaEdicao(p)} className="text-purple-600 p-2 bg-purple-50 rounded-xl"><Edit2 size={18}/></button>
+                        </>
                       )}
                       <button onClick={() => gerarPDF(p)} className="text-orange-500 p-2 bg-orange-50 rounded-xl"><Printer size={18}/></button>
                       <button onClick={() => enviarZap(p)} className="text-emerald-500 p-2 bg-emerald-50 rounded-xl"><MessageCircle size={18}/></button>
@@ -884,13 +912,15 @@ export default function App() {
                 else await addDoc(collection(db, "materiais"), d);
                 setNovoMat({ id: '', nome: '', valor: '', qtd: '1', unidade: 'un', qtdAtual: '0', qtdMinima: '0' });
                 alert("Material salvo!");
-              }} className="w-full bg-orange-500 text-white p-5 rounded-2xl font-black uppercase text-xs">Salvar no Armário</button>
+              }} className="w-full bg-orange-500 text-white p-5 rounded-2xl font-black uppercase text-xs">
+                {novoMat.id ? 'Atualizar Insumo' : 'Salvar no Armário'}
+              </button>
             </div>
             {materiais.map(m => {
               const estaAcabando = Number(m.qtdAtual || 0) <= Number(m.qtdMinima || 0);
               const valorUnitarioCalculado = Number(m.qtd || 1) > 0 ? (Number(m.valor || 0) / Number(m.qtd || 1)).toFixed(2) : "0.00";
               return (
-                <div key={m.id} className="bg-white p-5 rounded-3xl flex justify-between items-center border w-full mb-2">
+                <div key={m.id} className="bg-white p-5 rounded-3xl flex justify-between items-center border w-full">
                   <div>
                     <p className="font-bold text-slate-800">{estaAcabando ? '🔴' : '🟢'} {m.nome}</p>
                     <p className="text-xs text-slate-400 mt-1">Custo unitário: <span className="font-bold text-slate-600">R$ {valorUnitarioCalculado}</span></p>
@@ -919,12 +949,16 @@ export default function App() {
                 if(!novoCli.nome) return alert("Digite o nome do cliente!");
                 if(novoCli.id) await updateDoc(doc(db, "clientes", novoCli.id), { nome: novoCli.nome, zap: novoCli.zap, userId: user.uid });
                 else await addDoc(collection(db, "clientes"), { nome: novoCli.nome, zap: novoCli.zap, userId: user.uid });
-                setNovoCli({ id: '', nome: '', zap: '' }); alert("Cliente Salvo!");
+                setNovoCli({ id: '', nome: '', zap: '' }); 
+                alert("Cliente Salvo!");
               }} className="w-full bg-orange-500 text-white p-5 rounded-2xl font-black uppercase text-xs">Salvar Cliente</button>
             </div>
             {clientes.map(c => (
-              <div key={c.id} className="bg-white p-5 rounded-3xl flex justify-between items-center border shadow-sm font-bold w-full mb-2">
-                <div className="flex flex-col ml-2"><span className="text-slate-800">{c.nome}</span><span className="text-xs text-slate-400 font-normal">{c.zap ? `📱 ${c.zap}` : 'Sem número'}</span></div>
+              <div key={c.id} className="bg-white p-5 rounded-3xl flex justify-between items-center border shadow-sm font-bold w-full">
+                <div className="flex flex-col ml-2">
+                  <span className="text-slate-800">{c.nome}</span>
+                  <span className="text-xs text-slate-400 font-normal">{c.zap ? `📱 ${c.zap}` : 'Sem número'}</span>
+                </div>
                 <div className="flex gap-1">
                   <button onClick={() => setNovoCli({ id: c.id, nome: c.nome, zap: c.zap || '' })} className="text-orange-400 p-2"><Edit2 size={18}/></button>
                   <button onClick={() => confirmarExcluir('cliente', c.id)} className="text-red-200 p-2"><Trash2 size={20}/></button>
@@ -933,72 +967,37 @@ export default function App() {
             ))}
           </div>
         )}
+      </div>
 
-        {/* TELA DE CONFIGURAÇÃO DO CATÁLOGO */}
-        {activeTab === 'catalogo' && (
-          <div className="space-y-4 pt-2 w-full">
-            <div className="bg-gradient-to-tr from-purple-800 to-purple-600 p-6 rounded-[35px] text-white shadow-lg border border-purple-900 space-y-4 w-full">
-              <div className="w-full">
-                <h3 className="text-xs font-black uppercase tracking-widest text-purple-200 flex items-center gap-1.5"><Share2 size={14}/> Seu Catálogo Público</h3>
-                <p className="text-xs text-purple-100 mt-1 opacity-90">Link exclusivo para enviar aos seus clientes:</p>
-                <div className="mt-2 bg-purple-900/40 p-3.5 rounded-2xl text-xs font-mono select-all break-all border border-purple-500/30 bg-black/10 w-full">{linkDoCatalogoDestaCliente}</div>
-                <div onClick={copiarLinkCatalogo} className="mt-2.5 w-full bg-white text-purple-800 font-bold p-3 rounded-xl text-xs uppercase shadow flex items-center justify-center gap-2 cursor-pointer">Copiar Link do Catálogo</div>
-              </div>
-            </div>
-            <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
-              <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2 uppercase text-xs tracking-widest"><BookOpen size={18}/> Novo Item de Venda Fixa</h2>
-              <div className="mb-4 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-3xl p-4 bg-slate-50 relative min-h-[140px] w-full">
-                {novoProdCatalogo.urlImagem ? (
-                  <div className="relative w-full h-32 rounded-2xl overflow-hidden">
-                    <img src={novoProdCatalogo.urlImagem} alt="Preview" className="w-full h-full object-cover" />
-                    <button onClick={() => setNovoProdCatalogo(p => ({...p, urlImagem: ''}))} className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full"><X size={14}/></button>
-                  </div>
-                ) : (
-                  <label className="cursor-pointer flex flex-col items-center gap-2 text-slate-400 hover:text-purple-600 w-full h-full flex justify-center"><Camera size={22} /><span className="text-xs font-bold uppercase tracking-wide text-[10px]">{subindoImagem ? 'Subindo Foto...' : '📸 Adicionar Foto do Produto'}</span><input type="file" accept="image/*" className="hidden" onChange={handleUploadImagem} disabled={subindoImagem} /></label>
-                )}
-              </div>
-              <input placeholder="Nome do Produto" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none" value={novoProdCatalogo.nome} onChange={e => setNovoProdCatalogo({...novoProdCatalogo, nome: e.target.value})} />
-              <input type="number" placeholder="Preço Fixo de Venda (R$)" className="w-full p-4 bg-slate-50 rounded-2xl mb-4 outline-none font-bold text-purple-700" value={novoProdCatalogo.precoVenda} onChange={e => setNovoProdCatalogo({...novoProdCatalogo, precoVenda: e.target.value})} />
-              <button onClick={async () => {
-                await addDoc(collection(db, "produtos"), { nome: novoProdCatalogo.nome, precoVenda: Number(novoProdCatalogo.precoVenda), urlImagem: novoProdCatalogo.urlImagem || '', userId: user.uid });
-                setNovoProdCatalogo({ id: '', nome: '', precoVenda: '', urlImagem: '' }); alert("Produto salvo no catálogo!");
-              }} className="w-full bg-purple-700 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md" disabled={subindoImagem}>Salvar no Catálogo 📖</button>
-            </div>
-            <div className="grid grid-cols-1 gap-3 w-full">
-              {produtos.map(p => (
-                <div key={p.id} className="bg-white p-4 rounded-[30px] flex gap-4 items-center border border-slate-100 shadow-sm w-full">
-                  <div className="w-16 h-16 rounded-2xl bg-slate-100 overflow-hidden flex items-center justify-center text-slate-300 shrink-0">{p.urlImagem ? <img src={p.urlImagem} alt={p.nome} className="w-full h-full object-cover" /> : <ImageIcon size={24} />}</div>
-                  <div className="flex-1 min-w-0"><p className="font-bold text-slate-800 text-sm truncate">{p.nome}</p><p className="text-purple-700 font-black text-sm mt-0.5">R$ {Number(p.precoVenda).toFixed(2)}</p></div>
-                  <div className="flex items-center gap-1">
-                    <button onClick={() => venderItemDiretoDoCatalogo(p)} className="bg-orange-500 text-white px-3 py-2 rounded-xl text-xs font-black uppercase shadow">Vender 🛍️</button>
-                    <button onClick={() => deleteDoc(doc(db, "produtos", p.id))} className="text-red-200 p-1.5"><Trash2 size={15}/></button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-      </main>
-
-      {/* MENU INFERIOR COMPACTO DE 3 BOTÕES (INÍCIO, ORÇAR, HISTÓRICO) */}
-      <div className="fixed bottom-0 left-0 right-0 flex justify-center p-4 z-30 bg-transparent pointer-events-none">
-        <div className="bg-white shadow-[0_-10px_30px_rgba(0,0,0,0.06)] rounded-[28px] flex justify-around items-center px-4 h-16 w-full max-w-xl pointer-events-auto border">
+      {/* MENU INFERIOR */}
+      <div className="fixed bottom-0 left-0 right-0 flex justify-center p-4 z-50 bg-transparent pointer-events-none">
+        <div className="relative bg-white shadow-[0_-10px_30px_rgba(0,0,0,0.05)] rounded-[30px] flex justify-around items-center px-2 h-16 w-full max-w-xl pointer-events-auto">
           <button onClick={() => setActiveTab('inicio')} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'inicio' ? 'text-orange-500' : 'text-slate-300'}`}>
-            <Home size={22} className={activeTab === 'inicio' ? 'stroke-[2.5]' : 'stroke-[2]'} />
+            <Home size={20} className={activeTab === 'inicio' ? 'stroke-[2.5]' : 'stroke-[2]'} />
             <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Início</span>
           </button>
-          <button onClick={() => setActiveTab('criar')} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'criar' ? 'text-orange-500' : 'text-slate-300'}`}>
-            <Plus size={22} className={activeTab === 'criar' ? 'stroke-[3]' : 'stroke-[2]'} />
+          <button onClick={() => setActiveTab('materiais')} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'materiais' ? 'text-orange-500' : 'text-slate-300'}`}>
+            <Package size={20} className={activeTab === 'materiais' ? 'stroke-[2.5]' : 'stroke-[2]'} />
+            <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Armário</span>
+          </button>
+          <button onClick={() => setActiveTab('catalogo')} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'catalogo' ? 'text-orange-500' : 'text-slate-300'}`}>
+            <BookOpen size={20} className={activeTab === 'catalogo' ? 'stroke-[2.5]' : 'stroke-[2]'} />
+            <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Catálogo</span>
+          </button>
+          <button onClick={() => { limparCalculadora(); setActiveTab('criar'); }} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'criar' ? 'text-orange-500' : 'text-slate-300'}`}>
+            <Plus size={20} className={activeTab === 'criar' ? 'stroke-[3]' : 'stroke-[2]'} />
             <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Orçar</span>
           </button>
+          <button onClick={() => setActiveTab('clientes')} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'clientes' ? 'text-orange-500' : 'text-slate-300'}`}>
+            <User size={20} className={activeTab === 'clientes' ? 'stroke-[2.5]' : 'stroke-[2]'} />
+            <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Clientes</span>
+          </button>
           <button onClick={() => setActiveTab('pedidos')} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'pedidos' ? 'text-orange-500' : 'text-slate-300'}`}>
-            <History size={22} className={activeTab === 'pedidos' ? 'stroke-[2.5]' : 'stroke-[2]'} />
+            <History size={20} className={activeTab === 'pedidos' ? 'stroke-[2.5]' : 'stroke-[2]'} />
             <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Histórico</span>
           </button>
         </div>
       </div>
-
     </div>
   );
 }
