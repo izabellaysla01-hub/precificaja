@@ -139,7 +139,8 @@ export default function App() {
 
   useEffect(() => {
     if (user && !idLojaPublica) {
-      const qMateriais = query(collection(db, "materials" || "materiais"), where("userId", "==", user.uid));
+      // CORRIGIDO: Coleção apontando perfeitamente apenas para "materiais"
+      const qMateriais = query(collection(db, "materiais"), where("userId", "==", user.uid));
       const unsubMateriais = onSnapshot(qMateriais, s => setMaterials(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
       const qPedidos = query(collection(db, "pedidos"), where("userId", "==", user.uid));
@@ -348,7 +349,6 @@ export default function App() {
     return { materiais: totalMaterials.toFixed(2), maoObra: totalMaoObra.toFixed(2), extras: totalExtras.toFixed(2), custoPeca: custoTotalPeca.toFixed(2), lucroLivre: valorLucroLivre.toFixed(2), final: isNaN(precoFinalCalculado) ? "0.00" : precoFinalCalculado.toFixed(2) };
   }, [matsNoPed, vHora, tGasto, custos, lucro, qtdPed, desconto, precoManual]);
 
-  // CORRIGIDO: Removida a variável inexistente 'inlineText' que gerava erro crítico de carregamento
   const enviarZap = (p: any) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
     const dataP = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combinar';
@@ -362,16 +362,9 @@ export default function App() {
     const dataEmissao = p.data || new Date().toLocaleDateString('pt-BR');
     const hoje = new Date(); hoje.setDate(hoje.getDate() + 7);
     const dataValidade = hoje.toLocaleDateString('pt-BR');
-    
-    let dataPrazo = 'A combinar';
-    if (p.prazo) {
-      try {
-        dataPrazo = new Date(p.prazo + 'T00:00:00').toLocaleDateString('pt-BR');
-      } catch (e) {
-        dataPrazo = p.prazo;
-      }
-    }
+    const dataPrazo = p.prazo ? new Date(p.prazo + 'T00:00:00').toLocaleDateString('pt-BR') : 'A combinar';
     const totalNum = Number(p.preco || 0);
+
     let htmlLinhasTabela = '';
 
     if (p.itensCombo && Array.isArray(p.itensCombo) && p.itensCombo.length > 0) {
