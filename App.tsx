@@ -420,7 +420,7 @@ export default function App() {
       alert("Foto carregada com sucesso! 📸");
     } catch (error) {
       alert("Erro ao subir a foto!");
-    } final {
+    } finally {
       setSubindoImagem(false);
     }
   };
