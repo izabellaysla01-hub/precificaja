@@ -56,7 +56,8 @@ export default function App() {
   const [nomeComprador, setNomeComprador] = useState('');
   const [zapDaLojaPublica, setZapDaLojaPublica] = useState('');
 
-  const [activeTab, useStateActiveTab] = useState<'inicio' | 'materiais' | 'criar' | 'pedidos' | 'clientes' | 'catalogo'>('inicio');
+  // Modificado: Nova aba 'balcao' adicionada para desafogar as telas
+  const [activeTab, useStateActiveTab] = useState<'inicio' | 'materiais' | 'criar' | 'pedidos' | 'clientes' | 'catalogo' | 'balcao'>('inicio');
   const [materiais, setMaterials] = useState<any[]>([]);
   const [pedidos, setPedidos] = useState<any[]>([]);
   const [clientes, setClientes] = useState<any[]>([]);
@@ -88,7 +89,6 @@ export default function App() {
   const [zapDonaConta, setZapDonaConta] = useState('');
   const [subindoImagem, setSubindoImagem] = useState(false);
 
-  // NOVO: Estado para gerenciar o carrinho interno do Balcão de Vendas
   const [carrinhoInterno, setCarrinhoInterno] = useState<{ [key: string]: number }>({});
   const [clienteBalcao, setClienteBalcao] = useState('');
 
@@ -169,11 +169,19 @@ export default function App() {
     alert("Link do seu catálogo copiado! 🔗🚀");
   };
 
-  // AJUSTE 2: Função isolada para disparar PDF automático Chique na ponta do Cliente Final
   const dispararPdfAutomaticoCliente = (nomeCliente: string, itens: any[], total: number) => {
     const elemento = document.createElement('div');
     const dataEmissao = new Date().toLocaleDateString('pt-BR');
     
+    const linhasProdutosHtml = itens.map(p => `
+      <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px;">
+        <td style="padding: 15px 5px; font-weight: bold; color: #1e293b; text-align: left;">${p.nome}</td>
+        <td style="padding: 15px 5px; text-align: center; color: #475569;">${p.qtd}</td>
+        <td style="padding: 15px 5px; text-align: right; color: #475569;">R$ ${Number(p.precoVenda).toFixed(2)}</td>
+        <td style="padding: 15px 5px; text-align: right; font-weight: bold; color: #1e293b;">R$ ${(Number(p.precoVenda) * p.qtd).toFixed(2)}</td>
+      </tr>
+    `).join('');
+
     elemento.innerHTML = `
       <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto;">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px;">
@@ -196,21 +204,14 @@ export default function App() {
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
           <thead>
             <tr style="border-bottom: 2px solid #e2e8f0; text-align: left; font-size: 11px; text-transform: uppercase; color: #94a3b8;">
-              <th style="padding: 10px 5px;">Produto</th>
+              <th style="padding: 10px 5px; text-align: left;">Produto</th>
               <th style="padding: 10px 5px; text-align: center;">Quantidade</th>
               <th style="padding: 10px 5px; text-align: right;">Preço Unit.</th>
               <th style="padding: 10px 5px; text-align: right;">Subtotal</th>
             </tr>
           </thead>
           <tbody>
-            ${itens.map(p => `
-              <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px;">
-                <td style="padding: 15px 5px; font-weight: bold; color: #1e293b;">${p.nome}</td>
-                <td style="padding: 15px 5px; text-align: center; color: #475569;">${p.qtd}</td>
-                <td style="padding: 15px 5px; text-align: right; color: #475569;">R$ ${Number(p.precoVenda).toFixed(2)}</td>
-                <td style="padding: 15px 5px; text-align: right; font-weight: bold; color: #1e293b;">R$ ${(Number(p.precoVenda) * p.qtd).toFixed(2)}</td>
-              </tr>
-            `).join('')}
+            ${linhasProdutosHtml}
           </tbody>
         </table>
 
@@ -220,26 +221,13 @@ export default function App() {
             R$ ${total.toFixed(2)}
           </div>
         </div>
-
-        <div style="text-align: center; font-size: 11px; color: #94a3b8; margin-top: 40px; border-top: 1px dashed #e2e8f0; padding-top: 15px;">
-          Este documento foi gerado automaticamente pelo sistema comercial da loja. Detalhes de frete e pagamento serão combinados diretamente na conversa.
-        </div>
       </div>
     `;
 
-    const opcoes = { 
-      margin: 0, 
-      filename: `Pedido_${nomeCliente.replace(/\s+/g, '_')}.pdf`, 
-      html2canvas: { scale: 2, useCORS: true }, 
-      jsPDF: { format: 'a4', orientation: 'portrait' } 
-    };
-    
-    if ((window as any).html2pdf) {
-      (window as any).html2pdf().from(elemento).set(opcoes).save();
-    }
+    const opcoes = { margin: 0, filename: `Pedido_${nomeCliente.replace(/\s+/g, '_')}.pdf`, html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'a4', orientation: 'portrait' } };
+    if ((window as any).html2pdf) { (window as any).html2pdf().from(elemento).set(opcoes).save(); }
   };
 
-  // AJUSTE 1 & 2: Finalização da Vitrine Pública com Múltiplas Unidades e disparo simultâneo de PDF Comercial Chique
   const finalizarPedidoPublicoWhatsapp = () => {
     if (!nomeComprador.trim()) return alert("Por favor, digite seu nome antes de enviar!");
     const itensSelecionados = produtosPublicos.filter(p => carrinho[p.id] > 0);
@@ -258,12 +246,7 @@ export default function App() {
       const sub = Number(p.precoVenda) * qtd;
       totalGeral += sub;
       textoPedido += `• ${qtd}x _${p.nome}_ — R$ ${sub.toFixed(2)}%0A`;
-      
-      listaParaPdf.push({
-        nome: p.nome,
-        qtd: qtd,
-        precoVenda: p.precoVenda
-      });
+      listaParaPdf.push({ nome: p.nome, qtd: qtd, precoVenda: p.precoVenda });
     });
 
     textoPedido += `---%0A`;
@@ -271,23 +254,16 @@ export default function App() {
     textoPedido += `---%0A`;
     textoPedido += `Aguardo a confirmação e dados para pagamento! 🙌`;
 
-    // Dispara a montagem e download automático do PDF comercial chique no celular/computador do cliente
     dispararPdfAutomaticoCliente(nomeComprador.trim(), listaParaPdf, totalGeral);
 
     const numeroLimpo = zapDaLojaPublica.replace(/\D/g, '');
-    if (numeroLimpo) {
-      window.open(`https://wa.me/55${numeroLimpo}?text=${textoPedido}`, '_blank');
-    } else {
-      window.open(`https://wa.me/?text=${textoPedido}`, '_blank');
-    }
+    if (numeroLimpo) { window.open(`https://wa.me/55${numeroLimpo}?text=${textoPedido}`, '_blank'); } 
+    else { window.open(`https://wa.me/?text=${textoPedido}`, '_blank'); }
   };
 
-  // AJUSTE 3: Lançamento de combos multi-produtos via Balcão de Vendas Interno
   const lancarVendaBalcaoInterno = async () => {
     const itensNoCarrinho = produtos.filter(p => carrinhoInterno[p.id] > 0);
     if (itensNoCarrinho.length === 0) return alert("Selecione ao menos 1 item com + e - no balcão!");
-    
-    const cli = clientes.find(c => c.id === clienteBalcao);
     
     let stringNomeCombo = "";
     let totalGeral = 0;
@@ -295,7 +271,7 @@ export default function App() {
     itensNoCarrinho.forEach((p, idx) => {
       const qtd = carrinhoInterno[p.id];
       totalGeral += Number(p.precoVenda) * qtd;
-      stringNomeCombo += `${qtd}x ${p.nome}${idx < itensNoCarrinho.length - 1 ? ' + ' : ''}`;
+      stringNomeCombo += `${qtd}x ${p.nome}${idx < itensNoCarrinho.length - 1 ? '\n' : ''}`;
     });
 
     try {
@@ -319,7 +295,7 @@ export default function App() {
 
       setCarrinhoInterno({});
       setClienteBalcao('');
-      alert("Combo de produtos lançado no Histórico com Sucesso! 🚀");
+      alert("Combo de produtos lançado no Histórico! 🚀");
       setActiveTab('pedidos');
     } catch {
       alert("Erro ao lançar venda no balcão.");
@@ -331,7 +307,7 @@ export default function App() {
     const pendentesCount = pedidos.filter(p => p.status !== 'Vendido 💰').length;
     const estoqueCriticoCount = materiais.filter(m => Number(m.qtdAtual || 0) <= Number(m.qtdMinima || 0)).length;
     return { faturamento: faturamentoTotal.toFixed(2), pendentes: pendentesCount, criticos: estoqueCriticoCount, totalClientes: clientes.length };
-  }, [pedidos, materiais, clientes]);
+  }, [pedidos, materials, clientes]);
 
   const resumenFinanceiro = useMemo(() => {
     if (precoManual !== null) {
@@ -340,29 +316,22 @@ export default function App() {
       return { materiais: "0.00", maoObra: "0.00", extras: "0.00", custoPeca: "0.00", lucroLivre: "0.00", final: isNaN(semDesconto) ? "0.00" : semDesconto.toFixed(2) };
     }
 
-    const totalMateriais = matsNoPed.reduce((acc, m) => acc + ((Number(m.valor || 0) / Number(m.qtd || 1)) * Number(m.qtdUsada || 0)), 0);
+    const totalMaterials = matsNoPed.reduce((acc, m) => acc + ((Number(m.valor || 0) / Number(m.qtd || 1)) * Number(m.qtdUsada || 0)), 0);
     const totalMaoObra = (Number(vHora || 0) / 60) * Number(tGasto || 0);
     const totalExtras = Number(custos.embalagem || 0) + Number(custos.impressao || 0) + Number(custos.energia || 0) + Number(custos.outros || 0);
     
-    const custoTotalPeca = totalMateriais + totalMaoObra + totalExtras;
+    const custoTotalPeca = totalMaterials + totalMaoObra + totalExtras;
     const custoTotalLote = custoTotalPeca * Number(qtdPed || 1);
     const valorLucroLivre = custoTotalLote * (Number(lucro || 0) / 100);
     const precoFinalCalculado = (custoTotalLote + valorLucroLivre) - Number(desconto || 0);
 
-    return { 
-      materiais: totalMateriais.toFixed(2), 
-      maoObra: totalMaoObra.toFixed(2), 
-      extras: totalExtras.toFixed(2), 
-      custoPeca: custoTotalPeca.toFixed(2), 
-      lucroLivre: valorLucroLivre.toFixed(2), 
-      final: isNaN(precoFinalCalculado) ? "0.00" : precoFinalCalculado.toFixed(2) 
-    };
+    return { materiais: totalMaterials.toFixed(2), maoObra: totalMaoObra.toFixed(2), extras: totalExtras.toFixed(2), custoPeca: custoTotalPeca.toFixed(2), lucroLivre: valorLucroLivre.toFixed(2), final: isNaN(precoFinalCalculado) ? "0.00" : precoFinalCalculado.toFixed(2) };
   }, [matsNoPed, vHora, tGasto, custos, lucro, qtdPed, desconto, precoManual]);
 
   const enviarZap = (p: any) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
     const dataP = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combinar';
-    const msg = `*RESUMO ORÇAMENTO*%0A---%0A*Cliente:* ${cli?.nome || 'Cliente'}%0A*Produto:* ${p.nomeProd}%0A*Qtd:* ${p.qtdPed || 1} un%0A*Prazo:* ${dataP}%0A*VALOR TOTAL:* R$ ${p.preco}%0A---%0AObrigado!`;
+    const msg = `*RESUMO ORÇAMENTO*%0A---%0A*Cliente:* ${cli?.nome || 'Cliente'}%0A*Produto:* %0A${p.nomeProd}%0A*Qtd:* ${p.qtdPed || 1} un%0A*Prazo:* ${dataP}%0A*VALOR TOTAL:* R$ ${p.preco}%0A---%0AObrigado!`;
     const fone = cli?.zap ? cli.zap.replace(/\D/g, '') : '';
     window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
   };
@@ -370,15 +339,34 @@ export default function App() {
   const gerarPDF = (p: any) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
     const dataEmissao = p.data || new Date().toLocaleDateString('pt-BR');
-    
-    const hoje = new Date();
-    hoje.setDate(hoje.getDate() + 7);
+    const hoje = new Date(); hoje.setDate(hoje.getDate() + 7);
     const dataValidade = hoje.toLocaleDateString('pt-BR');
-    
     const dataPrazo = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combinar';
     const totalNum = Number(p.preco || 0);
     const qtdNum = Number(p.qtdPed || 1);
-    const precoUnitario = (totalNum / qtdNum).toFixed(2);
+
+    const arrayLinhasTexto = String(p.nomeProd || '').split('\n');
+    const htmlLinhasTabela = arrayLinhasTexto.map(linhaTexto => {
+      if(!linhaTexto.trim()) return '';
+      let quantidadeItem = qtdNum;
+      let nomeItemLimpo = linhaTexto.trim();
+      
+      const matchCombo = linhaTexto.trim().match(/^(\d+)x\s+(.+)$/i);
+      if(matchCombo) {
+        quantidadeItem = Number(matchCombo[1]);
+        nomeItemLimpo = matchCombo[2].trim();
+      }
+      const unitario = (totalNum / quantidadeItem).toFixed(2);
+
+      return `
+        <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px;">
+          <td style="padding: 15px 5px; font-weight: bold; color: #1e293b; text-align: left;">${nomeItemLimpo}</td>
+          <td style="padding: 15px 5px; text-align: center; color: #475569;">${quantidadeItem}</td>
+          <td style="padding: 15px 5px; text-align: right; color: #475569;">R$ ${unitario}</td>
+          <td style="padding: 15px 5px; text-align: right; font-weight: bold; color: #1e293b;">R$ ${(quantidadeItem * Number(unitario)).toFixed(2)}</td>
+        </tr>
+      `;
+    }).join('');
 
     const elemento = document.createElement('div');
     elemento.innerHTML = `
@@ -410,19 +398,14 @@ export default function App() {
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
           <thead>
             <tr style="border-bottom: 2px solid #e2e8f0; text-align: left; font-size: 11px; text-transform: uppercase; color: #94a3b8;">
-              <th style="padding: 10px 5px;">Descrição</th>
+              <th style="padding: 10px 5px; text-align: left;">Descrição</th>
               <th style="padding: 10px 5px; text-align: center;">Qtd</th>
               <th style="padding: 10px 5px; text-align: right;">Preço Unit.</th>
               <th style="padding: 10px 5px; text-align: right;">Subtotal</th>
             </tr>
           </thead>
           <tbody>
-            <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px;">
-              <td style="padding: 15px 5px; font-weight: bold; color: #1e293b;">${p.nomeProd}</td>
-              <td style="padding: 15px 5px; text-align: center; color: #475569;">${qtdNum}</td>
-              <td style="padding: 15px 5px; text-align: right; color: #475569;">R$ ${precoUnitario}</td>
-              <td style="padding: 15px 5px; text-align: right; font-weight: bold; color: #1e293b;">R$ ${totalNum.toFixed(2)}</td>
-            </tr>
+            ${htmlLinhasTabela}
           </tbody>
         </table>
 
@@ -452,7 +435,7 @@ export default function App() {
         </div>
       </div>
     `;
-    const opcoes = { margin: 0, filename: `Orcamento_${p.nomeProd}.pdf`, html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'a4', orientation: 'portrait' } };
+    const opcoes = { margin: 0, filename: `Orcamento.pdf`, html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'a4', orientation: 'portrait' } };
     (window as any).html2pdf().from(elemento).set(opcoes).save();
   };
 
@@ -469,9 +452,7 @@ export default function App() {
     }
   };
 
-  // AJUSTE 4: Baixa Inteligente Baseada no Texto Gerado do Combo ("2x Caneca...")
   const confirmarVendaPedido = async (pedido: any) => {
-    // 1. Processa materiais calculados explicitamente pela calculadora tradicional
     if (pedido.materiaisUsados && pedido.materiaisUsados.length > 0) {
       for (const m of pedido.materiaisUsados) {
         const matDoBanco = materiais.find(item => item.id === m.id);
@@ -483,113 +464,67 @@ export default function App() {
       }
     } 
     
-    // 2. Análise Inteligente do Texto para Baixa de Combos do Catálogo de Vendas Fixas
     const textoVenda = String(pedido.nomeProd || '');
     if (textoVenda.includes('x ')) {
-      // Divide itens concatenados por ' + ' ou quebras de linha
-      const partesItens = textoVenda.split(/ \+ |\n/);
-      
+      const partesItens = textoVenda.split(/\n| \+ /);
       for (const parte of partesItens) {
         const regexMatch = parte.trim().match(/^(\d+)x\s+(.+)$/i);
         if (regexMatch) {
           const qtdVendida = Number(regexMatch[1]);
           const nomeProdutoTexto = regexMatch[2].trim().toLowerCase();
-          
-          // Localiza se o insumo/material possui nome idêntico ou embutido no nome do produto cadastrado
-          const materialCorrespondente = materiais.find(m => 
-            nomeProdutoTexto.includes(m.nome.toLowerCase()) || 
-            m.nome.toLowerCase().includes(nomeProdutoTexto)
-          );
-
+          const materialCorrespondente = materiais.find(m => nomeProdutoTexto.includes(m.nome.toLowerCase()) || m.nome.toLowerCase().includes(nomeProdutoTexto));
           if (materialCorrespondente) {
             const estoqueAtual = Number(materialCorrespondente.qtdAtual || 0);
-            // Dedução proporcional exata assumindo 1 insumo base por unidade de item de catálogo
             const novoEstoque = Math.max(0, estoqueAtual - qtdVendida);
             await updateDoc(doc(db, "materiais", materialCorrespondente.id), { qtdAtual: novoEstoque });
           }
         }
       }
     }
-
     await updateDoc(doc(db, "pedidos", pedido.id), { status: 'Vendido 💰' });
-    alert("Venda confirmada e estoque atualizado com sucesso!");
+    alert("Venda confirmada!");
   };
 
   const handleUploadImagem = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
-
     setSubindoImagem(true);
     try {
       const nomeArquivo = `${user.uid}_${Date.now()}_${file.name}`;
       const imagemRef = ref(storage, `produtos/${nomeArquivo}`);
-      
       await uploadBytes(imagemRef, file);
       const urlDisponivel = await getDownloadURL(imagemRef);
-      
       setNovoProdCatalogo(prev => ({ ...prev, urlImagem: urlDisponivel }));
       alert("Foto carregada com sucesso! 📸");
-    } catch (error) {
-      alert("Erro ao subir a foto!");
-    } finally {
-      setSubindoImagem(false);
-    }
+    } catch (error) { alert("Erro ao subir a foto!"); } 
+    finally { setSubindoImagem(false); }
   };
 
   const limparCalculadora = () => {
-    setNomeProd('');
-    setQtdPed('1');
-    setMatsNoPed([]);
-    setVHora('9');
-    setTGasto('60');
+    setNomeProd(''); setQtdPed('1'); setMatsNoPed([]); setVHora('9'); setTGasto('60');
     setCustos({ embalagem: '0', impressao: '0', energia: '0', outros: '0' });
-    setLucro('100');
-    setDesconto('0');
-    setPrazo('');
-    setClienteSel('');
-    setPedidoEditandoId(null);
-    setPrecoManual(null);
-    setObsPedido('');
+    setLucro('100'); setDesconto('0'); setPrazo(''); setClienteSel('');
+    setPedidoEditandoId(null); setPrecoManual(null); setObsPedido('');
   };
 
   const carregarPedidoParaEdicao = (p: any) => {
-    setPedidoEditandoId(p.id);
-    setNomeProd(p.nomeProd || '');
-    setQtdPed(p.qtdPed || '1');
-    setVHora(p.vHora || '9');
-    setTGasto(p.tGasto || '60');
+    setPedidoEditandoId(p.id); setNomeProd(p.nomeProd || ''); setQtdPed(p.qtdPed || '1'); setVHora(p.vHora || '9'); setTGasto(p.tGasto || '60');
     setCustos(p.custos || { embalagem: '0', impressao: '0', energia: '0', outros: '0' });
-    setLucro(p.lucro || '100');
-    setDesconto(p.desconto || '0');
-    setPrazo(p.prazo || '');
-    setClienteSel(p.clienteId || '');
-    setPrecoManual(p.precoManual || null);
-    setObsPedido(p.obsPedido || '');
+    setLucro(p.lucro || '100'); setDesconto(p.desconto || '0'); setPrazo(p.prazo || ''); setClienteSel(p.clienteId || '');
+    setPrecoManual(p.precoManual || null); setObsPedido(p.obsPedido || '');
 
     if (p.materiaisUsados && p.materiaisUsados.length > 0) {
       const listaReconstruida = p.materiaisUsados.map((mSalvo: any) => {
         const matDoArmario = materiais.find(item => item.id === mSalvo.id);
-        return {
-          id: mSalvo.id,
-          nome: matDoArmario ? matDoArmario.nome : mSalvo.nome,
-          qtdUsada: Number(mSalvo.qtdUsada || 1),
-          valor: matDoArmario ? Number(matDoArmario.valor) : Number(mSalvo.valor || 0),
-          qtd: matDoArmario ? Number(matDoArmario.qtd) : Number(mSalvo.qtd || 1),
-          unidade: matDoArmario ? matDoArmario.unidade : (mSalvo.unidade || 'un')
-        };
+        return { id: mSalvo.id, nome: matDoArmario ? matDoArmario.nome : mSalvo.nome, qtdUsada: Number(mSalvo.qtdUsada || 1), valor: matDoArmario ? Number(matDoArmario.valor) : Number(mSalvo.valor || 0), qtd: matDoArmario ? Number(matDoArmario.qtd) : Number(mSalvo.qtd || 1), unidade: matDoArmario ? matDoArmario.unidade : (mSalvo.unidade || 'un') };
       });
       setMatsNoPed(listaReconstruida);
-    } else {
-      setMatsNoPed([]);
-    }
+    } else { setMatsNoPed([]); }
     setActiveTab('criar');
   };
 
   const venderItemDiretoDoCatalogo = (prod: any) => {
-    limparCalculadora();
-    setNomeProd(prod.nome);
-    setPrecoManual(prod.precoVenda);
-    setActiveTab('criar');
+    limparCalculadora(); setNomeProd(prod.nome); setPrecoManual(prod.precoVenda); setActiveTab('criar');
   };
 
   // VITRINE PÚBLICA (CLIENTE FINAL)
@@ -624,12 +559,10 @@ export default function App() {
                   <div className="flex-1 min-w-0">
                     <p className="font-black text-slate-800 text-base truncate">{p.nome}</p>
                     <p className="text-purple-700 font-black text-lg mt-1">R$ {Number(p.precoVenda).toFixed(2)}</p>
-                    
-                    {/* AJUSTE 1: Botões + e - Estilizados na Vitrine Pública */}
                     <div className="flex items-center gap-2 mt-2">
-                      <button onClick={() => setCarrinho({ ...carrinho, [p.id]: Math.max(0, qtdNoCarinho - 1) })} className="w-8 h-8 bg-slate-100 rounded-xl font-black text-slate-600 transition-transform active:scale-90">-</button>
+                      <button onClick={() => setCarrinho({ ...carrinho, [p.id]: Math.max(0, qtdNoCarinho - 1) })} className="w-8 h-8 bg-slate-100 rounded-xl font-black text-slate-600">-</button>
                       <span className="font-bold text-sm w-6 text-center">{qtdNoCarinho}</span>
-                      <button onClick={() => setCarrinho({ ...carrinho, [p.id]: qtdNoCarinho + 1 })} className="w-8 h-8 bg-purple-100 rounded-xl font-black text-purple-700 transition-transform active:scale-90">+</button>
+                      <button onClick={() => setCarrinho({ ...carrinho, [p.id]: qtdNoCarinho + 1 })} className="w-8 h-8 bg-purple-100 rounded-xl font-black text-purple-700">+</button>
                     </div>
                   </div>
                 </div>
@@ -645,7 +578,7 @@ export default function App() {
               <div className="text-2xl font-black text-orange-500">R$ {totalCarrinho.toFixed(2)}</div>
             </div>
             <button onClick={finalizarPedidoPublicoWhatsapp} className="w-full max-w-md bg-emerald-500 hover:bg-emerald-600 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-lg flex items-center justify-center gap-2 tracking-wider">
-              <MessageCircle size={18}/> Encomendar no WhatsApp e Baixar PDF
+              <MessageCircle size={18}/> Encomendar no WhatsApp
             </button>
           </div>
         )}
@@ -653,7 +586,7 @@ export default function App() {
     );
   }
 
-  // FORMULÁRIO COMPLETO DA CALCULADORA
+  // FORMULÁRIO COMPLETO DA CALCULADORA INTEGRADA
   const renderCalculadoraForm = () => (
     <div className="bg-white p-6 rounded-[35px] shadow-xl border mt-2 w-full">
       {pedidoEditandoId && (
@@ -661,12 +594,7 @@ export default function App() {
           <div className="text-xs text-amber-800 font-bold">
             <span>✏️ Você está editando um orçamento salvo!</span>
           </div>
-          <button 
-            onClick={() => { limparCalculadora(); setActiveTab('pedidos'); }} 
-            className="text-[10px] bg-red-500 text-white px-3 py-1.5 rounded-xl font-black uppercase tracking-wider shadow-sm active:scale-95 transition-all"
-          >
-            Cancelar Edição ❌
-          </button>
+          <button onClick={() => { limparCalculadora(); setActiveTab('pedidos'); }} className="text-[10px] bg-red-500 text-white px-3 py-1.5 rounded-xl font-black uppercase tracking-wider shadow-sm active:scale-95 transition-all">Cancelar Edição ❌</button>
         </div>
       )}
 
@@ -686,11 +614,7 @@ export default function App() {
           <p className="font-bold text-purple-700 uppercase text-[10px]">Escolha um produto pronto:</p>
           <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto w-full">
             {produtos.map(p => (
-              <div key={p.id} onClick={() => {
-                setNomeProd(p.nome);
-                setPrecoManual(String(p.precoVenda));
-                setMostrarSeletorCatalogo(false);
-              }} className="bg-white p-2.5 rounded-xl border flex justify-between items-center cursor-pointer hover:border-purple-400 w-full">
+              <div key={p.id} onClick={() => { setNomeProd(p.nome); setPrecoManual(String(p.precoVenda)); setMostrarSeletorCatalogo(false); }} className="bg-white p-2.5 rounded-xl border flex justify-between items-center cursor-pointer hover:border-purple-400 w-full">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-lg bg-slate-50 overflow-hidden shrink-0 flex items-center justify-center text-slate-300">
                     {p.urlImagem ? <img src={p.urlImagem} className="w-full h-full object-cover" /> : <ImageIcon size={14}/>}
@@ -707,7 +631,7 @@ export default function App() {
       <div className="grid grid-cols-3 gap-3 mb-4 w-full">
          <div className="col-span-2">
             <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Produto</label>
-            <input className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={nomeProd} onChange={e => setNomeProd(e.target.value)} />
+            <input className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-slate-800 border focus:border-purple-500" value={nomeProd} onChange={e => setNomeProd(e.target.value)} />
          </div>
          <div>
             <label className="text-[10px] font-bold text-slate-400 uppercase text-center block">Qtd</label>
@@ -729,19 +653,17 @@ export default function App() {
              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Materiais Usados</label>
              <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none mb-2 block border border-transparent focus:border-purple-400" onChange={e => {
                 const m = materiais.find(item => item.id === e.target.value);
-                if (m) setMatsNoPed([...matsNoPed, { id: m.id, nome: m.nome, valor: m.valor, qtd: m.qtd, unidade: m.unidade, qtdUsed: 1, qtdUsada: 1 }]);
+                if (m) setMatsNoPed([...matsNoPed, { id: m.id, nome: m.nome, valor: m.valor, qtd: m.qtd, unidade: m.unidade, qtdUsada: 1 }]);
              }} value="">
                 <option value="">+ Adicionar Material...</option>
-                {materials.map(m => <option key={m.id} value={m.id}>{m.nome} ({m.unidade || 'un'})</option>)}
+                {materiais.map(m => <option key={m.id} value={m.id}>{m.nome} ({m.unidade || 'un'})</option>)}
              </select>
              <div className="space-y-2 w-full">
                 {matsNoPed.map((m, i) => (
                   <div key={i} className="flex justify-between items-center bg-purple-50 p-3 rounded-2xl border border-purple-100 text-purple-700 font-bold text-xs w-full">
                     <span>{m.nome}</span>
                     <div className="flex items-center gap-2">
-                      <input type="number" className="w-16 bg-white rounded-lg p-1 text-center" value={m.qtdUsada} onChange={e => {
-                         const nova = [...matsNoPed]; nova[i].qtdUsada = e.target.value; setMatsNoPed(nova);
-                      }} />
+                      <input type="number" className="w-16 bg-white rounded-lg p-1 text-center" value={m.qtdUsada} onChange={e => { const nova = [...matsNoPed]; nova[i].qtdUsada = e.target.value; setMatsNoPed(nova); }} />
                       <span className="text-[10px] text-purple-500">{m.unidade || 'un'}</span>
                       <button onClick={() => setMatsNoPed(matsNoPed.filter((_, idx) => idx !== i))}><X size={16}/></button>
                     </div>
@@ -785,8 +707,8 @@ export default function App() {
         </>
       ) : (
         <div className="bg-orange-50 border border-orange-100 p-4 rounded-3xl mb-4 text-xs w-full">
-          <p className="font-bold text-orange-600">💥 Preço travado pelo catálogo de vendas.</p>
-          <p className="text-slate-500 mt-1">Valor Unitário original: <strong>R$ {Number(precoManual).toFixed(2)}</strong></p>
+          <p className="font-bold text-orange-600">💥 Preço carregado pelo catálogo.</p>
+          <p className="text-slate-500 mt-1">Valor Unitário base: <strong>R$ {Number(precoManual).toFixed(2)}</strong></p>
           <div className="mt-3 w-full">
             <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Prazo</label>
             <input type="date" className="w-full p-4 bg-white rounded-2xl outline-none text-xs font-bold border block" value={prazo} onChange={e => setPrazo(e.target.value)} />
@@ -801,12 +723,7 @@ export default function App() {
 
       <div className="mb-6 w-full">
          <label className="text-[10px] font-bold text-purple-600 uppercase ml-1">📝 Observações do Orçamento</label>
-         <textarea 
-           placeholder="Ex: Sinal de 50% para início da produção. Restante na entrega." 
-           className="w-full p-4 bg-slate-50 rounded-2xl mt-1 outline-none text-xs font-semibold border border-transparent focus:border-purple-400 resize-none h-20" 
-           value={obsPedido} 
-           onChange={e => setObsPedido(e.target.value)} 
-         />
+         <textarea placeholder="Ex: Sinal de 50% para início da produção. Restante na entrega." className="w-full p-4 bg-slate-50 rounded-2xl mt-1 outline-none text-xs font-semibold border border-transparent focus:border-purple-400 resize-none h-20" value={obsPedido} onChange={e => setObsPedido(e.target.value)} />
       </div>
 
       {precoManual === null && (
@@ -825,19 +742,13 @@ export default function App() {
         <div className="flex gap-2">
           <button onClick={async () => {
              if(!nomeProd) return alert("Digite o nome do produto!");
-             const dadosPedido = { 
-               nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed, vHora, tGasto, custos, lucro, desconto, userId: user.uid,
-               precoManual: precoManual, obsPedido: obsPedido,
-               materiaisUsados: precoManual ? [] : matsNoPed.map(m => ({ id: m.id, nome: m.nome, qtdUsada: Number(m.qtdUsada || 1) }))
-             };
+             const dadosPedido = { nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed, vHora, tGasto, custos, lucro, desconto, userId: user.uid, precoManual: precoManual, obsPedido: obsPedido, materiaisUsados: precoManual ? [] : matsNoPed.map(m => ({ id: m.id, nome: m.nome, qtdUsada: Number(m.qtdUsada || 1) })) };
              if (pedidoEditandoId) await updateDoc(doc(db, "pedidos", pedidoEditandoId), dadosPedido);
              else await addDoc(collection(db, "pedidos"), { ...dadosPedido, data: new Date().toLocaleDateString('pt-BR'), status: 'Pendente', userId: user.uid });
-             limparCalculadora(); setActiveTab('pedidos');
-             alert("Salvo!");
+             limparCalculadora(); setActiveTab('pedidos'); alert("Salvo!");
           }} className="bg-orange-500 text-white px-5 py-4 rounded-[22px] font-black uppercase text-xs shadow-lg">Salvar</button>
           <button onClick={() => gerarPDF({nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed, obsPedido})} className="bg-orange-500 text-white p-4 rounded-[22px] shadow-lg"><Printer size={18}/></button>
           <button onClick={() => enviarZap({nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed})} className="bg-emerald-500 text-white p-4 rounded-[22px] shadow-lg"><MessageCircle size={18}/></button>
-          <button onClick={limparCalculadora} className="bg-slate-200 text-slate-600 p-4 rounded-[22px]"><X size={18}/></button>
         </div>
       </div>
     </div>
@@ -846,7 +757,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-50 pb-32 font-sans text-slate-700 w-full relative overflow-x-hidden">
       
-      {/* MENU HAMBÚRGUER LATERAL */}
+      {/* MENU HAMBÚRGUER LATERAL COMPLETO */}
       <div className={`fixed inset-0 bg-black/40 z-50 transition-opacity duration-300 ${isMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`} onClick={() => setIsMenuOpen(false)}>
         <div className={`w-72 bg-white h-full shadow-2xl p-6 flex flex-col justify-between transition-transform duration-300 ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'}`} onClick={e => e.stopPropagation()}>
           <div className="space-y-6">
@@ -857,17 +768,19 @@ export default function App() {
             <nav className="flex flex-col gap-1">
               <button onClick={() => setActiveTab('inicio')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'inicio' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Home size={16}/> Início</button>
               <button onClick={() => setActiveTab('criar')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'criar' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Plus size={16}/> Orçar</button>
-              <button onClick={() => setActiveTab('pedidos')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'pedidos' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><History size={16}/> Histórico</button>
+              <button onClick={() => setActiveTab('pedidos')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'pedidos' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><History size={16}/> Histórico de Orçamentos</button>
+              {/* Desafogamento visual: Linhas separadas de Menu para Balcão Rápido e Catálogo de Cadastro */}
+              <button onClick={() => setActiveTab('balcao')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'balcao' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><ShoppingCart size={16}/> Balcão de Vendas Rápido</button>
+              <button onClick={() => setActiveTab('catalogo')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'catalogo' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><BookOpen size={16}/> Meu Catálogo Visual</button>
               <button onClick={() => setActiveTab('materiais')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'materiais' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Package size={16}/> Armário / Insumos</button>
-              <button onClick={() => setActiveTab('clientes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'clientes' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><User size={16}/> Clientes</button>
-              <button onClick={() => setActiveTab('catalogo')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'catalogo' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><BookOpen size={16}/> Catálogo de Vitrine</button>
+              <button onClick={() => setActiveTab('clientes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'clientes' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><User size={16}/> Meus Clientes</button>
             </nav>
           </div>
           <button onClick={() => signOut(auth)} className="w-full text-red-500 bg-red-50 p-4 rounded-xl text-xs font-black uppercase flex items-center justify-center gap-1.5"><LogOut size={16}/> Sair</button>
         </div>
       </div>
 
-      {/* HEADER */}
+      {/* HEADER ATUALIZADO */}
       <header className="bg-white p-4 flex justify-between items-center shadow-sm sticky top-0 z-40 w-full">
         <button onClick={() => setIsMenuOpen(true)} className="p-2 text-slate-700 hover:text-purple-700 transition-colors">
           <Menu size={24} />
@@ -904,9 +817,9 @@ export default function App() {
                 <p className="text-2xl font-black text-slate-800 mt-0.5">{dashboardMetrics.pendentes}</p>
               </div>
 
-              <div onClick={() => setActiveTab('catalogo')} className="bg-white p-5 rounded-[30px] border shadow-sm cursor-pointer active:scale-95 transition-all w-full">
-                <div className="w-10 h-10 rounded-2xl bg-purple-50 flex items-center justify-center text-purple-600 mb-3"><BookOpen size={20}/></div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Catálogo</p>
+              <div onClick={() => setActiveTab('balcao')} className="bg-white p-5 rounded-[30px] border shadow-sm cursor-pointer active:scale-95 transition-all w-full">
+                <div className="w-10 h-10 rounded-2xl bg-purple-50 flex items-center justify-center text-purple-600 mb-3"><ShoppingCart size={20}/></div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Balcão de Vendas</p>
                 <p className="text-2xl font-black text-slate-800 mt-0.5">{produtos.length}</p>
               </div>
             </div>
@@ -927,83 +840,75 @@ export default function App() {
           </div>
         )}
 
-        {/* TELA DE CATÁLOGO COM ADIÇÃO DO BALCÃO DE VENDAS */}
-        {activeTab === 'catalogo' && (
+        {/* NOVA TELA EXCLUSIVA 1: APENAS PARA O BALCÃO RAPIDO DE VENDAS (LIMPANDO VISUAL) */}
+        {activeTab === 'balcao' && (
           <div className="space-y-4 pt-2 w-full">
-            <div className="bg-gradient-to-tr from-purple-800 to-purple-600 p-6 rounded-[35px] text-white shadow-lg border border-purple-900 space-y-4 w-full">
+            <div className="bg-gradient-to-tr from-purple-800 to-purple-600 p-5 rounded-[35px] text-white shadow-md border border-purple-900 space-y-3.5 w-full">
               <div className="w-full">
-                <h3 className="text-xs font-black uppercase tracking-widest text-purple-200 flex items-center gap-1.5"><Share2 size={14}/> Seu Catálogo Público</h3>
-                <p className="text-xs text-purple-100 mt-1 opacity-90">Link exclusivo para enviar aos seus clientes:</p>
-                <div className="mt-2 bg-purple-900/40 p-3.5 rounded-2xl text-xs font-mono select-all break-all border border-purple-500/30 bg-black/10 w-full font-bold">
+                <h3 className="text-xs font-black uppercase tracking-widest text-purple-200 flex items-center gap-1.5"><Share2 size={14}/> Link da Vitrine de Clientes</h3>
+                <div className="mt-1.5 bg-purple-900/40 p-3 rounded-xl text-[11px] font-mono select-all break-all border border-purple-500/30 bg-black/10 w-full font-bold">
                   {linkDoCatalogoDestaCliente}
                 </div>
-                <div onClick={copiarLinkCatalogo} className="mt-2.5 w-full bg-white text-purple-800 font-bold p-3 rounded-xl text-xs uppercase shadow flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer">
-                  <Copy size={14}/> Copiar Link do Catálogo
+                <div onClick={copiarLinkCatalogo} className="mt-2 w-full bg-white text-purple-800 font-bold p-2.5 rounded-xl text-xs uppercase shadow flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer">
+                  <Copy size={13}/> Copiar Link da Vitrine
                 </div>
               </div>
 
-              <div className="border-t border-purple-500/30 pt-3 w-full">
-                <label className="text-[10px] font-black uppercase text-purple-200 block mb-1">📱 Seu WhatsApp de Vendas (Com DDD)</label>
+              <div className="border-t border-purple-500/30 pt-2.5 w-full">
+                <label className="text-[9px] font-black uppercase text-purple-200 block mb-1">📱 Seu WhatsApp de Vendas (Com DDD)</label>
                 <div className="flex gap-2 w-full">
-                  <input placeholder="Ex: 11999999999" className="flex-1 p-3 bg-black/20 text-white rounded-xl text-xs font-bold border border-purple-500/30 outline-none" value={zapDonaConta} onChange={e => setZapDonaConta(e.target.value)} />
+                  <input placeholder="Ex: 21983858055" className="flex-1 p-2.5 bg-black/20 text-white rounded-xl text-xs font-bold border border-purple-500/30 outline-none" value={zapDonaConta} onChange={e => setZapDonaConta(e.target.value)} />
                   <button onClick={async () => {
-                    if(!zapDonaConta.trim()) return alert("Digite o número primeiro!");
-                    try {
-                      await setDoc(doc(db, "configuracoes_loja", user.uid), { whatsapp: zapDonaConta.trim() }, { merge: true });
-                      alert("WhatsApp de vendas salvo com sucesso! 🚀");
-                    } catch {
-                      alert("Erro ao salvar número.");
-                    }
-                  }} className="bg-orange-500 hover:bg-orange-600 text-white text-xs font-black uppercase px-4 rounded-xl shadow active:scale-95 transition-all">Salvar</button>
+                    if(!zapDonaConta.trim()) return alert("Digite o número!");
+                    try { await setDoc(doc(db, "configuracoes_loja", user.uid), { whatsapp: zapDonaConta.trim() }, { merge: true }); alert("WhatsApp salvo!"); } 
+                    catch { alert("Erro ao salvar."); }
+                  }} className="bg-orange-500 text-white text-xs font-black uppercase px-4 rounded-xl shadow">Salvar</button>
                 </div>
               </div>
             </div>
 
-            {/* AJUSTE 3: Nova Seção de Balcão de Vendas Rápido no Catálogo Interno */}
             <div className="bg-gradient-to-tr from-slate-900 to-purple-950 p-6 rounded-[35px] shadow-xl border border-slate-800 text-white w-full space-y-4">
               <div>
                 <h2 className="text-orange-400 font-black flex items-center gap-2 uppercase text-xs tracking-wider">
-                  <ShoppingCart size={16}/> Balcão de Vendas Rápido (Catálogo)
+                  <ShoppingCart size={16}/> Lançar Combo Rápido do Catálogo
                 </h2>
-                <p className="text-[11px] text-slate-400 mt-1">Selecione o cliente final e monte combos multi-produtos usando + e - em segundos.</p>
+                <p className="text-[11px] text-slate-400 mt-1">Selecione o cliente final e monte as quantidades usando + e - em segundos.</p>
               </div>
               
               <div className="w-full">
-                <select 
-                  className="w-full p-3.5 bg-slate-800/80 rounded-xl text-xs font-bold text-white border border-slate-700 outline-none focus:border-purple-400"
-                  value={clienteBalcao}
-                  onChange={e => setClienteBalcao(e.target.value)}
-                >
+                <select className="w-full p-3.5 bg-slate-800/80 rounded-xl text-xs font-bold text-white border border-slate-700 outline-none focus:border-purple-400" value={clienteBalcao} onChange={e => setClienteBalcao(e.target.value)}>
                   <option value="" className="text-slate-800">👤 Selecionar Cliente do Balcão...</option>
                   {clientes.map(c => <option key={c.id} value={c.id} className="text-slate-800">{c.nome}</option>)}
                 </select>
               </div>
 
-              <div className="bg-slate-800/40 border border-slate-800 p-3 rounded-2xl space-y-2 max-h-52 overflow-y-auto">
+              <div className="bg-slate-800/40 border border-slate-800 p-3 rounded-2xl space-y-2 max-h-64 overflow-y-auto">
                 {produtos.map(p => {
                   const qtdInterna = carrinhoInterno[p.id] || 0;
                   return (
-                    <div key={p.id} className="flex justify-between items-center bg-slate-900/60 p-2 rounded-xl border border-slate-800/80">
-                      <span className="text-xs font-bold truncate max-w-[180px] text-slate-200">{p.nome}</span>
+                    <div key={p.id} className="flex justify-between items-center bg-slate-900/60 p-2.5 rounded-xl border border-slate-800/80">
+                      <span className="text-xs font-bold truncate max-w-[180px] text-slate-200">${p.nome}</span>
                       <div className="flex items-center gap-2.5">
                         <span className="text-[11px] font-black text-purple-300 mr-1">R$ {Number(p.precoVenda).toFixed(2)}</span>
-                        <button onClick={() => setCarrinhoInterno({...carrinhoInterno, [p.id]: Math.max(0, qtdInterna - 1)})} className="w-7 h-7 bg-slate-800 rounded-lg font-black text-slate-300 hover:bg-slate-700">-</button>
+                        <button onClick={() => setCarrinhoInterno({...carrinhoInterno, [p.id]: Math.max(0, qtdInterna - 1)})} className="w-7 h-7 bg-slate-800 rounded-lg font-black text-slate-300">-</button>
                         <span className="font-bold text-xs w-4 text-center">{qtdInterna}</span>
-                        <button onClick={() => setCarrinhoInterno({...carrinhoInterno, [p.id]: qtdInterna + 1})} className="w-7 h-7 bg-purple-600 rounded-lg font-black text-white hover:bg-purple-700">+</button>
+                        <button onClick={() => setCarrinhoInterno({...carrinhoInterno, [p.id]: qtdInterna + 1})} className="w-7 h-7 bg-purple-600 rounded-lg font-black text-white">+</button>
                       </div>
                     </div>
                   );
                 })}
               </div>
 
-              <button 
-                onClick={lancarVendaBalcaoInterno}
-                className="w-full bg-orange-500 hover:bg-orange-600 text-white p-3.5 rounded-xl text-xs font-black uppercase tracking-wider shadow-lg active:scale-95 transition-all"
-              >
-                Lançar Combo Multi-Produtos 🚀
+              <button onClick={lancarVendaBalcaoInterno} className="w-full bg-orange-500 hover:bg-orange-600 text-white p-4 rounded-xl text-xs font-black uppercase tracking-wider shadow-lg transition-transform active:scale-95">
+                Lançar Combo no Histórico 🚀
               </button>
             </div>
+          </div>
+        )}
 
+        {/* NOVA TELA EXCLUSIVA 2: APENAS PARA CADASTRO E VISUALIZAÇÃO DO SEU CATÁLOGO DE PRODUTOS */}
+        {activeTab === 'catalogo' && (
+          <div className="space-y-4 pt-2 w-full">
             <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
               <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2 uppercase text-xs tracking-widest"><BookOpen size={18}/> Novo Item de Venda Fixa</h2>
               <div className="mb-4 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-3xl p-4 bg-slate-50 relative min-h-[140px] w-full">
@@ -1036,7 +941,7 @@ export default function App() {
                 if (novoProdCatalogo.id) await updateDoc(doc(db, "produtos", novoProdCatalogo.id), d);
                 else await addDoc(collection(db, "produtos"), d);
                 setNovoProdCatalogo({ id: '', nome: '', precoVenda: '', urlImagem: '' });
-                alert("Produto saved no catálogo!");
+                alert("Produto salvo no catálogo!");
               }} className="w-full bg-purple-700 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md" disabled={subindoImagem}>
                 {novoProdCatalogo.id ? 'Atualizar Item' : 'Salvar no Catálogo 📖'}
               </button>
@@ -1066,7 +971,7 @@ export default function App() {
         {/* ABA DA CALCULADORA COMPOSTA */}
         {activeTab === 'criar' && renderCalculadoraForm()}
 
-        {/* HISTÓRICO */}
+        {/* HISTÓRICO DE ORÇAMENTOS */}
         {activeTab === 'pedidos' && (
           <div className="space-y-3 pt-2 w-full">
             <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2"><History size={20}/> Histórico</h2>
@@ -1080,7 +985,7 @@ export default function App() {
                         <p className="font-black text-[10px] uppercase text-purple-700 mb-1">
                           {cli?.nome || 'Sem Cliente'} {p.data ? `— ${p.data}` : ''} — <span className={ehPendente ? "text-orange-400" : "text-emerald-500"}>{p.status || 'Pendente'}</span>
                         </p>
-                        <p className="font-bold text-slate-700 text-sm">{p.nomeProd} <span className="text-xs text-slate-400 font-normal">({p.qtdPed || 1} un)</span></p>
+                        <div className="font-bold text-slate-700 text-sm whitespace-pre-line">{p.nomeProd} <span className="text-xs text-slate-400 font-normal">({p.qtdPed || 1} un)</span></div>
                      </div>
                      <div className="text-orange-500 font-black text-xl">R$ {p.preco}</div>
                    </div>
@@ -1101,7 +1006,7 @@ export default function App() {
           </div>
         )}
 
-        {/* GERENCIAR ARMÁRIO */}
+        {/* GERENCIAR ARMÁRIO / INSUMOS */}
         {activeTab === 'materiais' && (
           <div className="space-y-4 pt-2 w-full">
             <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
@@ -1198,7 +1103,7 @@ export default function App() {
         )}
       </div>
 
-      {/* MENU INFERIOR */}
+      {/* MENU INFERIOR FIXO ENXUTO */}
       <div className="fixed bottom-0 left-0 right-0 flex justify-center p-4 z-30 bg-transparent pointer-events-none">
         <div className="bg-white shadow-[0_-10px_30px_rgba(0,0,0,0.06)] rounded-[28px] flex justify-around items-center px-4 h-16 w-full max-w-xl pointer-events-auto border">
           <button onClick={() => setActiveTab('inicio')} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'inicio' ? 'text-orange-500' : 'text-slate-300'}`}>
