@@ -65,15 +65,13 @@ export default function App() {
   const [produtos, setProdutos] = useState<any[]>([]);
   const [moldes, setMoldes] = useState<any[]>([]);
 
-  // Novos estados para o carrinho interno e montagem rápida via Moldes
-  const [carrinhoInternoCatalogo, setCarrinhoInternoCatalogo] = useState<{ [key: string]: number }>({});
-  const [clienteSelecionadoCatalogo, setClienteSelecionadoCatalogo] = useState('');
+  // Estados do Orçamento Rápido via Moldes Salvos
   const [quantidadesPedidoMoldes, setQuantidadesPedidoMoldes] = useState<{ [key: string]: number }>({});
   const [clienteSelecionadoMoldes, setClienteSelecionadoMoldes] = useState('');
   const [obsPedidoMoldes, setObsPedidoMoldes] = useState('');
   const [prazoPedidoMoldes, setPrazoPedidoMoldes] = useState('');
 
-  // Estados de criação de Moldes Base
+  // Estados de criação de um Molde Base Novo
   const [nomeMolde, setNomeMolde] = useState('');
   const [matsNoMolde, setMatsNoMolde] = useState<any[]>([]);
   const [tGastoMolde, setTGastoMolde] = useState('10');
@@ -81,6 +79,9 @@ export default function App() {
   const [custosMolde, setCustosMolde] = useState({ embalagem: '0', impressao: '0', energia: '0', outros: '0' });
   const [lucroMolde, setLucroMolde] = useState('100');
   const [moldeEditandoId, setMoldeEditandoId] = useState<string | null>(null);
+  
+  const [tipoPrecoMolde, setTipoPrecoMolde] = useState<'auto' | 'manual'>('auto');
+  const [precoManualMolde, setPrecoManualMolde] = useState('');
 
   const [nomeProd, setNomeProd] = useState('');
   const [qtdPed, setQtdPed] = useState('1');
@@ -184,84 +185,10 @@ export default function App() {
     alert("Link do seu catálogo copiado! 🔗🚀");
   };
 
-  const totalGeralCarrinhoInterno = useMemo(() => {
-    return Object.keys(carrinhoInternoCatalogo).reduce((acc, id) => {
-      const prod = produtos.find(p => p.id === id);
-      const qtd = carrinhoInternoCatalogo[id] || 0;
-      return acc + (prod ? Number(prod.precoVenda) * qtd : 0);
-    }, 0);
-  }, [carrinhoInternoCatalogo, produtos]);
-
-  // FUNÇÃO REVISADA PARA GERAR PDF DO PRODUTO FINAL / COMBO DO CLIENTE PÚBLICO
-  const gerarPDFClienteFinalPublico = (nomeComprador: string, carrinhoItens: any, produtosBase: any[]) => {
-    const dataEmissao = new Date().toLocaleDateString('pt-BR');
-    const elemento = document.createElement('div');
-    
-    let tabelaLinhasHtml = '';
-    let valorTotalCalculado = 0;
-
-    Object.keys(carrinhoItens).forEach(id => {
-      const qtd = carrinhoItens[id];
-      if (qtd > 0) {
-        const prod = produtosBase.find(p => p.id === id);
-        if (prod) {
-          const sub = Number(prod.precoVenda) * qtd;
-          valorTotalCalculado += sub;
-          tabelaLinhasHtml += `
-            <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px;">
-              <td style="padding: 12px 5px; font-weight: bold; color: #1e293b;">${prod.nome}</td>
-              <td style="padding: 12px 5px; text-align: center; color: #475569;">${qtd}</td>
-              <td style="padding: 12px 5px; text-align: right; color: #475569;">R$ ${Number(prod.precoVenda).toFixed(2)}</td>
-              <td style="padding: 12px 5px; text-align: right; font-weight: bold; color: #1e293b;">R$ ${sub.toFixed(2)}</td>
-            </tr>
-          `;
-        }
-      }
-    });
-
-    elemento.innerHTML = `
-      <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto;">
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px;">
-          <div>
-            <h1 style="color: #7c3aed; margin: 0; font-size: 30px; font-weight: 900;">Pedido de Encomenda 🛍️</h1>
-            <p style="color: #94a3b8; font-size: 11px; text-transform: uppercase; margin: 4px 0 0 0; font-weight: bold;">Confirmação de Seleção do Catálogo</p>
-          </div>
-        </div>
-        <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 25px; border: 1px solid #e2e8f0;">
-          <p style="margin: 0; font-size: 14px;"><strong>Cliente:</strong> ${nomeComprador}</p>
-          <p style="margin: 4px 0 0 0; font-size: 13px; color: #64748b;"><strong>Data de Solicitação:</strong> ${dataEmissao}</p>
-        </div>
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
-          <thead>
-            <tr style="border-bottom: 2px solid #e2e8f0; text-align: left; font-size: 11px; text-transform: uppercase; color: #94a3b8;">
-              <th style="padding: 10px 5px;">Item</th>
-              <th style="padding: 10px 5px; text-align: center;">Qtd</th>
-              <th style="padding: 10px 5px; text-align: right;">Unitário</th>
-              <th style="padding: 10px 5px; text-align: right;">Subtotal</th>
-            </tr>
-          </thead>
-          <tbody>${tabelaLinhasHtml}</tbody>
-        </table>
-        <div style="display: flex; flex-direction: column; align-items: flex-end; margin-top: 20px;">
-          <div style="background-color: #7c3aed; color: white; padding: 12px 25px; border-radius: 12px; font-size: 18px; font-weight: 900; min-width: 180px; text-align: right;">
-            <span style="font-size: 10px; font-weight: bold; text-transform: uppercase; display: block; opacity: 0.8; margin-bottom: 2px;">Valor Total</span>
-            R$ ${valorTotalCalculado.toFixed(2)}
-          </div>
-        </div>
-      </div>
-    `;
-
-    const opcoes = { margin: 0, filename: `Pedido_${nomeComprador.replace(/\s+/g, '_')}.pdf`, html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'a4', orientation: 'portrait' } };
-    (window as any).html2pdf().from(elemento).set(opcoes).save();
-  };
-
   const finalizarPedidoPublicoWhatsapp = () => {
     if (!nomeComprador.trim()) return alert("Por favor, digite seu nome antes de enviar!");
     const itensSelecionados = produtosPublicos.filter(p => carrinho[p.id] > 0);
     if (itensSelecionados.length === 0) return alert("Seu carrinho está vazio!");
-
-    // DISPARA O PDF COMPLETO DO COMPRADOR NA TELA PÚBLICA
-    gerarPDFClienteFinalPublico(nomeComprador.trim(), carrinho, produtosPublicos);
 
     let textoPedido = `*NOVO PEDIDO VIA CATÁLOGO DE VENDAS*%0A`;
     textoPedido += `---%0A`;
@@ -279,7 +206,7 @@ export default function App() {
     textoPedido += `---%0A`;
     textoPedido += `*VALOR TOTAL:* R$ ${totalGeral.toFixed(2)}%0A`;
     textoPedido += `---%0A`;
-    textoPedido += `_O PDF do meu pedido foi gerado automaticamente!_ 🙌`;
+    textoPedido += `Aguardo a confirmação e dados para pagamento! 🙌`;
 
     const numeroLimpo = zapDaLojaPublica.replace(/\D/g, '');
     if (numeroLimpo) {
@@ -322,17 +249,18 @@ export default function App() {
     };
   }, [matsNoPed, vHora, tGasto, custos, lucro, qtdPed, desconto, precoManual]);
 
-  // VALOR UNITARIO MOLDE BASE
   const valorUnitarioDoMoldeGerado = useMemo(() => {
+    if (tipoPrecoMolde === 'manual' && precoManualMolde !== '') {
+      return isNaN(Number(precoManualMolde)) ? 0 : Number(precoManualMolde);
+    }
     const totalMateriais = matsNoMolde.reduce((acc, m) => acc + ((Number(m.valor || 0) / Number(m.qtd || 1)) * Number(m.qtdUsada || 0)), 0);
     const totalMaoObra = (Number(vHoraMolde || 0) / 60) * Number(tGastoMolde || 0);
     const totalExtras = Number(custosMolde.embalagem || 0) + Number(custosMolde.impressao || 0) + Number(custosMolde.energia || 0) + Number(custosMolde.outros || 0);
     const custoPeca = totalMateriais + totalMaoObra + totalExtras;
     const precoVendaUnitario = custoPeca + (custoPeca * (Number(lucroMolde || 0) / 100));
     return isNaN(precoVendaUnitario) ? 0 : precoVendaUnitario;
-  }, [matsNoMolde, vHoraMolde, tGastoMolde, custosMolde, lucroMolde]);
+  }, [matsNoMolde, vHoraMolde, tGastoMolde, custosMolde, lucroMolde, tipoPrecoMolde, precoManualMolde]);
 
-  // CÁLCULO TOTAL DO LOTE VIA MOLDES
   const resumoPedidoPorMoldes = useMemo(() => {
     let subtotal = 0;
     const itensArray: any[] = [];
@@ -350,46 +278,112 @@ export default function App() {
     return { total: subtotal.toFixed(2), itens: itensArray };
   }, [quantidadesPedidoMoldes, moldes]);
 
+  const enviarZap = (p: any) => {
+    const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
+    const dataP = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combinar';
+    const msg = `*RESUMO ORÇAMENTO*%0A---%0A*Cliente:* ${cli?.nome || 'Cliente'}%0A*Produto:* ${p.nomeProd}%0A*Qtd:* ${p.qtdPed || 1} un%0A*Prazo:* ${dataP}%0A*VALOR TOTAL:* R$ ${p.preco}%0A---%0AObrigado!`;
+    const fone = cli?.zap ? cli.zap.replace(/\D/g, '') : '';
+    window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
+  };
+
+  const gerarPDF = (p: any) => {
+    const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
+    const dataEmissao = p.data || new Date().toLocaleDateString('pt-BR');
+    const hoje = new Date();
+    hoje.setDate(hoje.getDate() + 7);
+    const dataValidade = hoje.toLocaleDateString('pt-BR');
+    const dataPrazo = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combinar';
+    const totalNum = Number(p.preco || 0);
+    const qtdNum = Number(p.qtdPed || 1);
+    const precoUnitario = (totalNum / qtdNum).toFixed(2);
+
+    const elemento = document.createElement('div');
+    elemento.innerHTML = `
+      <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px;">
+          <div>
+            <h1 style="color: #7c3aed; margin: 0; font-size: 32px; font-weight: 900;">PrecificaJá 🚀</h1>
+            <p style="color: #94a3b8; font-size: 11px; text-transform: uppercase; margin: 4px 0 0 0; font-weight: bold;">Documento de Orçamento Comercial</p>
+          </div>
+        </div>
+        <p style="margin: 0 0 6px 0; font-size: 14px;"><strong>Cliente:</strong> ${cli?.nome || 'Cliente não informado'}</p>
+        <p><strong>Emissão:</strong> ${dataEmissao} | <strong>Prazo:</strong> ${dataPrazo}</p>
+        <p style="font-weight: bold;">Produto: ${p.nomeProd}</p>
+        <h2 style="color: #7c3aed;">Total: R$ ${totalNum.toFixed(2)}</h2>
+      </div>
+    `;
+    const opcoes = { margin: 0, filename: `Orcamento_${p.nomeProd}.pdf`, html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'a4', orientation: 'portrait' } };
+    (window as any).html2pdf().from(elemento).set(opcoes).save();
+  };
+
+  const confirmarExcluir = async (tipo: string, id: string) => {
+    if (window.confirm(`Deseja mesmo excluir este registro do sistema?`)) {
+      await deleteDoc(doc(db, tipo === 'pedido' ? "pedidos" : tipo === 'cliente' ? "clientes" : tipo === 'produto' ? "produtos" : tipo === 'molde' ? "moldes" : "materiais", id));
+      alert("Excluído com sucesso!");
+    }
+  };
+
+  // REGRAS DE BAIXA INTELIGENTE CORRIGIDAS (CONTROLA MOLDES, CALCULADORA E PRODUTOS DE CATALOGO)
   const confirmarVendaPedido = async (pedido: any) => {
-    if (pedido.moldesVinculados && pedido.moldesVinculados.length > 0) {
-      for (const itemMolde of pedido.moldesVinculados) {
-        if (itemMolde.materiaisUsados && itemMolde.materiaisUsados.length > 0) {
-          for (const matGasto of itemMolde.materiaisUsados) {
-            const matDoBanco = materiais.find(m => m.id === matGasto.id);
+    try {
+      // 1. Caso venha da aba de Moldes estruturados
+      if (pedido.moldesVinculados && pedido.moldesVinculados.length > 0) {
+        for (const itemMolde of pedido.moldesVinculados) {
+          if (itemMolde.materiaisUsados && itemMolde.materiaisUsados.length > 0) {
+            for (const matGasto of itemMolde.materiaisUsados) {
+              const matDoBanco = materiais.find(m => m.id === matGasto.id);
+              if (matDoBanco) {
+                const estoqueAtual = Number(matDoBanco.qtdAtual || 0);
+                const totalDescontar = Number(matGasto.qtdUsada || 0) * Number(itemMolde.qtd || 1);
+                await updateDoc(doc(db, "materiais", matGasto.id), { qtdAtual: Math.max(0, estoqueAtual - totalDescontar) });
+              }
+            }
+          }
+        }
+      } 
+      // 2. Caso venha do botão "Vender" simples do Catálogo Comercial (Preço Travado)
+      else if (pedido.precoManual && !pedido.materiaisUsados) {
+        // Encontra o produto correspondente cadastrado para ler qual material ou estrutura dar baixa se houver vinculo
+        const prodFixo = produtos.find(p => p.nome === pedido.nomeProd);
+        if (prodFixo && prodFixo.materiaisUsados) {
+          for (const m of prodFixo.materialsUsados || prodFixo.materiaisUsados) {
+            const matDoBanco = materiais.find(item => item.id === m.id);
             if (matDoBanco) {
-              const estoqueAtual = Number(matDoBanco.qtdAtual || 0);
-              const totalDescontar = Number(matGasto.qtdUsada || 0) * Number(itemMolde.qtd || 1);
-              await updateDoc(doc(db, "materiais", matGasto.id), { qtdAtual: Math.max(0, estoqueAtual - totalDescontar) });
+              const estoqueFiscal = Number(matDoBanco.qtdAtual || 0);
+              const gastoTotal = Number(m.qtdUsada || 0) * Number(pedido.qtdPed || 1);
+              await updateDoc(doc(db, "materiais", m.id), { qtdAtual: Math.max(0, estoqueFiscal - gastoTotal) });
             }
           }
         }
       }
-    } else if (pedido.materiaisUsados && pedido.materiaisUsados.length > 0) {
-      for (const m of pedido.materiaisUsados) {
-        const matDoBanco = materiais.find(item => item.id === m.id);
-        if (matDoBanco) {
-          const estoqueFiscal = Number(matDoBanco.qtdAtual || 0);
-          const gastoTotal = Number(m.qtdUsada || 0) * Number(pedido.qtdPed || 1);
-          await updateDoc(doc(db, "materiais", m.id), { qtdAtual: Math.max(0, estoqueFiscal - gastoTotal) });
+      // 3. Caso venha da Calculadora Normal de orçamentos livres
+      else if (pedido.materiaisUsados && pedido.materiaisUsados.length > 0) {
+        for (const m of pedido.materiaisUsados) {
+          const matDoBanco = materiais.find(item => item.id === m.id);
+          if (matDoBanco) {
+            const estoqueFiscal = Number(matDoBanco.qtdAtual || 0);
+            const gastoTotal = Number(m.qtdUsada || 0) * Number(pedido.qtdPed || 1);
+            await updateDoc(doc(db, "materiais", m.id), { qtdAtual: Math.max(0, estoqueFiscal - gastoTotal) });
+          }
         }
       }
+
+      await updateDoc(doc(db, "pedidos", pedido.id), { status: 'Vendido 💰' });
+      alert("Venda faturada com sucesso e estoque do armário deduzido! 📦📈");
+    } catch (e) {
+      alert("Erro ao faturar venda.");
     }
-    await updateDoc(doc(db, "pedidos", pedido.id), { status: 'Vendido 💰' });
-    alert("Venda confirmada e estoque deduzido!");
   };
 
   const handleUploadImagem = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
-
     setSubindoImagem(true);
     try {
       const nomeArquivo = `${user.uid}_${Date.now()}_${file.name}`;
       const imagemRef = ref(storage, `produtos/${nomeArquivo}`);
-      
       await uploadBytes(imagemRef, file);
       const urlDisponivel = await getDownloadURL(imagemRef);
-      
       setNovoProdCatalogo(prev => ({ ...prev, urlImagem: urlDisponivel }));
       alert("Foto carregada com sucesso! 📸");
     } catch (error) {
@@ -404,41 +398,60 @@ export default function App() {
   };
 
   const limparFormMolde = () => {
-    setNomeMolde(''); setMatsNoMolde([]); setTGastoMolde('10'); setVHoraMolde('9'); setCustosMolde({ embalagem: '0', impressao: '0', energia: '0', outros: '0' }); setLucroMolde('100'); setMoldeEditandoId(null);
+    setNomeMolde(''); setMatsNoMolde([]); setTGastoMolde('10'); setVHoraMolde('9'); setCustosMolde({ embalagem: '0', impressao: '0', energia: '0', outros: '0' }); setLucroMolde('100'); setMoldeEditandoId(null); setPrecoManualMolde(''); setTipoPrecoMolde('auto');
   };
 
   const carregarPedidoParaEdicao = (p: any) => {
-    setPedidoEditandoId(p.id); setNomeProd(p.nomeProd || ''); setQtdPed(p.qtdPed || '1'); setVHora(p.vHora || '9'); setTGasto(p.tGasto || '60'); setCustos(p.custos || { embalagem: '0', impressao: '0', energia: '0', outros: '0' }); setLucro(p.lucro || '100'); setDesconto(p.desconto || '0'); setPrazo(p.prazo || ''); setClienteSel(p.clienteId || ''); setPrecoManual(p.precoManual || null); setObsPedido(p.obsPedido || '');
+    setPedidoEditandoId(p.id);
+    setNomeProd(p.nomeProd || '');
+    setQtdPed(p.qtdPed || '1');
+    setPrazo(p.prazo || '');
+    setClienteSel(p.clienteId || '');
+    setObsPedido(p.obsPedido || '');
 
-    if (p.materiaisUsados && p.materiaisUsados.length > 0) {
-      setMatsNoPed(p.materiaisUsados.map((mSalvo: any) => {
-        const matDoArmario = materiais.find(item => item.id === mSalvo.id);
-        return {
-          id: mSalvo.id,
-          nome: matDoArmario ? matDoArmario.nome : mSalvo.nome,
-          qtdUsada: Number(mSalvo.qtdUsada || 1),
-          valor: matDoArmario ? Number(matDoArmario.valor) : Number(mSalvo.valor || 0),
-          qtd: matDoArmario ? Number(matDoArmario.qtd) : Number(mSalvo.qtd || 1),
-          unidade: matDoArmario ? matDoArmario.unidade : (mSalvo.unidade || 'un')
-        };
-      }));
-    } else {
+    // BLINDAGEM CONTRA BUG: Se o pedido for oriundo de Catálogo (Preço manual travado), não quebra as chaves
+    if (p.precoManual !== undefined && p.precoManual !== null) {
+      setPrecoManual(String(p.precoManual));
       setMatsNoPed([]);
+    } else {
+      setPrecoManual(null);
+      setVHora(p.vHora || '9');
+      setTGasto(p.tGasto || '60');
+      setCustos(p.custos || { embalagem: '0', impressao: '0', energia: '0', outros: '0' });
+      setLucro(p.lucro || '100');
+      setDesconto(p.desconto || '0');
+
+      if (p.materiaisUsados && p.materiaisUsados.length > 0) {
+        setMatsNoPed(p.materiaisUsados.map((mSalvo: any) => {
+          const matDoArmario = materiais.find(item => item.id === mSalvo.id);
+          return {
+            id: mSalvo.id,
+            nome: matDoArmario ? matDoArmario.nome : mSalvo.nome,
+            qtdUsada: Number(mSalvo.qtdUsada || 1),
+            valor: matDoArmario ? Number(matDoArmario.valor) : Number(mSalvo.valor || 0),
+            qtd: matDoArmario ? Number(matDoArmario.qtd) : Number(mSalvo.qtd || 1),
+            unidade: matDoArmario ? matDoArmario.unidade : (mSalvo.unidade || 'un')
+          };
+        }));
+      } else {
+        setMatsNoPed([]);
+      }
     }
-    setModoOrcamento('normal'); setActiveTab('criar');
+    setModoOrcamento('normal');
+    setActiveTab('criar');
   };
 
   const venderItemDiretoDoCatalogo = (prod: any) => {
     limparCalculadora(); setNomeProd(prod.nome); setPrecoManual(prod.precoVenda); setModoOrcamento('normal'); setActiveTab('criar');
   };
 
-  // FORMULÁRIO COMPLETO DA CALCULADORA LIVRE
+  // FORMULÁRIO COMPLETO DA CALCULADORA
   const renderCalculadoraForm = () => (
     <div className="bg-white p-6 rounded-[35px] shadow-xl border mt-2 w-full">
       {pedidoEditandoId && (
         <div className="bg-amber-50 border border-amber-200 p-4 rounded-3xl mb-6 flex justify-between items-center animate-pulse w-full">
           <div className="text-xs text-amber-800 font-bold"><span>✏️ Você está editando um orçamento salvo!</span></div>
-          <button onClick={() => { limparCalculadora(); setActiveTab('pedidos'); }} className="text-[10px] bg-red-500 text-white px-3 py-1.5 rounded-xl font-black uppercase tracking-wider shadow-sm transition-all">Cancelar Edição ❌</button>
+          <button onClick={() => { limparCalculadora(); setActiveTab('pedidos'); }} className="text-[10px] bg-red-500 text-white px-3 py-1.5 rounded-xl font-black uppercase tracking-wider">Cancelar Edição ❌</button>
         </div>
       )}
 
@@ -469,17 +482,17 @@ export default function App() {
       <div className="grid grid-cols-3 gap-3 mb-4 w-full">
          <div className="col-span-2">
             <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Produto</label>
-            <input className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={nomeProd} onChange={e => setNomeProd(e.target.value)} />
+            <input className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-semibold" value={nomeProd} onChange={e => setNomeProd(e.target.value)} />
          </div>
          <div>
             <label className="text-[10px] font-bold text-slate-400 uppercase text-center block">Qtd</label>
-            <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-center" value={qtdPed} onChange={e => setQtdPed(e.target.value)} />
+            <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-center font-bold" value={qtdPed} onChange={e => setQtdPed(e.target.value)} />
          </div>
       </div>
 
       <div className="mb-4 w-full">
          <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Cliente</label>
-         <select className="p-4 bg-slate-50 rounded-2xl outline-none w-full block border border-transparent focus:border-purple-400" onChange={e => setClienteSel(e.target.value)} value={clienteSel}>
+         <select className="p-4 bg-slate-50 rounded-2xl outline-none w-full block border border-transparent focus:border-purple-400 font-semibold" onChange={e => setClienteSel(e.target.value)} value={clienteSel}>
             <option value="">👤 Escolher Cliente...</option>
             {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
          </select>
@@ -489,7 +502,7 @@ export default function App() {
         <>
           <div className="mb-4 w-full">
              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Materiais Usados</label>
-             <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none mb-2 block border border-transparent focus:border-purple-400" onChange={e => {
+             <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none mb-2 block border font-medium" onChange={e => {
                 const m = materiais.find(item => item.id === e.target.value);
                 if (m) setMatsNoPed([...matsNoPed, { id: m.id, nome: m.nome, valor: m.valor, qtd: m.qtd, unidade: m.unidade, qtdUsada: 1 }]);
              }} value="">
@@ -510,8 +523,8 @@ export default function App() {
              </div>
           </div>
           <div className="grid grid-cols-2 gap-4 mb-4 w-full">
-            <div className="w-full"><label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Tempo Gasto (min)</label><input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={tGasto} onChange={e => setTGasto(e.target.value)} /></div>
-            <div className="w-full"><label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Valor da Hora (R$)</label><input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={vHora} onChange={e => setVHora(e.target.value)} /></div>
+            <div className="w-full"><label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Tempo Gasto (min)</label><input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={tGasto} onChange={e => setTGasto(e.target.value)} /></div>
+            <div className="w-full"><label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Valor da Hora (R$)</label><input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={vHora} onChange={e => setVHora(e.target.value)} /></div>
           </div>
 
           <div className="mb-4 w-full">
@@ -546,11 +559,11 @@ export default function App() {
 
       <div className="mb-6 w-full">
          <label className="text-[10px] font-bold text-purple-600 uppercase ml-1">📝 Observações do Orçamento</label>
-         <textarea placeholder="Ex: Sinal de 50% para início da produção. Restante na entrega." className="w-full p-4 bg-slate-50 rounded-2xl mt-1 outline-none text-xs font-semibold border border-transparent focus:border-purple-400 resize-none h-20" value={obsPedido} onChange={e => setObsPedido(e.target.value)} />
+         <textarea placeholder="Ex: Sinal de 50% para início da produção. Restante na entrega." className="w-full p-4 bg-slate-50 rounded-2xl mt-1 outline-none text-xs font-semibold border resize-none h-20" value={obsPedido} onChange={e => setObsPedido(e.target.value)} />
       </div>
 
       {precoManual === null && (
-        <div className="bg-slate-50 p-5 rounded-3xl mb-8 border border-slate-100 text-xs space-y-2.5 w-full">
+        <div className="bg-slate-50 p-5 rounded-3xl mb-8 border text-xs space-y-2.5 w-full">
           <p className="font-black text-purple-700 uppercase tracking-wider text-[10px] mb-1">📋 RESUMO FINANCEIRO DA PEÇA</p>
           <div className="flex justify-between text-slate-500 w-full"><span>Materiais:</span><span className="font-bold">R$ {resumenFinanceiro.materiais}</span></div>
           <div className="flex justify-between text-slate-500 w-full"><span>Mão de Obra:</span><span className="font-bold">R$ {resumenFinanceiro.maoObra}</span></div>
@@ -568,10 +581,9 @@ export default function App() {
              const dadosPedido = { nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed, vHora, tGasto, custos, lucro, desconto, userId: user.uid, precoManual: precoManual, obsPedido: obsPedido, materiaisUsados: precoManual ? [] : matsNoPed.map(m => ({ id: m.id, nome: m.nome, qtdUsada: Number(m.qtdUsada || 1) })) };
              if (pedidoEditandoId) await updateDoc(doc(db, "pedidos", pedidoEditandoId), dadosPedido);
              else await addDoc(collection(db, "pedidos"), { ...dadosPedido, data: new Date().toLocaleDateString('pt-BR'), status: 'Pendente', userId: user.uid });
-             limparCalculadora(); setActiveTab('pedidos'); alert("Salvo!");
-          }} className="bg-orange-500 text-white px-5 py-4 rounded-[22px] font-black uppercase text-xs shadow-lg">Salvar</button>
+             limparCalculadora(); setActiveTab('pedidos'); alert("Orçamento atualizado!");
+          }} className="bg-orange-500 text-white px-5 py-4 rounded-[22px] font-black uppercase text-xs shadow-lg">Salvar Alteraçoes</button>
           <button onClick={() => gerarPDF({nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed, obsPedido})} className="bg-orange-500 text-white p-4 rounded-[22px] shadow-lg"><Printer size={18}/></button>
-          <button onClick={() => enviarZap({nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed})} className="bg-emerald-500 text-white p-4 rounded-[22px] shadow-lg"><MessageCircle size={18}/></button>
         </div>
       </div>
     </div>
@@ -608,14 +620,13 @@ export default function App() {
         <div className="w-10"></div> 
       </header>
 
-      <div className="p-4 max-w-xl mx-auto w-full">
+      <main className="p-4 max-w-xl mx-auto w-full">
         {/* TELA INICIAL */}
         {activeTab === 'inicio' && (
           <div className="space-y-5 pt-2 w-full">
             <div className="bg-gradient-to-tr from-purple-700 to-indigo-600 p-6 rounded-[35px] shadow-lg text-white w-full">
               <p className="text-xs font-bold uppercase tracking-widest text-purple-200">Faturamento Realizado</p>
               <h2 className="text-4xl font-black mt-1 tracking-tight">R$ {dashboardMetrics.faturamento}</h2>
-              <p className="text-[11px] text-purple-200 mt-2 opacity-80">📈 Dinheiro gerado de pedidos marcados como vendidos</p>
             </div>
 
             <div onClick={() => { limparCalculadora(); setActiveTab('criar'); }} 
@@ -701,7 +712,7 @@ export default function App() {
                       const descItens = resumoPedidoPorMoldes.itens.map(i => `${i.qtd}x ${i.nome}`).join(' + ');
                       await addDoc(collection(db, "pedidos"), { nomeProd: descItens, preco: resumoPedidoPorMoldes.total, clienteId: clienteSelecionadoMoldes, prazo: prazoPedidoMoldes, obsPedido: obsPedidoMoldes, data: new Date().toLocaleDateString('pt-BR'), status: 'Pendente', userId: user.uid, moldesVinculados: resumoPedidoPorMoldes.itens });
                       setQuantidadesPedidoMoldes({}); setClienteSelecionadoMoldes(''); setObsPedidoMoldes(''); setPrazoPedidoMoldes(''); setActiveTab('pedidos'); alert("Orçamento via moldes salvo!");
-                    }} className="bg-orange-500 hover:bg-orange-600 text-white px-5 py-4 rounded-2xl font-black uppercase text-xs shadow-md">Fechar Pedido</button>
+                    }} className="bg-orange-500 hover:bg-orange-600 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md">Fechar Pedido</button>
                     <button onClick={() => gerarPDF({ nomeProd: "Kit Personalizado Sob Medida", preco: resumoPedidoPorMoldes.total, clienteId: clienteSelecionadoMoldes, prazo: prazoPedidoMoldes, obsPedido: obsPedidoMoldes })} className="bg-purple-50 text-purple-700 p-4 rounded-2xl border"><Printer size={18}/></button>
                   </div>
                 </div>
@@ -719,63 +730,67 @@ export default function App() {
                 <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome do Molde</label>
                 <input className="w-full p-4 bg-slate-50 rounded-2xl outline-none border font-semibold" value={nomeMolde} onChange={e => setNomeMolde(e.target.value)} placeholder="Ex: Caixa Milk, Sacola G" />
               </div>
-              <div className="mb-4 w-full">
-                <label className="text-[10px] font-bold text-purple-600 uppercase ml-1 block mb-1">Insumos Fixos Usados (Por unidade)</label>
-                <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none mb-2 block border" onChange={e => {
-                  const m = materiais.find(item => item.id === e.target.value);
-                  if (m) setMatsNoMolde([...matsNoMolde, { id: m.id, nome: m.nome, valor: m.valor, qtd: m.qtd, unidade: m.unidade, qtdUsada: 1 }]);
-                }} value="">
-                  <option value="">+ Vincular Material...</option>
-                  {materiais.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
-                </select>
-                <div className="space-y-2 w-full">
-                  {matsNoMolde.map((m, i) => (
-                    <div key={i} className="flex justify-between items-center bg-purple-50 p-3 rounded-xl text-xs font-bold text-purple-700 w-full">
-                      <span>{m.nome}</span>
-                      <div className="flex items-center gap-2">
-                        <input type="number" step="any" className="w-16 bg-white rounded-lg p-1 text-center" value={m.qtdUsada} onChange={e => { const nova = [...matsNoMolde]; nova[i].qtdUsada = e.target.value; setMatsNoMolde(nova); }} />
-                        <button onClick={() => setMatsNoMolde(matsNoMolde.filter((_, idx) => idx !== i))}><X size={14}/></button>
-                      </div>
+
+              <div className="bg-slate-100 p-1.5 rounded-2xl grid grid-cols-2 gap-2 mb-4 w-full">
+                <button onClick={() => setTipoPrecoMolde('auto')} className={`py-2 rounded-xl text-[10px] font-black uppercase tracking-wide transition-all ${tipoPrecoMolde === 'auto' ? 'bg-purple-700 text-white shadow' : 'text-slate-400'}`}>🧮 Auto Pelo Sistema</button>
+                <button onClick={() => setTipoPrecoMolde('manual')} className={`py-2 rounded-xl text-[10px] font-black uppercase tracking-wide transition-all ${tipoPrecoMolde === 'manual' ? 'bg-purple-700 text-white shadow' : 'text-slate-400'}`}>✍️ Digitar Manual</button>
+              </div>
+
+              {tipoPrecoMolde === 'auto' ? (
+                <>
+                  <div className="mb-4 w-full">
+                    <label className="text-[10px] font-bold text-purple-600 uppercase ml-1 block mb-1">Insumos Fixos Usados (Por unidade)</label>
+                    <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none mb-2 border block" onChange={e => {
+                      const m = materiais.find(item => item.id === e.target.value);
+                      if (m) setMatsNoMolde([...matsNoMolde, { id: m.id, nome: m.nome, valor: m.valor, qtd: m.qtd, unidade: m.unidade, qtdUsada: 1 }]);
+                    }} value="">
+                      <option value="">+ Vincular Material...</option>
+                      {materiais.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
+                    </select>
+                    <div className="space-y-2 w-full">
+                      {matsNoMolde.map((m, i) => (
+                        <div key={i} className="flex justify-between items-center bg-purple-50 p-3 rounded-xl text-xs font-bold text-purple-700 w-full">
+                          <span>{m.nome}</span>
+                          <div className="flex items-center gap-2">
+                            <input type="number" step="any" className="w-16 bg-white rounded-lg p-1 text-center" value={m.qtdUsada} onChange={e => { const nova = [...matsNoMolde]; nova[i].qtdUsada = e.target.value; setMatsNoMolde(nova); }} />
+                            <button onClick={() => setMatsNoMolde(matsNoMolde.filter((_, idx) => idx !== i))}><X size={14}/></button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 mb-3 w-full">
+                    <div><label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Tempo Gasto (min)</label><input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none border text-center font-bold" value={tGastoMolde} onChange={e => setTGastoMolde(e.target.value)} /></div>
+                    <div><label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Valor da Hora (R$)</label><input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none border text-center font-bold" value={vHoraMolde} onChange={e => setVHoraMolde(e.target.value)} /></div>
+                  </div>
+                  <div className="mb-4 w-full">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Lucro %</label>
+                    <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl border font-bold text-purple-700" value={lucroMolde} onChange={e => setLucroMolde(e.target.value)} />
+                  </div>
+                </>
+              ) : (
+                <div className="mb-4 bg-purple-50/50 p-4 rounded-3xl border border-purple-100 w-full">
+                  <label className="text-[10px] font-black text-purple-700 uppercase ml-1">Preço Fixo da Unidade (R$)</label>
+                  <input type="number" placeholder="Digite o valor final..." className="w-full p-4 bg-white rounded-2xl mt-1 border outline-none font-bold text-purple-700 text-base shadow-sm" value={precoManualMolde} onChange={e => setPrecoManualMolde(e.target.value)} />
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3 mb-3 w-full">
-                <div><label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Tempo Gasto (min)</label><input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none border text-center font-bold" value={tGastoMolde} onChange={e => setTGastoMolde(e.target.value)} /></div>
-                <div><label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Valor da Hora (R$)</label><input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none border text-center font-bold" value={vHoraMolde} onChange={e => setVHoraMolde(e.target.value)} /></div>
-              </div>
-              <div className="mb-4 w-full">
-                <label className="text-[10px] font-bold text-purple-600 uppercase ml-1 block mb-1">Custos Extras Unitários (R$)</label>
-                <div className="grid grid-cols-4 gap-2 w-full">
-                  {['embalagem','impressao','energia','outros'].map(c=>(
-                    <div key={c} className="flex flex-col items-center bg-slate-50 p-2 rounded-xl border w-full">
-                      <span className="text-[8px] font-black text-slate-300 mb-1">{c.toUpperCase()}</span>
-                      <input type="number" className="w-full bg-transparent text-center text-xs font-bold" value={(custosMolde as any)[c]} onChange={e => setCustosMolde({...custosMolde, [c]: e.target.value})} />
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="mb-4 w-full">
-                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Lucro %</label>
-                <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none border font-bold text-purple-700" value={lucroMolde} onChange={e => setLucroMolde(e.target.value)} />
-              </div>
+              )}
+
               <div className="bg-purple-50 p-4 rounded-2xl text-xs font-bold text-purple-700 flex justify-between items-center mb-4 w-full">
-                <span>VALOR FIXADO POR PEÇA:</span><span className="text-lg font-black">R$ {valorUnitarioDoMoldeGerado.toFixed(2)}</span>
+                <span>VALOR FINAL POR PEÇA:</span><span className="text-lg font-black text-purple-800">R$ {valorUnitarioDoMoldeGerado.toFixed(2)}</span>
               </div>
               <button onClick={async () => {
                 if (!nomeMolde) return alert("Dê um nome ao molde!");
-                const dados = { nome: nomeMolde, tGasto: tGastoMolde, vHora: vHoraMolde, custos: custosMolde, lucro: lucroMolde, precoVendaUnitario: valorUnitarioDoMoldeGerado, userId: user.uid, materiaisUsados: matsNoMolde.map(m => ({ id: m.id, nome: m.nome, qtdUsada: Number(m.qtdUsada) })) };
+                const dados = { nome: nomeMolde, tGasto: tipoPrecoMolde === 'manual' ? '0' : tGastoMolde, vHora: tipoPrecoMolde === 'manual' ? '0' : vHoraMolde, custos: custosMolde, lucro: tipoPrecoMolde === 'manual' ? '0' : lucroMolde, precoVendaUnitario: valorUnitarioDoMoldeGerado, userId: user.uid, materiaisUsados: tipoPrecoMolde === 'manual' ? [] : matsNoMolde.map(m => ({ id: m.id, nome: m.nome, qtdUsada: Number(m.qtdUsada) })) };
                 if (moldeEditandoId) await updateDoc(doc(db, "moldes", moldeEditandoId), dados);
                 else await addDoc(collection(db, "moldes"), dados);
-                limparFormMolde(); alert("Molde guardado!");
+                limparFormMolde(); alert("Molde estrutural salvo!");
               }} className="w-full bg-purple-700 text-white p-4 rounded-2xl text-xs font-black uppercase tracking-wider">Salvar Molde Base</button>
             </div>
             <div className="space-y-2 w-full">
               {moldes.map(m => (
-                <div key={m.id} className="bg-white p-4 rounded-3xl border flex justify-between items-center w-full">
+                <div key={m.id} className="bg-white p-4 rounded-3xl border flex justify-between items-center w-full mb-2">
                   <div><p className="font-bold text-slate-800 text-sm">{m.nome}</p><p className="text-xs text-purple-600 font-bold">R$ {Number(m.precoVendaUnitario || 0).toFixed(2)} / un</p></div>
                   <div className="flex gap-1">
-                    <button onClick={() => { setMoldeEditandoId(m.id); setNomeMolde(m.nome); setTGastoMolde(m.tGasto || '10'); setVHoraMolde(m.vHora || '9'); setCustosMolde(m.custos || { embalagem: '0', impressao: '0', energia: '0', outros: '0' }); setLucroMolde(m.lucro || '100'); setMatsNoMolde(m.materiaisUsados || []); }} className="text-purple-400 p-2"><Edit2 size={16}/></button>
                     <button onClick={() => confirmarExcluir('molde', m.id)} className="text-red-200 p-2"><Trash2 size={16}/></button>
                   </div>
                 </div>
@@ -784,117 +799,29 @@ export default function App() {
           </div>
         )}
 
-        {/* TELA DE CONFIGURAÇÃO INTERNA DO CATÁLOGO DE VENDAS */}
-        {activeTab === 'catalogo' && (
-          <div className="space-y-4 pt-2 w-full">
-            <div className="bg-gradient-to-tr from-purple-800 to-purple-600 p-6 rounded-[35px] text-white shadow-lg border border-purple-900 space-y-4 w-full">
-              <div className="w-full">
-                <h3 className="text-xs font-black uppercase tracking-widest text-purple-200 flex items-center gap-1.5"><Share2 size={14}/> Seu Catálogo Público</h3>
-                <p className="text-xs text-purple-100 mt-1 opacity-90">Link exclusivo para enviar aos seus clientes:</p>
-                <div className="mt-2 bg-purple-900/40 p-3.5 rounded-2xl text-xs font-mono select-all break-all border border-purple-500/30 bg-black/10 w-full font-bold">{linkDoCatalogoDestaCliente}</div>
-                <div onClick={copiarLinkCatalogo} className="mt-2.5 w-full bg-white text-purple-800 font-bold p-3 rounded-xl text-xs uppercase shadow flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer">Com copiar Link do Catálogo</div>
-              </div>
-            </div>
-
-            <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
-              <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2 uppercase text-xs tracking-widest"><BookOpen size={18}/> Novo Item de Venda Fixa</h2>
-              <div className="mb-4 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-3xl p-4 bg-slate-50 relative min-h-[140px] w-full">
-                {novoProdCatalogo.urlImagem ? (
-                  <div className="relative w-full h-32 rounded-2xl overflow-hidden">
-                    <img src={novoProdCatalogo.urlImagem} alt="Preview" className="w-full h-full object-cover" />
-                    <button onClick={() => setNovoProdCatalogo(p => ({...p, urlImagem: ''}))} className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full"><X size={14}/></button>
-                  </div>
-                ) : (
-                  <label className="cursor-pointer flex flex-col items-center gap-2 text-slate-400 hover:text-purple-600 w-full h-full flex justify-center"><Camera size={22} /><span className="text-xs font-bold uppercase tracking-wide text-[10px]">{subindoImagem ? 'Subindo Foto...' : '📸 Adicionar Foto do Produto'}</span><input type="file" accept="image/*" className="hidden" onChange={handleUploadImagem} disabled={subindoImagem} /></label>
-                )}
-              </div>
-              <input placeholder="Nome do Produto" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none" value={novoProdCatalogo.nome} onChange={e => setNovoProdCatalogo({...novoProdCatalogo, nome: e.target.value})} />
-              <input type="number" placeholder="Preço Fixo de Venda (R$)" className="w-full p-4 bg-slate-50 rounded-2xl mb-4 outline-none font-bold text-purple-700" value={novoProdCatalogo.precoVenda} onChange={e => setNovoProdCatalogo({...novoProdCatalogo, precoVenda: e.target.value})} />
-              <button onClick={async () => {
-                await addDoc(collection(db, "produtos"), { nome: novoProdCatalogo.nome, precoVenda: Number(novoProdCatalogo.precoVenda), urlImagem: novoProdCatalogo.urlImagem || '', userId: user.uid });
-                setNovoProdCatalogo({ id: '', nome: '', precoVenda: '', urlImagem: '' }); alert("Produto salvo no catálogo!");
-              }} className="w-full bg-purple-700 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md" disabled={subindoImagem}>Salvar no Catálogo 📖</button>
-            </div>
-
-            {/* ADICIONADO: BALCÃO DE MONTAGEM MULTI-PRODUTOS INTERNO DO SEU CATÁLOGO DE VENDAS */}
-            <div className="bg-white p-6 rounded-[35px] border shadow-xl w-full space-y-4">
-              <h3 className="text-xs font-black uppercase text-purple-700 tracking-wider flex items-center gap-2"><ShoppingCart size={18}/> Registrar Venda Combinada do Catálogo</h3>
-              <div className="w-full">
-                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Cliente</label>
-                <select className="w-full p-4 bg-slate-50 rounded-2xl mt-1 outline-none border text-sm font-semibold" value={clienteSelecionadoCatalogo} onChange={e => setClienteSelecionadoCatalogo(e.target.value)}>
-                  <option value="">👤 Escolha o cliente...</option>
-                  {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-                </select>
-              </div>
-              <div className="space-y-3 w-full max-h-[300px] overflow-y-auto">
-                {produtos.map(p => {
-                  const qtdInt = carrinhoInternoCatalogo[p.id] || 0;
-                  return (
-                    <div key={p.id} className="bg-slate-50 p-4 rounded-[30px] flex gap-4 items-center border w-full">
-                      <div className="w-14 h-14 rounded-xl bg-slate-200 overflow-hidden flex items-center justify-center shrink-0">{p.urlImagem ? <img src={p.urlImagem} className="w-full h-full object-cover" /> : <ImageIcon size={20} />}</div>
-                      <div className="flex-1 min-w-0"><p className="font-bold text-slate-800 text-xs truncate">{p.nome}</p><p className="text-purple-700 font-black text-sm mt-0.5">R$ {Number(p.precoVenda).toFixed(2)}</p></div>
-                      <div className="flex items-center gap-2 bg-white px-2 py-1 rounded-xl shadow-sm border">
-                        <button onClick={() => setCarrinhoInternoCatalogo({ ...carrinhoInternoCatalogo, [p.id]: Math.max(0, qtdInt - 1) })} className="w-7 h-7 font-black text-slate-500">-</button>
-                        <span className="font-bold text-xs w-5 text-center">{qtdInt}</span>
-                        <button onClick={() => setCarrinhoInternoCatalogo({ ...carrinhoInternoCatalogo, [p.id]: qtdInt + 1 })} className="w-7 h-7 font-black text-purple-700">+</button>
-                      </div>
-                      <button onClick={() => { if(confirm("Apagar item?")) deleteDoc(doc(db, "produtos", p.id)); }} className="text-red-200 p-1"><Trash2 size={16}/></button>
-                    </div>
-                  );
-                })}
-              </div>
-              {totalGeralCarrinhoInterno > 0 && (
-                <div className="border-t pt-4 flex flex-col gap-3 w-full">
-                  <div className="flex justify-between items-center px-1"><span className="text-xs font-black text-slate-400 uppercase">Total do Lote:</span><div className="text-2xl font-black text-orange-500">R$ {totalGeralCarrinhoInterno.toFixed(2)}</div></div>
-                  <button onClick={async () => {
-                    const itensArray = Object.keys(carrinhoInternoCatalogo).filter(id => carrinhoInternoCatalogo[id] > 0).map(id => {
-                      const item = produtos.find(p => p.id === id); return `${carrinhoInternoCatalogo[id]}x ${item?.nome}`;
-                    });
-                    await addDoc(collection(db, "pedidos"), { nomeProd: `Combo Catálogo: ${itensArray.join(' + ')}`, preco: totalGeralCarrinhoInterno.toFixed(2), clienteId: clienteSelecionadoCatalogo, data: new Date().toLocaleDateString('pt-BR'), status: 'Pendente', userId: user.uid });
-                    setCarrinhoInternoCatalogo({}); setClienteSelecionadoCatalogo(''); setActiveTab('pedidos'); alert("Pedido salvo!");
-                  }} className="w-full bg-orange-500 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md">Finalizar Pedido do Catálogo 🛍️</button>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* HISTÓRICO */}
+        {/* HISTÓRICO DE PEDIDOS */}
         {activeTab === 'pedidos' && (
           <div className="space-y-3 pt-2 w-full">
-            <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2"><History size={20}/> Histórico</h2>
+            <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2"><History size={20}/> Histórico Orçamentos</h2>
             {pedidos.map(p => {
-               const cli = clientes.find(c => c.id === p.clienteId);
+               const cli = clientes.find(c => c.id === p.clienteId || p.clienteSel);
                const ehPendente = p.status !== 'Vendido 💰';
                return (
                  <div key={p.id} className="bg-white p-5 rounded-[30px] shadow-sm flex flex-col gap-3 border w-full">
                    <div className="flex justify-between items-center w-full">
                      <div>
                         <p className="font-black text-[10px] uppercase text-purple-700 mb-1">{cli?.nome || 'Sem Cliente'} {p.data ? `— ${p.data}` : ''} — <span className={ehPendente ? "text-orange-400" : "text-emerald-500"}>{p.status || 'Pendente'}</span></p>
-                        <p className="font-bold text-slate-700 text-sm">{p.nomeProd} <span className="text-xs text-slate-400 font-normal">({p.qtdPed || 1} un)</span></p>
+                        <p className="font-bold text-slate-700 text-sm">{p.nomeProd} <span className="text-xs text-slate-400 font-normal">{p.qtdPed ? `(${p.qtdPed} un)` : ''}</span></p>
                      </div>
                      <div className="text-orange-500 font-black text-xl">R$ {p.preco}</div>
                    </div>
                    <div className="flex items-center justify-end border-t pt-2 gap-1 w-full">
                       {ehPendente && (
-                        <>
-                          <button onClick={() => confirmarVendaPedido(p)} className="text-emerald-600 p-2 bg-emerald-50 rounded-xl text-xs font-bold flex items-center gap-1 mr-auto active:scale-95"><CheckCircle size={16}/> Confirmar Venda</button>
-                          <button onClick={() => carregarPedidoParaEdicao(p)} className="text-purple-600 p-2 bg-purple-50 rounded-xl"><Edit2 size={18}/></button>
-                        </>
+                        <button onClick={() => confirmarVendaPedido(p)} className="text-emerald-600 p-2 bg-emerald-50 rounded-xl text-xs font-bold flex items-center gap-1 mr-auto active:scale-95"><CheckCircle size={14}/> Registrar Venda</button>
                       )}
-                      <button onClick={() => {
-                        if(p.nomeProd.startsWith("Combo Catálogo:")) {
-                          // Se for um combo do catálogo, gera o PDF customizado usando as informações salvas no texto
-                          alert("Gerando comprovante do catálogo visual...");
-                          const elementoFake = document.createElement('div');
-                          elementoFake.innerHTML = `<div style="padding:40px;font-family:sans-serif;"><h2>Recibo de Venda do Catálogo 🚀</h2><p><strong>Cliente:</strong> ${cli?.nome || 'Cliente do Catálogo'}</p><p><strong>Data:</strong> ${p.data}</p><p style="font-size:16px;"><strong>Produtos:</strong> ${p.nomeProd}</p><hr/><h2>Total Faturado: R$ ${p.preco}</h2></div>`;
-                          (window as any).html2pdf().from(elementoFake).set({filename:`Pedido_Catalogo_${p.data}.pdf`}).save();
-                        } else {
-                          gerarPDF(p);
-                        }
-                      }} className="text-orange-500 p-2 bg-orange-50 rounded-xl"><Printer size={18}/></button>
-                      <button onClick={() => enviarZap(p)} className="text-emerald-500 p-2 bg-emerald-50 rounded-xl"><MessageCircle size={18}/></button>
-                      <button onClick={() => confirmarExcluir('pedido', p.id)} className="text-red-200 p-2"><Trash2 size={18}/></button>
+                      <button onClick={() => carregarPedidoParaEdicao(p)} className="text-purple-600 p-2 bg-purple-50 rounded-xl"><Edit2 size={16}/></button>
+                      <button onClick={() => gerarPDF(p)} className="text-orange-500 p-2 bg-orange-50 rounded-xl"><Printer size={16}/></button>
+                      <button onClick={() => confirmarExcluir('pedido', p.id)} className="text-red-200 p-2"><Trash2 size={16}/></button>
                    </div>
                  </div>
                );
@@ -910,36 +837,41 @@ export default function App() {
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome do Insumo</label>
               <input placeholder="Ex: Caneca Cerâmica" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none" value={novoMat.nome} onChange={e => setNovoMat({...novoMat, nome: e.target.value})} />
               <div className="grid grid-cols-3 gap-3 mb-3 w-full">
-                <div className="col-span-2"><label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Preço Caixa/Rolo</label><input type="number" placeholder="R$ 0,00" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={novoMat.valor} onChange={e => setNovoMat({...novoMat, valor: e.target.value})} /></div>
-                <div><label className="text-[10px] font-bold text-slate-400 uppercase block text-center">Rende Quantos?</label><input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-center" value={novoMat.qtd} onChange={e => setNovoMat({...novoMat, qtd: e.target.value})} /></div>
+                <div className="col-span-2">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Preço Caixa/Rolo</label>
+                  <input type="number" placeholder="R$ 0,00" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={novoMat.valor} onChange={e => setNovoMat({...novoMat, valor: e.target.value})} />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase block text-center">Rendimento</label>
+                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-center" value={novoMat.qtd} onChange={e => setNovoMat({...novoMat, qtd: e.target.value})} />
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-3 mb-4 w-full">
                 <div><label className="text-[10px] font-bold text-purple-600 uppercase ml-1">Estoque Atual</label><input type="number" className="w-full p-4 bg-purple-50 rounded-2xl outline-none text-center font-bold text-purple-700" value={novoMat.qtdAtual} onChange={e => setNovoMat({...novoMat, qtdAtual: e.target.value})} /></div>
                 <div><label className="text-[10px] font-bold text-red-500 uppercase ml-1">Mínimo Alerta</label><input type="number" className="w-full p-4 bg-red-50 rounded-2xl outline-none text-center font-bold text-red-700" value={novoMat.qtdMinima} onChange={e => setNovoMat({...novoMat, qtdMinima: e.target.value})} /></div>
               </div>
               <div className="mb-6 w-full">
-                <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-xs font-bold block border border-transparent focus:border-purple-400 mt-1" value={novoMat.unidade} onChange={e => setNovoMat({...novoMat, unidade: e.target.value})}><option value="un">📦 Unidade (un)</option><option value="Folha A4">📄 Folha A4</option><option value="m">📏 Metro (m)</option><option value="cm">📐 Centímetro (cm)</option></select>
+                <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-xs font-bold block border" value={novoMat.unidade} onChange={e => setNovoMat({...novoMat, unidade: e.target.value})}>
+                  <option value="un">📦 Unidade (un)</option><option value="Folha A4">📄 Folha A4</option><option value="m">📏 Metro (m)</option><option value="cm">📐 Centímetro (cm)</option>
+                </select>
               </div>
               <button onClick={async () => {
+                if(!novoMat.nome) return alert("Digite o nome!");
                 const d = { nome: novoMat.nome, valor: Number(novoMat.valor), qtd: Number(novoMat.qtd), unidade: novoMat.unidade, qtdAtual: Number(novoMat.qtdAtual || 0), qtdMinima: Number(novoMat.qtdMinima || 0), userId: user.uid };
                 if (novoMat.id) await updateDoc(doc(db, "materiais", novoMat.id), d); else await addDoc(collection(db, "materiais"), d);
-                setNovoMat({ id: '', nome: '', valor: '', qtd: '1', unidade: 'un', qtdAtual: '0', qtdMinima: '0' }); alert("Insumo salvo!");
+                setNovoMat({ id: '', nome: '', valor: '', qtd: '1', unidade: 'un', qtdAtual: '0', qtdMinima: '0' }); alert("Material salvo!");
               }} className="w-full bg-orange-500 text-white p-5 rounded-2xl font-black uppercase text-xs">Salvar no Armário</button>
             </div>
             {materiais.map(m => (
               <div key={m.id} className="bg-white p-5 rounded-3xl flex justify-between items-center border w-full mb-2">
-                <div><p className="font-bold text-slate-800">🟢 {m.nome}</p><p className="text-xs text-slate-500">Qtd: <span className="font-bold text-purple-700">{m.qtdAtual} {m.unidade}</span></p></div>
-                <div className="flex items-center gap-1">
-                  <button onClick={async () => await updateDoc(doc(db, "materiais", m.id), { qtdAtual: Math.max(0, Number(m.qtdAtual || 0) - 1) })} className="w-8 h-8 bg-slate-100 rounded-xl font-bold">-</button>
-                  <button onClick={async () => await updateDoc(doc(db, "materiais", m.id), { qtdAtual: Number(m.qtdAtual || 0) + 1 })} className="w-8 h-8 bg-purple-100 rounded-xl font-bold text-purple-700">+</button>
-                  <button onClick={() => confirmarExcluir('material', m.id)} className="text-red-200 p-2"><Trash2 size={16}/></button>
-                </div>
+                <div><p className="font-bold text-slate-800">🟢 {m.nome}</p><p className="text-xs text-purple-700 font-bold">Estoque: {m.qtdAtual} {m.unidade}</p></div>
+                <button onClick={() => confirmarExcluir('material', m.id)} className="text-red-200 p-2"><Trash2 size={16}/></button>
               </div>
             ))}
           </div>
         )}
 
-        {/* GERENCIAR CLIENTES */}
+        {/* CADASTRAR CLIENTES */}
         {activeTab === 'clientes' && (
            <div className="space-y-4 pt-2 w-full">
             <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
@@ -951,53 +883,57 @@ export default function App() {
                 setNovoCli({ id: '', nome: '', zap: '' }); alert("Cliente Salvo!");
               }} className="w-full bg-orange-500 text-white p-5 rounded-2xl font-black uppercase text-xs">Salvar Cliente</button>
             </div>
-          </div>
-        )}
-
-        {/* SEÇÃO DA FÁBRICA DE MOLDES BASE */}
-        {activeTab === 'moldes' && (
-          <div className="space-y-4 pt-2 w-full">
-            <div className="bg-white p-6 rounded-[35px] shadow-xl border w-full">
-              <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2 uppercase text-xs tracking-widest"><Calculator size={18}/> Salvar Novo Molde Estrutural</h2>
-              <input className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border" value={nomeMolde} onChange={e => setNomeMolde(e.target.value)} placeholder="Ex: Caixa Milk, Sacola G" />
-              <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none mb-4 border block" onChange={e => {
-                const m = materiais.find(item => item.id === e.target.value);
-                if (m) setMatsNoMolde([...matsNoMolde, { id: m.id, nome: m.nome, valor: m.valor, qtd: m.qtd, unidade: m.unidade, qtdUsada: 1 }]);
-              }} value="">
-                <option value="">+ Vincular Material...</option>
-                {materiais.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
-              </select>
-              <div className="space-y-2 w-full mb-4">
-                {matsNoMolde.map((m, i) => (
-                  <div key={i} className="flex justify-between items-center bg-purple-50 p-3 rounded-xl text-xs font-bold text-purple-700 w-full">
-                    <span>{m.nome}</span>
-                    <input type="number" step="any" className="w-16 bg-white rounded-lg p-1 text-center" value={m.qtdUsada} onChange={e => { const nova = [...matsNoMolde]; nova[i].qtdUsada = e.target.value; setMatsNoMolde(nova); }} />
-                  </div>
-                ))}
-              </div>
-              <div className="grid grid-cols-2 gap-3 mb-4 w-full">
-                <input type="number" className="p-4 bg-slate-50 rounded-2xl border text-center font-bold" value={tGastoMolde} onChange={e => setTGastoMolde(e.target.value)} placeholder="Minutos" />
-                <input type="number" className="p-4 bg-slate-50 rounded-2xl border text-center font-bold" value={vHoraMolde} onChange={e => setVHoraMolde(e.target.value)} placeholder="Valor Hora" />
-              </div>
-              <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl border mb-4 font-bold text-purple-700" value={lucroMolde} onChange={e => setLucroMolde(e.target.value)} placeholder="Lucro %" />
-              <div className="bg-purple-50 p-4 rounded-2xl text-xs font-bold text-purple-700 flex justify-between items-center mb-4 w-full">
-                <span>VALOR BASE UNITÁRIO:</span><span className="text-lg font-black">R$ {valorUnitarioDoMoldeGerado.toFixed(2)}</span>
-              </div>
-              <button onClick={async () => {
-                await addDoc(collection(db, "moldes"), { nome: nomeMolde, tGasto: tGastoMolde, vHora: vHoraMolde, custos: custosMolde, lucro: lucroMolde, precoVendaUnitario: valorUnitarioDoMoldeGerado, userId: user.uid, materiaisUsados: matsNoMolde.map(m => ({ id: m.id, nome: m.nome, qtdUsada: Number(m.qtdUsada) })) });
-                limparFormMolde(); alert("Molde base estruturado!");
-              }} className="w-full bg-purple-700 text-white p-4 rounded-2xl text-xs font-black uppercase">Salvar Molde Base</button>
-            </div>
-            {moldes.map(m => (
-              <div key={m.id} className="bg-white p-4 rounded-3xl border flex justify-between items-center w-full mb-2">
-                <div><p className="font-bold text-slate-800 text-sm">{m.nome}</p><p className="text-xs text-purple-600 font-bold">R$ {Number(m.precoVendaUnitario || 0).toFixed(2)} / un</p></div>
-                <button onClick={() => confirmarExcluir('molde', m.id)} className="text-red-200 p-2"><Trash2 size={16}/></button>
+            {clientes.map(c => (
+              <div key={c.id} className="bg-white p-4 rounded-2xl flex justify-between items-center border w-full mb-2 font-bold">
+                <div><p className="text-slate-800 text-sm">{c.nome}</p><p className="text-xs text-slate-400 font-normal">{c.zap}</p></div>
+                <button onClick={() => confirmarExcluir('cliente', c.id)} className="text-red-200 p-2"><Trash2 size={16}/></button>
               </div>
             ))}
           </div>
         )}
 
-      </div>
+        {/* TELA DE CONFIGURAÇÃO DO CATÁLOGO DE VITRINE */}
+        {activeTab === 'catalogo' && (
+          <div className="space-y-4 pt-2 w-full">
+            <div className="bg-gradient-to-tr from-purple-800 to-purple-600 p-6 rounded-[35px] text-white shadow-lg border border-purple-900 space-y-4 w-full">
+              <div className="w-full">
+                <h3 className="text-xs font-black uppercase tracking-widest text-purple-200 flex items-center gap-1.5"><Share2 size={14}/> Seu Catálogo Público</h3>
+                <div className="mt-2 bg-purple-900/40 p-3.5 rounded-2xl text-xs font-mono select-all break-all border border-purple-500/30 bg-black/10 w-full font-bold">{linkDoCatalogoDestaCliente}</div>
+                <div onClick={copiarLinkCatalogo} className="mt-2.5 w-full bg-white text-purple-800 font-bold p-3 rounded-xl text-xs uppercase shadow flex items-center justify-center gap-2 cursor-pointer">Copiar Link do Catálogo</div>
+              </div>
+            </div>
+            <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
+              <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2 uppercase text-xs tracking-widest"><BookOpen size={18}/> Novo Item de Venda Fixa</h2>
+              <div className="mb-4 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-3xl p-4 bg-slate-50 relative min-h-[140px] w-full">
+                {novoProdCatalogo.urlImagem ? (
+                  <div className="relative w-full h-32 rounded-2xl overflow-hidden">
+                    <img src={novoProdCatalogo.urlImagem} alt="Preview" className="w-full h-full object-cover" />
+                    <button onClick={() => setNovoProdCatalogo(p => ({...p, urlImagem: ''}))} className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full"><X size={14}/></button>
+                  </div>
+                ) : (
+                  <label className="cursor-pointer flex flex-col items-center gap-2 text-slate-400 hover:text-purple-600 w-full h-full flex justify-center"><Camera size={22} /><span className="text-xs font-bold uppercase tracking-wide text-[10px]">{subindoImagem ? 'Subindo Foto...' : '📸 Foto do Produto'}</span><input type="file" accept="image/*" className="hidden" onChange={handleUploadImagem} disabled={subindoImagem} /></label>
+                )}
+              </div>
+              <input placeholder="Nome do Produto" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none" value={novoProdCatalogo.nome} onChange={e => setNovoProdCatalogo({...novoProdCatalogo, nome: e.target.value})} />
+              <input type="number" placeholder="Preço Fixo de Venda (R$)" className="w-full p-4 bg-slate-50 rounded-2xl mb-4 outline-none font-bold text-purple-700" value={novoProdCatalogo.precoVenda} onChange={e => setNovoProdCatalogo({...novoProdCatalogo, precoVenda: e.target.value})} />
+              <button onClick={async () => {
+                await addDoc(collection(db, "produtos"), { nome: novoProdCatalogo.nome, precoVenda: Number(novoProdCatalogo.precoVenda), urlImagem: novoProdCatalogo.urlImagem || '', userId: user.uid });
+                setNovoProdCatalogo({ id: '', nome: '', precoVenda: '', urlImagem: '' }); alert("Produto salvo!");
+              }} className="w-full bg-purple-700 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md" disabled={subindoImagem}>Salvar no Catálogo 📖</button>
+            </div>
+            <div className="grid grid-cols-1 gap-3 w-full">
+              {produtos.map(p => (
+                <div key={p.id} className="bg-white p-4 rounded-[30px] flex gap-4 items-center border border-slate-100 shadow-sm w-full">
+                  <div className="w-16 h-16 rounded-2xl bg-slate-100 overflow-hidden flex items-center justify-center shrink-0">{p.urlImagem ? <img src={p.urlImagem} alt={p.nome} className="w-full h-full object-cover" /> : <ImageIcon size={24} />}</div>
+                  <div className="flex-1 min-w-0"><p className="font-bold text-slate-800 text-sm truncate">{p.nome}</p><p className="text-purple-700 font-black text-sm mt-0.5">R$ {Number(p.precoVenda).toFixed(2)}</p></div>
+                  <button onClick={() => confirmarExcluir('produto', p.id)} className="text-red-200 p-2"><Trash2 size={16}/></button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+      </main>
 
       {/* MENU INFERIOR COMPACTO DE 3 BOTÕES (INÍCIO, ORÇAR, HISTÓRICO) */}
       <div className="fixed bottom-0 left-0 right-0 flex justify-center p-4 z-30 bg-transparent pointer-events-none">
