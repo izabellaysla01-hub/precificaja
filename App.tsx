@@ -36,7 +36,7 @@ const Login = ({ isRegistering, setIsRegistering, email, setEmail, password, set
         <p className="text-slate-400 text-xs mb-8 uppercase font-bold tracking-widest">Sua empresa lucrando mais</p>
         <input type="email" placeholder="Seu e-mail" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none focus:ring-2 focus:ring-purple-600" value={email} onChange={e => setEmail(e.target.value)} />
         <input type="password" placeholder="Senha" className="w-full p-4 bg-slate-50 rounded-2xl mb-2 outline-none focus:ring-2 focus:ring-purple-600" value={password} onChange={e => setPassword(e.target.value)} />
-        <button onClick={recuperarSenha} className="text-[10px] text-purple-400 font-bold uppercase mb-6 hover:text-purple-600 block w-full text-right pr-2">Esqueci minha senha</button>
+        <button onClick={recurarSenha} className="text-[10px] text-purple-400 font-bold uppercase mb-6 hover:text-purple-600 block w-full text-right pr-2">Esqueci minha senha</button>
         <button onClick={handleAuth} className="w-full bg-orange-500 text-white font-bold py-4 rounded-2xl shadow-lg hover:bg-orange-600 transition-all uppercase">{isRegistering ? 'Criar Conta Grátis' : 'Entrar no App'}</button>
         <button onClick={() => setIsRegistering(!isRegistering)} className="mt-4 text-sm text-purple-600 underline block w-full font-medium">{isRegistering ? 'Já tenho login' : 'Cadastrar novo usuário'}</button>
       </div>
@@ -305,7 +305,7 @@ export default function App() {
         desconto: "0",
         userId: user.uid,
         precoManual: totalGeral.toFixed(2),
-        obsPedido: "", // Garantido sem observação roxa automática
+        obsPedido: "",
         data: new Date().toLocaleDateString('pt-BR'),
         status: 'Pendente',
         itensCombo: arrayItensSalvar 
@@ -343,14 +343,15 @@ export default function App() {
     const custoTotalPeca = totalMaterials + totalMaoObra + totalExtras;
     const custoTotalLote = custoTotalPeca * Number(qtdPed || 1);
     const valorLucroLivre = custoTotalLote * (Number(lucro || 0) / 100);
+    // Corrigido o erro de sintaxe 'discount' que dava a tela branca
     const precoFinalCalculado = (custoTotalLote + valorLucroLivre) - Number(desconto || 0);
 
     return { materiais: totalMaterials.toFixed(2), maoObra: totalMaoObra.toFixed(2), extras: totalExtras.toFixed(2), custoPeca: custoTotalPeca.toFixed(2), lucroLivre: valorLucroLivre.toFixed(2), final: isNaN(precoFinalCalculado) ? "0.00" : precoFinalCalculado.toFixed(2) };
-  }, [matsNoPed, vHora, tGasto, custos, lucro, qtdPed, discount || desconto, precoManual]);
+  }, [matsNoPed, vHora, tGasto, custos, lucro, qtdPed, desconto, precoManual]);
 
   const enviarZap = (p: any) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
-    const dataP = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combiner';
+    const dataP = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combinar';
     const msg = `*RESUMO ORÇAMENTO*%0A---%0A*Cliente:* ${cli?.nome || 'Cliente'}%0A*Produto:* %0A${p.nomeProd}%0A*Qtd:* ${p.qtdPed || 1} un%0A*Prazo:* ${dataP}%0A*VALOR TOTAL:* R$ ${p.preco}%0A---%0AObrigado!`;
     const fone = cli?.zap ? cli.zap.replace(/\D/g, '') : '';
     window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
@@ -380,7 +381,7 @@ export default function App() {
       htmlLinhasTabela = arrayLinhasTexto.map(linhaTexto => {
         if(!linhaTexto.trim()) return '';
         let quantidadeItem = Number(p.qtdPed || 1);
-        let nomeItemLimpo = inlineText || linhaTexto.trim();
+        let nomeItemLimpo = linhaTexto.trim();
         
         const matchCombo = linhaTexto.trim().match(/^(\d+)x\s+(.+)$/i);
         if(matchCombo) {
@@ -546,7 +547,7 @@ export default function App() {
 
   const carregarPedidoParaEdicao = (p: any) => {
     setPedidoEditandoId(p.id); setNomeProd(p.nomeProd || ''); setQtdPed(p.qtdPed || '1'); setVHora(p.vHora || '9'); setTGasto(p.tGasto || '60');
-    setCustos(p.custos || { embalagem: '0', impressao: '0', energia: '0', outros: '0' });
+    setCustos(p.custos || { embalagem: '0', impressao: '0', energia: '0', '../outros': '0' });
     setLucro(p.lucro || '100'); setDesconto(p.desconto || '0'); setPrazo(p.prazo || ''); setClienteSel(p.clienteId || '');
     setPrecoManual(p.precoManual || null); setObsPedido(p.obsPedido || '');
 
@@ -899,7 +900,7 @@ export default function App() {
                     if(!zapDonaConta.trim()) return alert("Digite o número!");
                     try { await setDoc(doc(db, "configuracoes_loja", user.uid), { whatsapp: zapDonaConta.trim() }, { merge: true }); alert("WhatsApp salvo!"); } 
                     catch { alert("Erro ao salvar."); }
-                  }} className="bg-orange-500 text-white text-xs font-black uppercase px-4 rounded-xl shadow">Salvar</button>
+                  }} className="bg-orange-50 text-white text-xs font-black uppercase px-4 rounded-xl shadow">Salvar</button>
                 </div>
               </div>
             </div>
@@ -930,18 +931,19 @@ export default function App() {
                 </select>
               </div>
 
-              {/* Ajuste do Prazo: Removido estilizações conflitantes do input de data do Balcão */}
+              {/* Ajuste Fixo de Borda do Prazo: Removido comportamentos nativos que esticavam a caixa no celular */}
               <div className="w-full pb-1">
                 <label className="text-[10px] font-bold text-orange-400 uppercase ml-1 block mb-1">Prazo de Entrega do Combo</label>
                 <input 
                   type="date" 
-                  className="w-full p-3.5 bg-slate-800/80 rounded-xl text-xs font-bold text-white border border-slate-700 outline-none focus:border-purple-400 block"
+                  className="w-full p-3.5 bg-slate-800/80 rounded-xl text-xs font-bold text-white border border-slate-700 outline-none focus:border-purple-400 block box-border"
+                  style={{ width: '100%', maxWidth: '100%' }}
                   value={prazoBalcao} 
                   onChange={e => setPrazoBalcao(e.target.value)} 
                 />
               </div>
 
-              {/* Ajuste de Espaçamento dos Produtos: Alinhado em colunas estruturadas para o valor respirar */}
+              {/* Ajuste de Espaçamento dos Produtos: Colunas estruturadas para o valor respirar na linha */}
               <div className="bg-slate-800/40 border border-slate-800 p-3 rounded-2xl space-y-3 max-h-72 overflow-y-auto">
                 {produtos.map(p => {
                   const qtdInterna = carrinhoInterno[p.id] || 0;
