@@ -91,7 +91,6 @@ export default function App() {
   const [carrinhoInterno, setCarrinhoInterno] = useState<{ [key: string]: number }>({});
   const [clienteBalcao, setClienteBalcao] = useState('');
   const [nomeKitBalcao, setNomeKitBalcao] = useState('');
-  // Ajuste: Novo estado para armazenar o prazo comercial inserido no Balcão
   const [prazoBalcao, setPrazoBalcao] = useState('');
 
   const setActiveTab = (tab: any) => {
@@ -141,7 +140,7 @@ export default function App() {
   useEffect(() => {
     if (user && !idLojaPublica) {
       const qMateriais = query(collection(db, "materiais"), where("userId", "==", user.uid));
-      const unsubMaterials = onSnapshot(qMateriais, s => setMaterials(s.docs.map(d => ({ id: d.id, ...d.data() }))));
+      const unsubMateriais = onSnapshot(qMateriais, s => setMaterials(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
       const qPedidos = query(collection(db, "pedidos"), where("userId", "==", user.uid));
       const unsubPedidos = onSnapshot(qPedidos, s => setPedidos(s.docs.map(d => ({ id: d.id, ...d.data() }))));
@@ -153,7 +152,7 @@ export default function App() {
       const unsubProdutos = onSnapshot(qProdutos, s => setProdutos(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
       return () => {
-        unsubMaterials();
+        unsubMateriais();
         unsubPedidos();
         unsubClientes();
         unsubProdutos();
@@ -290,7 +289,6 @@ export default function App() {
     });
 
     const nomeFinalDoRegistro = nomeKitBalcao.trim() ? nomeKitBalcao.trim() : stringNomeCombo;
-    // Ajuste: Se a usuária não definiu um prazo na tela de balcão, assume o dia atual como padrão
     const prazoFinalVenda = prazoBalcao ? prazoBalcao : new Date().toISOString().split('T')[0];
 
     try {
@@ -298,7 +296,7 @@ export default function App() {
         nomeProd: nomeFinalDoRegistro,
         preco: totalGeral.toFixed(2),
         clienteId: clienteBalcao,
-        prazo: prazoFinalVenda, // Prazo customizado salvo corretamente no Firebase
+        prazo: prazoFinalVenda,
         qtdPed: "1",
         vHora: "0",
         tGasto: "0",
@@ -307,7 +305,7 @@ export default function App() {
         desconto: "0",
         userId: user.uid,
         precoManual: totalGeral.toFixed(2),
-        obsPedido: "", // Ajuste: Limpa a observação roxa automática conforme solicitado
+        obsPedido: "",
         data: new Date().toLocaleDateString('pt-BR'),
         status: 'Pendente',
         itensCombo: arrayItensSalvar 
@@ -316,7 +314,7 @@ export default function App() {
       setCarrinhoInterno({});
       setClienteBalcao('');
       setNomeKitBalcao('');
-      setPrazoBalcao(''); // Limpa o estado
+      setPrazoBalcao('');
       alert("Combo lançado com sucesso no Histórico! 🚀");
       setActiveTab('pedidos');
     } catch {
@@ -352,7 +350,7 @@ export default function App() {
 
   const enviarZap = (p: any) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
-    const dataP = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combinar';
+    const dataP = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combiner';
     const msg = `*RESUMO ORÇAMENTO*%0A---%0A*Cliente:* ${cli?.nome || 'Cliente'}%0A*Produto:* %0A${p.nomeProd}%0A*Qtd:* ${p.qtdPed || 1} un%0A*Prazo:* ${dataP}%0A*VALOR TOTAL:* R$ ${p.preco}%0A---%0AObrigado!`;
     const fone = cli?.zap ? cli.zap.replace(/\D/g, '') : '';
     window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
@@ -363,7 +361,6 @@ export default function App() {
     const dataEmissao = p.data || new Date().toLocaleDateString('pt-BR');
     const hoje = new Date(); hoje.setDate(hoje.getDate() + 7);
     const dataValidade = hoje.toLocaleDateString('pt-BR');
-    // Mapeia e corrige a data do prazo vinda do banco ou do balcão
     const dataPrazo = p.prazo ? new Date(p.prazo + 'T00:00:00').toLocaleDateString('pt-BR') : 'A combinar';
     const totalNum = Number(p.preco || 0);
 
@@ -933,35 +930,40 @@ export default function App() {
                 </select>
               </div>
 
-              {/* Ajuste: Novo seletor de prazo adicionado diretamente no Balcão de Vendas */}
-              <div className="w-full">
-                <label className="text-[10px] font-bold text-orange-400 uppercase ml-1 block mb-1">Prazo de Entrega do Combo</label>
+              {/* Ajuste Fixo e Estável: Estrutura isolada com margem inferior para o prazo nunca sumir */}
+              <div className="w-full pb-2">
+                <label className="text-[10px] font-bold text-orange-400 uppercase ml-1 block mb-1.5">Prazo de Entrega do Combo</label>
                 <input 
                   type="date" 
-                  className="w-full p-3.5 bg-slate-800/80 rounded-xl text-xs font-bold text-white border border-slate-700 outline-none focus:border-purple-400 block"
+                  className="w-full p-3.5 bg-slate-800/80 rounded-xl text-xs font-bold text-white border border-slate-700 outline-none focus:border-purple-400 block h-12"
                   value={prazoBalcao} 
                   onChange={e => setPrazoBalcao(e.target.value)} 
                 />
               </div>
 
-              <div className="bg-slate-800/40 border border-slate-800 p-3 rounded-2xl space-y-2 max-h-64 overflow-y-auto">
+              {/* Ajuste de Espaçamento dos Produtos: Estrutura em Grid/Flex para o valor e o nome respirarem sem amassar */}
+              <div className="bg-slate-800/40 border border-slate-800 p-3 rounded-2xl space-y-3 max-h-72 overflow-y-auto">
                 {produtos.map(p => {
                   const qtdInterna = carrinhoInterno[p.id] || 0;
                   return (
-                    <div key={p.id} className="flex justify-between items-center bg-slate-900/60 p-2.5 rounded-xl border border-slate-800/80">
-                      <span className="text-xs font-bold truncate max-w-[180px] text-slate-200">{p.nome}</span>
-                      <div className="flex items-center gap-2.5">
-                        <span className="text-[11px] font-black text-purple-300 mr-1">R$ {Number(p.precoVenda).toFixed(2)}</span>
-                        <button onClick={() => setCarrinhoInterno({...carrinhoInterno, [p.id]: Math.max(0, qtdInterna - 1)})} className="w-7 h-7 bg-slate-800 rounded-lg font-black text-slate-300">-</button>
-                        <span className="font-bold text-xs w-4 text-center">{qtdInterna}</span>
-                        <button onClick={() => setCarrinhoInterno({...carrinhoInterno, [p.id]: qtdInterna + 1})} className="w-7 h-7 bg-purple-600 rounded-lg font-black text-white">+</button>
+                    <div key={p.id} className="flex justify-between items-center bg-slate-900/60 p-3.5 rounded-xl border border-slate-800/80 gap-3">
+                      <div className="flex-1 min-w-0 pr-1">
+                        <p className="text-xs font-bold truncate text-slate-200">{p.nome}</p>
+                      </div>
+                      <div className="text-right shrink-0 px-2">
+                        <p className="text-[11px] font-black text-purple-300">R$ {Number(p.precoVenda).toFixed(2)}</p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button onClick={() => setCarrinhoInterno({...carrinhoInterno, [p.id]: Math.max(0, qtdInterna - 1)})} className="w-7 h-7 bg-slate-800 rounded-lg font-black text-slate-300 transition-transform active:scale-90">-</button>
+                        <span className="font-bold text-xs w-4 text-center text-white">{qtdInterna}</span>
+                        <button onClick={() => setCarrinhoInterno({...carrinhoInterno, [p.id]: qtdInterna + 1})} className="w-7 h-7 bg-purple-600 rounded-lg font-black text-white transition-transform active:scale-90">+</button>
                       </div>
                     </div>
                   );
                 })}
               </div>
 
-              <button onClick={lancarVendaBalcaoInterno} className="w-full bg-orange-500 hover:bg-orange-600 text-white p-4 rounded-xl text-xs font-black uppercase tracking-wider shadow-lg transition-transform active:scale-95">
+              <button onClick={lancarVendaBalcaoInterno} className="w-full bg-orange-500 hover:bg-orange-600 text-white p-4 rounded-xl text-xs font-black uppercase tracking-wider shadow-lg transition-transform active:scale-95 mt-2">
                 Lançar Combo no Histórico 🚀
               </button>
             </div>
