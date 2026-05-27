@@ -170,6 +170,71 @@ export default function App() {
     alert("Link do seu catálogo copiado! 🔗🚀");
   };
 
+  const dispararPdfAutomaticoCliente = (nomeCliente: string, itens: any[], total: number) => {
+    const elemento = document.createElement('div');
+    const dataEmissao = new Date().toLocaleDateString('pt-BR');
+    
+    const linhasProdutosHtml = itens.map(p => `
+      <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px;">
+        <td style="padding: 15px 5px; font-weight: bold; color: #1e293b; text-align: left;">${p.nome}</td>
+        <td style="padding: 15px 5px; text-align: center; color: #475569;">${p.qtd}</td>
+        <td style="padding: 15px 5px; text-align: right; color: #475569;">R$ ${Number(p.precoVenda).toFixed(2)}</td>
+        <td style="padding: 15px 5px; text-align: right; font-weight: bold; color: #1e293b;">R$ ${(Number(p.precoVenda) * p.qtd).toFixed(2)}</td>
+      </tr>
+    `).join('');
+
+    elemento.innerHTML = `
+      <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px;">
+          <div>
+            <h1 style="color: #7c3aed; margin: 0; font-size: 32px; font-weight: 900;">Comprovante de Pedido 🚀</h1>
+            <p style="color: #94a3b8; font-size: 11px; text-transform: uppercase; margin: 4px 0 0 0; font-weight: bold;">Catálogo de Vendas Online</p>
+          </div>
+          <div style="text-align: right; background-color: #f8fafc; padding: 12px 20px; border-radius: 16px; border: 1px solid #e2e8f0;">
+            <span style="font-size: 10px; font-weight: bold; color: #a78bfa; text-transform: uppercase; display: block;">Data do Pedido</span>
+            <span style="font-size: 14px; font-weight: bold; color: #475569; display: block; margin-top: 2px;">${dataEmissao}</span>
+          </div>
+        </div>
+        
+        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Identificação do Comprador</div>
+        <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 25px; border: 1px solid #f1f5f9;">
+          <p style="margin: 0; font-size: 14px;"><strong>Cliente Final:</strong> ${nomeCliente}</p>
+        </div>
+
+        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Relação de Itens Escolhidos</div>
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+          <thead>
+            <tr style="border-bottom: 2px solid #e2e8f0; text-align: left; font-size: 11px; text-transform: uppercase; color: #94a3b8;">
+              <th style="padding: 10px 5px; text-align: left;">Produto</th>
+              <th style="padding: 10px 5px; text-align: center;">Quantidade</th>
+              <th style="padding: 10px 5px; text-align: right;">Preço Unit.</th>
+              <th style="padding: 10px 5px; text-align: right;">Subtotal</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${linhasProdutosHtml}
+          </tbody>
+        </table>
+
+        <div style="display: flex; flex-direction: column; align-items: flex-end; margin-bottom: 35px; padding-right: 5px;">
+          <div style="background-color: #7c3aed; color: white; padding: 12px 25px; border-radius: 12px; font-size: 18px; font-weight: 900; text-align: right; min-width: 180px;">
+            <span style="font-size: 10px; font-weight: bold; text-transform: uppercase; display: block; opacity: 0.8; margin-bottom: 2px;">Valor Estimado</span>
+            R$ ${total.toFixed(2)}
+          </div>
+        </div>
+
+        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Forma de Pagamento</div>
+        <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; border: 1px solid #f1f5f9; font-size: 13px; display: flex; justify-content: space-between; margin-bottom: 15px;">
+          <div><strong>Forma de pagamento:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">PIX / CARTÃO</div></div>
+          <div><strong>Condições de pagamento:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">A combinar direto no WhatsApp</div></div>
+        </div>
+      </div>
+    `;
+
+    const opcoes = { margin: 0, filename: `Pedido_${nomeCliente.replace(/\s+/g, '_')}.pdf`, html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'a4', orientation: 'portrait' } };
+    if ((window as any).html2pdf) { (window as any).html2pdf().from(elemento).set(opcoes).save(); }
+  };
+
   const finalizarPedidoPublicoWhatsapp = () => {
     if (!nomeComprador.trim()) return alert("Por favor, digite seu nome antes de enviar!");
     const itensSelecionados = produtosPublicos.filter(p => carrinho[p.id] > 0);
@@ -278,7 +343,6 @@ export default function App() {
     const custoTotalPeca = totalMaterials + totalMaoObra + totalExtras;
     const custoTotalLote = custoTotalPeca * Number(qtdPed || 1);
     const valorLucroLivre = custoTotalLote * (Number(lucro || 0) / 100);
-    // Modificado: Corrigido bug de sintaxe antigo da calculadora para evitar quebras
     const precoFinalCalculado = (custoTotalLote + valorLucroLivre) - Number(desconto || 0);
 
     return { materiais: totalMaterials.toFixed(2), maoObra: totalMaoObra.toFixed(2), extras: totalExtras.toFixed(2), custoPeca: custoTotalPeca.toFixed(2), lucroLivre: valorLucroLivre.toFixed(2), final: isNaN(precoFinalCalculado) ? "0.00" : precoFinalCalculado.toFixed(2) };
@@ -286,28 +350,20 @@ export default function App() {
 
   const enviarZap = (p: any) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
-    const dataP = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combinar';
+    const dataP = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combiner';
     const msg = `*RESUMO ORÇAMENTO*%0A---%0A*Cliente:* ${cli?.nome || 'Cliente'}%0A*Produto:* %0A${p.nomeProd}%0A*Qtd:* ${p.qtdPed || 1} un%0A*Prazo:* ${dataP}%0A*VALOR TOTAL:* R$ ${p.preco}%0A---%0AObrigado!`;
     const fone = cli?.zap ? cli.zap.replace(/\D/g, '') : '';
     window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
   };
 
-  // Modificado: Função de PDF totalmente destravada com segurança contra dados antigos ou vazios
   const gerarPDF = (p: any) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
     const dataEmissao = p.data || new Date().toLocaleDateString('pt-BR');
     const hoje = new Date(); hoje.setDate(hoje.getDate() + 7);
     const dataValidade = hoje.toLocaleDateString('pt-BR');
-    
-    let dataPrazo = 'A combinar';
-    if (p.prazo) {
-      try {
-        dataPrazo = new Date(p.prazo + 'T00:00:00').toLocaleDateString('pt-BR');
-      } catch (e) {
-        dataPrazo = p.prazo;
-      }
-    }
+    const dataPrazo = p.prazo ? new Date(p.prazo + 'T00:00:00').toLocaleDateString('pt-BR') : 'A combinar';
     const totalNum = Number(p.preco || 0);
+
     let htmlLinhasTabela = '';
 
     if (p.itensCombo && Array.isArray(p.itensCombo) && p.itensCombo.length > 0) {
@@ -320,14 +376,13 @@ export default function App() {
         </tr>
       `).join('');
     } else {
-      // Segurança: Se for um orçamento da calculadora ou antigo, trata quebras de texto normais sem dar erro de compilação
       const arrayLinhasTexto = String(p.nomeProd || '').split('\n');
       htmlLinhasTabela = arrayLinhasTexto.map(linhaTexto => {
         if(!linhaTexto.trim()) return '';
         let quantidadeItem = Number(p.qtdPed || 1);
         let nomeItemLimpo = linhaTexto.trim();
         
-        const matchCombo = linhaTexto.trim().match(/^(\d+)x\s+(.+)$/i);
+        const matchCombo = inlineText || linhaTexto.trim().match(/^(\d+)x\s+(.+)$/i);
         if(matchCombo) {
           quantidadeItem = Number(matchCombo[1]);
           nomeItemLimpo = matchCombo[2].trim();
@@ -417,13 +472,8 @@ export default function App() {
         </div>
       </div>
     `;
-    
-    // Trava de segurança: Garante o disparo limpo da janela do arquivo
-    if ((window as any).html2pdf) {
-      (window as any).html2pdf().from(elemento).set(opcoes).save();
-    } else {
-      alert("O motor do PDF está inicializando no seu celular. Aguarde 3 segundos e tente imprimir de novo! 🚀");
-    }
+    const opcoes = { margin: 0, filename: `Orcamento.pdf`, html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'a4', orientation: 'portrait' } };
+    (window as any).html2pdf().from(elemento).set(opcoes).save();
   };
 
   const handleAuth = async () => {
@@ -841,6 +891,7 @@ export default function App() {
                 </div>
               </div>
 
+              {/* Ajuste do WhatsApp: Reduzido a largura do input para o botão SALVAR caber sem quebrar ou cortar letras */}
               <div className="border-t border-purple-500/30 pt-2.5 w-full">
                 <label className="text-[9px] font-black uppercase text-purple-200 block mb-1">📱 Seu WhatsApp de Vendas (Com DDD)</label>
                 <div className="flex gap-2 w-full items-center">
@@ -880,6 +931,7 @@ export default function App() {
                 </select>
               </div>
 
+              {/* Ajuste Fixo e Definitivo do Prazo: Alinhado exatamente igual aos seletores de cima, corrigindo o vazamento da borda */}
               <div className="w-full">
                 <label className="text-[10px] font-bold text-orange-400 uppercase ml-1 block mb-1">Prazo de Entrega do Combo</label>
                 <input 
@@ -890,6 +942,7 @@ export default function App() {
                 />
               </div>
 
+              {/* Ajuste Visual dos Preços: Grid organizada para o valor e o nome respirarem sem amassar na tela */}
               <div className="bg-slate-800/40 border border-slate-800 p-3 rounded-2xl space-y-3 max-h-72 overflow-y-auto">
                 {produtos.map(p => {
                   const qtdInterna = carrinhoInterno[p.id] || 0;
