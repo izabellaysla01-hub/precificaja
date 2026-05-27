@@ -90,8 +90,9 @@ export default function App() {
 
   const [carrinhoInterno, setCarrinhoInterno] = useState<{ [key: string]: number }>({});
   const [clienteBalcao, setClienteBalcao] = useState('');
-  // Novo: Nome customizável para o Kit/Combo lançado no Balcão
   const [nomeKitBalcao, setNomeKitBalcao] = useState('');
+  // Ajuste: Novo estado para armazenar o prazo comercial inserido no Balcão
+  const [prazoBalcao, setPrazoBalcao] = useState('');
 
   const setActiveTab = (tab: any) => {
     useStateActiveTab(tab);
@@ -140,7 +141,7 @@ export default function App() {
   useEffect(() => {
     if (user && !idLojaPublica) {
       const qMateriais = query(collection(db, "materiais"), where("userId", "==", user.uid));
-      const unsubMateriais = onSnapshot(qMateriais, s => setMaterials(s.docs.map(d => ({ id: d.id, ...d.data() }))));
+      const unsubMaterials = onSnapshot(qMateriais, s => setMaterials(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
       const qPedidos = query(collection(db, "pedidos"), where("userId", "==", user.uid));
       const unsubPedidos = onSnapshot(qPedidos, s => setPedidos(s.docs.map(d => ({ id: d.id, ...d.data() }))));
@@ -152,7 +153,7 @@ export default function App() {
       const unsubProdutos = onSnapshot(qProdutos, s => setProdutos(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
       return () => {
-        unsubMateriais();
+        unsubMaterials();
         unsubPedidos();
         unsubClientes();
         unsubProdutos();
@@ -268,7 +269,6 @@ export default function App() {
     else { window.open(`https://wa.me/?text=${textoPedido}`, '_blank'); }
   };
 
-  // Modificado: Lançamento de combos estruturado salvando os itens explícitos para o PDF ler depois
   const lancarVendaBalcaoInterno = async () => {
     const itensNoCarrinho = produtos.filter(p => carrinhoInterno[p.id] > 0);
     if (itensNoCarrinho.length === 0) return alert("Selecione ao menos 1 item com + e - no balcão!");
@@ -289,15 +289,16 @@ export default function App() {
       });
     });
 
-    // Se a usuária deu nome ao Kit (ex: Kit Canecas), usa ele, senão usa a junção de nomes padrão
     const nomeFinalDoRegistro = nomeKitBalcao.trim() ? nomeKitBalcao.trim() : stringNomeCombo;
+    // Ajuste: Se a usuária não definiu um prazo na tela de balcão, assume o dia atual como padrão
+    const prazoFinalVenda = prazoBalcao ? prazoBalcao : new Date().toISOString().split('T')[0];
 
     try {
       await addDoc(collection(db, "pedidos"), {
         nomeProd: nomeFinalDoRegistro,
         preco: totalGeral.toFixed(2),
         clienteId: clienteBalcao,
-        prazo: new Date().toISOString().split('T')[0],
+        prazo: prazoFinalVenda, // Prazo customizado salvo corretamente no Firebase
         qtdPed: "1",
         vHora: "0",
         tGasto: "0",
@@ -306,16 +307,16 @@ export default function App() {
         desconto: "0",
         userId: user.uid,
         precoManual: totalGeral.toFixed(2),
-        obsPedido: "Venda lançada via balcão rápido de catálogo.",
+        obsPedido: "", // Ajuste: Limpa a observação roxa automática conforme solicitado
         data: new Date().toLocaleDateString('pt-BR'),
         status: 'Pendente',
-        // Salvando o array real estruturado para renderizar uma embaixo da outra no PDF perfeitamente
         itensCombo: arrayItensSalvar 
       });
 
       setCarrinhoInterno({});
       setClienteBalcao('');
       setNomeKitBalcao('');
+      setPrazoBalcao(''); // Limpa o estado
       alert("Combo lançado com sucesso no Histórico! 🚀");
       setActiveTab('pedidos');
     } catch {
@@ -351,24 +352,23 @@ export default function App() {
 
   const enviarZap = (p: any) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
-    const dataP = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combiner';
+    const dataP = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combinar';
     const msg = `*RESUMO ORÇAMENTO*%0A---%0A*Cliente:* ${cli?.nome || 'Cliente'}%0A*Produto:* %0A${p.nomeProd}%0A*Qtd:* ${p.qtdPed || 1} un%0A*Prazo:* ${dataP}%0A*VALOR TOTAL:* R$ ${p.preco}%0A---%0AObrigado!`;
     const fone = cli?.zap ? cli.zap.replace(/\D/g, '') : '';
     window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
   };
 
-  // Modificado: Geração de PDF robusta listando os produtos um embaixo do outro com valores unitários individuais e a seção Pix/Cartão restaurada
   const gerarPDF = (p: any) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
     const dataEmissao = p.data || new Date().toLocaleDateString('pt-BR');
     const hoje = new Date(); hoje.setDate(hoje.getDate() + 7);
     const dataValidade = hoje.toLocaleDateString('pt-BR');
-    const dataPrazo = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combinar';
+    // Mapeia e corrige a data do prazo vinda do banco ou do balcão
+    const dataPrazo = p.prazo ? new Date(p.prazo + 'T00:00:00').toLocaleDateString('pt-BR') : 'A combinar';
     const totalNum = Number(p.preco || 0);
 
     let htmlLinhasTabela = '';
 
-    // Se o pedido possui a coleção de itens salvos de forma estruturada (vendas por Balcão de Combos)
     if (p.itensCombo && Array.isArray(p.itensCombo) && p.itensCombo.length > 0) {
       htmlLinhasTabela = p.itensCombo.map((item: any) => `
         <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px;">
@@ -379,7 +379,6 @@ export default function App() {
         </tr>
       `).join('');
     } else {
-      // Caso seja um orçamento tradicional da calculadora estruturado por string
       const arrayLinhasTexto = String(p.nomeProd || '').split('\n');
       htmlLinhasTabela = arrayLinhasTexto.map(linhaTexto => {
         if(!linhaTexto.trim()) return '';
@@ -913,14 +912,13 @@ export default function App() {
                 <h2 className="text-orange-400 font-black flex items-center gap-2 uppercase text-xs tracking-wider">
                   <ShoppingCart size={16}/> Lançar Combo Rápido do Catálogo
                 </h2>
-                <p className="text-[11px] text-slate-400 mt-1">Dê um nome ao Kit, selecione o cliente e monte as quantidades.</p>
+                <p className="text-[11px] text-slate-400 mt-1">Dê um nome ao Kit, escolha o cliente, defina o prazo e as quantidades.</p>
               </div>
 
-              {/* Modificado: Adicionado input livre para dar nome ao Kit/Combo antes de lançar */}
               <div className="w-full">
                 <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Nome do Kit / Combo (Opcional)</label>
                 <input 
-                  placeholder="Ex: Kit Dia dos Pais, Combo Canecas..." 
+                  placeholder="Ex: Kit Dia dos Namorados, Kit Casal..." 
                   className="w-full p-3.5 bg-slate-800/80 rounded-xl text-xs font-bold text-white border border-slate-700 outline-none focus:border-purple-400"
                   value={nomeKitBalcao}
                   onChange={e => setNomeKitBalcao(e.target.value)}
@@ -933,6 +931,17 @@ export default function App() {
                   <option value="" className="text-slate-800">👤 Selecionar Cliente...</option>
                   {clientes.map(c => <option key={c.id} value={c.id} className="text-slate-800">{c.nome}</option>)}
                 </select>
+              </div>
+
+              {/* Ajuste: Novo seletor de prazo adicionado diretamente no Balcão de Vendas */}
+              <div className="w-full">
+                <label className="text-[10px] font-bold text-orange-400 uppercase ml-1 block mb-1">Prazo de Entrega do Combo</label>
+                <input 
+                  type="date" 
+                  className="w-full p-3.5 bg-slate-800/80 rounded-xl text-xs font-bold text-white border border-slate-700 outline-none focus:border-purple-400 block"
+                  value={prazoBalcao} 
+                  onChange={e => setPrazoBalcao(e.target.value)} 
+                />
               </div>
 
               <div className="bg-slate-800/40 border border-slate-800 p-3 rounded-2xl space-y-2 max-h-64 overflow-y-auto">
