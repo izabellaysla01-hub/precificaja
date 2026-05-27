@@ -36,7 +36,7 @@ const Login = ({ isRegistering, setIsRegistering, email, setEmail, password, set
         <p className="text-slate-400 text-xs mb-8 uppercase font-bold tracking-widest">Sua empresa lucrando mais</p>
         <input type="email" placeholder="Seu e-mail" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none focus:ring-2 focus:ring-purple-600" value={email} onChange={e => setEmail(e.target.value)} />
         <input type="password" placeholder="Senha" className="w-full p-4 bg-slate-50 rounded-2xl mb-2 outline-none focus:ring-2 focus:ring-purple-600" value={password} onChange={e => setPassword(e.target.value)} />
-        <button onClick={recurarSenha} className="text-[10px] text-purple-400 font-bold uppercase mb-6 hover:text-purple-600 block w-full text-right pr-2">Esqueci minha senha</button>
+        <button onClick={recuperarSenha} className="text-[10px] text-purple-400 font-bold uppercase mb-6 hover:text-purple-600 block w-full text-right pr-2">Esqueci minha senha</button>
         <button onClick={handleAuth} className="w-full bg-orange-500 text-white font-bold py-4 rounded-2xl shadow-lg hover:bg-orange-600 transition-all uppercase">{isRegistering ? 'Criar Conta Grátis' : 'Entrar no App'}</button>
         <button onClick={() => setIsRegistering(!isRegistering)} className="mt-4 text-sm text-purple-600 underline block w-full font-medium">{isRegistering ? 'Já tenho login' : 'Cadastrar novo usuário'}</button>
       </div>
@@ -588,13 +588,6 @@ export default function App() {
           </span>
         </div>
 
-        {pedidoEditandoId && (
-          <div className="bg-amber-50 border border-amber-200 p-4 rounded-3xl mb-6 flex justify-between items-center w-full">
-            <span className="text-xs text-amber-800 font-bold">✏️ Editando orçamento salvo!</span>
-            <button onClick={() => { limparCalculadora(); setActiveTab('pedidos'); }} className="text-[10px] bg-red-500 text-white px-3 py-1.5 rounded-xl font-black uppercase">Cancelar ❌</button>
-          </div>
-        )}
-
         <div className="grid grid-cols-3 gap-3 mb-4 w-full">
            <div className="col-span-2 text-left">
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Produto</label>
@@ -756,7 +749,7 @@ export default function App() {
 
       <main className="p-4 max-w-xl mx-auto w-full">
         
-        {/* RECONSTRUÇÃO COMPLETA: TELA DE INÍCIO COM OS 5 ATALHOS RAPIDOS */}
+        {/* TELA DE INÍCIO COM OS ATALHOS RAPIDOS */}
         {activeTab === 'inicio' && (
           <div className="space-y-5 pt-2 w-full">
             <div className="bg-gradient-to-tr from-purple-700 to-indigo-600 p-6 rounded-[35px] shadow-lg text-white w-full text-left">
@@ -773,7 +766,6 @@ export default function App() {
               <div className="w-11 h-11 rounded-xl bg-white/20 flex items-center justify-center"><Plus size={22}/></div>
             </div>
 
-            {/* PRIMEIRA LINHA DE ATALHOS */}
             <div className="grid grid-cols-2 gap-4 w-full">
               <div onClick={() => setActiveTab('moldes')} className="bg-white p-5 rounded-[30px] border shadow-sm cursor-pointer w-full text-left">
                 <div className="w-10 h-10 rounded-2xl bg-purple-50 flex items-center justify-center text-purple-600 mb-3"><FolderOpen size={20}/></div>
@@ -787,7 +779,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* SEGUNDA LINHA DE ATALHOS COMPLEMENTARES RESTAURADA */}
             <div className="grid grid-cols-3 gap-3 w-full">
               <div onClick={() => setActiveTab('materiais')} className={`p-4 bg-white rounded-3xl border shadow-sm cursor-pointer text-left ${dashboardMetrics.criticos > 0 ? 'border-red-200 bg-red-50/20' : ''}`}>
                 <div className="w-8 h-8 rounded-xl bg-red-50 flex items-center justify-center text-red-500 mb-2"><Package size={16}/></div>
@@ -829,7 +820,7 @@ export default function App() {
                     if (m) setMatsNoPed([...matsNoPed, { id: m.id, nome: m.nome, valor: m.valor, qtd: m.qtd, unidade: m.unidade, qtdUsada: 1 }]);
                  }} value="">
                     <option value="">+ Vincular Material...</option>
-                    {materials.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
+                    {materiais.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
                  </select>
                  <div className="space-y-1.5 w-full">
                     {matsNoPed.map((m, i) => (
@@ -874,7 +865,6 @@ export default function App() {
                 <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-black text-purple-700" value={lucro} onChange={e => setLucro(e.target.value)} />
               </div>
 
-              {/* REVISÃO SUCESSO: INCLUSÃO ASSEGURADA DO USERID NO BANCO DE MOLDES */}
               <button onClick={async () => {
                 if(!nomeProd) return alert("Dê um nome para o molde!");
                 try {
