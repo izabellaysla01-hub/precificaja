@@ -90,6 +90,8 @@ export default function App() {
 
   const [carrinhoInterno, setCarrinhoInterno] = useState<{ [key: string]: number }>({});
   const [clienteBalcao, setClienteBalcao] = useState('');
+  // Novo: Nome customizável para o Kit/Combo lançado no Balcão
+  const [nomeKitBalcao, setNomeKitBalcao] = useState('');
 
   const setActiveTab = (tab: any) => {
     useStateActiveTab(tab);
@@ -220,6 +222,12 @@ export default function App() {
             R$ ${total.toFixed(2)}
           </div>
         </div>
+
+        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Forma de Pagamento</div>
+        <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; border: 1px solid #f1f5f9; font-size: 13px; display: flex; justify-content: space-between; margin-bottom: 15px;">
+          <div><strong>Forma de pagamento:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">PIX / CARTÃO</div></div>
+          <div><strong>Condições de pagamento:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">A combinar direto no WhatsApp</div></div>
+        </div>
       </div>
     `;
 
@@ -260,22 +268,33 @@ export default function App() {
     else { window.open(`https://wa.me/?text=${textoPedido}`, '_blank'); }
   };
 
+  // Modificado: Lançamento de combos estruturado salvando os itens explícitos para o PDF ler depois
   const lancarVendaBalcaoInterno = async () => {
     const itensNoCarrinho = produtos.filter(p => carrinhoInterno[p.id] > 0);
     if (itensNoCarrinho.length === 0) return alert("Selecione ao menos 1 item com + e - no balcão!");
     
     let stringNomeCombo = "";
     let totalGeral = 0;
+    const arrayItensSalvar: any[] = [];
     
     itensNoCarrinho.forEach((p, idx) => {
       const qtd = carrinhoInterno[p.id];
       totalGeral += Number(p.precoVenda) * qtd;
       stringNomeCombo += `${qtd}x ${p.nome}${idx < itensNoCarrinho.length - 1 ? '\n' : ''}`;
+      
+      arrayItensSalvar.push({
+        nome: p.nome,
+        qtd: qtd,
+        precoVenda: Number(p.precoVenda)
+      });
     });
+
+    // Se a usuária deu nome ao Kit (ex: Kit Canecas), usa ele, senão usa a junção de nomes padrão
+    const nomeFinalDoRegistro = nomeKitBalcao.trim() ? nomeKitBalcao.trim() : stringNomeCombo;
 
     try {
       await addDoc(collection(db, "pedidos"), {
-        nomeProd: stringNomeCombo,
+        nomeProd: nomeFinalDoRegistro,
         preco: totalGeral.toFixed(2),
         clienteId: clienteBalcao,
         prazo: new Date().toISOString().split('T')[0],
@@ -289,12 +308,15 @@ export default function App() {
         precoManual: totalGeral.toFixed(2),
         obsPedido: "Venda lançada via balcão rápido de catálogo.",
         data: new Date().toLocaleDateString('pt-BR'),
-        status: 'Pendente'
+        status: 'Pendente',
+        // Salvando o array real estruturado para renderizar uma embaixo da outra no PDF perfeitamente
+        itensCombo: arrayItensSalvar 
       });
 
       setCarrinhoInterno({});
       setClienteBalcao('');
-      alert("Combo de produtos lançado no Histórico! 🚀");
+      setNomeKitBalcao('');
+      alert("Combo lançado com sucesso no Histórico! 🚀");
       setActiveTab('pedidos');
     } catch {
       alert("Erro ao lançar venda no balcão.");
@@ -329,12 +351,13 @@ export default function App() {
 
   const enviarZap = (p: any) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
-    const dataP = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combinar';
+    const dataP = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combiner';
     const msg = `*RESUMO ORÇAMENTO*%0A---%0A*Cliente:* ${cli?.nome || 'Cliente'}%0A*Produto:* %0A${p.nomeProd}%0A*Qtd:* ${p.qtdPed || 1} un%0A*Prazo:* ${dataP}%0A*VALOR TOTAL:* R$ ${p.preco}%0A---%0AObrigado!`;
     const fone = cli?.zap ? cli.zap.replace(/\D/g, '') : '';
     window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
   };
 
+  // Modificado: Geração de PDF robusta listando os produtos um embaixo do outro com valores unitários individuais e a seção Pix/Cartão restaurada
   const gerarPDF = (p: any) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
     const dataEmissao = p.data || new Date().toLocaleDateString('pt-BR');
@@ -342,30 +365,44 @@ export default function App() {
     const dataValidade = hoje.toLocaleDateString('pt-BR');
     const dataPrazo = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combinar';
     const totalNum = Number(p.preco || 0);
-    const qtdNum = Number(p.qtdPed || 1);
 
-    const arrayLinhasTexto = String(p.nomeProd || '').split('\n');
-    const htmlLinhasTabela = arrayLinhasTexto.map(linhaTexto => {
-      if(!linhaTexto.trim()) return '';
-      let quantidadeItem = qtdNum;
-      let nomeItemLimpo = linhaTexto.trim();
-      
-      const matchCombo = linhaTexto.trim().match(/^(\d+)x\s+(.+)$/i);
-      if(matchCombo) {
-        quantidadeItem = Number(matchCombo[1]);
-        nomeItemLimpo = matchCombo[2].trim();
-      }
-      const unitario = (totalNum / quantidadeItem).toFixed(2);
+    let htmlLinhasTabela = '';
 
-      return `
+    // Se o pedido possui a coleção de itens salvos de forma estruturada (vendas por Balcão de Combos)
+    if (p.itensCombo && Array.isArray(p.itensCombo) && p.itensCombo.length > 0) {
+      htmlLinhasTabela = p.itensCombo.map((item: any) => `
         <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px;">
-          <td style="padding: 15px 5px; font-weight: bold; color: #1e293b; text-align: left;">${nomeItemLimpo}</td>
-          <td style="padding: 15px 5px; text-align: center; color: #475569;">${quantidadeItem}</td>
-          <td style="padding: 15px 5px; text-align: right; color: #475569;">R$ ${unitario}</td>
-          <td style="padding: 15px 5px; text-align: right; font-weight: bold; color: #1e293b;">R$ ${(quantidadeItem * Number(unitario)).toFixed(2)}</td>
+          <td style="padding: 15px 5px; font-weight: bold; color: #1e293b; text-align: left;">${item.nome}</td>
+          <td style="padding: 15px 5px; text-align: center; color: #475569;">${item.qtd}</td>
+          <td style="padding: 15px 5px; text-align: right; color: #475569;">R$ ${Number(item.precoVenda).toFixed(2)}</td>
+          <td style="padding: 15px 5px; text-align: right; font-weight: bold; color: #1e293b;">R$ ${(Number(item.qtd) * Number(item.precoVenda)).toFixed(2)}</td>
         </tr>
-      `;
-    }).join('');
+      `).join('');
+    } else {
+      // Caso seja um orçamento tradicional da calculadora estruturado por string
+      const arrayLinhasTexto = String(p.nomeProd || '').split('\n');
+      htmlLinhasTabela = arrayLinhasTexto.map(linhaTexto => {
+        if(!linhaTexto.trim()) return '';
+        let quantidadeItem = Number(p.qtdPed || 1);
+        let nomeItemLimpo = linhaTexto.trim();
+        
+        const matchCombo = linhaTexto.trim().match(/^(\d+)x\s+(.+)$/i);
+        if(matchCombo) {
+          quantidadeItem = Number(matchCombo[1]);
+          nomeItemLimpo = matchCombo[2].trim();
+        }
+        const unitario = (totalNum / quantidadeItem).toFixed(2);
+
+        return `
+          <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px;">
+            <td style="padding: 15px 5px; font-weight: bold; color: #1e293b; text-align: left;">${nomeItemLimpo}</td>
+            <td style="padding: 15px 5px; text-align: center; color: #475569;">${quantidadeItem}</td>
+            <td style="padding: 15px 5px; text-align: right; color: #475569;">R$ ${unitario}</td>
+            <td style="padding: 15px 5px; text-align: right; font-weight: bold; color: #1e293b;">R$ ${(quantidadeItem * Number(unitario)).toFixed(2)}</td>
+          </tr>
+        `;
+      }).join('');
+    }
 
     const elemento = document.createElement('div');
     elemento.innerHTML = `
@@ -380,6 +417,11 @@ export default function App() {
             <span style="font-size: 14px; font-weight: bold; color: #475569; display: block; margin-top: 2px;">ORC-${Math.floor(1000 + Math.random() * 9000)}</span>
           </div>
         </div>
+        
+        <div style="background-color: #f8fafc; padding: 12px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #e2e8f0; font-size: 14px; font-weight: bold; color: #7c3aed;">
+          Referência do Pedido: ${p.nomeProd}
+        </div>
+
         <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Dados do Cliente</div>
         <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 25px; border: 1px solid #f1f5f9;">
           <p style="margin: 0 0 6px 0; font-size: 14px;"><strong>Cliente:</strong> ${cli?.nome || 'Cliente não informado'}</p>
@@ -397,7 +439,7 @@ export default function App() {
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
           <thead>
             <tr style="border-bottom: 2px solid #e2e8f0; text-align: left; font-size: 11px; text-transform: uppercase; color: #94a3b8;">
-              <th style="padding: 10px 5px; text-align: left;">Descrição</th>
+              <th style="padding: 10px 5px; text-align: left;">Descrição do Item</th>
               <th style="padding: 10px 5px; text-align: center;">Qtd</th>
               <th style="padding: 10px 5px; text-align: right;">Preço Unit.</th>
               <th style="padding: 10px 5px; text-align: right;">Subtotal</th>
@@ -409,17 +451,17 @@ export default function App() {
         </table>
 
         <div style="display: flex; flex-direction: column; align-items: flex-end; margin-bottom: 35px; padding-right: 5px;">
-          <div style="font-size: 13px; color: #64748b; margin-bottom: 5px;">Subtotal: <strong>R$ ${totalNum.toFixed(2)}</strong></div>
+          <div style="font-size: 13px; color: #64748b; margin-bottom: 5px;">Subtotal Geral: <strong>R$ ${totalNum.toFixed(2)}</strong></div>
           <div style="background-color: #7c3aed; color: white; padding: 12px 25px; border-radius: 12px; font-size: 18px; font-weight: 900; text-align: right; min-width: 180px;">
             <span style="font-size: 10px; font-weight: bold; text-transform: uppercase; display: block; opacity: 0.8; margin-bottom: 2px;">Total do Pedido</span>
             R$ ${totalNum.toFixed(2)}
           </div>
         </div>
 
-        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Forma de Pagamento</div>
+        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Forma de Pagamento Aceitas</div>
         <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; border: 1px solid #f1f5f9; font-size: 13px; display: flex; justify-content: space-between; margin-bottom: 15px;">
-          <div><strong>Forma de pagamento:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">PIX / CARTÃO</div></div>
-          <div><strong>Condições de pagamento:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">A combinar direto no WhatsApp</div></div>
+          <div><strong>Meios disponíveis:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">PIX / CARTÃO DE CRÉDITO</div></div>
+          <div><strong>Condições comerciais:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">A combinar direto no WhatsApp da Loja</div></div>
         </div>
 
         ${p.obsPedido ? `
@@ -526,10 +568,8 @@ export default function App() {
     limparCalculadora(); setNomeProd(prod.nome); setPrecoManual(prod.precoVenda); setActiveTab('criar');
   };
 
-  // Trava de carregamento inicial do Firebase
   if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando o PrecificaJá... 🚀</div>;
 
-  // Renderização da Vitrine para Clientes Externos
   if (idLojaPublica) {
     if (carregandoPublico) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando Vitrine... 🛍️</div>;
     const totalCarrinho = Object.keys(carrinho).reduce((acc, id) => {
@@ -588,22 +628,10 @@ export default function App() {
     );
   }
 
-  // Se o administrador não estiver logado no app comercial, renderiza a tela de Login
   if (!user) {
-    return (
-      <Login 
-        isRegistering={isRegistering} 
-        setIsRegistering={setIsRegistering} 
-        email={email} 
-        setEmail={setEmail} 
-        password={password} 
-        setPassword={setPassword} 
-        handleAuth={handleAuth} 
-      />
-    );
+    return ( <Login isRegistering={isRegistering} setIsRegistering={setIsRegistering} email={email} setEmail={setEmail} password={password} setPassword={setPassword} handleAuth={handleAuth} /> );
   }
 
-  // FORMULÁRIO COMPLETO DA CALCULADORA INTEGRADA
   const renderCalculadoraForm = () => (
     <div className="bg-white p-6 rounded-[35px] shadow-xl border mt-2 w-full">
       {pedidoEditandoId && (
@@ -668,10 +696,7 @@ export default function App() {
         <>
           <div className="mb-4 w-full">
              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Materiais Usados</label>
-             <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none mb-2 block border border-transparent focus:border-purple-400" onChange={e => {
-                const m = materiais.find(item => item.id === e.target.value);
-                if (m) setMatsNoPed([...matsNoPed, { id: m.id, nome: m.nome, valor: m.valor, qtd: m.qtd, unidade: m.unidade, qtdUsada: 1 }]);
-             }} value="">
+             <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none mb-2 block border border-transparent focus:border-purple-400" onChange={e => { const m = materiais.find(item => item.id === e.target.value); if (m) setMatsNoPed([...matsNoPed, { id: m.id, nome: m.nome, valor: m.valor, qtd: m.qtd, unidade: m.unidade, qtdUsada: 1 }]); }} value="">
                 <option value="">+ Adicionar Material...</option>
                 {materiais.map(m => <option key={m.id} value={m.id}>{m.nome} ({m.unidade || 'un'})</option>)}
              </select>
@@ -878,7 +903,7 @@ export default function App() {
                     if(!zapDonaConta.trim()) return alert("Digite o número!");
                     try { await setDoc(doc(db, "configuracoes_loja", user.uid), { whatsapp: zapDonaConta.trim() }, { merge: true }); alert("WhatsApp salvo!"); } 
                     catch { alert("Erro ao salvar."); }
-                  }} className="bg-orange-50 text-white text-xs font-black uppercase px-4 rounded-xl shadow">Salvar</button>
+                  }} className="bg-orange-500 text-white text-xs font-black uppercase px-4 rounded-xl shadow">Salvar</button>
                 </div>
               </div>
             </div>
@@ -888,12 +913,24 @@ export default function App() {
                 <h2 className="text-orange-400 font-black flex items-center gap-2 uppercase text-xs tracking-wider">
                   <ShoppingCart size={16}/> Lançar Combo Rápido do Catálogo
                 </h2>
-                <p className="text-[11px] text-slate-400 mt-1">Selecione o cliente final e monte as quantidades usando + e - em segundos.</p>
+                <p className="text-[11px] text-slate-400 mt-1">Dê um nome ao Kit, selecione o cliente e monte as quantidades.</p>
+              </div>
+
+              {/* Modificado: Adicionado input livre para dar nome ao Kit/Combo antes de lançar */}
+              <div className="w-full">
+                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Nome do Kit / Combo (Opcional)</label>
+                <input 
+                  placeholder="Ex: Kit Dia dos Pais, Combo Canecas..." 
+                  className="w-full p-3.5 bg-slate-800/80 rounded-xl text-xs font-bold text-white border border-slate-700 outline-none focus:border-purple-400"
+                  value={nomeKitBalcao}
+                  onChange={e => setNomeKitBalcao(e.target.value)}
+                />
               </div>
               
               <div className="w-full">
+                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Cliente do Balcão</label>
                 <select className="w-full p-3.5 bg-slate-800/80 rounded-xl text-xs font-bold text-white border border-slate-700 outline-none focus:border-purple-400" value={clienteBalcao} onChange={e => setClienteBalcao(e.target.value)}>
-                  <option value="" className="text-slate-800">👤 Selecionar Cliente do Balcão...</option>
+                  <option value="" className="text-slate-800">👤 Selecionar Cliente...</option>
                   {clientes.map(c => <option key={c.id} value={c.id} className="text-slate-800">{c.nome}</option>)}
                 </select>
               </div>
@@ -903,7 +940,6 @@ export default function App() {
                   const qtdInterna = carrinhoInterno[p.id] || 0;
                   return (
                     <div key={p.id} className="flex justify-between items-center bg-slate-900/60 p-2.5 rounded-xl border border-slate-800/80">
-                      {/* Corrigido o erro de compilação da string de texto */}
                       <span className="text-xs font-bold truncate max-w-[180px] text-slate-200">{p.nome}</span>
                       <div className="flex items-center gap-2.5">
                         <span className="text-[11px] font-black text-purple-300 mr-1">R$ {Number(p.precoVenda).toFixed(2)}</span>
@@ -923,7 +959,7 @@ export default function App() {
           </div>
         )}
 
-        {/* CADASTRO E VISUALIZAÇÃO DO SEU CATÁLOGO DE PRODUTOS */}
+        {/* MEU CATÁLOGO VISUAL */}
         {activeTab === 'catalogo' && (
           <div className="space-y-4 pt-2 w-full">
             <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
