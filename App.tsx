@@ -19,6 +19,31 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
 
+// --- TELA DE LOGIN ---
+const Login = ({ isRegistering, setIsRegistering, email, setEmail, password, setPassword, handleAuth }: any) => {
+  const recuperarSenha = async () => {
+    if (!email) return alert("Digite seu e-mail primeiro para eu te mandar o link!");
+    try {
+      await sendPasswordResetEmail(auth, email);
+      alert("Enviamos um link para o seu e-mail!");
+    } catch (e) { alert("E-mail não encontrado ou inválido."); }
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+      <div className="bg-white p-8 rounded-[40px] shadow-xl w-full max-w-md text-center border border-slate-100">
+        <h1 className="text-3xl font-black text-purple-700 mb-2 font-sans">PrecificaJá 🚀</h1>
+        <p className="text-slate-400 text-xs mb-8 uppercase font-bold tracking-widest">Sua empresa lucrando mais</p>
+        <input type="email" placeholder="Seu e-mail" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none focus:ring-2 focus:ring-purple-600" value={email} onChange={e => setEmail(e.target.value)} />
+        <input type="password" placeholder="Senha" className="w-full p-4 bg-slate-50 rounded-2xl mb-2 outline-none focus:ring-2 focus:ring-purple-600" value={password} onChange={e => setPassword(e.target.value)} />
+        <button onClick={recurarSenha} className="text-[10px] text-purple-400 font-bold uppercase mb-6 hover:text-purple-600 block w-full text-right pr-2">Esqueci minha senha</button>
+        <button onClick={handleAuth} className="w-full bg-orange-500 text-white font-bold py-4 rounded-2xl shadow-lg hover:bg-orange-600 transition-all uppercase">{isRegistering ? 'Criar Conta Grátis' : 'Entrar no App'}</button>
+        <button onClick={() => setIsRegistering(!isRegistering)} className="mt-4 text-sm text-purple-600 underline block w-full font-medium">{isRegistering ? 'Já tenho login' : 'Cadastrar novo usuário'}</button>
+      </div>
+    </div>
+  );
+};
+
 export default function App() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -340,16 +365,13 @@ export default function App() {
     }
   };
 
-  // 🛠️ FUNÇÃO DE BAIXA DO ESTOQUE CORRIGIDA E ASSEGURADA
   const confirmarVendaPedido = async (pedido: any) => {
     try {
       if (pedido.materiaisUsados && pedido.materiaisUsados.length > 0) {
         for (const m of pedido.materiaisUsados) {
-          // Busca o material no banco pelo ID salvo no pedido
           const matDoBanco = materiais.find(item => item.id === m.id);
           if (matDoBanco) {
             const estoqueAtual = Number(matDoBanco.qtdAtual || 0);
-            // Multiplica o gasto unitário do item pela quantidade total encomendada no pedido
             const gastoTotalLote = Number(m.qtdUsada || 0) * Number(pedido.qtdPed || 1);
             
             await updateDoc(doc(db, "materiais", m.id), { 
@@ -358,7 +380,6 @@ export default function App() {
           }
         }
       }
-      // Muda o status para vendido apenas se der baixa com sucesso
       await updateDoc(doc(db, "pedidos", pedido.id), { status: 'Vendido 💰' });
       alert("Venda confirmada! Estoque de insumos atualizado com sucesso no armário! 📦📉");
     } catch (error) {
@@ -523,11 +544,11 @@ export default function App() {
             </div>
           </div>
 
-          <div className="text-xs font-bold uppercase tracking-wider text-slate-400 pl-2 mt-4">Ou usar Moldes estruturados</div>
+          <div className="text-xs font-bold uppercase tracking-wider text-slate-400 pl-2 mt-4 text-left">Ou usar Moldes estruturados</div>
 
           <div className="grid grid-cols-1 gap-2 max-h-80 overflow-y-auto w-full">
             {moldes.length === 0 ? (
-              <p className="text-slate-400 text-xs italic pl-2">Nenhum molde salvo. Cadastre na aba "Meus Moldes" no menu lateral.</p>
+              <p className="text-slate-400 text-xs italic pl-2 text-left">Nenhum molde salvo. Cadastre na aba "Meus Moldes" no menu lateral.</p>
             ) : (
               moldes.map(m => (
                 <div key={m.id} onClick={() => {
@@ -575,17 +596,17 @@ export default function App() {
         )}
 
         <div className="grid grid-cols-3 gap-3 mb-4 w-full">
-           <div className="col-span-2">
+           <div className="col-span-2 text-left">
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Produto</label>
               <input className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={nomeProd} onChange={e => setNomeProd(e.target.value)} disabled={modoOrcamento === 'via_molde'} />
            </div>
-           <div>
+           <div className="text-left">
               <label className="text-[10px] font-bold text-slate-400 uppercase text-center block">Qtd</label>
               <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-center font-bold" value={qtdPed} onChange={e => setQtdPed(e.target.value)} />
            </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 mb-4 w-full">
+        <div className="grid grid-cols-1 gap-3 mb-4 w-full text-left">
            <div>
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Cliente</label>
               <select className="p-4 bg-slate-50 rounded-2xl outline-none w-full block font-bold" onChange={e => setClienteSel(e.target.value)} value={clienteSel}>
@@ -601,7 +622,7 @@ export default function App() {
 
         {modoOrcamento === 'livre' ? (
           <>
-            <div className="mb-4 w-full">
+            <div className="mb-4 w-full text-left">
                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Materiais Usados</label>
                <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none mb-2 block font-bold" onChange={e => {
                   const m = materiais.find(item => item.id === e.target.value);
@@ -625,7 +646,7 @@ export default function App() {
                   ))}
                </div>
             </div>
-            <div className="grid grid-cols-2 gap-4 mb-4 w-full">
+            <div className="grid grid-cols-2 gap-4 mb-4 w-full text-left">
               <div className="w-full">
                 <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Tempo Gasto (min)</label>
                 <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={tGasto} onChange={e => setTGasto(e.target.value)} />
@@ -635,7 +656,7 @@ export default function App() {
                 <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={vHora} onChange={e => setVHora(e.target.value)} />
               </div>
             </div>
-            <div className="mb-4 w-full">
+            <div className="mb-4 w-full text-left">
               <label className="text-[10px] font-bold text-purple-600 uppercase ml-1 block mb-1">📦 Custos Extras por Unidade (R$)</label>
               <div className="grid grid-cols-4 gap-2 w-full">
                 {[{id:'embalagem',label:'EMBAL.'},{id:'impressao',label:'TINTA'},{id:'energia',label:'LUZ'},{id:'outros',label:'OUTROS'}].map(c=>(
@@ -646,7 +667,7 @@ export default function App() {
                 ))}
               </div>
             </div>
-            <div className="mb-4 w-full">
+            <div className="mb-4 w-full text-left">
               <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Margem Lucro %</label>
               <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={lucro} onChange={e => setLucro(e.target.value)} />
             </div>
@@ -660,12 +681,12 @@ export default function App() {
           </div>
         )}
 
-        <div className="mb-4 w-full">
+        <div className="mb-4 w-full text-left">
            <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Desconto Total do Lote (R$)</label>
            <input className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-black text-orange-500" type="number" value={desconto} onChange={e => setDesconto(e.target.value)} />
         </div>
 
-        <div className="mb-6 w-full">
+        <div className="mb-6 w-full text-left">
            <label className="text-[10px] font-bold text-purple-600 uppercase ml-1">📝 Observações e Condições</label>
            <textarea placeholder="Ex: Entrada de 50% via pix." className="w-full p-4 bg-slate-50 rounded-2xl mt-1 outline-none text-xs font-semibold resize-none h-16" value={obsPedido} onChange={e => setObsPedido(e.target.value)} />
         </div>
@@ -735,10 +756,10 @@ export default function App() {
 
       <main className="p-4 max-w-xl mx-auto w-full">
         
-        {/* INÍCIO */}
+        {/* RECONSTRUÇÃO COMPLETA: TELA DE INÍCIO COM OS 5 ATALHOS RAPIDOS */}
         {activeTab === 'inicio' && (
           <div className="space-y-5 pt-2 w-full">
-            <div className="bg-gradient-to-tr from-purple-700 to-indigo-600 p-6 rounded-[35px] shadow-lg text-white w-full">
+            <div className="bg-gradient-to-tr from-purple-700 to-indigo-600 p-6 rounded-[35px] shadow-lg text-white w-full text-left">
               <p className="text-xs font-bold uppercase tracking-widest text-purple-200">Faturamento Realizado</p>
               <h2 className="text-4xl font-black mt-1 tracking-tight">R$ {dashboardMetrics.faturamento}</h2>
             </div>
@@ -752,6 +773,7 @@ export default function App() {
               <div className="w-11 h-11 rounded-xl bg-white/20 flex items-center justify-center"><Plus size={22}/></div>
             </div>
 
+            {/* PRIMEIRA LINHA DE ATALHOS */}
             <div className="grid grid-cols-2 gap-4 w-full">
               <div onClick={() => setActiveTab('moldes')} className="bg-white p-5 rounded-[30px] border shadow-sm cursor-pointer w-full text-left">
                 <div className="w-10 h-10 rounded-2xl bg-purple-50 flex items-center justify-center text-purple-600 mb-3"><FolderOpen size={20}/></div>
@@ -764,6 +786,28 @@ export default function App() {
                 <p className="text-2xl font-black text-slate-800 mt-0.5">{dashboardMetrics.pendentes}</p>
               </div>
             </div>
+
+            {/* SEGUNDA LINHA DE ATALHOS COMPLEMENTARES RESTAURADA */}
+            <div className="grid grid-cols-3 gap-3 w-full">
+              <div onClick={() => setActiveTab('materiais')} className={`p-4 bg-white rounded-3xl border shadow-sm cursor-pointer text-left ${dashboardMetrics.criticos > 0 ? 'border-red-200 bg-red-50/20' : ''}`}>
+                <div className="w-8 h-8 rounded-xl bg-red-50 flex items-center justify-center text-red-500 mb-2"><Package size={16}/></div>
+                <p className="text-[8px] font-black text-slate-400 uppercase tracking-wider">Armário / Estoque</p>
+                <p className="text-lg font-black text-slate-800 mt-0.5">{materiais.length}</p>
+              </div>
+
+              <div onClick={() => setActiveTab('catalogo')} className="p-4 bg-white rounded-3xl border shadow-sm cursor-pointer text-left">
+                <div className="w-8 h-8 rounded-xl bg-purple-50 flex items-center justify-center text-purple-500 mb-2"><BookOpen size={16}/></div>
+                <p className="text-[8px] font-black text-slate-400 uppercase tracking-wider">Catálogo Vitrine</p>
+                <p className="text-lg font-black text-slate-800 mt-0.5">{produtos.length}</p>
+              </div>
+
+              <div onClick={() => setActiveTab('clientes')} className="p-4 bg-white rounded-3xl border shadow-sm cursor-pointer text-left">
+                <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center text-slate-600 mb-2"><User size={16}/></div>
+                <p className="text-[8px] font-black text-slate-400 uppercase tracking-wider">Clientes</p>
+                <p className="text-lg font-black text-slate-800 mt-0.5">{dashboardMetrics.totalClientes}</p>
+              </div>
+            </div>
+
           </div>
         )}
 
@@ -775,7 +819,7 @@ export default function App() {
               
               <div className="mb-3 text-left">
                 <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome do Molde Estruturado</label>
-                <input placeholder="Ex: Caixa Milk" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={nomeProd} onChange={e => setNomeProd(e.target.value)} />
+                <input placeholder="Ex: Caixa Milk" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={nomeProd} onChange={e => setNomeProd(e.target.value)} />
               </div>
 
               <div className="mb-4 text-left">
@@ -785,7 +829,7 @@ export default function App() {
                     if (m) setMatsNoPed([...matsNoPed, { id: m.id, nome: m.nome, valor: m.valor, qtd: m.qtd, unidade: m.unidade, qtdUsada: 1 }]);
                  }} value="">
                     <option value="">+ Vincular Material...</option>
-                    {materiais.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
+                    {materials.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
                  </select>
                  <div className="space-y-1.5 w-full">
                     {matsNoPed.map((m, i) => (
@@ -830,15 +874,20 @@ export default function App() {
                 <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-black text-purple-700" value={lucro} onChange={e => setLucro(e.target.value)} />
               </div>
 
+              {/* REVISÃO SUCESSO: INCLUSÃO ASSEGURADA DO USERID NO BANCO DE MOLDES */}
               <button onClick={async () => {
                 if(!nomeProd) return alert("Dê um nome para o molde!");
-                const d = { 
-                  nomeProd, vHora, tGasto, custos, lucro, userId: user.uid,
-                  materiaisUsados: matsNoPed.map(m => ({ id: m.id, nome: m.nome, valor: m.valor, qtd: m.qtd, unidade: m.unidade, qtdUsada: Number(m.qtdUsada || 1) }))
-                };
-                await addDoc(collection(db, "moldes"), d);
-                limparCalculadora();
-                alert("Molde salvo com sucesso no banco de dados! 📂✨");
+                try {
+                  const d = { 
+                    nomeProd, vHora, tGasto, custos, lucro, userId: user.uid,
+                    materiaisUsados: matsNoPed.map(m => ({ id: m.id, nome: m.nome, valor: m.valor, qtd: m.qtd, unidade: m.unidade, qtdUsada: Number(m.qtdUsada || 1) }))
+                  };
+                  await addDoc(collection(db, "moldes"), d);
+                  limparCalculadora();
+                  alert("Molde salvo com sucesso no banco de dados! 📂✨");
+                } catch {
+                  alert("Erro de conexão ao salvar molde.");
+                }
               }} className="w-full bg-purple-700 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md">
                 Salvar Estrutura do Molde
               </button>
@@ -974,8 +1023,8 @@ export default function App() {
            <div className="space-y-4 pt-2 w-full">
             <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
               <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2"><User size={20}/> Gerenciar Clientes</h2>
-              <input placeholder="Nome Comercial" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none" value={novoCli.nome} onChange={e => setNovoCli({...novoCli, nome: e.target.value})} />
-              <input placeholder="WhatsApp com DDD" className="w-full p-4 bg-slate-50 rounded-2xl mb-6 outline-none" value={novoCli.zap} onChange={e => setNovoCli({...novoCli, zap: e.target.value})} />
+              <input placeholder="Nome Comercial" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none font-bold" value={novoCli.nome} onChange={e => setNovoCli({...novoCli, nome: e.target.value})} />
+              <input placeholder="WhatsApp com DDD" className="w-full p-4 bg-slate-50 rounded-2xl mb-6 outline-none font-bold" value={novoCli.zap} onChange={e => setNovoCli({...novoCli, zap: e.target.value})} />
               <button onClick={async () => {
                 if(!novoCli.nome) return alert("Digite o nome do cliente!");
                 if(novoCli.id) await updateDoc(doc(db, "clientes", novoCli.id), { nome: novoCli.nome, zap: novoCli.zap, userId: user.uid });
@@ -1042,7 +1091,7 @@ export default function App() {
                 )}
               </div>
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome do Produto</label>
-              <input placeholder="Ex: Caneca Alça Coração" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none" value={novoProdCatalogo.nome} onChange={e => setNovoProdCatalogo({...novoProdCatalogo, nome: e.target.value})} />
+              <input placeholder="Ex: Caneca Alça Coração" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none font-bold" value={novoProdCatalogo.nome} onChange={e => setNovoProdCatalogo({...novoProdCatalogo, nome: e.target.value})} />
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Preço Fixo de Venda (R$)</label>
               <input type="number" placeholder="Ex: 35.00" className="w-full p-4 bg-slate-50 rounded-2xl mb-4 outline-none font-bold text-purple-700" value={novoProdCatalogo.precoVenda} onChange={e => setNovoProdCatalogo({...novoProdCatalogo, precoVenda: e.target.value})} />
               <button onClick={async () => {
