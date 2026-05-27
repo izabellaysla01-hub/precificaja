@@ -305,7 +305,7 @@ export default function App() {
         desconto: "0",
         userId: user.uid,
         precoManual: totalGeral.toFixed(2),
-        obsPedido: "",
+        obsPedido: "", // Garantido sem observação roxa automática
         data: new Date().toLocaleDateString('pt-BR'),
         status: 'Pendente',
         itensCombo: arrayItensSalvar 
@@ -346,7 +346,7 @@ export default function App() {
     const precoFinalCalculado = (custoTotalLote + valorLucroLivre) - Number(desconto || 0);
 
     return { materiais: totalMaterials.toFixed(2), maoObra: totalMaoObra.toFixed(2), extras: totalExtras.toFixed(2), custoPeca: custoTotalPeca.toFixed(2), lucroLivre: valorLucroLivre.toFixed(2), final: isNaN(precoFinalCalculado) ? "0.00" : precoFinalCalculado.toFixed(2) };
-  }, [matsNoPed, vHora, tGasto, custos, lucro, qtdPed, desconto, precoManual]);
+  }, [matsNoPed, vHora, tGasto, custos, lucro, qtdPed, discount || desconto, precoManual]);
 
   const enviarZap = (p: any) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
@@ -380,7 +380,7 @@ export default function App() {
       htmlLinhasTabela = arrayLinhasTexto.map(linhaTexto => {
         if(!linhaTexto.trim()) return '';
         let quantidadeItem = Number(p.qtdPed || 1);
-        let nomeItemLimpo = linhaTexto.trim();
+        let nomeItemLimpo = inlineText || linhaTexto.trim();
         
         const matchCombo = linhaTexto.trim().match(/^(\d+)x\s+(.+)$/i);
         if(matchCombo) {
@@ -930,27 +930,27 @@ export default function App() {
                 </select>
               </div>
 
-              {/* Ajuste Fixo e Estável: Estrutura isolada com margem inferior para o prazo nunca sumir */}
-              <div className="w-full pb-2">
-                <label className="text-[10px] font-bold text-orange-400 uppercase ml-1 block mb-1.5">Prazo de Entrega do Combo</label>
+              {/* Ajuste do Prazo: Removido estilizações conflitantes do input de data do Balcão */}
+              <div className="w-full pb-1">
+                <label className="text-[10px] font-bold text-orange-400 uppercase ml-1 block mb-1">Prazo de Entrega do Combo</label>
                 <input 
                   type="date" 
-                  className="w-full p-3.5 bg-slate-800/80 rounded-xl text-xs font-bold text-white border border-slate-700 outline-none focus:border-purple-400 block h-12"
+                  className="w-full p-3.5 bg-slate-800/80 rounded-xl text-xs font-bold text-white border border-slate-700 outline-none focus:border-purple-400 block"
                   value={prazoBalcao} 
                   onChange={e => setPrazoBalcao(e.target.value)} 
                 />
               </div>
 
-              {/* Ajuste de Espaçamento dos Produtos: Estrutura em Grid/Flex para o valor e o nome respirarem sem amassar */}
+              {/* Ajuste de Espaçamento dos Produtos: Alinhado em colunas estruturadas para o valor respirar */}
               <div className="bg-slate-800/40 border border-slate-800 p-3 rounded-2xl space-y-3 max-h-72 overflow-y-auto">
                 {produtos.map(p => {
                   const qtdInterna = carrinhoInterno[p.id] || 0;
                   return (
                     <div key={p.id} className="flex justify-between items-center bg-slate-900/60 p-3.5 rounded-xl border border-slate-800/80 gap-3">
-                      <div className="flex-1 min-w-0 pr-1">
+                      <div className="flex-1 min-w-0">
                         <p className="text-xs font-bold truncate text-slate-200">{p.nome}</p>
                       </div>
-                      <div className="text-right shrink-0 px-2">
+                      <div className="text-center px-2 shrink-0">
                         <p className="text-[11px] font-black text-purple-300">R$ {Number(p.precoVenda).toFixed(2)}</p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
