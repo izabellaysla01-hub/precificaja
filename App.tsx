@@ -139,7 +139,7 @@ export default function App() {
 
   useEffect(() => {
     if (user && !idLojaPublica) {
-      const qMateriais = query(collection(db, "materiais"), where("userId", "==", user.uid));
+      const qMateriais = query(collection(db, "materials" || "materiais"), where("userId", "==", user.uid));
       const unsubMateriais = onSnapshot(qMateriais, s => setMaterials(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
       const qPedidos = query(collection(db, "pedidos"), where("userId", "==", user.uid));
@@ -348,9 +348,10 @@ export default function App() {
     return { materiais: totalMaterials.toFixed(2), maoObra: totalMaoObra.toFixed(2), extras: totalExtras.toFixed(2), custoPeca: custoTotalPeca.toFixed(2), lucroLivre: valorLucroLivre.toFixed(2), final: isNaN(precoFinalCalculado) ? "0.00" : precoFinalCalculado.toFixed(2) };
   }, [matsNoPed, vHora, tGasto, custos, lucro, qtdPed, desconto, precoManual]);
 
+  // CORRIGIDO: Removida a variável inexistente 'inlineText' que gerava erro crítico de carregamento
   const enviarZap = (p: any) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
-    const dataP = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combiner';
+    const dataP = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combinar';
     const msg = `*RESUMO ORÇAMENTO*%0A---%0A*Cliente:* ${cli?.nome || 'Cliente'}%0A*Produto:* %0A${p.nomeProd}%0A*Qtd:* ${p.qtdPed || 1} un%0A*Prazo:* ${dataP}%0A*VALOR TOTAL:* R$ ${p.preco}%0A---%0AObrigado!`;
     const fone = cli?.zap ? cli.zap.replace(/\D/g, '') : '';
     window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
@@ -361,9 +362,16 @@ export default function App() {
     const dataEmissao = p.data || new Date().toLocaleDateString('pt-BR');
     const hoje = new Date(); hoje.setDate(hoje.getDate() + 7);
     const dataValidade = hoje.toLocaleDateString('pt-BR');
-    const dataPrazo = p.prazo ? new Date(p.prazo + 'T00:00:00').toLocaleDateString('pt-BR') : 'A combinar';
+    
+    let dataPrazo = 'A combinar';
+    if (p.prazo) {
+      try {
+        dataPrazo = new Date(p.prazo + 'T00:00:00').toLocaleDateString('pt-BR');
+      } catch (e) {
+        dataPrazo = p.prazo;
+      }
+    }
     const totalNum = Number(p.preco || 0);
-
     let htmlLinhasTabela = '';
 
     if (p.itensCombo && Array.isArray(p.itensCombo) && p.itensCombo.length > 0) {
@@ -382,7 +390,7 @@ export default function App() {
         let quantidadeItem = Number(p.qtdPed || 1);
         let nomeItemLimpo = linhaTexto.trim();
         
-        const matchCombo = inlineText || linhaTexto.trim().match(/^(\d+)x\s+(.+)$/i);
+        const matchCombo = linhaTexto.trim().match(/^(\d+)x\s+(.+)$/i);
         if(matchCombo) {
           quantidadeItem = Number(matchCombo[1]);
           nomeItemLimpo = matchCombo[2].trim();
@@ -473,7 +481,12 @@ export default function App() {
       </div>
     `;
     const opcoes = { margin: 0, filename: `Orcamento.pdf`, html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'a4', orientation: 'portrait' } };
-    (window as any).html2pdf().from(elemento).set(opcoes).save();
+    
+    if ((window as any).html2pdf) {
+      (window as any).html2pdf().from(elemento).set(opcoes).save();
+    } else {
+      alert("O motor do PDF está carregando no seu celular. Aguarde 3 segundos e clique de novo! 🚀");
+    }
   };
 
   const handleAuth = async () => {
@@ -891,7 +904,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Ajuste do WhatsApp: Reduzido a largura do input para o botão SALVAR caber sem quebrar ou cortar letras */}
               <div className="border-t border-purple-500/30 pt-2.5 w-full">
                 <label className="text-[9px] font-black uppercase text-purple-200 block mb-1">📱 Seu WhatsApp de Vendas (Com DDD)</label>
                 <div className="flex gap-2 w-full items-center">
@@ -931,7 +943,6 @@ export default function App() {
                 </select>
               </div>
 
-              {/* Ajuste Fixo e Definitivo do Prazo: Alinhado exatamente igual aos seletores de cima, corrigindo o vazamento da borda */}
               <div className="w-full">
                 <label className="text-[10px] font-bold text-orange-400 uppercase ml-1 block mb-1">Prazo de Entrega do Combo</label>
                 <input 
@@ -942,7 +953,6 @@ export default function App() {
                 />
               </div>
 
-              {/* Ajuste Visual dos Preços: Grid organizada para o valor e o nome respirarem sem amassar na tela */}
               <div className="bg-slate-800/40 border border-slate-800 p-3 rounded-2xl space-y-3 max-h-72 overflow-y-auto">
                 {produtos.map(p => {
                   const qtdInterna = carrinhoInterno[p.id] || 0;
