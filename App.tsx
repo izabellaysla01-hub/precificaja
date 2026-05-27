@@ -588,6 +588,13 @@ export default function App() {
           </span>
         </div>
 
+        {pedidoEditandoId && (
+          <div className="bg-amber-50 border border-amber-200 p-4 rounded-3xl mb-6 flex justify-between items-center w-full">
+            <span className="text-xs text-amber-800 font-bold">✏️ Editando orçamento salvo!</span>
+            <button onClick={() => { limparCalculadora(); setActiveTab('pedidos'); }} className="text-[10px] bg-red-500 text-white px-3 py-1.5 rounded-xl font-black uppercase">Cancelar ❌</button>
+          </div>
+        )}
+
         <div className="grid grid-cols-3 gap-3 mb-4 w-full">
            <div className="col-span-2 text-left">
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Produto</label>
