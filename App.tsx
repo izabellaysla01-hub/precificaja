@@ -88,6 +88,10 @@ export default function App() {
   const [zapDonaConta, setZapDonaConta] = useState('');
   const [subindoImagem, setSubindoImagem] = useState(false);
 
+  // NOVO: Estado para gerenciar o carrinho interno do Balcão de Vendas
+  const [carrinhoInterno, setCarrinhoInterno] = useState<{ [key: string]: number }>({});
+  const [clienteBalcao, setClienteBalcao] = useState('');
+
   const setActiveTab = (tab: any) => {
     useStateActiveTab(tab);
     setIsMenuOpen(false);
@@ -165,6 +169,77 @@ export default function App() {
     alert("Link do seu catálogo copiado! 🔗🚀");
   };
 
+  // AJUSTE 2: Função isolada para disparar PDF automático Chique na ponta do Cliente Final
+  const dispararPdfAutomaticoCliente = (nomeCliente: string, itens: any[], total: number) => {
+    const elemento = document.createElement('div');
+    const dataEmissao = new Date().toLocaleDateString('pt-BR');
+    
+    elemento.innerHTML = `
+      <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px;">
+          <div>
+            <h1 style="color: #7c3aed; margin: 0; font-size: 32px; font-weight: 900;">Comprovante de Pedido 🚀</h1>
+            <p style="color: #94a3b8; font-size: 11px; text-transform: uppercase; margin: 4px 0 0 0; font-weight: bold;">Catálogo de Vendas Online</p>
+          </div>
+          <div style="text-align: right; background-color: #f8fafc; padding: 12px 20px; border-radius: 16px; border: 1px solid #e2e8f0;">
+            <span style="font-size: 10px; font-weight: bold; color: #a78bfa; text-transform: uppercase; display: block;">Data do Pedido</span>
+            <span style="font-size: 14px; font-weight: bold; color: #475569; display: block; margin-top: 2px;">${dataEmissao}</span>
+          </div>
+        </div>
+        
+        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Identificação do Comprador</div>
+        <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 25px; border: 1px solid #f1f5f9;">
+          <p style="margin: 0; font-size: 14px;"><strong>Cliente Final:</strong> ${nomeCliente}</p>
+        </div>
+
+        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Relação de Itens Escolhidos</div>
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+          <thead>
+            <tr style="border-bottom: 2px solid #e2e8f0; text-align: left; font-size: 11px; text-transform: uppercase; color: #94a3b8;">
+              <th style="padding: 10px 5px;">Produto</th>
+              <th style="padding: 10px 5px; text-align: center;">Quantidade</th>
+              <th style="padding: 10px 5px; text-align: right;">Preço Unit.</th>
+              <th style="padding: 10px 5px; text-align: right;">Subtotal</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itens.map(p => `
+              <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px;">
+                <td style="padding: 15px 5px; font-weight: bold; color: #1e293b;">${p.nome}</td>
+                <td style="padding: 15px 5px; text-align: center; color: #475569;">${p.qtd}</td>
+                <td style="padding: 15px 5px; text-align: right; color: #475569;">R$ ${Number(p.precoVenda).toFixed(2)}</td>
+                <td style="padding: 15px 5px; text-align: right; font-weight: bold; color: #1e293b;">R$ ${(Number(p.precoVenda) * p.qtd).toFixed(2)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+
+        <div style="display: flex; flex-direction: column; align-items: flex-end; margin-bottom: 35px; padding-right: 5px;">
+          <div style="background-color: #7c3aed; color: white; padding: 12px 25px; border-radius: 12px; font-size: 18px; font-weight: 900; text-align: right; min-width: 180px;">
+            <span style="font-size: 10px; font-weight: bold; text-transform: uppercase; display: block; opacity: 0.8; margin-bottom: 2px;">Valor Estimado</span>
+            R$ ${total.toFixed(2)}
+          </div>
+        </div>
+
+        <div style="text-align: center; font-size: 11px; color: #94a3b8; margin-top: 40px; border-top: 1px dashed #e2e8f0; padding-top: 15px;">
+          Este documento foi gerado automaticamente pelo sistema comercial da loja. Detalhes de frete e pagamento serão combinados diretamente na conversa.
+        </div>
+      </div>
+    `;
+
+    const opcoes = { 
+      margin: 0, 
+      filename: `Pedido_${nomeCliente.replace(/\s+/g, '_')}.pdf`, 
+      html2canvas: { scale: 2, useCORS: true }, 
+      jsPDF: { format: 'a4', orientation: 'portrait' } 
+    };
+    
+    if ((window as any).html2pdf) {
+      (window as any).html2pdf().from(elemento).set(opcoes).save();
+    }
+  };
+
+  // AJUSTE 1 & 2: Finalização da Vitrine Pública com Múltiplas Unidades e disparo simultâneo de PDF Comercial Chique
   const finalizarPedidoPublicoWhatsapp = () => {
     if (!nomeComprador.trim()) return alert("Por favor, digite seu nome antes de enviar!");
     const itensSelecionados = produtosPublicos.filter(p => carrinho[p.id] > 0);
@@ -176,11 +251,19 @@ export default function App() {
     textoPedido += `*Itens do Pedido:*%0A`;
     
     let totalGeral = 0;
+    const listaParaPdf: any[] = [];
+
     itensSelecionados.forEach(p => {
       const qtd = carrinho[p.id];
       const sub = Number(p.precoVenda) * qtd;
       totalGeral += sub;
       textoPedido += `• ${qtd}x _${p.nome}_ — R$ ${sub.toFixed(2)}%0A`;
+      
+      listaParaPdf.push({
+        nome: p.nome,
+        qtd: qtd,
+        precoVenda: p.precoVenda
+      });
     });
 
     textoPedido += `---%0A`;
@@ -188,11 +271,58 @@ export default function App() {
     textoPedido += `---%0A`;
     textoPedido += `Aguardo a confirmação e dados para pagamento! 🙌`;
 
+    // Dispara a montagem e download automático do PDF comercial chique no celular/computador do cliente
+    dispararPdfAutomaticoCliente(nomeComprador.trim(), listaParaPdf, totalGeral);
+
     const numeroLimpo = zapDaLojaPublica.replace(/\D/g, '');
     if (numeroLimpo) {
       window.open(`https://wa.me/55${numeroLimpo}?text=${textoPedido}`, '_blank');
     } else {
       window.open(`https://wa.me/?text=${textoPedido}`, '_blank');
+    }
+  };
+
+  // AJUSTE 3: Lançamento de combos multi-produtos via Balcão de Vendas Interno
+  const lancarVendaBalcaoInterno = async () => {
+    const itensNoCarrinho = produtos.filter(p => carrinhoInterno[p.id] > 0);
+    if (itensNoCarrinho.length === 0) return alert("Selecione ao menos 1 item com + e - no balcão!");
+    
+    const cli = clientes.find(c => c.id === clienteBalcao);
+    
+    let stringNomeCombo = "";
+    let totalGeral = 0;
+    
+    itensNoCarrinho.forEach((p, idx) => {
+      const qtd = carrinhoInterno[p.id];
+      totalGeral += Number(p.precoVenda) * qtd;
+      stringNomeCombo += `${qtd}x ${p.nome}${idx < itensNoCarrinho.length - 1 ? ' + ' : ''}`;
+    });
+
+    try {
+      await addDoc(collection(db, "pedidos"), {
+        nomeProd: stringNomeCombo,
+        preco: totalGeral.toFixed(2),
+        clienteId: clienteBalcao,
+        prazo: new Date().toISOString().split('T')[0],
+        qtdPed: "1",
+        vHora: "0",
+        tGasto: "0",
+        custos: { embalagem: '0', impressao: '0', energia: '0', outros: '0' },
+        lucro: "0",
+        desconto: "0",
+        userId: user.uid,
+        precoManual: totalGeral.toFixed(2),
+        obsPedido: "Venda lançada via balcão rápido de catálogo.",
+        data: new Date().toLocaleDateString('pt-BR'),
+        status: 'Pendente'
+      });
+
+      setCarrinhoInterno({});
+      setClienteBalcao('');
+      alert("Combo de produtos lançado no Histórico com Sucesso! 🚀");
+      setActiveTab('pedidos');
+    } catch {
+      alert("Erro ao lançar venda no balcão.");
     }
   };
 
@@ -339,7 +469,9 @@ export default function App() {
     }
   };
 
+  // AJUSTE 4: Baixa Inteligente Baseada no Texto Gerado do Combo ("2x Caneca...")
   const confirmarVendaPedido = async (pedido: any) => {
+    // 1. Processa materiais calculados explicitamente pela calculadora tradicional
     if (pedido.materiaisUsados && pedido.materiaisUsados.length > 0) {
       for (const m of pedido.materiaisUsados) {
         const matDoBanco = materiais.find(item => item.id === m.id);
@@ -349,9 +481,38 @@ export default function App() {
           await updateDoc(doc(db, "materiais", m.id), { qtdAtual: Math.max(0, estoqueFiscal - gastoTotal) });
         }
       }
+    } 
+    
+    // 2. Análise Inteligente do Texto para Baixa de Combos do Catálogo de Vendas Fixas
+    const textoVenda = String(pedido.nomeProd || '');
+    if (textoVenda.includes('x ')) {
+      // Divide itens concatenados por ' + ' ou quebras de linha
+      const partesItens = textoVenda.split(/ \+ |\n/);
+      
+      for (const parte of partesItens) {
+        const regexMatch = parte.trim().match(/^(\d+)x\s+(.+)$/i);
+        if (regexMatch) {
+          const qtdVendida = Number(regexMatch[1]);
+          const nomeProdutoTexto = regexMatch[2].trim().toLowerCase();
+          
+          // Localiza se o insumo/material possui nome idêntico ou embutido no nome do produto cadastrado
+          const materialCorrespondente = materiais.find(m => 
+            nomeProdutoTexto.includes(m.nome.toLowerCase()) || 
+            m.nome.toLowerCase().includes(nomeProdutoTexto)
+          );
+
+          if (materialCorrespondente) {
+            const estoqueAtual = Number(materialCorrespondente.qtdAtual || 0);
+            // Dedução proporcional exata assumindo 1 insumo base por unidade de item de catálogo
+            const novoEstoque = Math.max(0, estoqueAtual - qtdVendida);
+            await updateDoc(doc(db, "materiais", materialCorrespondente.id), { qtdAtual: novoEstoque });
+          }
+        }
+      }
     }
+
     await updateDoc(doc(db, "pedidos", pedido.id), { status: 'Vendido 💰' });
-    alert("Venda confirmada!");
+    alert("Venda confirmada e estoque atualizado com sucesso!");
   };
 
   const handleUploadImagem = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -431,7 +592,7 @@ export default function App() {
     setActiveTab('criar');
   };
 
-  // VITRINE PÚBLICA
+  // VITRINE PÚBLICA (CLIENTE FINAL)
   if (idLojaPublica) {
     if (carregandoPublico) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando Vitrine... 🛍️</div>;
     const totalCarrinho = Object.keys(carrinho).reduce((acc, id) => {
@@ -463,10 +624,12 @@ export default function App() {
                   <div className="flex-1 min-w-0">
                     <p className="font-black text-slate-800 text-base truncate">{p.nome}</p>
                     <p className="text-purple-700 font-black text-lg mt-1">R$ {Number(p.precoVenda).toFixed(2)}</p>
+                    
+                    {/* AJUSTE 1: Botões + e - Estilizados na Vitrine Pública */}
                     <div className="flex items-center gap-2 mt-2">
-                      <button onClick={() => setCarrinho({ ...carrinho, [p.id]: Math.max(0, qtdNoCarinho - 1) })} className="w-8 h-8 bg-slate-100 rounded-xl font-black text-slate-600">-</button>
+                      <button onClick={() => setCarrinho({ ...carrinho, [p.id]: Math.max(0, qtdNoCarinho - 1) })} className="w-8 h-8 bg-slate-100 rounded-xl font-black text-slate-600 transition-transform active:scale-90">-</button>
                       <span className="font-bold text-sm w-6 text-center">{qtdNoCarinho}</span>
-                      <button onClick={() => setCarrinho({ ...carrinho, [p.id]: qtdNoCarinho + 1 })} className="w-8 h-8 bg-purple-100 rounded-xl font-black text-purple-700">+</button>
+                      <button onClick={() => setCarrinho({ ...carrinho, [p.id]: qtdNoCarinho + 1 })} className="w-8 h-8 bg-purple-100 rounded-xl font-black text-purple-700 transition-transform active:scale-90">+</button>
                     </div>
                   </div>
                 </div>
@@ -482,7 +645,7 @@ export default function App() {
               <div className="text-2xl font-black text-orange-500">R$ {totalCarrinho.toFixed(2)}</div>
             </div>
             <button onClick={finalizarPedidoPublicoWhatsapp} className="w-full max-w-md bg-emerald-500 hover:bg-emerald-600 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-lg flex items-center justify-center gap-2 tracking-wider">
-              <MessageCircle size={18}/> Encomendar no WhatsApp
+              <MessageCircle size={18}/> Encomendar no WhatsApp e Baixar PDF
             </button>
           </div>
         )}
@@ -566,10 +729,10 @@ export default function App() {
              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Materiais Usados</label>
              <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none mb-2 block border border-transparent focus:border-purple-400" onChange={e => {
                 const m = materiais.find(item => item.id === e.target.value);
-                if (m) setMatsNoPed([...matsNoPed, { id: m.id, nome: m.nome, valor: m.valor, qtd: m.qtd, unidade: m.unidade, qtdUsada: 1 }]);
+                if (m) setMatsNoPed([...matsNoPed, { id: m.id, nome: m.nome, valor: m.valor, qtd: m.qtd, unidade: m.unidade, qtdUsed: 1, qtdUsada: 1 }]);
              }} value="">
                 <option value="">+ Adicionar Material...</option>
-                {materiais.map(m => <option key={m.id} value={m.id}>{m.nome} ({m.unidade || 'un'})</option>)}
+                {materials.map(m => <option key={m.id} value={m.id}>{m.nome} ({m.unidade || 'un'})</option>)}
              </select>
              <div className="space-y-2 w-full">
                 {matsNoPed.map((m, i) => (
@@ -674,6 +837,7 @@ export default function App() {
           }} className="bg-orange-500 text-white px-5 py-4 rounded-[22px] font-black uppercase text-xs shadow-lg">Salvar</button>
           <button onClick={() => gerarPDF({nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed, obsPedido})} className="bg-orange-500 text-white p-4 rounded-[22px] shadow-lg"><Printer size={18}/></button>
           <button onClick={() => enviarZap({nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed})} className="bg-emerald-500 text-white p-4 rounded-[22px] shadow-lg"><MessageCircle size={18}/></button>
+          <button onClick={limparCalculadora} className="bg-slate-200 text-slate-600 p-4 rounded-[22px]"><X size={18}/></button>
         </div>
       </div>
     </div>
@@ -682,7 +846,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-50 pb-32 font-sans text-slate-700 w-full relative overflow-x-hidden">
       
-      {/* MENU HAMBÚRGUER LATERAL COMPLETO COM TODAS AS ABAS DO APP */}
+      {/* MENU HAMBÚRGUER LATERAL */}
       <div className={`fixed inset-0 bg-black/40 z-50 transition-opacity duration-300 ${isMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`} onClick={() => setIsMenuOpen(false)}>
         <div className={`w-72 bg-white h-full shadow-2xl p-6 flex flex-col justify-between transition-transform duration-300 ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'}`} onClick={e => e.stopPropagation()}>
           <div className="space-y-6">
@@ -703,7 +867,7 @@ export default function App() {
         </div>
       </div>
 
-      {/* HEADER ATUALIZADO COM ÍCONE DE MENU */}
+      {/* HEADER */}
       <header className="bg-white p-4 flex justify-between items-center shadow-sm sticky top-0 z-40 w-full">
         <button onClick={() => setIsMenuOpen(true)} className="p-2 text-slate-700 hover:text-purple-700 transition-colors">
           <Menu size={24} />
@@ -763,7 +927,7 @@ export default function App() {
           </div>
         )}
 
-        {/* TELA DE CATÁLOGO COM CONFIGURAÇÃO DE WHATSAPP */}
+        {/* TELA DE CATÁLOGO COM ADIÇÃO DO BALCÃO DE VENDAS */}
         {activeTab === 'catalogo' && (
           <div className="space-y-4 pt-2 w-full">
             <div className="bg-gradient-to-tr from-purple-800 to-purple-600 p-6 rounded-[35px] text-white shadow-lg border border-purple-900 space-y-4 w-full">
@@ -793,6 +957,51 @@ export default function App() {
                   }} className="bg-orange-500 hover:bg-orange-600 text-white text-xs font-black uppercase px-4 rounded-xl shadow active:scale-95 transition-all">Salvar</button>
                 </div>
               </div>
+            </div>
+
+            {/* AJUSTE 3: Nova Seção de Balcão de Vendas Rápido no Catálogo Interno */}
+            <div className="bg-gradient-to-tr from-slate-900 to-purple-950 p-6 rounded-[35px] shadow-xl border border-slate-800 text-white w-full space-y-4">
+              <div>
+                <h2 className="text-orange-400 font-black flex items-center gap-2 uppercase text-xs tracking-wider">
+                  <ShoppingCart size={16}/> Balcão de Vendas Rápido (Catálogo)
+                </h2>
+                <p className="text-[11px] text-slate-400 mt-1">Selecione o cliente final e monte combos multi-produtos usando + e - em segundos.</p>
+              </div>
+              
+              <div className="w-full">
+                <select 
+                  className="w-full p-3.5 bg-slate-800/80 rounded-xl text-xs font-bold text-white border border-slate-700 outline-none focus:border-purple-400"
+                  value={clienteBalcao}
+                  onChange={e => setClienteBalcao(e.target.value)}
+                >
+                  <option value="" className="text-slate-800">👤 Selecionar Cliente do Balcão...</option>
+                  {clientes.map(c => <option key={c.id} value={c.id} className="text-slate-800">{c.nome}</option>)}
+                </select>
+              </div>
+
+              <div className="bg-slate-800/40 border border-slate-800 p-3 rounded-2xl space-y-2 max-h-52 overflow-y-auto">
+                {produtos.map(p => {
+                  const qtdInterna = carrinhoInterno[p.id] || 0;
+                  return (
+                    <div key={p.id} className="flex justify-between items-center bg-slate-900/60 p-2 rounded-xl border border-slate-800/80">
+                      <span className="text-xs font-bold truncate max-w-[180px] text-slate-200">{p.nome}</span>
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-[11px] font-black text-purple-300 mr-1">R$ {Number(p.precoVenda).toFixed(2)}</span>
+                        <button onClick={() => setCarrinhoInterno({...carrinhoInterno, [p.id]: Math.max(0, qtdInterna - 1)})} className="w-7 h-7 bg-slate-800 rounded-lg font-black text-slate-300 hover:bg-slate-700">-</button>
+                        <span className="font-bold text-xs w-4 text-center">{qtdInterna}</span>
+                        <button onClick={() => setCarrinhoInterno({...carrinhoInterno, [p.id]: qtdInterna + 1})} className="w-7 h-7 bg-purple-600 rounded-lg font-black text-white hover:bg-purple-700">+</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <button 
+                onClick={lancarVendaBalcaoInterno}
+                className="w-full bg-orange-500 hover:bg-orange-600 text-white p-3.5 rounded-xl text-xs font-black uppercase tracking-wider shadow-lg active:scale-95 transition-all"
+              >
+                Lançar Combo Multi-Produtos 🚀
+              </button>
             </div>
 
             <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
@@ -827,7 +1036,7 @@ export default function App() {
                 if (novoProdCatalogo.id) await updateDoc(doc(db, "produtos", novoProdCatalogo.id), d);
                 else await addDoc(collection(db, "produtos"), d);
                 setNovoProdCatalogo({ id: '', nome: '', precoVenda: '', urlImagem: '' });
-                alert("Produto salvo no catálogo!");
+                alert("Produto saved no catálogo!");
               }} className="w-full bg-purple-700 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md" disabled={subindoImagem}>
                 {novoProdCatalogo.id ? 'Atualizar Item' : 'Salvar no Catálogo 📖'}
               </button>
@@ -989,7 +1198,7 @@ export default function App() {
         )}
       </div>
 
-      {/* MENU INFERIOR ENXUTO (INÍCIO, ORÇAR, HISTÓRICO) */}
+      {/* MENU INFERIOR */}
       <div className="fixed bottom-0 left-0 right-0 flex justify-center p-4 z-30 bg-transparent pointer-events-none">
         <div className="bg-white shadow-[0_-10px_30px_rgba(0,0,0,0.06)] rounded-[28px] flex justify-around items-center px-4 h-16 w-full max-w-xl pointer-events-auto border">
           <button onClick={() => setActiveTab('inicio')} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'inicio' ? 'text-orange-500' : 'text-slate-300'}`}>
