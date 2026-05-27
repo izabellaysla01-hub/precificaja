@@ -56,7 +56,6 @@ export default function App() {
   const [nomeComprador, setNomeComprador] = useState('');
   const [zapDaLojaPublica, setZapDaLojaPublica] = useState('');
 
-  // Modificado: Nova aba 'balcao' adicionada para desafogar as telas
   const [activeTab, useStateActiveTab] = useState<'inicio' | 'materiais' | 'criar' | 'pedidos' | 'clientes' | 'catalogo' | 'balcao'>('inicio');
   const [materiais, setMaterials] = useState<any[]>([]);
   const [pedidos, setPedidos] = useState<any[]>([]);
@@ -252,7 +251,7 @@ export default function App() {
     textoPedido += `---%0A`;
     textoPedido += `*VALOR TOTAL:* R$ ${totalGeral.toFixed(2)}%0A`;
     textoPedido += `---%0A`;
-    textoPedido += `Aguardo a confirmação e dados para pagamento! 🙌`;
+    textoPedido += `Aguardo a conversa para acertar os detalhes! 🙌`;
 
     dispararPdfAutomaticoCliente(nomeComprador.trim(), listaParaPdf, totalGeral);
 
@@ -307,7 +306,7 @@ export default function App() {
     const pendentesCount = pedidos.filter(p => p.status !== 'Vendido 💰').length;
     const estoqueCriticoCount = materiais.filter(m => Number(m.qtdAtual || 0) <= Number(m.qtdMinima || 0)).length;
     return { faturamento: faturamentoTotal.toFixed(2), pendentes: pendentesCount, criticos: estoqueCriticoCount, totalClientes: clientes.length };
-  }, [pedidos, materials, clientes]);
+  }, [pedidos, materiais, clientes]);
 
   const resumenFinanceiro = useMemo(() => {
     if (precoManual !== null) {
@@ -527,7 +526,10 @@ export default function App() {
     limparCalculadora(); setNomeProd(prod.nome); setPrecoManual(prod.precoVenda); setActiveTab('criar');
   };
 
-  // VITRINE PÚBLICA (CLIENTE FINAL)
+  // Trava de carregamento inicial do Firebase
+  if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando o PrecificaJá... 🚀</div>;
+
+  // Renderização da Vitrine para Clientes Externos
   if (idLojaPublica) {
     if (carregandoPublico) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando Vitrine... 🛍️</div>;
     const totalCarrinho = Object.keys(carrinho).reduce((acc, id) => {
@@ -583,6 +585,21 @@ export default function App() {
           </div>
         )}
       </div>
+    );
+  }
+
+  // Se o administrador não estiver logado no app comercial, renderiza a tela de Login
+  if (!user) {
+    return (
+      <Login 
+        isRegistering={isRegistering} 
+        setIsRegistering={setIsRegistering} 
+        email={email} 
+        setEmail={setEmail} 
+        password={password} 
+        setPassword={setPassword} 
+        handleAuth={handleAuth} 
+      />
     );
   }
 
@@ -769,7 +786,6 @@ export default function App() {
               <button onClick={() => setActiveTab('inicio')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'inicio' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Home size={16}/> Início</button>
               <button onClick={() => setActiveTab('criar')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'criar' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Plus size={16}/> Orçar</button>
               <button onClick={() => setActiveTab('pedidos')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'pedidos' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><History size={16}/> Histórico de Orçamentos</button>
-              {/* Desafogamento visual: Linhas separadas de Menu para Balcão Rápido e Catálogo de Cadastro */}
               <button onClick={() => setActiveTab('balcao')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'balcao' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><ShoppingCart size={16}/> Balcão de Vendas Rápido</button>
               <button onClick={() => setActiveTab('catalogo')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'catalogo' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><BookOpen size={16}/> Meu Catálogo Visual</button>
               <button onClick={() => setActiveTab('materiais')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'materiais' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Package size={16}/> Armário / Insumos</button>
@@ -780,7 +796,7 @@ export default function App() {
         </div>
       </div>
 
-      {/* HEADER ATUALIZADO */}
+      {/* HEADER PRINCIPAL */}
       <header className="bg-white p-4 flex justify-between items-center shadow-sm sticky top-0 z-40 w-full">
         <button onClick={() => setIsMenuOpen(true)} className="p-2 text-slate-700 hover:text-purple-700 transition-colors">
           <Menu size={24} />
@@ -840,7 +856,7 @@ export default function App() {
           </div>
         )}
 
-        {/* NOVA TELA EXCLUSIVA 1: APENAS PARA O BALCÃO RAPIDO DE VENDAS (LIMPANDO VISUAL) */}
+        {/* SEÇÃO DO BALCÃO DE VENDAS RÁPIDO */}
         {activeTab === 'balcao' && (
           <div className="space-y-4 pt-2 w-full">
             <div className="bg-gradient-to-tr from-purple-800 to-purple-600 p-5 rounded-[35px] text-white shadow-md border border-purple-900 space-y-3.5 w-full">
@@ -862,7 +878,7 @@ export default function App() {
                     if(!zapDonaConta.trim()) return alert("Digite o número!");
                     try { await setDoc(doc(db, "configuracoes_loja", user.uid), { whatsapp: zapDonaConta.trim() }, { merge: true }); alert("WhatsApp salvo!"); } 
                     catch { alert("Erro ao salvar."); }
-                  }} className="bg-orange-500 text-white text-xs font-black uppercase px-4 rounded-xl shadow">Salvar</button>
+                  }} className="bg-orange-50 text-white text-xs font-black uppercase px-4 rounded-xl shadow">Salvar</button>
                 </div>
               </div>
             </div>
@@ -887,7 +903,8 @@ export default function App() {
                   const qtdInterna = carrinhoInterno[p.id] || 0;
                   return (
                     <div key={p.id} className="flex justify-between items-center bg-slate-900/60 p-2.5 rounded-xl border border-slate-800/80">
-                      <span className="text-xs font-bold truncate max-w-[180px] text-slate-200">${p.nome}</span>
+                      {/* Corrigido o erro de compilação da string de texto */}
+                      <span className="text-xs font-bold truncate max-w-[180px] text-slate-200">{p.nome}</span>
                       <div className="flex items-center gap-2.5">
                         <span className="text-[11px] font-black text-purple-300 mr-1">R$ {Number(p.precoVenda).toFixed(2)}</span>
                         <button onClick={() => setCarrinhoInterno({...carrinhoInterno, [p.id]: Math.max(0, qtdInterna - 1)})} className="w-7 h-7 bg-slate-800 rounded-lg font-black text-slate-300">-</button>
@@ -906,7 +923,7 @@ export default function App() {
           </div>
         )}
 
-        {/* NOVA TELA EXCLUSIVA 2: APENAS PARA CADASTRO E VISUALIZAÇÃO DO SEU CATÁLOGO DE PRODUTOS */}
+        {/* CADASTRO E VISUALIZAÇÃO DO SEU CATÁLOGO DE PRODUTOS */}
         {activeTab === 'catalogo' && (
           <div className="space-y-4 pt-2 w-full">
             <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
