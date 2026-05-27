@@ -62,6 +62,10 @@ export default function App() {
   const [clientes, setClientes] = useState<any[]>([]);
   const [produtos, setProdutos] = useState<any[]>([]);
 
+  // Novo estado para controlar as quantidades selecionadas no Catálogo interno de Vendas
+  const [carrinhoInternoCatalogo, setCarrinhoInternoCatalogo] = useState<{ [key: string]: number }>({});
+  const [clienteSelecionadoCatalogo, setClienteSelecionadoCatalogo] = useState('');
+
   const [pedidoEditandoId, setPedidoEditandoId] = useState<string | null>(null);
   const [mostrarSeletorCatalogo, setMostrarSeletorCatalogo] = useState(false);
 
@@ -227,7 +231,16 @@ export default function App() {
       lucroLivre: valorLucroLivre.toFixed(2), 
       final: isNaN(precoFinalCalculado) ? "0.00" : precoFinalCalculado.toFixed(2) 
     };
-  }, [matsNoPed, vHora, tGasto, custos, lucro, qtdPed, desconto, precoManual]);
+  }, [matsNoPed, vHora, tGasto, custos, lucro, qtdPed, discount || desconto, precoManual]);
+
+  // CALCULO DE TOTALIZADOR PARA O NOVO CARRINHO MULTI-PRODUTOS DO CATALOGO INTERNO
+  const totalGeralCarrinhoInterno = useMemo(() => {
+    return Object.keys(carrinhoInternoCatalogo).reduce((acc, id) => {
+      const prod = produtos.find(p => p.id === id);
+      const qtd = carrinhoInternoCatalogo[id] || 0;
+      return acc + (prod ? Number(prod.precoVenda) * qtd : 0);
+    }, 0);
+  }, [carrinhoInternoCatalogo, produtos]);
 
   const enviarZap = (p: any) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
@@ -576,9 +589,7 @@ export default function App() {
                   <div key={i} className="flex justify-between items-center bg-purple-50 p-3 rounded-2xl border border-purple-100 text-purple-700 font-bold text-xs w-full">
                     <span>{m.nome}</span>
                     <div className="flex items-center gap-2">
-                      <input type="number" className="w-16 bg-white rounded-lg p-1 text-center" value={m.qtdUsada} onChange={e => {
-                         const nova = [...matsNoPed]; nova[i].qtdUsada = e.target.value; setMatsNoPed(nova);
-                      }} />
+                      <input type="number" className="w-16 bg-white rounded-lg p-1 text-center" value={m.qtdUsada} onChange={e => { const nova = [...matsNoPed]; nova[i].qtdUsada = e.target.value; setMatsNoPed(nova); }} />
                       <span className="text-[10px] text-purple-500">{m.unidade || 'un'}</span>
                       <button onClick={() => setMatsNoPed(matsNoPed.filter((_, idx) => idx !== i))}><X size={16}/></button>
                     </div>
@@ -703,7 +714,6 @@ export default function App() {
         </div>
       </div>
 
-      {/* HEADER ATUALIZADO COM ÍCONE DE MENU */}
       <header className="bg-white p-4 flex justify-between items-center shadow-sm sticky top-0 z-40 w-full">
         <button onClick={() => setIsMenuOpen(true)} className="p-2 text-slate-700 hover:text-purple-700 transition-colors">
           <Menu size={24} />
@@ -763,9 +773,11 @@ export default function App() {
           </div>
         )}
 
-        {/* TELA DE CATÁLOGO COM CONFIGURAÇÃO DE WHATSAPP */}
+        {/* INTERFACE DO CATÁLOGO DE VENDAS REVISADO (CARRINHO MULTI-PRODUTOS INTERNO) */}
         {activeTab === 'catalogo' && (
           <div className="space-y-4 pt-2 w-full">
+            
+            {/* Bloco Superior de Compartilhamento/Configuração */}
             <div className="bg-gradient-to-tr from-purple-800 to-purple-600 p-6 rounded-[35px] text-white shadow-lg border border-purple-900 space-y-4 w-full">
               <div className="w-full">
                 <h3 className="text-xs font-black uppercase tracking-widest text-purple-200 flex items-center gap-1.5"><Share2 size={14}/> Seu Catálogo Público</h3>
@@ -795,6 +807,7 @@ export default function App() {
               </div>
             </div>
 
+            {/* Cadastro de Novos Itens no Catálogo */}
             <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
               <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2 uppercase text-xs tracking-widest"><BookOpen size={18}/> Novo Item de Venda Fixa</h2>
               <div className="mb-4 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-3xl p-4 bg-slate-50 relative min-h-[140px] w-full">
@@ -833,24 +846,78 @@ export default function App() {
               </button>
             </div>
 
-            <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider ml-2">Seu Catálogo Visual</h3>
-            <div className="grid grid-cols-1 gap-3 w-full">
-              {produtos.map(p => (
-                <div key={p.id} className="bg-white p-4 rounded-[30px] flex gap-4 items-center border border-slate-100 shadow-sm w-full">
-                  <div className="w-16 h-16 rounded-2xl bg-slate-100 overflow-hidden flex items-center justify-center text-slate-300 shrink-0">
-                    {p.urlImagem ? <img src={p.urlImagem} alt={p.nome} className="w-full h-full object-cover" /> : <ImageIcon size={24} />}
+            {/* SEÇÃO DO BALCÃO INTERNO DE VENDAS DO CATÁLOGO (MULTI-PRODUTOS COM + E -) */}
+            <div className="bg-white p-6 rounded-[35px] border shadow-xl w-full space-y-4">
+              <h3 className="text-xs font-black uppercase text-purple-700 tracking-wider flex items-center gap-2">
+                <ShoppingCart size={18}/> Lançar Venda Combinada do Catálogo
+              </h3>
+              
+              <div className="w-full">
+                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Para qual Cliente?</label>
+                <select className="w-full p-4 bg-slate-50 rounded-2xl mt-1 outline-none border text-sm font-semibold" value={clienteSelecionadoCatalogo} onChange={e => setClienteSelecionadoCatalogo(e.target.value)}>
+                  <option value="">👤 Escolha o cliente comercial...</option>
+                  {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                </select>
+              </div>
+
+              {/* Lista Visual dos Produtos com Controle Multi-Seleção de + e - */}
+              <div className="space-y-3 w-full max-h-[350px] overflow-y-auto pr-1">
+                {produtos.map(p => {
+                  const qtdInterna = carrinhoInternoCatalogo[p.id] || 0;
+                  return (
+                    <div key={p.id} className="bg-slate-50 p-4 rounded-[30px] flex gap-4 items-center border border-slate-100 w-full">
+                      <div className="w-14 h-14 rounded-xl bg-slate-200 overflow-hidden flex items-center justify-center text-slate-300 shrink-0">
+                        {p.urlImagem ? <img src={p.urlImagem} alt={p.nome} className="w-full h-full object-cover" /> : <ImageIcon size={20} />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-slate-800 text-xs truncate">{p.nome}</p>
+                        <p className="text-purple-700 font-black text-sm mt-0.5">R$ {Number(p.precoVenda).toFixed(2)}</p>
+                      </div>
+                      <div className="flex items-center gap-2 bg-white px-2 py-1 rounded-xl shadow-sm border">
+                        <button onClick={() => setCarrinhoInternoCatalogo({ ...carrinhoInternoCatalogo, [p.id]: Math.max(0, qtdInterna - 1) })} className="w-7 h-7 font-black text-slate-500 hover:text-red-500">-</button>
+                        <span className="font-bold text-xs w-5 text-center text-slate-800">{qtdInterna}</span>
+                        <button onClick={() => setCarrinhoInternoCatalogo({ ...carrinhoInternoCatalogo, [p.id]: qtdInterna + 1 })} className="w-7 h-7 font-black text-purple-700 hover:text-purple-900">+</button>
+                      </div>
+                      <button onClick={() => { if(confirm("Apagar item do catálogo?")) deleteDoc(doc(db, "produtos", p.id)); }} className="text-red-200 hover:text-red-400 p-1"><Trash2 size={16}/></button>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Painel de Fechamento do Carrinho Combinado do Catálogo */}
+              {totalGeralCarrinhoInterno > 0 && (
+                <div className="border-t pt-4 flex flex-col gap-3 items-center justify-between w-full">
+                  <div className="text-center w-full flex justify-between items-center px-2">
+                    <span className="text-xs font-black text-slate-400 uppercase tracking-wider">Total do Combo:</span>
+                    <div className="text-2xl font-black text-orange-500">R$ {totalGeralCarrinhoInterno.toFixed(2)}</div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-slate-800 text-sm truncate">{p.nome}</p>
-                    <p className="text-purple-700 font-black text-sm mt-0.5">R$ {Number(p.precoVenda).toFixed(2)}</p>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <button onClick={() => venderItemDiretoDoCatalogo(p)} className="bg-orange-500 text-white px-3 py-2 rounded-xl text-xs font-black uppercase shadow active:scale-95">Vender 🛍️</button>
-                    <button onClick={() => deleteDoc(doc(db, "produtos", p.id))} className="text-red-200 p-1.5"><Trash2 size={15}/></button>
-                  </div>
+                  
+                  <button onClick={async () => {
+                    const itensArray = Object.keys(carrinhoInternoCatalogo).filter(id => carrinhoInternoCatalogo[id] > 0).map(id => {
+                      const item = produtos.find(p => p.id === id);
+                      return `${carrinhoInternoCatalogo[id]}x ${item?.nome}`;
+                    });
+
+                    await addDoc(collection(db, "pedidos"), {
+                      nomeProd: `Combo Catálogo: ${itensArray.join(' + ')}`,
+                      preco: totalGeralCarrinhoInterno.toFixed(2),
+                      clienteId: clienteSelecionadoCatalogo,
+                      data: new Date().toLocaleDateString('pt-BR'),
+                      status: 'Pendente',
+                      userId: user.uid
+                    });
+
+                    setCarrinhoInternoCatalogo({});
+                    setClienteSelecionadoCatalogo('');
+                    setActiveTab('pedidos');
+                    alert("Combo do catálogo registrado e salvo no histórico com sucesso! 🚀🛍️");
+                  }} className="w-full bg-orange-500 hover:bg-orange-600 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md tracking-wider">
+                    Finalizar Pedido do Catálogo 🛍️
+                  </button>
                 </div>
-              ))}
+              )}
             </div>
+
           </div>
         )}
 
@@ -972,8 +1039,7 @@ export default function App() {
                 if(!novoCli.nome) return alert("Digite o nome do cliente!");
                 if(novoCli.id) await updateDoc(doc(db, "clientes", novoCli.id), { nome: novoCli.nome, zap: novoCli.zap, userId: user.uid });
                 else await addDoc(collection(db, "clientes"), { nome: novoCli.nome, zap: novoCli.zap, userId: user.uid });
-                setNovoCli({ id: '', nome: '', zap: '' }); 
-                alert("Cliente Salvo!");
+                setNovoCli({ id: '', nome: '', zap: '' }); alert("Cliente Salvo!");
               }} className="w-full bg-orange-500 text-white p-5 rounded-2xl font-black uppercase text-xs">Salvar Cliente</button>
             </div>
             {clientes.map(c => (
@@ -987,9 +1053,10 @@ export default function App() {
             ))}
           </div>
         )}
+
       </div>
 
-      {/* MENU INFERIOR ENXUTO (INÍCIO, ORÇAR, HISTÓRICO) */}
+      {/* MENU INFERIOR ENXUTO DE 3 BOTÕES */}
       <div className="fixed bottom-0 left-0 right-0 flex justify-center p-4 z-30 bg-transparent pointer-events-none">
         <div className="bg-white shadow-[0_-10px_30px_rgba(0,0,0,0.06)] rounded-[28px] flex justify-around items-center px-4 h-16 w-full max-w-xl pointer-events-auto border">
           <button onClick={() => setActiveTab('inicio')} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'inicio' ? 'text-orange-500' : 'text-slate-300'}`}>
