@@ -62,10 +62,6 @@ export default function App() {
   const [clientes, setClientes] = useState<any[]>([]);
   const [produtos, setProdutos] = useState<any[]>([]);
 
-  // Estados exclusivos para o Carrinho de Vendas do seu Catálogo Interno
-  const [carrinhoInternoCatalogo, setCarrinhoInternoCatalogo] = useState<{ [key: string]: number }>({});
-  const [clienteSelecionadoCatalogo, setClienteSelecionadoCatalogo] = useState('');
-
   const [pedidoEditandoId, setPedidoEditandoId] = useState<string | null>(null);
   const [mostrarSeletorCatalogo, setMostrarSeletorCatalogo] = useState(false);
 
@@ -169,83 +165,10 @@ export default function App() {
     alert("Link do seu catálogo copiado! 🔗🚀");
   };
 
-  const totalGeralCarrinhoInterno = useMemo(() => {
-    return Object.keys(carrinhoInternoCatalogo).reduce((acc, id) => {
-      const prod = produtos.find(p => p.id === id);
-      const qtd = carrinhoInternoCatalogo[id] || 0;
-      return acc + (prod ? Number(prod.precoVenda) * qtd : 0);
-    }, 0);
-  }, [carrinhoInternoCatalogo, produtos]);
-
-  // COMPILE RECIBO EXCLUSIVO EM PDF PARA O COMPRADOR FINAL DA VITRINE
-  const emitirReciboComercialPDF = (nomeCliente: string, carrinhoItens: any, arrayProdutos: any[]) => {
-    const dataEmissao = new Date().toLocaleDateString('pt-BR');
-    const box = document.createElement('div');
-    let linhasTabelaHtml = '';
-    let valorTotalGeral = 0;
-
-    Object.keys(carrinhoItens).forEach(id => {
-      const quantidade = carrinhoItens[id];
-      if (quantidade > 0) {
-        const prod = arrayProdutos.find(p => p.id === id);
-        if (prod) {
-          const subtotalItem = Number(prod.precoVenda) * quantidade;
-          valorTotalGeral += subtotalItem;
-          linhasTabelaHtml += `
-            <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px;">
-              <td style="padding: 12px 5px; font-weight: bold; color: #1e293b;">${prod.nome}</td>
-              <td style="padding: 12px 5px; text-align: center; color: #475569;">${quantidade}</td>
-              <td style="padding: 12px 5px; text-align: right; color: #475569;">R$ ${Number(prod.precoVenda).toFixed(2)}</td>
-              <td style="padding: 12px 5px; text-align: right; font-weight: bold; color: #1e293b;">R$ ${subtotalItem.toFixed(2)}</td>
-            </tr>
-          `;
-        }
-      }
-    });
-
-    box.innerHTML = `
-      <div style="padding: 40px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto;">
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px;">
-          <div>
-            <h1 style="color: #7c3aed; margin: 0; font-size: 26px; font-weight: 900;">Comprovante de Pedido Comercial 🛍️</h1>
-            <p style="color: #94a3b8; font-size: 11px; text-transform: uppercase; margin: 4px 0 0 0; font-weight: bold;">Solicitação Direta via Vitrine</p>
-          </div>
-        </div>
-        <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 25px; border: 1px solid #e2e8f0;">
-          <p style="margin: 0; font-size: 14px;"><strong>Cliente Comprador:</strong> ${nomeCliente}</p>
-          <p style="margin: 4px 0 0 0; font-size: 13px; color: #64748b;"><strong>Data do Pedido:</strong> ${dataEmissao}</p>
-        </div>
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
-          <thead>
-            <tr style="border-bottom: 2px solid #e2e8f0; text-align: left; font-size: 11px; text-transform: uppercase; color: #94a3b8;">
-              <th style="padding: 10px 5px;">Produto Cadastrado</th>
-              <th style="padding: 10px 5px; text-align: center;">Qtd</th>
-              <th style="padding: 10px 5px; text-align: right;">Preço Unit.</th>
-              <th style="padding: 10px 5px; text-align: right;">Subtotal</th>
-            </tr>
-          </thead>
-          <tbody>${linhasTabelaHtml}</tbody>
-        </table>
-        <div style="display: flex; flex-direction: column; align-items: flex-end; margin-top: 30px;">
-          <div style="background-color: #7c3aed; color: white; padding: 12px 25px; border-radius: 12px; font-size: 18px; font-weight: 900; min-width: 180px; text-align: right;">
-            <span style="font-size: 10px; font-weight: bold; text-transform: uppercase; display: block; opacity: 0.8; margin-bottom: 2px;">Total do Pedido</span>
-            R$ ${valorTotalGeral.toFixed(2)}
-          </div>
-        </div>
-      </div>
-    `;
-
-    const configDoc = { margin: 0, filename: `Pedido_Vitrine_${nomeCliente.replace(/\s+/g, '_')}.pdf`, html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'a4', orientation: 'portrait' } };
-    (window as any).html2pdf().from(box).set(configDoc).save();
-  };
-
   const finalizarPedidoPublicoWhatsapp = () => {
     if (!nomeComprador.trim()) return alert("Por favor, digite seu nome antes de enviar!");
     const itensSelecionados = produtosPublicos.filter(p => carrinho[p.id] > 0);
     if (itensSelecionados.length === 0) return alert("Seu carrinho está vazio!");
-
-    // EMISSÃO DO PDF AUTOMÁTICO CHIQUE NA TELA DO SEU CLIENTE
-    emitirReciboComercialPDF(nomeComprador.trim(), carrinho, produtosPublicos);
 
     let textoPedido = `*NOVO PEDIDO VIA CATÁLOGO DE VENDAS*%0A`;
     textoPedido += `---%0A`;
@@ -263,7 +186,7 @@ export default function App() {
     textoPedido += `---%0A`;
     textoPedido += `*VALOR TOTAL:* R$ ${totalGeral.toFixed(2)}%0A`;
     textoPedido += `---%0A`;
-    textoPedido += `_O recibo comercial em PDF foi baixado automaticamente!_ 🙌`;
+    textoPedido += `Aguardo a confirmação e dados para pagamento! 🙌`;
 
     const numeroLimpo = zapDaLojaPublica.replace(/\D/g, '');
     if (numeroLimpo) {
@@ -271,36 +194,6 @@ export default function App() {
     } else {
       window.open(`https://wa.me/?text=${textoPedido}`, '_blank');
     }
-  };
-
-  const registrarPedidoEmLoteDoCatalogo = async () => {
-    if (!clienteSelecionadoCatalogo) return alert("Por favor, selecione para qual cliente deseja vender!");
-    
-    const itensArray = Object.keys(carrinhoInternoCatalogo).filter(id => carrinhoInternoCatalogo[id] > 0).map(id => {
-      const item = produtos.find(p => p.id === id);
-      return `${carrinhoInternoCatalogo[id]}x ${item?.nome}`;
-    });
-
-    if (itensArray.length === 0) return alert("Defina a quantidade de pelo menos 1 item!");
-
-    const dadosArrayParaBaixa = Object.keys(carrinhoInternoCatalogo).filter(id => carrinhoInternoCatalogo[id] > 0).map(id => {
-      return { id: id, qtd: carrinhoInternoCatalogo[id] };
-    });
-
-    await addDoc(collection(db, "pedidos"), {
-      nomeProd: `Combo Catálogo: ${itensArray.join(' + ')}`,
-      preco: totalGeralCarrinhoInterno.toFixed(2),
-      clienteId: clienteSelecionadoCatalogo,
-      data: new Date().toLocaleDateString('pt-BR'),
-      status: 'Pendente',
-      userId: user.uid,
-      vinculosInsumosCatalogo: dadosArrayParaBaixa
-    });
-
-    setCarrinhoInternoCatalogo({});
-    setClienteSelecionadoCatalogo('');
-    setActiveTab('pedidos');
-    alert("Pedido múltiplo de catálogo salvo!");
   };
 
   const dashboardMetrics = useMemo(() => {
@@ -336,28 +229,119 @@ export default function App() {
     };
   }, [matsNoPed, vHora, tGasto, custos, lucro, qtdPed, desconto, precoManual]);
 
+  const enviarZap = (p: any) => {
+    const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
+    const dataP = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combinar';
+    const msg = `*RESUMO ORÇAMENTO*%0A---%0A*Cliente:* ${cli?.nome || 'Cliente'}%0A*Produto:* ${p.nomeProd}%0A*Qtd:* ${p.qtdPed || 1} un%0A*Prazo:* ${dataP}%0A*VALOR TOTAL:* R$ ${p.preco}%0A---%0AObrigado!`;
+    const fone = cli?.zap ? cli.zap.replace(/\D/g, '') : '';
+    window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
+  };
+
+  const gerarPDF = (p: any) => {
+    const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
+    const dataEmissao = p.data || new Date().toLocaleDateString('pt-BR');
+    
+    const hoje = new Date();
+    hoje.setDate(hoje.getDate() + 7);
+    const dataValidade = hoje.toLocaleDateString('pt-BR');
+    
+    const dataPrazo = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combinar';
+    const totalNum = Number(p.preco || 0);
+    const qtdNum = Number(p.qtdPed || 1);
+    const precoUnitario = (totalNum / qtdNum).toFixed(2);
+
+    const elemento = document.createElement('div');
+    elemento.innerHTML = `
+      <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px;">
+          <div>
+            <h1 style="color: #7c3aed; margin: 0; font-size: 32px; font-weight: 900;">PrecificaJá 🚀</h1>
+            <p style="color: #94a3b8; font-size: 11px; text-transform: uppercase; margin: 4px 0 0 0; font-weight: bold;">Documento de Orçamento Comercial</p>
+          </div>
+          <div style="text-align: right; background-color: #f8fafc; padding: 12px 20px; border-radius: 16px; border: 1px solid #e2e8f0;">
+            <span style="font-size: 10px; font-weight: bold; color: #a78bfa; text-transform: uppercase; display: block;">Código Ref</span>
+            <span style="font-size: 14px; font-weight: bold; color: #475569; display: block; margin-top: 2px;">ORC-${Math.floor(1000 + Math.random() * 9000)}</span>
+          </div>
+        </div>
+        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Dados do Cliente</div>
+        <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 25px; border: 1px solid #f1f5f9;">
+          <p style="margin: 0 0 6px 0; font-size: 14px;"><strong>Cliente:</strong> ${cli?.nome || 'Cliente não informado'}</p>
+          <p style="margin: 0; font-size: 13px; color: #64748b;"><strong>WhatsApp:</strong> ${cli?.zap || 'Não informado'}</p>
+        </div>
+
+        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Informações Básicas e Prazos</div>
+        <div style="display: flex; justify-content: space-between; background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 25px; border: 1px solid #f1f5f9; font-size: 13px;">
+          <div><strong>Data de Emissão:</strong><div style="margin-top: 4px; color: #64748b; font-weight: bold;">${dataEmissao}</div></div>
+          <div><strong>Validade do Orçamento:</strong><div style="margin-top: 4px; color: #ef4444; font-weight: bold;">${dataValidade} (7 dias)</div></div>
+          <div><strong>Prazo de Entrega:</strong><div style="margin-top: 4px; color: #7c3aed; font-weight: bold;">${dataPrazo}</div></div>
+        </div>
+
+        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Produtos / Serviços Selecionados</div>
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+          <thead>
+            <tr style="border-bottom: 2px solid #e2e8f0; text-align: left; font-size: 11px; text-transform: uppercase; color: #94a3b8;">
+              <th style="padding: 10px 5px;">Descrição</th>
+              <th style="padding: 10px 5px; text-align: center;">Qtd</th>
+              <th style="padding: 10px 5px; text-align: right;">Preço Unit.</th>
+              <th style="padding: 10px 5px; text-align: right;">Subtotal</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px;">
+              <td style="padding: 15px 5px; font-weight: bold; color: #1e293b;">${p.nomeProd}</td>
+              <td style="padding: 15px 5px; text-align: center; color: #475569;">${qtdNum}</td>
+              <td style="padding: 15px 5px; text-align: right; color: #475569;">R$ ${precoUnitario}</td>
+              <td style="padding: 15px 5px; text-align: right; font-weight: bold; color: #1e293b;">R$ ${totalNum.toFixed(2)}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div style="display: flex; flex-direction: column; align-items: flex-end; margin-bottom: 35px; padding-right: 5px;">
+          <div style="font-size: 13px; color: #64748b; margin-bottom: 5px;">Subtotal: <strong>R$ ${totalNum.toFixed(2)}</strong></div>
+          <div style="background-color: #7c3aed; color: white; padding: 12px 25px; border-radius: 12px; font-size: 18px; font-weight: 900; text-align: right; min-width: 180px;">
+            <span style="font-size: 10px; font-weight: bold; text-transform: uppercase; display: block; opacity: 0.8; margin-bottom: 2px;">Total do Pedido</span>
+            R$ ${totalNum.toFixed(2)}
+          </div>
+        </div>
+
+        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Forma de Pagamento</div>
+        <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; border: 1px solid #f1f5f9; font-size: 13px; display: flex; justify-content: space-between; margin-bottom: 15px;">
+          <div><strong>Forma de pagamento:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">PIX / CARTÃO</div></div>
+          <div><strong>Condições de pagamento:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">A combinar direto no WhatsApp</div></div>
+        </div>
+
+        ${p.obsPedido ? `
+        <div style="background-color: #f3e8ff; border: 1px solid #e9d5ff; padding: 15px; border-radius: 16px; font-size: 13px; color: #6b21a8; margin-bottom: 15px;">
+          <strong style="text-transform: uppercase; font-size: 10px; display: block; color: #a855f7; margin-bottom: 4px;">Observações Importantes:</strong>
+          ${p.obsPedido.replace(/\n/g, '<br>')}
+        </div>
+        ` : ''}
+
+        <div style="text-align: center; font-size: 11px; color: #94a3b8; margin-top: 40px; border-top: 1px dashed #e2e8f0; padding-top: 15px;">
+          Obrigado pela preferência! Caso tenha dúvidas, entre em contato pelo nosso WhatsApp.
+        </div>
+      </div>
+    `;
+    const opcoes = { margin: 0, filename: `Orcamento_${p.nomeProd}.pdf`, html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'a4', orientation: 'portrait' } };
+    (window as any).html2pdf().from(elemento).set(opcoes).save();
+  };
+
+  const handleAuth = async () => {
+    try {
+      if (isRegistering) await createUserWithEmailAndPassword(auth, email, password);
+      else await signInWithEmailAndPassword(auth, email, password);
+    } catch (e) { alert("E-mail ou senha incorretos!"); }
+  };
+
+  const confirmarExcluir = async (tipo: string, id: string) => {
+    if (window.confirm(`Excluir ${tipo}?`)) {
+      await deleteDoc(doc(db, tipo === 'pedido' ? "pedidos" : tipo === 'cliente' ? "clientes" : tipo === 'produto' ? "produtos" : "materiais", id));
+    }
+  };
+
   const confirmarVendaPedido = async (pedido: any) => {
-    // BAHR: Lógica avançada para buscar a ficha de custos de calculadora ligada aos itens do catálogo vendido e dar baixa proporcional exata
-    if (pedido.vinculosInsumosCatalogo && pedido.vinculosInsumosCatalogo.length > 0) {
-      for (const itemCatalogo of pedido.vinculosInsumosCatalogo) {
-        const nomeDoProdutoFixo = produtos.find(itemProd => itemProd.id === itemCatalogo.id)?.nome;
-        // Localiza no seu histórico a calculadora mãe que definiu a precificação original daquele item base
-        const calculadoraMae = pedidos.find(p => p.nomeProd === nomeDoProdutoFixo && p.materiaisUsados);
-        if (calculadoraMae && calculadoraMae.materiaisUsados) {
-          for (const m of calculadoraMae.materiaisUsados) {
-            const matDoBanco = materiais.find(item => item.id === m.id);
-            if (matDoBanco) {
-              const estoqueFiscal = Number(matDoBanco.qtdAtual || 0);
-              const totalDescontar = Number(m.qtdUsada || 0) * Number(itemCatalogo.qtd || 1);
-              await updateDoc(doc(db, "materiais", m.id), { qtdAtual: Math.max(0, estoqueFiscal - totalDescontar) });
-            }
-          }
-        }
-      }
-    } 
-    // Regra padrão de liquidação direta via calculadora livre
-    else if (pedido.materiaisUsados && pedido.materiaisUsados.length > 0) {
-      for (const m of pedido.materialsUsados || pedido.materiaisUsados) {
+    if (pedido.materiaisUsados && pedido.materiaisUsados.length > 0) {
+      for (const m of pedido.materiaisUsados) {
         const matDoBanco = materiais.find(item => item.id === m.id);
         if (matDoBanco) {
           const estoqueFiscal = Number(matDoBanco.qtdAtual || 0);
@@ -367,7 +351,7 @@ export default function App() {
       }
     }
     await updateDoc(doc(db, "pedidos", pedido.id), { status: 'Vendido 💰' });
-    alert("Venda confirmada e insumos reduzidos no estoque!");
+    alert("Venda confirmada!");
   };
 
   const handleUploadImagem = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -392,26 +376,62 @@ export default function App() {
   };
 
   const limparCalculadora = () => {
-    setNomeProd(''); qtdPed === '1' ? null : setQtdPed('1'); setMatsNoPed([]); setVHora('9'); setTGasto('60'); setCustos({ embalagem: '0', impressao: '0', energia: '0', outros: '0' }); setLucro('100'); setDesconto('0'); setPrazo(''); setClienteSel(''); setPedidoEditandoId(null); setPrecoManual(null); setObsPedido('');
+    setNomeProd('');
+    setQtdPed('1');
+    setMatsNoPed([]);
+    setVHora('9');
+    setTGasto('60');
+    setCustos({ embalagem: '0', impressao: '0', energia: '0', outros: '0' });
+    setLucro('100');
+    setDesconto('0');
+    setPrazo('');
+    setClienteSel('');
+    setPedidoEditandoId(null);
+    setPrecoManual(null);
+    setObsPedido('');
   };
 
   const carregarPedidoParaEdicao = (p: any) => {
-    setPedidoEditandoId(p.id); setNomeProd(p.nomeProd || ''); setQtdPed(p.qtdPed || '1'); setVHora(p.vHora || '9'); setTGasto(p.tGasto || '60'); setCustos(p.custos || { embalagem: '0', impressao: '0', energia: '0', outros: '0' }); setLucro(p.lucro || '100'); setDesconto(p.desconto || '0'); setPrazo(p.prazo || ''); setClienteSel(p.clienteId || ''); setPrecoManual(p.precoManual || null); setObsPedido(p.obsPedido || '');
+    setPedidoEditandoId(p.id);
+    setNomeProd(p.nomeProd || '');
+    setQtdPed(p.qtdPed || '1');
+    setVHora(p.vHora || '9');
+    setTGasto(p.tGasto || '60');
+    setCustos(p.custos || { embalagem: '0', impressao: '0', energia: '0', outros: '0' });
+    setLucro(p.lucro || '100');
+    setDesconto(p.desconto || '0');
+    setPrazo(p.prazo || '');
+    setClienteSel(p.clienteId || '');
+    setPrecoManual(p.precoManual || null);
+    setObsPedido(p.obsPedido || '');
 
     if (p.materiaisUsados && p.materiaisUsados.length > 0) {
-      setMatsNoPed(p.materiaisUsados.map((mSalvo: any) => {
+      const listaReconstruida = p.materiaisUsados.map((mSalvo: any) => {
         const matDoArmario = materiais.find(item => item.id === mSalvo.id);
-        return { id: mSalvo.id, nome: matDoArmario ? matDoArmario.nome : mSalvo.nome, qtdUsada: Number(mSalvo.qtdUsada || 1), valor: matDoArmario ? Number(matDoArmario.valor) : Number(mSalvo.valor || 0), qtd: matDoArmario ? Number(matDoArmario.qtd) : Number(mSalvo.qtd || 1), unidade: matDoArmario ? matDoArmario.unidade : (mSalvo.unidade || 'un') };
-      }));
-    } else { setMatsNoPed([]); }
+        return {
+          id: mSalvo.id,
+          nome: matDoArmario ? matDoArmario.nome : mSalvo.nome,
+          qtdUsada: Number(mSalvo.qtdUsada || 1),
+          valor: matDoArmario ? Number(matDoArmario.valor) : Number(mSalvo.valor || 0),
+          qtd: matDoArmario ? Number(matDoArmario.qtd) : Number(mSalvo.qtd || 1),
+          unidade: matDoArmario ? matDoArmario.unidade : (mSalvo.unidade || 'un')
+        };
+      });
+      setMatsNoPed(listaReconstruida);
+    } else {
+      setMatsNoPed([]);
+    }
     setActiveTab('criar');
   };
 
   const venderItemDiretoDoCatalogo = (prod: any) => {
-    limparCalculadora(); setNomeProd(prod.nome); setPrecoManual(prod.precoVenda); setActiveTab('criar');
+    limparCalculadora();
+    setNomeProd(prod.nome);
+    setPrecoManual(prod.precoVenda);
+    setActiveTab('criar');
   };
 
-  // VITRINE PÚBLICA INTEGRADA COM SEU CARRINHO MULTI-SELEÇÃO (+ E -)
+  // VITRINE PÚBLICA
   if (idLojaPublica) {
     if (carregandoPublico) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando Vitrine... 🛍️</div>;
     const totalCarrinho = Object.keys(carrinho).reduce((acc, id) => {
@@ -470,19 +490,31 @@ export default function App() {
     );
   }
 
+  // FORMULÁRIO COMPLETO DA CALCULADORA
   const renderCalculadoraForm = () => (
     <div className="bg-white p-6 rounded-[35px] shadow-xl border mt-2 w-full">
       {pedidoEditandoId && (
         <div className="bg-amber-50 border border-amber-200 p-4 rounded-3xl mb-6 flex justify-between items-center animate-pulse w-full">
-          <div className="text-xs text-amber-800 font-bold"><span>✏️ Você está editando um orçamento salvo!</span></div>
-          <button onClick={() => { limparCalculadora(); setActiveTab('pedidos'); }} className="text-[10px] bg-red-500 text-white px-3 py-1.5 rounded-xl font-black uppercase tracking-wider shadow-sm transition-all">Cancelar Edição ❌</button>
+          <div className="text-xs text-amber-800 font-bold">
+            <span>✏️ Você está editando um orçamento salvo!</span>
+          </div>
+          <button 
+            onClick={() => { limparCalculadora(); setActiveTab('pedidos'); }} 
+            className="text-[10px] bg-red-500 text-white px-3 py-1.5 rounded-xl font-black uppercase tracking-wider shadow-sm active:scale-95 transition-all"
+          >
+            Cancelar Edição ❌
+          </button>
         </div>
       )}
 
       <div className="flex justify-between items-center mb-6 w-full">
-        <h2 className="text-purple-700 font-bold flex items-center gap-2 uppercase text-xs tracking-widest"><ShoppingCart size={18}/> {pedidoEditandoId ? 'Editando Dados' : 'Novo Orçamento'}</h2>
+        <h2 className="text-purple-700 font-bold flex items-center gap-2 uppercase text-xs tracking-widest">
+          <ShoppingCart size={18}/> {pedidoEditandoId ? 'Editando Dados' : 'Novo Orçamento'}
+        </h2>
         {!pedidoEditandoId && (
-          <button onClick={() => setMostrarSeletorCatalogo(!mostrarSeletorCatalogo)} className="text-xs bg-purple-50 text-purple-700 px-3 py-1.5 rounded-xl font-black uppercase border border-purple-100">{precoManual ? '✨ Item de Catálogo' : '📖 Usar Catálogo'}</button>
+          <button onClick={() => setMostrarSeletorCatalogo(!mostrarSeletorCatalogo)} className="text-xs bg-purple-50 text-purple-700 px-3 py-1.5 rounded-xl font-black uppercase border border-purple-100">
+            {precoManual ? '✨ Item de Catálogo' : '📖 Usar Catálogo'}
+          </button>
         )}
       </div>
 
@@ -491,9 +523,15 @@ export default function App() {
           <p className="font-bold text-purple-700 uppercase text-[10px]">Escolha um produto pronto:</p>
           <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto w-full">
             {produtos.map(p => (
-              <div key={p.id} onClick={() => { setNomeProd(p.nome); setPrecoManual(String(p.precoVenda)); setMostrarSeletorCatalogo(false); }} className="bg-white p-2.5 rounded-xl border flex justify-between items-center cursor-pointer hover:border-purple-400 w-full">
+              <div key={p.id} onClick={() => {
+                setNomeProd(p.nome);
+                setPrecoManual(String(p.precoVenda));
+                setMostrarSeletorCatalogo(false);
+              }} className="bg-white p-2.5 rounded-xl border flex justify-between items-center cursor-pointer hover:border-purple-400 w-full">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-slate-50 overflow-hidden shrink-0 flex items-center justify-center text-slate-300">{p.urlImagem ? <img src={p.urlImagem} className="w-full h-full object-cover" /> : <ImageIcon size={14}/>}</div>
+                  <div className="w-8 h-8 rounded-lg bg-slate-50 overflow-hidden shrink-0 flex items-center justify-center text-slate-300">
+                    {p.urlImagem ? <img src={p.urlImagem} className="w-full h-full object-cover" /> : <ImageIcon size={14}/>}
+                  </div>
                   <span className="font-bold">{p.nome}</span>
                 </div>
                 <span className="text-purple-700 font-black">R$ {Number(p.precoVenda).toFixed(2)}</span>
@@ -538,7 +576,9 @@ export default function App() {
                   <div key={i} className="flex justify-between items-center bg-purple-50 p-3 rounded-2xl border border-purple-100 text-purple-700 font-bold text-xs w-full">
                     <span>{m.nome}</span>
                     <div className="flex items-center gap-2">
-                      <input type="number" className="w-16 bg-white rounded-lg p-1 text-center" value={m.qtdUsada} onChange={e => { const nova = [...matsNoPed]; nova[i].qtdUsada = e.target.value; setMatsNoPed(nova); }} />
+                      <input type="number" className="w-16 bg-white rounded-lg p-1 text-center" value={m.qtdUsada} onChange={e => {
+                         const nova = [...matsNoPed]; nova[i].qtdUsada = e.target.value; setMatsNoPed(nova);
+                      }} />
                       <span className="text-[10px] text-purple-500">{m.unidade || 'un'}</span>
                       <button onClick={() => setMatsNoPed(matsNoPed.filter((_, idx) => idx !== i))}><X size={16}/></button>
                     </div>
@@ -547,8 +587,14 @@ export default function App() {
              </div>
           </div>
           <div className="grid grid-cols-2 gap-4 mb-4 w-full">
-            <div className="w-full"><label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Tempo Gasto (min)</label><input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={tGasto} onChange={e => setTGasto(e.target.value)} /></div>
-            <div className="w-full"><label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Valor da Hora (R$)</label><input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={vHora} onChange={e => setVHora(e.target.value)} /></div>
+            <div className="w-full">
+              <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Tempo Gasto (min)</label>
+              <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={tGasto} onChange={e => setTGasto(e.target.value)} />
+            </div>
+            <div className="w-full">
+              <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Valor da Hora (R$)</label>
+              <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={vHora} onChange={e => setVHora(e.target.value)} />
+            </div>
           </div>
 
           <div className="mb-4 w-full">
@@ -564,15 +610,24 @@ export default function App() {
           </div>
           
           <div className="grid grid-cols-2 gap-4 mb-4 w-full">
-            <div className="w-full"><label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Lucro %</label><input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={lucro} onChange={e => setLucro(e.target.value)} /></div>
-            <div className="w-full"><label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Prazo</label><input type="date" className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-xs font-bold block" value={prazo} onChange={e => setPrazo(e.target.value)} /></div>
+            <div className="w-full">
+              <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Lucro %</label>
+              <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={lucro} onChange={e => setLucro(e.target.value)} />
+            </div>
+            <div className="w-full">
+              <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Prazo</label>
+              <input type="date" className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-xs font-bold block" value={prazo} onChange={e => setPrazo(e.target.value)} />
+            </div>
           </div>
         </>
       ) : (
         <div className="bg-orange-50 border border-orange-100 p-4 rounded-3xl mb-4 text-xs w-full">
           <p className="font-bold text-orange-600">💥 Preço travado pelo catálogo de vendas.</p>
           <p className="text-slate-500 mt-1">Valor Unitário original: <strong>R$ {Number(precoManual).toFixed(2)}</strong></p>
-          <div className="mt-3 w-full"><label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Prazo</label><input type="date" className="w-full p-4 bg-white rounded-2xl outline-none text-xs font-bold border block" value={prazo} onChange={e => setPrazo(e.target.value)} /></div>
+          <div className="mt-3 w-full">
+            <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Prazo</label>
+            <input type="date" className="w-full p-4 bg-white rounded-2xl outline-none text-xs font-bold border block" value={prazo} onChange={e => setPrazo(e.target.value)} />
+          </div>
         </div>
       )}
 
@@ -583,7 +638,12 @@ export default function App() {
 
       <div className="mb-6 w-full">
          <label className="text-[10px] font-bold text-purple-600 uppercase ml-1">📝 Observações do Orçamento</label>
-         <textarea placeholder="Ex: Sinal de 50% para início da produção. Restante na entrega." className="w-full p-4 bg-slate-50 rounded-2xl mt-1 outline-none text-xs font-semibold border border-transparent focus:border-purple-400 resize-none h-20" value={obsPedido} onChange={e => setObsPedido(e.target.value)} />
+         <textarea 
+           placeholder="Ex: Sinal de 50% para início da produção. Restante na entrega." 
+           className="w-full p-4 bg-slate-50 rounded-2xl mt-1 outline-none text-xs font-semibold border border-transparent focus:border-purple-400 resize-none h-20" 
+           value={obsPedido} 
+           onChange={e => setObsPedido(e.target.value)} 
+         />
       </div>
 
       {precoManual === null && (
@@ -602,10 +662,15 @@ export default function App() {
         <div className="flex gap-2">
           <button onClick={async () => {
              if(!nomeProd) return alert("Digite o nome do produto!");
-             const dadosPedido = { nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed, vHora, tGasto, custos, lucro, desconto, userId: user.uid, precoManual: precoManual, obsPedido: obsPedido, materiaisUsados: precoManual ? [] : matsNoPed.map(m => ({ id: m.id, nome: m.nome, qtdUsada: Number(m.qtdUsada || 1) })) };
+             const dadosPedido = { 
+               nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed, vHora, tGasto, custos, lucro, desconto, userId: user.uid,
+               precoManual: precoManual, obsPedido: obsPedido,
+               materiaisUsados: precoManual ? [] : matsNoPed.map(m => ({ id: m.id, nome: m.nome, qtdUsada: Number(m.qtdUsada || 1) }))
+             };
              if (pedidoEditandoId) await updateDoc(doc(db, "pedidos", pedidoEditandoId), dadosPedido);
              else await addDoc(collection(db, "pedidos"), { ...dadosPedido, data: new Date().toLocaleDateString('pt-BR'), status: 'Pendente', userId: user.uid });
-             limparCalculadora(); setActiveTab('pedidos'); alert("Salvo!");
+             limparCalculadora(); setActiveTab('pedidos');
+             alert("Salvo!");
           }} className="bg-orange-500 text-white px-5 py-4 rounded-[22px] font-black uppercase text-xs shadow-lg">Salvar</button>
           <button onClick={() => gerarPDF({nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed, obsPedido})} className="bg-orange-500 text-white p-4 rounded-[22px] shadow-lg"><Printer size={18}/></button>
           <button onClick={() => enviarZap({nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed})} className="bg-emerald-500 text-white p-4 rounded-[22px] shadow-lg"><MessageCircle size={18}/></button>
@@ -638,8 +703,11 @@ export default function App() {
         </div>
       </div>
 
+      {/* HEADER ATUALIZADO COM ÍCONE DE MENU */}
       <header className="bg-white p-4 flex justify-between items-center shadow-sm sticky top-0 z-40 w-full">
-        <button onClick={() => setIsMenuOpen(true)} className="p-2 text-slate-700 hover:text-purple-700 transition-colors"><Menu size={24} /></button>
+        <button onClick={() => setIsMenuOpen(true)} className="p-2 text-slate-700 hover:text-purple-700 transition-colors">
+          <Menu size={24} />
+        </button>
         <div className="font-black text-purple-700 text-lg flex items-center gap-2"><Calculator size={22}/> PrecificaJá</div>
         <div className="w-10"></div> 
       </header>
@@ -657,10 +725,12 @@ export default function App() {
             <div onClick={() => { limparCalculadora(); setActiveTab('criar'); }} 
                  className="bg-gradient-to-r from-orange-500 to-amber-500 p-6 rounded-[35px] shadow-md cursor-pointer active:scale-95 transition-all text-white flex justify-between items-center w-full">
               <div>
-                <p className="text-xs font-bold uppercase tracking-widest text-orange-100">Área de Vendas</p>
-                <h3 className="text-xl font-black mt-0.5 tracking-tight">Montar Novo Orçamento ⚡</h3>
+                <p className="text-xs font-bold uppercase tracking-widest text-orange-100">Calculadora Integrada</p>
+                <h3 className="text-xl font-black mt-0.5 tracking-tight">Novo Orçamento Rápido 🚀</h3>
               </div>
-              <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center text-white"><Plus size={24}/></div>
+              <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center text-white">
+                <Calculator size={24}/>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4 w-full">
@@ -693,15 +763,19 @@ export default function App() {
           </div>
         )}
 
-        {/* INTERFACE DO CATÁLOGO DE VENDAS COMPLETA (CARRINHO MULTI-PRODUTOS INTERNO) */}
+        {/* TELA DE CATÁLOGO COM CONFIGURAÇÃO DE WHATSAPP */}
         {activeTab === 'catalogo' && (
           <div className="space-y-4 pt-2 w-full">
             <div className="bg-gradient-to-tr from-purple-800 to-purple-600 p-6 rounded-[35px] text-white shadow-lg border border-purple-900 space-y-4 w-full">
               <div className="w-full">
                 <h3 className="text-xs font-black uppercase tracking-widest text-purple-200 flex items-center gap-1.5"><Share2 size={14}/> Seu Catálogo Público</h3>
                 <p className="text-xs text-purple-100 mt-1 opacity-90">Link exclusivo para enviar aos seus clientes:</p>
-                <div className="mt-2 bg-purple-900/40 p-3.5 rounded-2xl text-xs font-mono select-all break-all border border-purple-500/30 bg-black/10 w-full font-bold">{linkDoCatalogoDestaCliente}</div>
-                <div onClick={copiarLinkCatalogo} className="mt-2.5 w-full bg-white text-purple-800 font-bold p-3 rounded-xl text-xs uppercase shadow flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer">Copiar Link do Catálogo</div>
+                <div className="mt-2 bg-purple-900/40 p-3.5 rounded-2xl text-xs font-mono select-all break-all border border-purple-500/30 bg-black/10 w-full font-bold">
+                  {linkDoCatalogoDestaCliente}
+                </div>
+                <div onClick={copiarLinkCatalogo} className="mt-2.5 w-full bg-white text-purple-800 font-bold p-3 rounded-xl text-xs uppercase shadow flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer">
+                  <Copy size={14}/> Copiar Link do Catálogo
+                </div>
               </div>
 
               <div className="border-t border-purple-500/30 pt-3 w-full">
@@ -713,8 +787,10 @@ export default function App() {
                     try {
                       await setDoc(doc(db, "configuracoes_loja", user.uid), { whatsapp: zapDonaConta.trim() }, { merge: true });
                       alert("WhatsApp de vendas salvo com sucesso! 🚀");
-                    } catch { alert("Erro ao salvar número."); }
-                  }} className="bg-orange-500 hover:bg-orange-600 text-white text-xs font-black uppercase px-4 rounded-xl shadow transition-all">Salvar</button>
+                    } catch {
+                      alert("Erro ao salvar número.");
+                    }
+                  }} className="bg-orange-500 hover:bg-orange-600 text-white text-xs font-black uppercase px-4 rounded-xl shadow active:scale-95 transition-all">Salvar</button>
                 </div>
               </div>
             </div>
@@ -728,54 +804,52 @@ export default function App() {
                     <button onClick={() => setNovoProdCatalogo(p => ({...p, urlImagem: ''}))} className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full"><X size={14}/></button>
                   </div>
                 ) : (
-                  <label className="cursor-pointer flex flex-col items-center gap-2 text-slate-400 hover:text-purple-600 w-full h-full flex justify-center"><Camera size={22} /><span className="text-xs font-bold uppercase tracking-wide text-[10px]">{subindoImagem ? 'Subindo Foto...' : '📸 Foto do Produto'}</span><input type="file" accept="image/*" className="hidden" onChange={handleUploadImagem} disabled={subindoImagem} /></label>
+                  <label className="cursor-pointer flex flex-col items-center gap-2 text-slate-400 hover:text-purple-600 transition-colors w-full h-full flex justify-center">
+                    <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center shadow-sm text-purple-600">
+                      <Camera size={22} />
+                    </div>
+                    <span className="text-xs font-bold uppercase tracking-wide text-[10px]">
+                      {subindoImagem ? 'Subindo Foto...' : '📸 Adicionar Foto do Produto'}
+                    </span>
+                    <input type="file" accept="image/*" className="hidden" onChange={handleUploadImagem} disabled={subindoImagem} />
+                  </label>
                 )}
               </div>
-              <input placeholder="Nome do Produto" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none" value={novoProdCatalogo.nome} onChange={e => setNovoProdCatalogo({...novoProdCatalogo, nome: e.target.value})} />
-              <input type="number" placeholder="Preço Fixo de Venda (R$)" className="w-full p-4 bg-slate-50 rounded-2xl mb-4 outline-none font-bold text-purple-700" value={novoProdCatalogo.precoVenda} onChange={e => setNovoProdCatalogo({...novoProdCatalogo, precoVenda: e.target.value})} />
+
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome do Produto</label>
+              <input placeholder="Ex: Caneca Alça Coração" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none" value={novoProdCatalogo.nome} onChange={e => setNovoProdCatalogo({...novoProdCatalogo, nome: e.target.value})} />
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Preço Fixo de Venda (R$)</label>
+              <input type="number" placeholder="Ex: 35.00" className="w-full p-4 bg-slate-50 rounded-2xl mb-4 outline-none font-bold text-purple-700" value={novoProdCatalogo.precoVenda} onChange={e => setNovoProdCatalogo({...novoProdCatalogo, precoVenda: e.target.value})} />
 
               <button onClick={async () => {
                 if(!novoProdCatalogo.nome || !novoProdCatalogo.precoVenda) return alert("Preencha o nome e o preço!");
                 const d = { nome: novoProdCatalogo.nome, precoVenda: Number(novoProdCatalogo.precoVenda), urlImagem: novoProdCatalogo.urlImagem || '', userId: user.uid };
                 if (novoProdCatalogo.id) await updateDoc(doc(db, "produtos", novoProdCatalogo.id), d);
                 else await addDoc(collection(db, "produtos"), d);
-                setNovoProdCatalogo({ id: '', nome: '', precoVenda: '', urlImagem: '' }); alert("Produto salvo no catálogo!");
-              }} className="w-full bg-purple-700 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md" disabled={subindoImagem}>Salvar no Catálogo 📖</button>
+                setNovoProdCatalogo({ id: '', nome: '', precoVenda: '', urlImagem: '' });
+                alert("Produto salvo no catálogo!");
+              }} className="w-full bg-purple-700 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md" disabled={subindoImagem}>
+                {novoProdCatalogo.id ? 'Atualizar Item' : 'Salvar no Catálogo 📖'}
+              </button>
             </div>
 
-            {/* BALCÃO DE VENDAS INTERNO COM + E - DO SEU CATÁLOGO VISUAL */}
-            <div className="bg-white p-6 rounded-[35px] border shadow-xl w-full space-y-4">
-              <h3 className="text-xs font-black uppercase text-purple-700 tracking-wider flex items-center gap-2"><ShoppingCart size={18}/> Registrar Venda Combinada pelo Catálogo</h3>
-              <div className="w-full">
-                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Cliente</label>
-                <select className="w-full p-4 bg-slate-50 rounded-2xl mt-1 outline-none border text-sm font-semibold" value={clienteSelecionadoCatalogo} onChange={e => setClienteSelecionadoCatalogo(e.target.value)}>
-                  <option value="">👤 Escolha o cliente...</option>
-                  {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-                </select>
-              </div>
-              <div className="space-y-3 w-full max-h-[300px] overflow-y-auto">
-                {produtos.map(p => {
-                  const qtdInt = carrinhoInternoCatalogo[p.id] || 0;
-                  return (
-                    <div key={p.id} className="bg-slate-50 p-4 rounded-[30px] flex gap-4 items-center border w-full">
-                      <div className="w-14 h-14 rounded-xl bg-slate-200 overflow-hidden flex items-center justify-center shrink-0">{p.urlImagem ? <img src={p.urlImagem} className="w-full h-full object-cover" /> : <ImageIcon size={20} />}</div>
-                      <div className="flex-1 min-w-0"><p className="font-bold text-slate-800 text-xs truncate">{p.nome}</p><p className="text-purple-700 font-black text-sm mt-0.5">R$ {Number(p.precoVenda).toFixed(2)}</p></div>
-                      <div className="flex items-center gap-2 bg-white px-2 py-1 rounded-xl shadow-sm border">
-                        <button onClick={() => setCarrinhoInternoCatalogo({ ...carrinhoInternoCatalogo, [p.id]: Math.max(0, qtdInt - 1) })} className="w-7 h-7 font-black text-slate-500">-</button>
-                        <span className="font-bold text-xs w-5 text-center">{qtdInt}</span>
-                        <button onClick={() => setCarrinhoInternoCatalogo({ ...carrinhoInternoCatalogo, [p.id]: qtdInt + 1 })} className="w-7 h-7 font-black text-purple-700">+</button>
-                      </div>
-                      <button onClick={() => { if(confirm("Apagar item?")) deleteDoc(doc(db, "produtos", p.id)); }} className="text-red-200 p-1"><Trash2 size={16}/></button>
-                    </div>
-                  );
-                })}
-              </div>
-              {totalGeralCarrinhoInterno > 0 && (
-                <div className="border-t pt-4 flex flex-col gap-3 w-full">
-                  <div className="flex justify-between items-center px-1"><span className="text-xs font-black text-slate-400 uppercase">Total do Lote:</span><div className="text-2xl font-black text-orange-500">R$ {totalGeralCarrinhoInterno.toFixed(2)}</div></div>
-                  <button onClick={registrarPedidoEmLoteDoCatalogo} className="w-full bg-orange-500 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md">Finalizar Pedido do Catálogo 🛍️</button>
+            <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider ml-2">Seu Catálogo Visual</h3>
+            <div className="grid grid-cols-1 gap-3 w-full">
+              {produtos.map(p => (
+                <div key={p.id} className="bg-white p-4 rounded-[30px] flex gap-4 items-center border border-slate-100 shadow-sm w-full">
+                  <div className="w-16 h-16 rounded-2xl bg-slate-100 overflow-hidden flex items-center justify-center text-slate-300 shrink-0">
+                    {p.urlImagem ? <img src={p.urlImagem} alt={p.nome} className="w-full h-full object-cover" /> : <ImageIcon size={24} />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-slate-800 text-sm truncate">{p.nome}</p>
+                    <p className="text-purple-700 font-black text-sm mt-0.5">R$ {Number(p.precoVenda).toFixed(2)}</p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => venderItemDiretoDoCatalogo(p)} className="bg-orange-500 text-white px-3 py-2 rounded-xl text-xs font-black uppercase shadow active:scale-95">Vender 🛍️</button>
+                    <button onClick={() => deleteDoc(doc(db, "produtos", p.id))} className="text-red-200 p-1.5"><Trash2 size={15}/></button>
+                  </div>
                 </div>
-              )}
+              ))}
             </div>
           </div>
         )}
@@ -794,7 +868,9 @@ export default function App() {
                  <div key={p.id} className="bg-white p-5 rounded-[30px] shadow-sm flex flex-col gap-3 border w-full">
                    <div className="flex justify-between items-center w-full">
                      <div>
-                        <p className="font-black text-[10px] uppercase text-purple-700 mb-1">{cli?.nome || 'Sem Cliente'} {p.data ? `— ${p.data}` : ''} — <span className={ehPendente ? "text-orange-400" : "text-emerald-500"}>{p.status || 'Pendente'}</span></p>
+                        <p className="font-black text-[10px] uppercase text-purple-700 mb-1">
+                          {cli?.nome || 'Sem Cliente'} {p.data ? `— ${p.data}` : ''} — <span className={ehPendente ? "text-orange-400" : "text-emerald-500"}>{p.status || 'Pendente'}</span>
+                        </p>
                         <p className="font-bold text-slate-700 text-sm">{p.nomeProd} <span className="text-xs text-slate-400 font-normal">({p.qtdPed || 1} un)</span></p>
                      </div>
                      <div className="text-orange-500 font-black text-xl">R$ {p.preco}</div>
@@ -806,26 +882,7 @@ export default function App() {
                           <button onClick={() => carregarPedidoParaEdicao(p)} className="text-purple-600 p-2 bg-purple-50 rounded-xl"><Edit2 size={18}/></button>
                         </>
                       )}
-                      <button onClick={() => {
-                        if(p.nomeProd && p.nomeProd.startsWith("Combo Catálogo:")) {
-                          const blocoFake = document.createElement('div');
-                          blocoFake.innerHTML = `
-                            <div style="padding:40px;font-family:sans-serif;color:#334155;">
-                              <h1 style="color:#7c3aed;">Recibo de Venda do Catálogo 🚀</h1>
-                              <p><strong>Cliente:</strong> ${cli?.nome || 'Cliente'}</p>
-                              <p><strong>Data:</strong> ${p.data}</p>
-                              <div style="margin:20px 0;padding:15px;background-color:#f8fafc;border-radius:12px;font-weight:bold;font-size:14px;">
-                                ${p.nomeProd.replace(/\+/g, '<br/>• ')}
-                              </div>
-                              <hr style="border:1px solid #f1f5f9;"/>
-                              <h2 style="color:#ef4444;">TOTAL FATURADO: R$ ${p.preco}</h2>
-                            </div>
-                          `;
-                          (window as any).html2pdf().from(blocoFake).set({filename:`Pedido_Catalogo_${p.data}.pdf`}).save();
-                        } else {
-                          gerarPDF(p);
-                        }
-                      }} className="text-orange-500 p-2 bg-orange-50 rounded-xl"><Printer size={18}/></button>
+                      <button onClick={() => gerarPDF(p)} className="text-orange-500 p-2 bg-orange-50 rounded-xl"><Printer size={18}/></button>
                       <button onClick={() => enviarZap(p)} className="text-emerald-500 p-2 bg-emerald-50 rounded-xl"><MessageCircle size={18}/></button>
                       <button onClick={() => confirmarExcluir('pedido', p.id)} className="text-red-200 p-2"><Trash2 size={18}/></button>
                    </div>
@@ -843,22 +900,44 @@ export default function App() {
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome do Insumo</label>
               <input placeholder="Ex: Caneca Cerâmica" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none" value={novoMat.nome} onChange={e => setNovoMat({...novoMat, nome: e.target.value})} />
               <div className="grid grid-cols-3 gap-3 mb-3 w-full">
-                <div className="col-span-2"><label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Preço Caixa/Rolo</label><input type="number" placeholder="R$ 0,00" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={novoMat.valor} onChange={e => setNovoMat({...novoMat, valor: e.target.value})} /></div>
-                <div><label className="text-[10px] font-bold text-slate-400 uppercase block text-center">Rendimento</label><input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-center" value={novoMat.qtd} onChange={e => setNovoMat({...novoMat, qtd: e.target.value})} /></div>
+                <div className="col-span-2">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Preço Caixa/Rolo</label>
+                  <input type="number" placeholder="R$ 0,00" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={novoMat.valor} onChange={e => setNovoMat({...novoMat, valor: e.target.value})} />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase block text-center">Rende Quantos?</label>
+                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-center" value={novoMat.qtd} onChange={e => setNovoMat({...novoMat, qtd: e.target.value})} />
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-3 mb-4 w-full">
-                <div><label className="text-[10px] font-bold text-purple-600 uppercase ml-1">Estoque Atual</label><input type="number" className="w-full p-4 bg-purple-50 rounded-2xl outline-none text-center font-bold text-purple-700" value={novoMat.qtdAtual} onChange={e => setNovoMat({...novoMat, qtdAtual: e.target.value})} /></div>
-                <div><label className="text-[10px] font-bold text-red-500 uppercase ml-1">Mínimo Alerta</label><input type="number" className="w-full p-4 bg-red-50 rounded-2xl outline-none text-center font-bold text-red-700" value={novoMat.qtdMinima} onChange={e => setNovoMat({...novoMat, qtdMinima: e.target.value})} /></div>
+                <div>
+                  <label className="text-[10px] font-bold text-purple-600 uppercase ml-1">Estoque Atual</label>
+                  <input type="number" className="w-full p-4 bg-purple-50 rounded-2xl outline-none text-center font-bold text-purple-700" value={novoMat.qtdAtual} onChange={e => setNovoMat({...novoMat, qtdAtual: e.target.value})} />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-red-500 uppercase ml-1">Mínimo Alerta</label>
+                  <input type="number" className="w-full p-4 bg-red-50 rounded-2xl outline-none text-center font-bold text-red-700" value={novoMat.qtdMinima} onChange={e => setNovoMat({...novoMat, qtdMinima: e.target.value})} />
+                </div>
               </div>
               <div className="mb-6 w-full">
-                <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-xs font-bold block border border-transparent focus:border-purple-400 mt-1" value={novoMat.unidade} onChange={e => setNovoMat({...novoMat, unidade: e.target.value})}><option value="un">📦 Unidade (un)</option><option value="Folha A4">📄 Folha A4</option><option value="m">📏 Metro (m)</option><option value="cm">📐 Centímetro (cm)</option></select>
+                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Unidade de Medida</label>
+                <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-xs font-bold block border border-transparent focus:border-purple-400 mt-1" value={novoMat.unidade} onChange={e => setNovoMat({...novoMat, unidade: e.target.value})}>
+                  <option value="un">📦 Unidade (un)</option>
+                  <option value="Folha A4">📄 Folha A4</option>
+                  <option value="m">📏 Metro (m)</option>
+                  <option value="cm">📐 Centímetro (cm)</option>
+                </select>
               </div>
               <button onClick={async () => {
                 if(!novoMat.nome) return alert("Digite o nome do insumo!");
                 const d = { nome: novoMat.nome, valor: Number(novoMat.valor), qtd: Number(novoMat.qtd), unidade: novoMat.unidade, qtdAtual: Number(novoMat.qtdAtual || 0), qtdMinima: Number(novoMat.qtdMinima || 0), userId: user.uid };
-                if (novoMat.id) await updateDoc(doc(db, "materiais", novoMat.id), d); else await addDoc(collection(db, "materiais"), d);
-                setNovoMat({ id: '', nome: '', valor: '', qtd: '1', unidade: 'un', qtdAtual: '0', qtdMinima: '0' }); alert("Insumo salvo!");
-              }} className="w-full bg-orange-500 text-white p-5 rounded-2xl font-black uppercase text-xs">Salvar no Armário</button>
+                if (novoMat.id) await updateDoc(doc(db, "materiais", novoMat.id), d);
+                else await addDoc(collection(db, "materiais"), d);
+                setNovoMat({ id: '', nome: '', valor: '', qtd: '1', unidade: 'un', qtdAtual: '0', qtdMinima: '0' });
+                alert("Material salvo!");
+              }} className="w-full bg-orange-500 text-white p-5 rounded-2xl font-black uppercase text-xs">
+                {novoMat.id ? 'Atualizar Insumo' : 'Salvar no Armário'}
+              </button>
             </div>
             {materiais.map(m => {
               const estaAcabando = Number(m.qtdAtual || 0) <= Number(m.qtdMinima || 0);
@@ -873,6 +952,7 @@ export default function App() {
                   <div className="flex items-center gap-1">
                     <button onClick={async () => await updateDoc(doc(db, "materiais", m.id), { qtdAtual: Math.max(0, Number(m.qtdAtual || 0) - 1) })} className="w-8 h-8 bg-slate-100 rounded-xl font-bold">-</button>
                     <button onClick={async () => await updateDoc(doc(db, "materiais", m.id), { qtdAtual: Number(m.qtdAtual || 0) + 1 })} className="w-8 h-8 bg-purple-100 rounded-xl font-bold text-purple-700">+</button>
+                    <button onClick={() => setNovoMat({id: m.id, nome: m.nome, valor: String(m.valor), qtd: String(m.qtd), unidade: m.unidade, qtdAtual: String(m.qtdAtual), qtdMinima: String(m.qtdMinima)})} className="text-orange-400 p-2"><Edit2 size={16}/></button>
                     <button onClick={() => confirmarExcluir('material', m.id)} className="text-red-200 p-2"><Trash2 size={16}/></button>
                   </div>
                 </div>
@@ -881,7 +961,7 @@ export default function App() {
           </div>
         )}
 
-        {/* GERENCIAR CLIENTES */}
+        {/* ABA DE CLIENTES */}
         {activeTab === 'clientes' && (
            <div className="space-y-4 pt-2 w-full">
             <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
@@ -892,23 +972,24 @@ export default function App() {
                 if(!novoCli.nome) return alert("Digite o nome do cliente!");
                 if(novoCli.id) await updateDoc(doc(db, "clientes", novoCli.id), { nome: novoCli.nome, zap: novoCli.zap, userId: user.uid });
                 else await addDoc(collection(db, "clientes"), { nome: novoCli.nome, zap: novoCli.zap, userId: user.uid });
-                setNovoCli({ id: '', nome: '', zap: '' }); alert("Cliente Salvo!");
+                setNovoCli({ id: '', nome: '', zap: '' }); 
+                alert("Cliente Salvo!");
               }} className="w-full bg-orange-500 text-white p-5 rounded-2xl font-black uppercase text-xs">Salvar Cliente</button>
             </div>
             {clientes.map(c => (
               <div key={c.id} className="bg-white p-5 rounded-3xl flex justify-between items-center border shadow-sm font-bold w-full mb-2">
                 <div className="flex flex-col ml-2"><span className="text-slate-800">{c.nome}</span><span className="text-xs text-slate-400 font-normal">{c.zap ? `📱 ${c.zap}` : 'Sem número'}</span></div>
                 <div className="flex gap-1">
+                  <button onClick={() => setNovoCli({ id: c.id, nome: c.nome, zap: c.zap || '' })} className="text-orange-400 p-2"><Edit2 size={18}/></button>
                   <button onClick={() => confirmarExcluir('cliente', c.id)} className="text-red-200 p-2"><Trash2 size={20}/></button>
                 </div>
               </div>
             ))}
           </div>
         )}
+      </div>
 
-      </main>
-
-      {/* MENU INFERIOR COMPACTO (INÍCIO, ORÇAR, HISTÓRICO) */}
+      {/* MENU INFERIOR ENXUTO (INÍCIO, ORÇAR, HISTÓRICO) */}
       <div className="fixed bottom-0 left-0 right-0 flex justify-center p-4 z-30 bg-transparent pointer-events-none">
         <div className="bg-white shadow-[0_-10px_30px_rgba(0,0,0,0.06)] rounded-[28px] flex justify-around items-center px-4 h-16 w-full max-w-xl pointer-events-auto border">
           <button onClick={() => setActiveTab('inicio')} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'inicio' ? 'text-orange-500' : 'text-slate-300'}`}>
