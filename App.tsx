@@ -35,7 +35,7 @@ const Login = ({ isRegistering, setIsRegistering, email, setEmail, password, set
         <h1 className="text-3xl font-black text-purple-700 mb-2 font-sans">PrecificaJá 🚀</h1>
         <p className="text-slate-400 text-xs mb-8 uppercase font-bold tracking-widest">Sua empresa lucrando mais</p>
         <input type="email" placeholder="Seu e-mail" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none focus:ring-2 focus:ring-purple-600" value={email} onChange={e => setEmail(e.target.value)} />
-        <input type="password" placeholder="Senha" className="w-full p-4 bg-slate-50 rounded-2xl mb-2 outline-none focus:ring-2 focus:ring-purple-600" value={password} onChange={e => setPassword(e.target.value)} />
+        <input type="password" placeholder="Senha" className="w-full p-4 bg-slate-50 rounded-2xl mb-2 outline-none focus:ring-2 focus:ring-purple-600" value={password} onChange={e => setPassword(password)} />
         <button onClick={recuperarSenha} className="text-[10px] text-purple-400 font-bold uppercase mb-6 hover:text-purple-600 block w-full text-right pr-2">Esqueci minha senha</button>
         <button onClick={handleAuth} className="w-full bg-orange-500 text-white font-bold py-4 rounded-2xl shadow-lg hover:bg-orange-600 transition-all uppercase">{isRegistering ? 'Criar Conta Grátis' : 'Entrar no App'}</button>
         <button onClick={() => setIsRegistering(!isRegistering)} className="mt-4 text-sm text-purple-600 underline block w-full font-medium">{isRegistering ? 'Já tenho login' : 'Cadastrar novo usuário'}</button>
@@ -253,7 +253,7 @@ export default function App() {
       custoPeca: calculoLivre.custoCentoOuPeca,
       final: isNaN(precoFinalCalculado) ? "0.00" : precoFinalCalculado.toFixed(2) 
     };
-  }, [matsNoPed, vHora, tGasto, custos, lucro, qtdPed, desconto, modoOrcamento, moldeSelecionadoParaOrcamento]);
+  }, [matsNoPed, vHora, tGasto, custos, lucro, qtdPed, discount = desconto, modoOrcamento, moldeSelecionadoParaOrcamento]);
 
   const enviarZap = (p: any) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
@@ -424,6 +424,7 @@ export default function App() {
     setObsPedido('');
   };
 
+  // 🕵️ CORREÇÃO CRÍTICA: Impedindo conflito de dados na edição do orçamento livre
   const carregarPedidoParaEdicao = (p: any) => {
     setPedidoEditandoId(p.id);
     setNomeProd(p.nomeProd || '');
@@ -438,6 +439,7 @@ export default function App() {
       setModelSelecionadoParaOrcamento(moldeBase || { custos: p.custos, vHora: p.vHora, tGasto: p.tGasto, lucro: p.lucro, materiaisUsados: p.materiaisUsados });
       setModoOrcamento('via_molde');
     } else {
+      setModelSelecionadoParaOrcamento(null); // Limpa resquício de molde para destravar a tela livre
       setVHora(p.vHora || '9');
       setTGasto(p.tGasto || '60');
       setCustos(p.custos || { embalagem: '0', impressao: '0', energia: '0', outros: '0' });
@@ -449,11 +451,11 @@ export default function App() {
           const matDoArmario = materiais.find(item => item.id === mSalvo.id);
           return {
             id: mSalvo.id,
-            nome: matDoArmario ? matDoArmario.nome : mSalvo.nome,
+            nome: mSalvo.nome,
             qtdUsada: Number(mSalvo.qtdUsada || 1),
             valor: matDoArmario ? Number(matDoArmario.valor) : Number(mSalvo.valor || 0),
-            qtd: matDoArmario ? Number(matDoArmario.qtd) : Number(mSalvo.qtd || 1),
-            unidade: matDoArmario ? matDoArmario.unidade : (mSalvo.unidade || 'un')
+            qtd: matDoArmario ? Number(matDoArmario.qtd) : 1,
+            unidade: mSalvo.unidade || 'un'
           };
         });
         setMatsNoPed(listaReconstruida);
@@ -587,13 +589,6 @@ export default function App() {
             {modoOrcamento === 'livre' ? '✨ Modo Livre' : '📂 Baseado em Molde'}
           </span>
         </div>
-
-        {pedidoEditandoId && (
-          <div className="bg-amber-50 border border-amber-200 p-4 rounded-3xl mb-6 flex justify-between items-center w-full">
-            <span className="text-xs text-amber-800 font-bold">✏️ Editando orçamento salvo!</span>
-            <button onClick={() => { limparCalculadora(); setActiveTab('pedidos'); }} className="text-[10px] bg-red-500 text-white px-3 py-1.5 rounded-xl font-black uppercase">Cancelar ❌</button>
-          </div>
-        )}
 
         <div className="grid grid-cols-3 gap-3 mb-4 w-full">
            <div className="col-span-2 text-left">
@@ -872,6 +867,7 @@ export default function App() {
                 <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-black text-purple-700" value={lucro} onChange={e => setLucro(e.target.value)} />
               </div>
 
+              {/* 🔒 SEGURANÇA MOLDES: Enviando dados vinculados ao ID do usuário autenticado */}
               <button onClick={async () => {
                 if(!nomeProd) return alert("Dê um nome para o molde!");
                 try {
