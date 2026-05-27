@@ -3,7 +3,7 @@ import { initializeApp } from "firebase/app";
 import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { getFirestore, collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc, getDocs, setDoc, getDoc } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2 } from 'lucide-react';
+import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2, Menu } from 'lucide-react';
 
 const firebaseConfig = {
   apiKey: "AIzaSyD0BWsNm9DbGGDqiHzkdDmNdxIGdJ9tWe8",
@@ -47,6 +47,7 @@ const Login = ({ isRegistering, setIsRegistering, email, setEmail, password, set
 export default function App() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   
   const [idLojaPublica, setIdLojaPublica] = useState<string | null>(null);
   const [produtosPublicos, setProdutosPublicos] = useState<any[]>([]);
@@ -89,6 +90,7 @@ export default function App() {
 
   const setActiveTab = (tab: any) => {
     useStateActiveTab(tab);
+    setIsMenuOpen(false);
   };
 
   useEffect(() => {
@@ -488,9 +490,6 @@ export default function App() {
     );
   }
 
-  if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando painel... 🚀</div>;
-  if (!user) return <Login {...{isRegistering, setIsRegistering, email, setEmail, password, setPassword, handleAuth}} />;
-
   // FORMULÁRIO COMPLETO DA CALCULADORA
   const renderCalculadoraForm = () => (
     <div className="bg-white p-6 rounded-[35px] shadow-xl border mt-2 w-full">
@@ -598,7 +597,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* ADICIONADO: O título de Custos Extras que tinha sumido do layout */}
           <div className="mb-4 w-full">
             <label className="text-[10px] font-bold text-purple-600 uppercase ml-1 block mb-1">📦 Custos Extras por Unidade (R$)</label>
             <div className="grid grid-cols-4 gap-2 w-full">
@@ -670,7 +668,7 @@ export default function App() {
                materiaisUsados: precoManual ? [] : matsNoPed.map(m => ({ id: m.id, nome: m.nome, qtdUsada: Number(m.qtdUsada || 1) }))
              };
              if (pedidoEditandoId) await updateDoc(doc(db, "pedidos", pedidoEditandoId), dadosPedido);
-             else await addDoc(collection(db, "pedidos"), { ...dadosPedido, data: new Date().toLocaleDateString('pt-BR'), status: 'Pendente' });
+             else await addDoc(collection(db, "pedidos"), { ...dadosPedido, data: new Date().toLocaleDateString('pt-BR'), status: 'Pendente', userId: user.uid });
              limparCalculadora(); setActiveTab('pedidos');
              alert("Salvo!");
           }} className="bg-orange-500 text-white px-5 py-4 rounded-[22px] font-black uppercase text-xs shadow-lg">Salvar</button>
@@ -682,10 +680,36 @@ export default function App() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-32 font-sans text-slate-700 w-full">
-      <header className="bg-white p-4 flex justify-between items-center shadow-sm sticky top-0 z-50 w-full">
+    <div className="min-h-screen bg-slate-50 pb-32 font-sans text-slate-700 w-full relative overflow-x-hidden">
+      
+      {/* MENU HAMBÚRGUER LATERAL COMPLETO COM TODAS AS ABAS DO APP */}
+      <div className={`fixed inset-0 bg-black/40 z-50 transition-opacity duration-300 ${isMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`} onClick={() => setIsMenuOpen(false)}>
+        <div className={`w-72 bg-white h-full shadow-2xl p-6 flex flex-col justify-between transition-transform duration-300 ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'}`} onClick={e => e.stopPropagation()}>
+          <div className="space-y-6">
+            <div className="flex justify-between items-center border-b pb-4">
+              <div className="font-black text-purple-700 text-lg flex items-center gap-2"><Calculator size={22}/> Menu PrecificaJá</div>
+              <button onClick={() => setIsMenuOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={22}/></button>
+            </div>
+            <nav className="flex flex-col gap-1">
+              <button onClick={() => setActiveTab('inicio')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'inicio' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Home size={16}/> Início</button>
+              <button onClick={() => setActiveTab('criar')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'criar' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Plus size={16}/> Orçar</button>
+              <button onClick={() => setActiveTab('pedidos')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'pedidos' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><History size={16}/> Histórico</button>
+              <button onClick={() => setActiveTab('materiais')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'materiais' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Package size={16}/> Armário / Insumos</button>
+              <button onClick={() => setActiveTab('clientes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'clientes' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><User size={16}/> Clientes</button>
+              <button onClick={() => setActiveTab('catalogo')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'catalogo' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><BookOpen size={16}/> Catálogo de Vitrine</button>
+            </nav>
+          </div>
+          <button onClick={() => signOut(auth)} className="w-full text-red-500 bg-red-50 p-4 rounded-xl text-xs font-black uppercase flex items-center justify-center gap-1.5"><LogOut size={16}/> Sair</button>
+        </div>
+      </div>
+
+      {/* HEADER ATUALIZADO COM ÍCONE DE MENU */}
+      <header className="bg-white p-4 flex justify-between items-center shadow-sm sticky top-0 z-40 w-full">
+        <button onClick={() => setIsMenuOpen(true)} className="p-2 text-slate-700 hover:text-purple-700 transition-colors">
+          <Menu size={24} />
+        </button>
         <div className="font-black text-purple-700 text-lg flex items-center gap-2"><Calculator size={22}/> PrecificaJá</div>
-        <button onClick={() => signOut(auth)} className="text-red-500 bg-red-50 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1 active:scale-95 transition-all"><LogOut size={14}/> SAIR</button>
+        <div className="w-10"></div> 
       </header>
 
       <div className="p-4 max-w-xl mx-auto w-full">
@@ -746,7 +770,7 @@ export default function App() {
               <div className="w-full">
                 <h3 className="text-xs font-black uppercase tracking-widest text-purple-200 flex items-center gap-1.5"><Share2 size={14}/> Seu Catálogo Público</h3>
                 <p className="text-xs text-purple-100 mt-1 opacity-90">Link exclusivo para enviar aos seus clientes:</p>
-                <div className="mt-2 bg-purple-900/40 p-3.5 rounded-2xl text-xs font-mono select-all break-all border border-purple-500/30 bg-black/10 w-full">
+                <div className="mt-2 bg-purple-900/40 p-3.5 rounded-2xl text-xs font-mono select-all break-all border border-purple-500/30 bg-black/10 w-full font-bold">
                   {linkDoCatalogoDestaCliente}
                 </div>
                 <div onClick={copiarLinkCatalogo} className="mt-2.5 w-full bg-white text-purple-800 font-bold p-3 rounded-xl text-xs uppercase shadow flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer">
@@ -822,7 +846,6 @@ export default function App() {
                   </div>
                   <div className="flex items-center gap-1">
                     <button onClick={() => venderItemDiretoDoCatalogo(p)} className="bg-orange-500 text-white px-3 py-2 rounded-xl text-xs font-black uppercase shadow active:scale-95">Vender 🛍️</button>
-                    <button onClick={() => setNovoProdCatalogo({ id: p.id, nome: p.nome, precoVenda: String(p.precoVenda), urlImagem: p.urlImagem || '' })} className="text-purple-400 p-1.5"><Edit2 size={15}/></button>
                     <button onClick={() => deleteDoc(doc(db, "produtos", p.id))} className="text-red-200 p-1.5"><Trash2 size={15}/></button>
                   </div>
                 </div>
@@ -920,7 +943,7 @@ export default function App() {
               const estaAcabando = Number(m.qtdAtual || 0) <= Number(m.qtdMinima || 0);
               const valorUnitarioCalculado = Number(m.qtd || 1) > 0 ? (Number(m.valor || 0) / Number(m.qtd || 1)).toFixed(2) : "0.00";
               return (
-                <div key={m.id} className="bg-white p-5 rounded-3xl flex justify-between items-center border w-full">
+                <div key={m.id} className="bg-white p-5 rounded-3xl flex justify-between items-center border w-full mb-2">
                   <div>
                     <p className="font-bold text-slate-800">{estaAcabando ? '🔴' : '🟢'} {m.nome}</p>
                     <p className="text-xs text-slate-400 mt-1">Custo unitário: <span className="font-bold text-slate-600">R$ {valorUnitarioCalculado}</span></p>
@@ -954,11 +977,8 @@ export default function App() {
               }} className="w-full bg-orange-500 text-white p-5 rounded-2xl font-black uppercase text-xs">Salvar Cliente</button>
             </div>
             {clientes.map(c => (
-              <div key={c.id} className="bg-white p-5 rounded-3xl flex justify-between items-center border shadow-sm font-bold w-full">
-                <div className="flex flex-col ml-2">
-                  <span className="text-slate-800">{c.nome}</span>
-                  <span className="text-xs text-slate-400 font-normal">{c.zap ? `📱 ${c.zap}` : 'Sem número'}</span>
-                </div>
+              <div key={c.id} className="bg-white p-5 rounded-3xl flex justify-between items-center border shadow-sm font-bold w-full mb-2">
+                <div className="flex flex-col ml-2"><span className="text-slate-800">{c.nome}</span><span className="text-xs text-slate-400 font-normal">{c.zap ? `📱 ${c.zap}` : 'Sem número'}</span></div>
                 <div className="flex gap-1">
                   <button onClick={() => setNovoCli({ id: c.id, nome: c.nome, zap: c.zap || '' })} className="text-orange-400 p-2"><Edit2 size={18}/></button>
                   <button onClick={() => confirmarExcluir('cliente', c.id)} className="text-red-200 p-2"><Trash2 size={20}/></button>
@@ -969,35 +989,24 @@ export default function App() {
         )}
       </div>
 
-      {/* MENU INFERIOR */}
-      <div className="fixed bottom-0 left-0 right-0 flex justify-center p-4 z-50 bg-transparent pointer-events-none">
-        <div className="relative bg-white shadow-[0_-10px_30px_rgba(0,0,0,0.05)] rounded-[30px] flex justify-around items-center px-2 h-16 w-full max-w-xl pointer-events-auto">
+      {/* MENU INFERIOR ENXUTO (INÍCIO, ORÇAR, HISTÓRICO) */}
+      <div className="fixed bottom-0 left-0 right-0 flex justify-center p-4 z-30 bg-transparent pointer-events-none">
+        <div className="bg-white shadow-[0_-10px_30px_rgba(0,0,0,0.06)] rounded-[28px] flex justify-around items-center px-4 h-16 w-full max-w-xl pointer-events-auto border">
           <button onClick={() => setActiveTab('inicio')} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'inicio' ? 'text-orange-500' : 'text-slate-300'}`}>
-            <Home size={20} className={activeTab === 'inicio' ? 'stroke-[2.5]' : 'stroke-[2]'} />
+            <Home size={22} className={activeTab === 'inicio' ? 'stroke-[2.5]' : 'stroke-[2]'} />
             <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Início</span>
           </button>
-          <button onClick={() => setActiveTab('materiais')} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'materiais' ? 'text-orange-500' : 'text-slate-300'}`}>
-            <Package size={20} className={activeTab === 'materiais' ? 'stroke-[2.5]' : 'stroke-[2]'} />
-            <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Armário</span>
-          </button>
-          <button onClick={() => setActiveTab('catalogo')} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'catalogo' ? 'text-orange-500' : 'text-slate-300'}`}>
-            <BookOpen size={20} className={activeTab === 'catalogo' ? 'stroke-[2.5]' : 'stroke-[2]'} />
-            <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Catálogo</span>
-          </button>
-          <button onClick={() => { limparCalculadora(); setActiveTab('criar'); }} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'criar' ? 'text-orange-500' : 'text-slate-300'}`}>
-            <Plus size={20} className={activeTab === 'criar' ? 'stroke-[3]' : 'stroke-[2]'} />
+          <button onClick={() => setActiveTab('criar')} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'criar' ? 'text-orange-500' : 'text-slate-300'}`}>
+            <Plus size={22} className={activeTab === 'criar' ? 'stroke-[3]' : 'stroke-[2]'} />
             <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Orçar</span>
           </button>
-          <button onClick={() => setActiveTab('clientes')} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'clientes' ? 'text-orange-500' : 'text-slate-300'}`}>
-            <User size={20} className={activeTab === 'clientes' ? 'stroke-[2.5]' : 'stroke-[2]'} />
-            <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Clientes</span>
-          </button>
           <button onClick={() => setActiveTab('pedidos')} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'pedidos' ? 'text-orange-500' : 'text-slate-300'}`}>
-            <History size={20} className={activeTab === 'pedidos' ? 'stroke-[2.5]' : 'stroke-[2]'} />
+            <History size={22} className={activeTab === 'pedidos' ? 'stroke-[2.5]' : 'stroke-[2]'} />
             <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Histórico</span>
           </button>
         </div>
       </div>
+
     </div>
   );
 }
