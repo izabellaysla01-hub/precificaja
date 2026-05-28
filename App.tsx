@@ -157,14 +157,13 @@ export default function App() {
       const qProdutos = query(collection(db, "produtos"), where("userId", "==", user.uid));
       const unsubProdutos = onSnapshot(qProdutos, s => setProdutos(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
-      // Carrega os custos fixos de volta na tela para você conseguir ver e editar!
+      // Carrega as configurações de custos automáticos e atualiza o estado vHora se existirem
       const qConfigFin = doc(db, "configuracoes_financeiras", user.uid);
       getDoc(qConfigFin).then(snap => {
         if (snap.exists()) {
           const dadosFin = snap.data() as any;
           setFinancasFixo(dadosFin);
           
-          // Preenche o valor sugerido da hora baseado nas configurações fixas
           const dias = Number(dadosFin.diasTrabalho || 20);
           const horas = Number(dadosFin.horasDia || 8);
           const totalHorasMes = dias * horas || 160;
@@ -533,7 +532,7 @@ export default function App() {
 
   const confirmarExcluir = async (tipo: string, id: string) => {
     if (window.confirm(`Excluir ${tipo}?`)) {
-      await deleteDoc(doc(db, tipo === 'pedido' ? "pedidos" : tipo === 'cliente' ? "clientes" : tipo === 'produto' ? "produtos" : "equipamentos" : "materiais", id));
+      await deleteDoc(doc(db, tipo === 'pedido' ? "pedidos" : tipo === 'cliente' ? "clientes" : tipo === 'produto' ? "produtos" : "equipamentos", id));
     }
   };
 
@@ -682,6 +681,10 @@ export default function App() {
     );
   }
 
+  if (!user) {
+    return ( <Login isRegistering={isRegistering} setIsRegistering={setIsRegistering} email={email} setEmail={setEmail} password={password} setPassword={setPassword} handleAuth={handleAuth} /> );
+  }
+
   const renderCalculadoraForm = () => (
     <div className="bg-white p-6 rounded-[35px] shadow-xl border mt-2 w-full">
       {pedidoEditandoId && (
@@ -725,7 +728,7 @@ export default function App() {
 
       <div className="grid grid-cols-3 gap-3 mb-4 w-full">
          <div className="col-span-2">
-            <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Produto</label>
+            <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Produto / Serviço</label>
             <input className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-slate-800 border focus:border-purple-500" value={nomeProd} onChange={e => setNomeProd(e.target.value)} />
          </div>
          <div>
@@ -766,15 +769,14 @@ export default function App() {
           <div className="grid grid-cols-2 gap-4 mb-4 w-full">
             <div className="w-full">
               <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Tempo Gasto (min)</label>
-              <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={tGasto} onChange={e => setTGasto(e.target.value)} />
+              <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={tGasto} onChange={e => setTGasto(e.target.value)} />
             </div>
             <div className="w-full">
               <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Valor da Hora (R$)</label>
-              <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={vHora} onChange={e => setVHora(e.target.value)} />
+              <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-purple-700 border focus:border-purple-400" value={vHora} onChange={e => setVHora(e.target.value)} />
             </div>
           </div>
 
-          {/* NOVO BLOCO DE SELEÇÃO DE MÁQUINAS: Selecione apenas a máquina que de fato foi usada */}
           {equipamentos.length > 0 && (
             <div className="mb-4 w-full">
               <label className="text-[10px] font-bold text-purple-600 uppercase ml-1 block mb-1">🛠️ Equipamentos Ativos neste Orçamento</label>
@@ -795,9 +797,9 @@ export default function App() {
             <label className="text-[10px] font-bold text-purple-600 uppercase ml-1 block mb-1">📦 Custos Extras por Unidade (R$)</label>
             <div className="grid grid-cols-4 gap-2 w-full">
               {[{id:'embalagem',label:'EMBAL.'},{id:'impressao',label:'TINTA'},{id:'energia',label:'LUZ'},{id:'outros',label:'OUTROS'}].map(c=>(
-                <div key={c.id} className="flex flex-col items-center bg-slate-50 p-2 rounded-xl w-full">
-                  <span className="text-[8px] font-black text-slate-300 mb-1">{c.label}</span>
-                  <input type="number" className="w-full bg-transparent text-center text-xs outline-none font-bold" value={(custos as any)[c.id]} onChange={e => setCustos({...custos, [c.id]: e.target.value})} />
+                <div key={c.id} className="flex flex-col items-center bg-slate-50 p-2 rounded-xl w-full border">
+                  <span className="text-[8px] font-black text-slate-400 mb-1">{c.label}</span>
+                  <input type="number" className="w-full bg-transparent text-center text-xs outline-none font-bold text-slate-700" value={(custos as any)[c.id]} onChange={e => setCustos({...custos, [c.id]: e.target.value})} />
                 </div>
               ))}
             </div>
@@ -841,7 +843,6 @@ export default function App() {
           <div className="flex justify-between text-slate-500 w-full"><span>Materiais:</span><span className="font-bold">R$ {resumenFinanceiro.materiais}</span></div>
           <div className="flex justify-between text-slate-500 w-full"><span>Mão de Obra:</span><span className="font-bold">R$ {resumenFinanceiro.maoObra}</span></div>
           <div className="flex justify-between text-slate-500 w-full"><span>Extras / Custo Manual:</span><span className="font-bold">R$ {resumenFinanceiro.extras}</span></div>
-          {/* NOVA LINHA DE DEPRECIAÇÃO TOTALMENTE EXCLUSIVA E SEPARADA */}
           <div className="flex justify-between text-slate-500 w-full"><span>Depreciação de Equipamentos:</span><span className="font-bold text-purple-700">R$ {resumenFinanceiro.deprec}</span></div>
           <div className="flex justify-between text-slate-800 font-bold border-t pt-2 mt-1 w-full"><span>Custo Total da Peça:</span><span className="text-purple-700">R$ {resumenFinanceiro.custoPeca}</span></div>
           <div className="flex justify-between text-emerald-600 font-bold w-full"><span>Lucro Livre Gerado ({lucro}%) :</span><span>R$ {resumenFinanceiro.lucroLivre}</span></div>
@@ -1033,7 +1034,7 @@ export default function App() {
               </div>
 
               <button onClick={async () => {
-                if(!novoEquipamento.nome || !novoEquipamento.valorPago) return alert("Preencha o nome e o preço do equipamento!");
+                if(!novoEquipamento.nome || !novoEquipamento.valorPago) return alert("Preencha o nome e o preço del equipamento!");
                 const d = { nome: novoEquipamento.nome, valorPago: Number(novoEquipamento.valorPago), durabilidadeAnos: Number(novoEquipamento.durabilidadeAnos), userId: user.uid };
                 if (novoEquipamento.id) await updateDoc(doc(db, "equipamentos", novoEquipamento.id), d);
                 else await addDoc(collection(db, "equipamentos"), d);
