@@ -91,6 +91,7 @@ export default function App() {
   const [carrinhoInterno, setCarrinhoInterno] = useState<{ [key: string]: number }>({});
   const [clienteBalcao, setClienteBalcao] = useState('');
   const [nomeKitBalcao, setNomeKitBalcao] = useState('');
+  // Ajuste: Novo estado para armazenar o prazo comercial inserido no Balcão
   const [prazoBalcao, setPrazoBalcao] = useState('');
 
   const setActiveTab = (tab: any) => {
@@ -140,7 +141,7 @@ export default function App() {
   useEffect(() => {
     if (user && !idLojaPublica) {
       const qMateriais = query(collection(db, "materiais"), where("userId", "==", user.uid));
-      const unsubMateriais = onSnapshot(qMateriais, s => setMaterials(s.docs.map(d => ({ id: d.id, ...d.data() }))));
+      const unsubMaterials = onSnapshot(qMateriais, s => setMaterials(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
       const qPedidos = query(collection(db, "pedidos"), where("userId", "==", user.uid));
       const unsubPedidos = onSnapshot(qPedidos, s => setPedidos(s.docs.map(d => ({ id: d.id, ...d.data() }))));
@@ -152,7 +153,7 @@ export default function App() {
       const unsubProdutos = onSnapshot(qProdutos, s => setProdutos(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
       return () => {
-        unsubMateriais();
+        unsubMaterials();
         unsubPedidos();
         unsubClientes();
         unsubProdutos();
@@ -289,6 +290,7 @@ export default function App() {
     });
 
     const nomeFinalDoRegistro = nomeKitBalcao.trim() ? nomeKitBalcao.trim() : stringNomeCombo;
+    // Ajuste: Se a usuária não definiu um prazo na tela de balcão, assume o dia atual como padrão
     const prazoFinalVenda = prazoBalcao ? prazoBalcao : new Date().toISOString().split('T')[0];
 
     try {
@@ -296,7 +298,7 @@ export default function App() {
         nomeProd: nomeFinalDoRegistro,
         preco: totalGeral.toFixed(2),
         clienteId: clienteBalcao,
-        prazo: prazoFinalVenda,
+        prazo: prazoFinalVenda, // Prazo customizado salvo corretamente no Firebase
         qtdPed: "1",
         vHora: "0",
         tGasto: "0",
@@ -305,7 +307,7 @@ export default function App() {
         desconto: "0",
         userId: user.uid,
         precoManual: totalGeral.toFixed(2),
-        obsPedido: "",
+        obsPedido: "", // Ajuste: Limpa a observação roxa automática conforme solicitado
         data: new Date().toLocaleDateString('pt-BR'),
         status: 'Pendente',
         itensCombo: arrayItensSalvar 
@@ -314,7 +316,7 @@ export default function App() {
       setCarrinhoInterno({});
       setClienteBalcao('');
       setNomeKitBalcao('');
-      setPrazoBalcao('');
+      setPrazoBalcao(''); // Limpa o estado
       alert("Combo lançado com sucesso no Histórico! 🚀");
       setActiveTab('pedidos');
     } catch {
@@ -349,8 +351,7 @@ export default function App() {
   }, [matsNoPed, vHora, tGasto, custos, lucro, qtdPed, desconto, precoManual]);
 
   const enviarZap = (p: any) => {
-    const targetId = p.clienteId || p.clienteSel;
-    const cli = clientes.find(c => c.id === targetId);
+    const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
     const dataP = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combinar';
     const msg = `*RESUMO ORÇAMENTO*%0A---%0A*Cliente:* ${cli?.nome || 'Cliente'}%0A*Produto:* %0A${p.nomeProd}%0A*Qtd:* ${p.qtdPed || 1} un%0A*Prazo:* ${dataP}%0A*VALOR TOTAL:* R$ ${p.preco}%0A---%0AObrigado!`;
     const fone = cli?.zap ? cli.zap.replace(/\D/g, '') : '';
@@ -358,19 +359,16 @@ export default function App() {
   };
 
   const gerarPDF = (p: any) => {
-    // CORREÇÃO CRÍTICA: Mapeia corretamente o id independente da tela de origem do clique
-    const targetClienteId = p.clienteId || p.clienteSel || clienteSel;
-    const cli = clientes.find(c => c.id === targetClienteId);
-    
+    const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
     const dataEmissao = p.data || new Date().toLocaleDateString('pt-BR');
     const hoje = new Date(); hoje.setDate(hoje.getDate() + 7);
     const dataValidade = hoje.toLocaleDateString('pt-BR');
+    // Mapeia e corrige a data do prazo vinda do banco ou do balcão
     const dataPrazo = p.prazo ? new Date(p.prazo + 'T00:00:00').toLocaleDateString('pt-BR') : 'A combinar';
-    const totalNum = Number(p.preco || p.precoManual || 0);
+    const totalNum = Number(p.preco || 0);
 
     let htmlLinhasTabela = '';
 
-    // Caso 1: Veio do Balcão de Vendas com itens estruturados em array
     if (p.itensCombo && Array.isArray(p.itensCombo) && p.itensCombo.length > 0) {
       htmlLinhasTabela = p.itensCombo.map((item: any) => `
         <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px;">
@@ -381,7 +379,6 @@ export default function App() {
         </tr>
       `).join('');
     } else {
-      // Caso 2: Orçamento Livre / Manual com texto ou quebra de linha
       const arrayLinhasTexto = String(p.nomeProd || '').split('\n');
       htmlLinhasTabela = arrayLinhasTexto.map(linhaTexto => {
         if(!linhaTexto.trim()) return '';
@@ -393,9 +390,7 @@ export default function App() {
           quantidadeItem = Number(matchCombo[1]);
           nomeItemLimpo = matchCombo[2].trim();
         }
-        
-        // Evita divisão por zero ou exibição errada se quantidade for nula
-        const unitario = (totalNum / (quantidadeItem || 1)).toFixed(2);
+        const unitario = (totalNum / quantidadeItem).toFixed(2);
 
         return `
           <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px;">
@@ -423,7 +418,7 @@ export default function App() {
         </div>
         
         <div style="background-color: #f8fafc; padding: 12px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #e2e8f0; font-size: 14px; font-weight: bold; color: #7c3aed;">
-          Referência do Pedido: ${p.nomeProd.replace(/\n/g, ' / ')}
+          Referência do Pedido: ${p.nomeProd}
         </div>
 
         <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Dados do Cliente</div>
@@ -480,13 +475,8 @@ export default function App() {
         </div>
       </div>
     `;
-    const opcoes = { margin: 0, filename: `Orcamento_${cli?.nome || 'Cliente'}.pdf`, html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'a4', orientation: 'portrait' } };
-    
-    if ((window as any).html2pdf) {
-      (window as any).html2pdf().from(elemento).set(opcoes).save();
-    } else {
-      alert("O motor do PDF está carregando no seu celular. Aguarde 3 segundos e clique de novo! 🚀");
-    }
+    const opcoes = { margin: 0, filename: `Orcamento.pdf`, html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'a4', orientation: 'portrait' } };
+    (window as any).html2pdf().from(elemento).set(opcoes).save();
   };
 
   const handleAuth = async () => {
@@ -503,7 +493,7 @@ export default function App() {
   };
 
   const confirmarVendaPedido = async (pedido: any) => {
-    if (pedido.materiaisUsados && pedido.materialsUsados.length > 0) {
+    if (pedido.materiaisUsados && pedido.materiaisUsados.length > 0) {
       for (const m of pedido.materiaisUsados) {
         const matDoBanco = materiais.find(item => item.id === m.id);
         if (matDoBanco) {
@@ -906,13 +896,13 @@ export default function App() {
 
               <div className="border-t border-purple-500/30 pt-2.5 w-full">
                 <label className="text-[9px] font-black uppercase text-purple-200 block mb-1">📱 Seu WhatsApp de Vendas (Com DDD)</label>
-                <div className="flex gap-2 w-full items-center">
-                  <input placeholder="Ex: 21983858055" className="w-[65%] p-2.5 bg-black/20 text-white rounded-xl text-xs font-bold border border-purple-500/30 outline-none" value={zapDonaConta} onChange={e => setZapDonaConta(e.target.value)} />
+                <div className="flex gap-2 w-full">
+                  <input placeholder="Ex: 21983858055" className="flex-1 p-2.5 bg-black/20 text-white rounded-xl text-xs font-bold border border-purple-500/30 outline-none" value={zapDonaConta} onChange={e => setZapDonaConta(e.target.value)} />
                   <button onClick={async () => {
                     if(!zapDonaConta.trim()) return alert("Digite o número!");
                     try { await setDoc(doc(db, "configuracoes_loja", user.uid), { whatsapp: zapDonaConta.trim() }, { merge: true }); alert("WhatsApp salvo!"); } 
                     catch { alert("Erro ao salvar."); }
-                  }} className="w-[35%] bg-orange-500 text-white text-xs font-black uppercase h-[38px] rounded-xl shadow flex items-center justify-center tracking-wider">SALVAR</button>
+                  }} className="bg-orange-500 text-white text-xs font-black uppercase px-4 rounded-xl shadow">Salvar</button>
                 </div>
               </div>
             </div>
@@ -929,7 +919,7 @@ export default function App() {
                 <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Nome do Kit / Combo (Opcional)</label>
                 <input 
                   placeholder="Ex: Kit Dia dos Namorados, Kit Casal..." 
-                  className="w-full p-3.5 bg-slate-800/80 rounded-xl text-xs font-bold text-white border border-slate-700 outline-none focus:border-purple-400 block box-border"
+                  className="w-full p-3.5 bg-slate-800/80 rounded-xl text-xs font-bold text-white border border-slate-700 outline-none focus:border-purple-400"
                   value={nomeKitBalcao}
                   onChange={e => setNomeKitBalcao(e.target.value)}
                 />
@@ -937,44 +927,41 @@ export default function App() {
               
               <div className="w-full">
                 <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Cliente do Balcão</label>
-                <select className="w-full p-3.5 bg-slate-800/80 rounded-xl text-xs font-bold text-white border border-slate-700 outline-none focus:border-purple-400 block box-border" value={clienteBalcao} onChange={e => setClienteBalcao(e.target.value)}>
+                <select className="w-full p-3.5 bg-slate-800/80 rounded-xl text-xs font-bold text-white border border-slate-700 outline-none focus:border-purple-400" value={clienteBalcao} onChange={e => setClienteBalcao(e.target.value)}>
                   <option value="" className="text-slate-800">👤 Selecionar Cliente...</option>
                   {clientes.map(c => <option key={c.id} value={c.id} className="text-slate-800">{c.nome}</option>)}
                 </select>
               </div>
 
+              {/* Ajuste: Novo seletor de prazo adicionado diretamente no Balcão de Vendas */}
               <div className="w-full">
                 <label className="text-[10px] font-bold text-orange-400 uppercase ml-1 block mb-1">Prazo de Entrega do Combo</label>
                 <input 
                   type="date" 
-                  className="w-full p-3.5 bg-slate-800/80 rounded-xl text-xs font-bold text-white border border-slate-700 outline-none focus:border-purple-400 block box-border h-[46px]"
+                  className="w-full p-3.5 bg-slate-800/80 rounded-xl text-xs font-bold text-white border border-slate-700 outline-none focus:border-purple-400 block"
                   value={prazoBalcao} 
                   onChange={e => setPrazoBalcao(e.target.value)} 
                 />
               </div>
 
-              <div className="bg-slate-800/40 border border-slate-800 p-3 rounded-2xl space-y-3 max-h-72 overflow-y-auto">
+              <div className="bg-slate-800/40 border border-slate-800 p-3 rounded-2xl space-y-2 max-h-64 overflow-y-auto">
                 {produtos.map(p => {
                   const qtdInterna = carrinhoInterno[p.id] || 0;
                   return (
-                    <div key={p.id} className="flex justify-between items-center bg-slate-900/60 p-3.5 rounded-xl border border-slate-800/80 gap-3">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold truncate text-slate-200">{p.nome}</p>
-                      </div>
-                      <div className="text-center px-4 shrink-0 bg-slate-900/40 py-1 rounded-lg border border-slate-800">
-                        <p className="text-[11px] font-black text-purple-300">R$ {Number(p.precoVenda).toFixed(2)}</p>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <button onClick={() => setCarrinhoInterno({...carrinhoInterno, [p.id]: Math.max(0, qtdInterna - 1)})} className="w-7 h-7 bg-slate-800 rounded-lg font-black text-slate-300 transition-transform active:scale-90">-</button>
-                        <span className="font-bold text-xs w-4 text-center text-white">{qtdInterna}</span>
-                        <button onClick={() => setCarrinhoInterno({...carrinhoInterno, [p.id]: qtdInterna + 1})} className="w-7 h-7 bg-purple-600 rounded-lg font-black text-white transition-transform active:scale-90">+</button>
+                    <div key={p.id} className="flex justify-between items-center bg-slate-900/60 p-2.5 rounded-xl border border-slate-800/80">
+                      <span className="text-xs font-bold truncate max-w-[180px] text-slate-200">{p.nome}</span>
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-[11px] font-black text-purple-300 mr-1">R$ {Number(p.precoVenda).toFixed(2)}</span>
+                        <button onClick={() => setCarrinhoInterno({...carrinhoInterno, [p.id]: Math.max(0, qtdInterna - 1)})} className="w-7 h-7 bg-slate-800 rounded-lg font-black text-slate-300">-</button>
+                        <span className="font-bold text-xs w-4 text-center">{qtdInterna}</span>
+                        <button onClick={() => setCarrinhoInterno({...carrinhoInterno, [p.id]: qtdInterna + 1})} className="w-7 h-7 bg-purple-600 rounded-lg font-black text-white">+</button>
                       </div>
                     </div>
                   );
                 })}
               </div>
 
-              <button onClick={lancarVendaBalcaoInterno} className="w-full bg-orange-500 hover:bg-orange-600 text-white p-4 rounded-xl text-xs font-black uppercase tracking-wider shadow-lg transition-transform active:scale-95 mt-2">
+              <button onClick={lancarVendaBalcaoInterno} className="w-full bg-orange-500 hover:bg-orange-600 text-white p-4 rounded-xl text-xs font-black uppercase tracking-wider shadow-lg transition-transform active:scale-95">
                 Lançar Combo no Histórico 🚀
               </button>
             </div>
@@ -1123,7 +1110,7 @@ export default function App() {
                 if (novoMat.id) await updateDoc(doc(db, "materiais", novoMat.id), d);
                 else await addDoc(collection(db, "materiais"), d);
                 setNovoMat({ id: '', nome: '', valor: '', qtd: '1', unidade: 'un', qtdAtual: '0', qtdMinima: '0' });
-                alert("Material saved!");
+                alert("Material salvo!");
               }} className="w-full bg-orange-500 text-white p-5 rounded-2xl font-black uppercase text-xs">
                 {novoMat.id ? 'Atualizar Insumo' : 'Salvar no Armário'}
               </button>
