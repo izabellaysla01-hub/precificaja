@@ -190,7 +190,7 @@ export default function App() {
     }
   }, [user, idLojaPublica]);
 
-  // CORREÇÃO: Sincroniza o valor por hora sempre que as configurações financeiras carregarem do banco
+  // Sincroniza o valor por hora sempre que as configurações financeiras carregarem do banco
   useEffect(() => {
     const dias = Number(financasFixo.diasTrabalho || 20);
     const horas = Number(financasFixo.horasDia || 8);
@@ -371,7 +371,7 @@ export default function App() {
     const pendentesCount = pedidos.filter(p => p.status !== 'Vendido 💰').length;
     const estoqueCriticoCount = materiais.filter(m => Number(m.qtdAtual || 0) <= Number(m.qtdMinima || 0)).length;
     return { faturamento: faturamentoTotal.toFixed(2), pendentes: pendentesCount, criticos: estoqueCriticoCount, totalClientes: clientes.length };
-  }, [pedidos, materiais, clientes]);
+  }, [pedidos, materiales, clientes]);
 
   const resumenFinanceiro = useMemo(() => {
     if (precoManual !== null) {
@@ -384,7 +384,7 @@ export default function App() {
     const totalMaoObra = (Number(vHora || 0) / 60) * Number(tGasto || 0);
     const totalExtras = Number(custos.embalagem || 0) + Number(custos.impressao || 0) + Number(custos.energia || 0) + Number(custos.outros || 0);
     
-    // CORREÇÃO: Calcula a depreciação de forma isolada para renderizar na linha exclusiva do resumo
+    // Calcula a depreciação apenas das máquinas que foram selecionadas pelo usuário na calculadora
     let totalDesgasteMaquinas = 0;
     const dias = Number(financasFixo.diasTrabalho || 20);
     const horas = Number(financasFixo.horasDia || 8);
@@ -443,7 +443,7 @@ export default function App() {
         let quantidadeItem = Number(p.qtdPed || 1);
         let nomeItemLimpo = linhaTexto.trim();
         
-        const matchCombo = inlineTexto = linhaTexto.trim().match(/^(\d+)x\s+(.+)$/i);
+        const matchCombo = linhaTexto.trim().match(/^(\d+)x\s+(.+)$/i);
         if(matchCombo) {
           quantidadeItem = Number(matchCombo[1]);
           nomeItemLimpo = matchCombo[2].trim();
@@ -564,7 +564,7 @@ export default function App() {
     
     const textoVenda = String(pedido.nomeProd || '');
     if (textoVenda.includes('x ')) {
-      const partes Itens = textoVenda.split(/\n| \+ /);
+      const partesItens = textoVenda.split(/\n| \+ /);
       for (const parte of partesItens) {
         const regexMatch = parte.trim().match(/^(\d+)x\s+(.+)$/i);
         if (regexMatch) {
@@ -598,7 +598,7 @@ export default function App() {
     finally { setSubindoImagem(false); }
   };
 
-  // CORREÇÃO: Respeita o valor da hora financeira salva ao resetar o formulário
+  // Garante que respeita o valor da hora financeira salva ao resetar o formulário
   const limparCalculadora = () => {
     setNomeProd(''); setQtdPed('1'); setMatsNoPed([]); setTGasto('60');
     setCustos({ embalagem: '0', impressao: '0', energia: '0', outros: '0' });
@@ -800,10 +800,9 @@ export default function App() {
             </div>
           </div>
 
-          {/* CORREÇÃO: Mapeamento de botões de seleção de equipamentos ativos no orçamento */}
           {equipamentos.length > 0 && (
             <div className="mb-4 w-full">
-              <label className="text-[10px] font-bold text-purple-600 uppercase ml-1 block mb-1">🛠️ Equipamentos Ativos neste Orçamento</label>
+              <label className="text-[10px] font-bold text-purple-600 uppercase ml-1 block mb-1">🛠 Cormat Equipamentos Ativos neste Orçamento</label>
               <div className="flex flex-wrap gap-2 w-full">
                 {equipamentos.map(eq => {
                   const selecionado = equipamentosSelecionados.includes(eq.id);
@@ -867,7 +866,6 @@ export default function App() {
           <div className="flex justify-between text-slate-500 w-full"><span>Materiais:</span><span className="font-bold">R$ {resumenFinanceiro.materiais}</span></div>
           <div className="flex justify-between text-slate-500 w-full"><span>Mão de Obra:</span><span className="font-bold">R$ {resumenFinanceiro.maoObra}</span></div>
           <div className="flex justify-between text-slate-500 w-full"><span>Extras / Custo Manual:</span><span className="font-bold">R$ {resumenFinanceiro.extras}</span></div>
-          {/* CORREÇÃO: Linha independente no detalhamento financeiro da peça */}
           <div className="flex justify-between text-slate-500 w-full"><span>Depreciação de Equipamentos:</span><span className="font-bold text-purple-700">R$ {resumenFinanceiro.deprec}</span></div>
           <div className="flex justify-between text-slate-800 font-bold border-t pt-2 mt-1 w-full"><span>Custo Total da Peça:</span><span className="text-purple-700">R$ {resumenFinanceiro.custoPeca}</span></div>
           <div className="flex justify-between text-emerald-600 font-bold w-full"><span>Lucro Livre Gerado ({lucro}%) :</span><span>R$ {resumenFinanceiro.lucroLivre}</span></div>
@@ -1005,7 +1003,7 @@ export default function App() {
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Outros Gastos Fixos</label>
-                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={financasFixo.outros} onChange={e => setFinancasFixo({...financasFixo,大陸 outros: e.target.value})} />
+                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={financasFixo.outros} onChange={e => setFinancasFixo({...financasFixo, outros: e.target.value})} />
                 </div>
               </div>
 
@@ -1110,7 +1108,7 @@ export default function App() {
                   <input placeholder="Ex: 21983858055" className="flex-1 p-2.5 bg-black/20 text-white rounded-xl text-xs font-bold border border-purple-500/30 outline-none" value={zapDonaConta} onChange={e => setZapDonaConta(e.target.value)} />
                   <button onClick={async () => {
                     if(!zapDonaConta.trim()) return alert("Digite o número!");
-                    try { await setDoc(doc(db, "configuracoes_loja", user.uid), { whatsapp: zapDonaConta.trim() }, { merge: true }); alert("WhatsApp saved!"); } 
+                    try { await setDoc(doc(db, "configuracoes_loja", user.uid), { whatsapp: zapDonaConta.trim() }, { merge: true }); alert("WhatsApp salvo!"); } 
                     catch { alert("Erro ao salvar."); }
                   }} className="bg-orange-500 text-white text-xs font-black uppercase px-4 rounded-xl shadow">Salvar</button>
                 </div>
@@ -1340,7 +1338,7 @@ export default function App() {
                     <button onClick={async () => await updateDoc(doc(db, "materiais", m.id), { qtdAtual: Math.max(0, Number(m.qtdAtual || 0) - 1) })} className="w-8 h-8 bg-slate-100 rounded-xl font-bold">-</button>
                     <button onClick={async () => await updateDoc(doc(db, "materiais", m.id), { qtdAtual: Number(m.qtdAtual || 0) + 1 })} className="w-8 h-8 bg-purple-100 rounded-xl font-bold text-purple-700">+</button>
                     <button onClick={() => setNovoMat({id: m.id, nome: m.nome, valor: String(m.valor), qtd: String(m.qtd), unidade: m.unidade, qtdAtual: String(m.qtdAtual), qtdMinima: String(m.qtdMinima)})} className="text-orange-400 p-2"><Edit2 size={16}/></button>
-                    <button onClick={() => abrirExcluir('material', m.id)} className="text-red-200 p-2"><Trash2 size={16}/></button>
+                    <button onClick={() => confirmarExcluir('material', m.id)} className="text-red-200 p-2"><Trash2 size={16}/></button>
                   </div>
                 </div>
               );
