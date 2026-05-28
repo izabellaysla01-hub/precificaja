@@ -190,20 +190,6 @@ export default function App() {
     }
   }, [user, idLojaPublica]);
 
-  // Sincroniza o valor por hora sempre que as configurações financeiras carregarem do banco
-  useEffect(() => {
-    const dias = Number(financasFixo.diasTrabalho || 20);
-    const horas = Number(financasFixo.horasDia || 8);
-    const totalHorasMes = dias * horas || 160;
-    const salario = Number(financasFixo.salario || 0);
-    const custosMes = Number(financasFixo.aluguel || 0) + Number(financasFixo.internet || 0) + Number(financasFixo.luz || 0) + Number(financasFixo.outros || 0);
-    
-    if (salario + custosMes > 0) {
-      const horaCalculada = (salario + custosMes) / totalHorasMes;
-      setVHora(horaCalculada.toFixed(2));
-    }
-  }, [financasFixo]);
-
   const linkDoCatalogoDestaCliente = useMemo(() => {
     if (!user) return '';
     return `${window.location.origin}${window.location.pathname}?loja=${user.uid}`;
@@ -371,7 +357,7 @@ export default function App() {
     const pendentesCount = pedidos.filter(p => p.status !== 'Vendido 💰').length;
     const estoqueCriticoCount = materiais.filter(m => Number(m.qtdAtual || 0) <= Number(m.qtdMinima || 0)).length;
     return { faturamento: faturamentoTotal.toFixed(2), pendentes: pendentesCount, criticos: estoqueCriticoCount, totalClientes: clientes.length };
-  }, [pedidos, materiales, clientes]);
+  }, [pedidos, materiais, clientes]);
 
   const resumenFinanceiro = useMemo(() => {
     if (precoManual !== null) {
@@ -598,25 +584,12 @@ export default function App() {
     finally { setSubindoImagem(false); }
   };
 
-  // Garante que respeita o valor da hora financeira salva ao resetar o formulário
   const limparCalculadora = () => {
-    setNomeProd(''); setQtdPed('1'); setMatsNoPed([]); setTGasto('60');
+    setNomeProd(''); setQtdPed('1'); setMatsNoPed([]); setVHora('9'); setTGasto('60');
     setCustos({ embalagem: '0', impressao: '0', energia: '0', outros: '0' });
     setEquipamentosSelecionados([]);
     setLucro('100'); setDesconto('0'); setPrazo(''); setClienteSel('');
     setPedidoEditandoId(null); setPrecoManual(null); setObsPedido('');
-
-    const dias = Number(financasFixo.diasTrabalho || 20);
-    const horas = Number(financasFixo.horasDia || 8);
-    const totalHorasMes = dias * horas || 160;
-    const salario = Number(financasFixo.salario || 0);
-    const custosMes = Number(financasFixo.aluguel || 0) + Number(financasFixo.internet || 0) + Number(financasFixo.luz || 0) + Number(financasFixo.outros || 0);
-    
-    if (salario + custosMes > 0) {
-      setVHora(((salario + custosMes) / totalHorasMes).toFixed(2));
-    } else {
-      setVHora('9');
-    }
   };
 
   const carregarPedidoParaEdicao = (p: any) => {
@@ -706,6 +679,10 @@ export default function App() {
         )}
       </div>
     );
+  }
+
+  if (!user) {
+    return ( <Login isRegistering={isRegistering} setIsRegistering={setIsRegistering} email={email} setEmail={setEmail} password={password} setPassword={setPassword} handleAuth={handleAuth} /> );
   }
 
   const renderCalculadoraForm = () => (
@@ -802,7 +779,7 @@ export default function App() {
 
           {equipamentos.length > 0 && (
             <div className="mb-4 w-full">
-              <label className="text-[10px] font-bold text-purple-600 uppercase ml-1 block mb-1">🛠 Cormat Equipamentos Ativos neste Orçamento</label>
+              <label className="text-[10px] font-bold text-purple-600 uppercase ml-1 block mb-1">🛠️ Equipamentos Ativos neste Orçamento</label>
               <div className="flex flex-wrap gap-2 w-full">
                 {equipamentos.map(eq => {
                   const selecionado = equipamentosSelecionados.includes(eq.id);
@@ -883,7 +860,7 @@ export default function App() {
              limparCalculadora(); setActiveTab('pedidos'); alert("Salvo!");
           }} className="bg-orange-500 text-white px-5 py-4 rounded-[22px] font-black uppercase text-xs shadow-lg">Salvar</button>
           <button onClick={() => gerarPDF({nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed, obsPedido})} className="bg-orange-500 text-white p-4 rounded-[22px] shadow-lg"><Printer size={18}/></button>
-          <button onClick={() => enviarZap({nomeProd: p.nomeProd, preco: p.preco, clienteId: p.clienteId, prazo: p.prazo, qtdPed: p.qtdPed})} className="bg-emerald-500 text-white p-4 rounded-[22px] shadow-lg"><MessageCircle size={18}/></button>
+          <button onClick={() => enviarZap({nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed})} className="bg-emerald-500 text-white p-4 rounded-[22px] shadow-lg"><MessageCircle size={18}/></button>
         </div>
       </div>
     </div>
@@ -1057,7 +1034,7 @@ export default function App() {
               </div>
 
               <button onClick={async () => {
-                if(!novoEquipamento.nome || !novoEquipamento.valorPago) return alert("Preencha o nome e o preço do equipamento!");
+                if(!novoEquipamento.nome || !novoEquipamento.valorPago) return alert("Preencha o nome e o preço del equipamento!");
                 const d = { nome: novoEquipamento.nome, valorPago: Number(novoEquipamento.valorPago), durabilidadeAnos: Number(novoEquipamento.durabilidadeAnos), userId: user.uid };
                 if (novoEquipamento.id) await updateDoc(doc(db, "equipamentos", novoEquipamento.id), d);
                 else await addDoc(collection(db, "equipamentos"), d);
