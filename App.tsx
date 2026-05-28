@@ -139,7 +139,6 @@ export default function App() {
 
   useEffect(() => {
     if (user && !idLojaPublica) {
-      // CORRIGIDO: Coleção apontando perfeitamente apenas para "materiais"
       const qMateriais = query(collection(db, "materiais"), where("userId", "==", user.uid));
       const unsubMateriais = onSnapshot(qMateriais, s => setMaterials(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
@@ -350,7 +349,8 @@ export default function App() {
   }, [matsNoPed, vHora, tGasto, custos, lucro, qtdPed, desconto, precoManual]);
 
   const enviarZap = (p: any) => {
-    const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
+    const targetId = p.clienteId || p.clienteSel;
+    const cli = clientes.find(c => c.id === targetId);
     const dataP = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combinar';
     const msg = `*RESUMO ORÇAMENTO*%0A---%0A*Cliente:* ${cli?.nome || 'Cliente'}%0A*Produto:* %0A${p.nomeProd}%0A*Qtd:* ${p.qtdPed || 1} un%0A*Prazo:* ${dataP}%0A*VALOR TOTAL:* R$ ${p.preco}%0A---%0AObrigado!`;
     const fone = cli?.zap ? cli.zap.replace(/\D/g, '') : '';
@@ -358,15 +358,19 @@ export default function App() {
   };
 
   const gerarPDF = (p: any) => {
-    const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
+    // CORREÇÃO CRÍTICA: Mapeia corretamente o id independente da tela de origem do clique
+    const targetClienteId = p.clienteId || p.clienteSel || clienteSel;
+    const cli = clientes.find(c => c.id === targetClienteId);
+    
     const dataEmissao = p.data || new Date().toLocaleDateString('pt-BR');
     const hoje = new Date(); hoje.setDate(hoje.getDate() + 7);
     const dataValidade = hoje.toLocaleDateString('pt-BR');
     const dataPrazo = p.prazo ? new Date(p.prazo + 'T00:00:00').toLocaleDateString('pt-BR') : 'A combinar';
-    const totalNum = Number(p.preco || 0);
+    const totalNum = Number(p.preco || p.precoManual || 0);
 
     let htmlLinhasTabela = '';
 
+    // Caso 1: Veio do Balcão de Vendas com itens estruturados em array
     if (p.itensCombo && Array.isArray(p.itensCombo) && p.itensCombo.length > 0) {
       htmlLinhasTabela = p.itensCombo.map((item: any) => `
         <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px;">
@@ -377,6 +381,7 @@ export default function App() {
         </tr>
       `).join('');
     } else {
+      // Caso 2: Orçamento Livre / Manual com texto ou quebra de linha
       const arrayLinhasTexto = String(p.nomeProd || '').split('\n');
       htmlLinhasTabela = arrayLinhasTexto.map(linhaTexto => {
         if(!linhaTexto.trim()) return '';
@@ -388,7 +393,9 @@ export default function App() {
           quantidadeItem = Number(matchCombo[1]);
           nomeItemLimpo = matchCombo[2].trim();
         }
-        const unitario = (totalNum / quantidadeItem).toFixed(2);
+        
+        // Evita divisão por zero ou exibição errada se quantidade for nula
+        const unitario = (totalNum / (quantidadeItem || 1)).toFixed(2);
 
         return `
           <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px;">
@@ -416,7 +423,7 @@ export default function App() {
         </div>
         
         <div style="background-color: #f8fafc; padding: 12px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #e2e8f0; font-size: 14px; font-weight: bold; color: #7c3aed;">
-          Referência do Pedido: ${p.nomeProd}
+          Referência do Pedido: ${p.nomeProd.replace(/\n/g, ' / ')}
         </div>
 
         <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Dados do Cliente</div>
@@ -473,7 +480,7 @@ export default function App() {
         </div>
       </div>
     `;
-    const opcoes = { margin: 0, filename: `Orcamento.pdf`, html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'a4', orientation: 'portrait' } };
+    const opcoes = { margin: 0, filename: `Orcamento_${cli?.nome || 'Cliente'}.pdf`, html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'a4', orientation: 'portrait' } };
     
     if ((window as any).html2pdf) {
       (window as any).html2pdf().from(elemento).set(opcoes).save();
@@ -496,7 +503,7 @@ export default function App() {
   };
 
   const confirmarVendaPedido = async (pedido: any) => {
-    if (pedido.materiaisUsados && pedido.materiaisUsados.length > 0) {
+    if (pedido.materiaisUsados && pedido.materialsUsados.length > 0) {
       for (const m of pedido.materiaisUsados) {
         const matDoBanco = materiais.find(item => item.id === m.id);
         if (matDoBanco) {
@@ -1116,7 +1123,7 @@ export default function App() {
                 if (novoMat.id) await updateDoc(doc(db, "materiais", novoMat.id), d);
                 else await addDoc(collection(db, "materiais"), d);
                 setNovoMat({ id: '', nome: '', valor: '', qtd: '1', unidade: 'un', qtdAtual: '0', qtdMinima: '0' });
-                alert("Material salvo!");
+                alert("Material saved!");
               }} className="w-full bg-orange-500 text-white p-5 rounded-2xl font-black uppercase text-xs">
                 {novoMat.id ? 'Atualizar Insumo' : 'Salvar no Armário'}
               </button>
