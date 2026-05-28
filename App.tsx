@@ -3,7 +3,7 @@ import { initializeApp } from "firebase/app";
 import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { getFirestore, collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc, getDocs, setDoc, getDoc } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2, Menu, Landmark, Wrench } from 'lucide-react';
+import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2, Menu } from 'lucide-react';
 
 const firebaseConfig = {
   apiKey: "AIzaSyD0BWsNm9DbGGDqiHzkdDmNdxIGdJ9tWe8",
@@ -56,12 +56,11 @@ export default function App() {
   const [nomeComprador, setNomeComprador] = useState('');
   const [zapDaLojaPublica, setZapDaLojaPublica] = useState('');
 
-  const [activeTab, useStateActiveTab] = useState<'inicio' | 'materiais' | 'criar' | 'pedidos' | 'clientes' | 'catalogo' | 'balcao' | 'financeiro'>('inicio');
+  const [activeTab, useStateActiveTab] = useState<'inicio' | 'materiais' | 'criar' | 'pedidos' | 'clientes' | 'catalogo' | 'balcao'>('inicio');
   const [materiais, setMaterials] = useState<any[]>([]);
   const [pedidos, setPedidos] = useState<any[]>([]);
   const [clientes, setClientes] = useState<any[]>([]);
   const [produtos, setProdutos] = useState<any[]>([]);
-  const [equipamentos, setEquipamentos] = useState<any[]>([]);
 
   const [pedidoEditandoId, setPedidoEditandoId] = useState<string | null>(null);
   const [mostrarSeletorCatalogo, setMostrarSeletorCatalogo] = useState(false);
@@ -69,9 +68,9 @@ export default function App() {
   const [nomeProd, setNomeProd] = useState('');
   const [qtdPed, setQtdPed] = useState('1');
   const [matsNoPed, setMatsNoPed] = useState<any[]>([]);
+  const [vHora, setVHora] = useState('9');
   const [tGasto, setTGasto] = useState('60');
-  const [custos, setCustos] = useState({ embalagem: '0', impressao: '0' });
-  const [equipamentosSelecionados, setEquipamentosSelecionados] = useState<string[]>([]);
+  const [custos, setCustos] = useState({ embalagem: '0', impressao: '0', energia: '0', outros: '0' });
   const [lucro, setLucro] = useState('100');
   const [desconto, setDesconto] = useState('0');
   const [prazo, setPrazo] = useState('');
@@ -89,13 +88,10 @@ export default function App() {
   const [zapDonaConta, setZapDonaConta] = useState('');
   const [subindoImagem, setSubindoImagem] = useState(false);
 
-  // Estados do modulo Financeiro Fixo e Equipamentos
-  const [financasFixo, setFinancasFixo] = useState({ salario: '2000', aluguel: '0', internet: '100', luz: '150', outros: '150', diasTrabalho: '20', horasDia: '8' });
-  const [novoEquipamento, setNovoEquipamento] = useState({ id: '', nome: '', valorPago: '', durabilidadeAnos: '2' });
-
   const [carrinhoInterno, setCarrinhoInterno] = useState<{ [key: string]: number }>({});
   const [clienteBalcao, setClienteBalcao] = useState('');
   const [nomeKitBalcao, setNomeKitBalcao] = useState('');
+  // Ajuste: Novo estado para armazenar o prazo comercial inserido no Balcão
   const [prazoBalcao, setPrazoBalcao] = useState('');
 
   const setActiveTab = (tab: any) => {
@@ -156,36 +152,14 @@ export default function App() {
       const qProdutos = query(collection(db, "produtos"), where("userId", "==", user.uid));
       const unsubProdutos = onSnapshot(qProdutos, s => setProdutos(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
-      const qConfigFin = doc(db, "configuracoes_financeiras", user.uid);
-      getDoc(qConfigFin).then(snap => {
-        if (snap.exists()) setFinancasFixo(snap.data() as any);
-      });
-
-      const qEquipamentos = query(collection(db, "equipamentos"), where("userId", "==", user.uid));
-      const unsubEquipamentos = onSnapshot(qEquipamentos, s => setEquipamentos(s.docs.map(d => ({ id: d.id, ...d.data() }))));
-
       return () => {
         unsubMaterials();
         unsubPedidos();
         unsubClientes();
         unsubProdutos();
-        unsubEquipamentos();
       };
     }
   }, [user, idLojaPublica]);
-
-  // Cálculos do módulo financeiro automático
-  const horasTrabalhadasNoMes = useMemo(() => {
-    const dias = Number(financasFixo.diasTrabalho || 0);
-    const horas = Number(financasFixo.horasDia || 0);
-    return dias * horas || 160; // Padrão se for zero
-  }, [financasFixo]);
-
-  const valorDaHoraCalculado = useMemo(() => {
-    const salario = Number(financasFixo.salario || 0);
-    const custosFixos = Number(financasFixo.aluguel || 0) + Number(financasFixo.internet || 0) + Number(financasFixo.luz || 0) + Number(financasFixo.outros || 0);
-    return (salario + custosFixos) / horasTrabalhadasNoMes;
-  }, [financasFixo, horasTrabalhadasNoMes]);
 
   const linkDoCatalogoDestaCliente = useMemo(() => {
     if (!user) return '';
@@ -316,6 +290,7 @@ export default function App() {
     });
 
     const nomeFinalDoRegistro = nomeKitBalcao.trim() ? nomeKitBalcao.trim() : stringNomeCombo;
+    // Ajuste: Se a usuária não definiu um prazo na tela de balcão, assume o dia atual como padrão
     const prazoFinalVenda = prazoBalcao ? prazoBalcao : new Date().toISOString().split('T')[0];
 
     try {
@@ -323,7 +298,7 @@ export default function App() {
         nomeProd: nomeFinalDoRegistro,
         preco: totalGeral.toFixed(2),
         clienteId: clienteBalcao,
-        prazo: prazoFinalVenda,
+        prazo: prazoFinalVenda, // Prazo customizado salvo corretamente no Firebase
         qtdPed: "1",
         vHora: "0",
         tGasto: "0",
@@ -332,7 +307,7 @@ export default function App() {
         desconto: "0",
         userId: user.uid,
         precoManual: totalGeral.toFixed(2),
-        obsPedido: "",
+        obsPedido: "", // Ajuste: Limpa a observação roxa automática conforme solicitado
         data: new Date().toLocaleDateString('pt-BR'),
         status: 'Pendente',
         itensCombo: arrayItensSalvar 
@@ -341,7 +316,7 @@ export default function App() {
       setCarrinhoInterno({});
       setClienteBalcao('');
       setNomeKitBalcao('');
-      setPrazoBalcao('');
+      setPrazoBalcao(''); // Limpa o estado
       alert("Combo lançado com sucesso no Histórico! 🚀");
       setActiveTab('pedidos');
     } catch {
@@ -360,54 +335,20 @@ export default function App() {
     if (precoManual !== null) {
       const totalCatalogo = Number(precoManual) * Number(qtdPed || 1);
       const semDesconto = totalCatalogo - Number(desconto || 0);
-      return { materiais: "0.00", maoObra: "0.00", custosFixos: "0.00", equipamentos: "0.00", final: isNaN(semDesconto) ? "0.00" : semDesconto.toFixed(2) };
+      return { materiais: "0.00", maoObra: "0.00", extras: "0.00", custoPeca: "0.00", lucroLivre: "0.00", final: isNaN(semDesconto) ? "0.00" : semDesconto.toFixed(2) };
     }
 
     const totalMaterials = matsNoPed.reduce((acc, m) => acc + ((Number(m.valor || 0) / Number(m.qtd || 1)) * Number(m.qtdUsada || 0)), 0);
+    const totalMaoObra = (Number(vHora || 0) / 60) * Number(tGasto || 0);
+    const totalExtras = Number(custos.embalagem || 0) + Number(custos.impressao || 0) + Number(custos.energia || 0) + Number(custos.outros || 0);
     
-    // Cálculo automático de mão de obra com base nas horas preenchidas (convertendo minutos para fração de hora)
-    const tempoEmHoras = Number(tGasto || 0) / 60;
-    
-    // Mão de obra pura (Salário desejado diluído)
-    const salarioHoraPuro = Number(financasFixo.salario || 0) / horasTrabalhadasNoMes;
-    const totalMaoObra = salarioHoraPuro * tempoEmHoras;
-
-    // Custos Fixos diluídos (Aluguel, luz, internet) automaticamente pelo tempo
-    const despesasMes = Number(financasFixo.aluguel || 0) + Number(financasFixo.internet || 0) + Number(financasFixo.luz || 0) + Number(financasFixo.outros || 0);
-    const custoFixoPorHora = despesasMes / horasTrabalhadasNoMes;
-    const totalCustosFixosDestaPeca = custoFixoPorHora * tempoEmHoras;
-
-    // Cálculo automático de depreciação de maquinários selecionados
-    let totalDepreciacaoEquipamentos = 0;
-    equipamentosSelecionados.forEach(idEquip => {
-      const eq = equipamentos.find(e => e.id === idEquip);
-      if (eq) {
-        const valorEquip = Number(eq.valorPago || 0);
-        const mesesVida = Number(eq.durabilidadeAnos || 2) * 12;
-        const custoMensalEquip = valorEquip / mesesVida;
-        const custoHoraEquip = custoMensalEquip / horasTrabalhadasNoMes;
-        totalDepreciacaoEquipamentos += custoHoraEquip * tempoEmHoras;
-      }
-    });
-
-    const totalExtrasManuais = Number(custos.embalagem || 0) + Number(custos.impressao || 0);
-    
-    const custoTotalPeca = totalMaterials + totalMaoObra + totalCustosFixosDestaPeca + totalDepreciacaoEquipamentos + totalExtrasManuais;
+    const custoTotalPeca = totalMaterials + totalMaoObra + totalExtras;
     const custoTotalLote = custoTotalPeca * Number(qtdPed || 1);
     const valorLucroLivre = custoTotalLote * (Number(lucro || 0) / 100);
     const precoFinalCalculado = (custoTotalLote + valorLucroLivre) - Number(desconto || 0);
 
-    return { 
-      materiais: totalMaterials.toFixed(2), 
-      maoObra: totalMaoObra.toFixed(2), 
-      custosFixos: totalCustosFixosDestaPeca.toFixed(2), 
-      equipamentos: totalDepreciacaoEquipamentos.toFixed(2),
-      extras: totalExtrasManuais.toFixed(2),
-      custoPeca: custoTotalPeca.toFixed(2), 
-      lucroLivre: valorLucroLivre.toFixed(2), 
-      final: isNaN(precoFinalCalculated) ? "0.00" : precoFinalCalculated.toFixed(2) 
-    };
-  }, [matsNoPed, tGasto, custos, lucro, qtdPed, desconto, precoManual, financasFixo, horasTrabalhadasNoMes, equipamentosSelecionados, equipamentos]);
+    return { materiais: totalMaterials.toFixed(2), maoObra: totalMaoObra.toFixed(2), extras: totalExtras.toFixed(2), custoPeca: custoTotalPeca.toFixed(2), lucroLivre: valorLucroLivre.toFixed(2), final: isNaN(precoFinalCalculado) ? "0.00" : precoFinalCalculado.toFixed(2) };
+  }, [matsNoPed, vHora, tGasto, custos, lucro, qtdPed, desconto, precoManual]);
 
   const enviarZap = (p: any) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
@@ -422,6 +363,7 @@ export default function App() {
     const dataEmissao = p.data || new Date().toLocaleDateString('pt-BR');
     const hoje = new Date(); hoje.setDate(hoje.getDate() + 7);
     const dataValidade = hoje.toLocaleDateString('pt-BR');
+    // Mapeia e corrige a data do prazo vinda do banco ou do balcão
     const dataPrazo = p.prazo ? new Date(p.prazo + 'T00:00:00').toLocaleDateString('pt-BR') : 'A combinar';
     const totalNum = Number(p.preco || 0);
 
@@ -454,7 +396,7 @@ export default function App() {
           <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px;">
             <td style="padding: 15px 5px; font-weight: bold; color: #1e293b; text-align: left;">${nomeItemLimpo}</td>
             <td style="padding: 15px 5px; text-align: center; color: #475569;">${quantidadeItem}</td>
-            <td style="padding: 15px 5px; text-align: right;">R$ ${unitario}</td>
+            <td style="padding: 15px 5px; text-align: right; color: #475569;">R$ ${unitario}</td>
             <td style="padding: 15px 5px; text-align: right; font-weight: bold; color: #1e293b;">R$ ${(quantidadeItem * Number(unitario)).toFixed(2)}</td>
           </tr>
         `;
@@ -546,7 +488,7 @@ export default function App() {
 
   const confirmarExcluir = async (tipo: string, id: string) => {
     if (window.confirm(`Excluir ${tipo}?`)) {
-      await deleteDoc(doc(db, tipo === 'pedido' ? "pedidos" : tipo === 'cliente' ? "clientes" : tipo === 'produto' ? "produtos" : tipo === 'equipamento' ? "equipamentos" : "materiais", id));
+      await deleteDoc(doc(db, tipo === 'pedido' ? "pedidos" : tipo === 'cliente' ? "clientes" : tipo === 'produto' ? "produtos" : "materiais", id));
     }
   };
 
@@ -599,17 +541,15 @@ export default function App() {
   };
 
   const limparCalculadora = () => {
-    setNomeProd(''); setQtdPed('1'); setMatsNoPed([]); setTGasto('60');
-    setCustos({ embalagem: '0', impressao: '0' });
-    setEquipamentosSelecionados([]);
+    setNomeProd(''); setQtdPed('1'); setMatsNoPed([]); setVHora('9'); setTGasto('60');
+    setCustos({ embalagem: '0', impressao: '0', energia: '0', outros: '0' });
     setLucro('100'); setDesconto('0'); setPrazo(''); setClienteSel('');
     setPedidoEditandoId(null); setPrecoManual(null); setObsPedido('');
   };
 
   const carregarPedidoParaEdicao = (p: any) => {
-    setPedidoEditandoId(p.id); setNomeProd(p.nomeProd || ''); setQtdPed(p.qtdPed || '1'); setTGasto(p.tGasto || '60');
-    setCustos(p.custos || { embalagem: '0', impressao: '0' });
-    setEquipamentosSelecionados(p.equipamentosSelecionados || []);
+    setPedidoEditandoId(p.id); setNomeProd(p.nomeProd || ''); setQtdPed(p.qtdPed || '1'); setVHora(p.vHora || '9'); setTGasto(p.tGasto || '60');
+    setCustos(p.custos || { embalagem: '0', impressao: '0', energia: '0', outros: '0' });
     setLucro(p.lucro || '100'); setDesconto(p.desconto || '0'); setPrazo(p.prazo || ''); setClienteSel(p.clienteId || '');
     setPrecoManual(p.precoManual || null); setObsPedido(p.obsPedido || '');
 
@@ -625,14 +565,6 @@ export default function App() {
 
   const venderItemDiretoDoCatalogo = (prod: any) => {
     limparCalculadora(); setNomeProd(prod.nome); setPrecoManual(prod.precoVenda); setActiveTab('criar');
-  };
-
-  const toggleEquipamento = (id: string) => {
-    if (equipamentosSelecionados.includes(id)) {
-      setEquipamentosSelecionados(equipamentosSelecionados.filter(item => item !== id));
-    } else {
-      setEquipamentosSelecionados([...equipamentosSelecionados, id]);
-    }
   };
 
   if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando o PrecificaJá... 🚀</div>;
@@ -742,7 +674,7 @@ export default function App() {
 
       <div className="grid grid-cols-3 gap-3 mb-4 w-full">
          <div className="col-span-2">
-            <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Produto / Serviço</label>
+            <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Produto</label>
             <input className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-slate-800 border focus:border-purple-500" value={nomeProd} onChange={e => setNomeProd(e.target.value)} />
          </div>
          <div>
@@ -780,40 +712,26 @@ export default function App() {
                 ))}
              </div>
           </div>
-          
-          <div className="mb-4 w-full">
-            <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Tempo Gasto de Trabalho (Em minutos)</label>
-            <input type="number" placeholder="Ex: 60 para 1 hora, 120 para 2 horas..." className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={tGasto} onChange={e => setTGasto(e.target.value)} />
-            <span className="text-[10px] text-slate-400 block mt-1 ml-1">Sua hora atual configurada é de <strong>R$ {valorDaHoraCalculado.toFixed(2)}</strong> (Mão de Obra + Estrutura Fixo)</span>
+          <div className="grid grid-cols-2 gap-4 mb-4 w-full">
+            <div className="w-full">
+              <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Tempo Gasto (min)</label>
+              <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={tGasto} onChange={e => setTGasto(e.target.value)} />
+            </div>
+            <div className="w-full">
+              <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Valor da Hora (R$)</label>
+              <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={vHora} onChange={e => setVHora(e.target.value)} />
+            </div>
           </div>
 
-          {equipamentos.length > 0 && (
-            <div className="mb-4 w-full">
-              <label className="text-[10px] font-bold text-purple-600 uppercase ml-1 block mb-1">🛠️ Equipamentos Ligados/Usados</label>
-              <div className="flex flex-wrap gap-2 w-full">
-                {equipamentos.map(eq => {
-                  const selecionado = equipamentosSelecionados.includes(eq.id);
-                  return (
-                    <button key={eq.id} type="button" onClick={() => toggleEquipamento(eq.id)} className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${selecionado ? 'bg-purple-600 text-white border-purple-600 shadow-sm' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>
-                      {eq.nome}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
           <div className="mb-4 w-full">
-            <label className="text-[10px] font-bold text-purple-600 uppercase ml-1 block mb-1">📦 Custos Extras Manuais por Unidade (R$)</label>
-            <div className="grid grid-cols-2 gap-2 w-full">
-              <div>
-                <span className="text-[8px] font-black text-slate-400 mb-1 block ml-1">EMBALAGEM</span>
-                <input type="number" className="w-full p-3 bg-slate-50 rounded-xl text-xs outline-none font-bold" value={custos.embalagem} onChange={e => setCustos({...custos, embalagem: e.target.value})} />
-              </div>
-              <div>
-                <span className="text-[8px] font-black text-slate-400 mb-1 block ml-1">TAXA IMPRESSÃO</span>
-                <input type="number" className="w-full p-3 bg-slate-50 rounded-xl text-xs outline-none font-bold" value={custos.impressao} onChange={e => setCustos({...custos, impressao: e.target.value})} />
-              </div>
+            <label className="text-[10px] font-bold text-purple-600 uppercase ml-1 block mb-1">📦 Custos Extras por Unidade (R$)</label>
+            <div className="grid grid-cols-4 gap-2 w-full">
+              {[{id:'embalagem',label:'EMBAL.'},{id:'impressao',label:'TINTA'},{id:'energia',label:'LUZ'},{id:'outros',label:'OUTROS'}].map(c=>(
+                <div key={c.id} className="flex flex-col items-center bg-slate-50 p-2 rounded-xl w-full">
+                  <span className="text-[8px] font-black text-slate-300 mb-1">{c.label}</span>
+                  <input type="number" className="w-full bg-transparent text-center text-xs outline-none font-bold" value={(custos as any)[c.id]} onChange={e => setCustos({...custos, [c.id]: e.target.value})} />
+                </div>
+              ))}
             </div>
           </div>
           
@@ -851,13 +769,11 @@ export default function App() {
 
       {precoManual === null && (
         <div className="bg-slate-50 p-5 rounded-3xl mb-8 border border-slate-100 text-xs space-y-2.5 w-full">
-          <p className="font-black text-purple-700 uppercase tracking-wider text-[10px] mb-1">📋 DETALHAMENTO AUTOMÁTICO DA PEÇA</p>
-          <div className="flex justify-between text-slate-500 w-full"><span>Materiais Usados:</span><span className="font-bold">R$ {resumenFinanceiro.materiais}</span></div>
-          <div className="flex justify-between text-slate-500 w-full"><span>Sua Mão de Obra:</span><span className="font-bold">R$ {resumenFinanceiro.maoObra}</span></div>
-          <div className="flex justify-between text-slate-500 w-full"><span>Estrutura Fixo (Luz/Internet/Aluguel):</span><span className="font-bold">R$ {resumenFinanceiro.custosFixos}</span></div>
-          <div className="flex justify-between text-slate-500 w-full"><span>Desgaste de Maquinário:</span><span className="font-bold">R$ {resumenFinanceiro.equipamentos}</span></div>
-          <div className="flex justify-between text-slate-500 w-full"><span>Extras Manuais (Embalagem/Impr):</span><span className="font-bold">R$ {resumenFinanceiro.extras}</span></div>
-          <div className="flex justify-between text-slate-800 font-bold border-t pt-2 mt-1 w-full"><span>Custo Total do Trabalho:</span><span className="text-purple-700">R$ {resumenFinanceiro.custoPeca}</span></div>
+          <p className="font-black text-purple-700 uppercase tracking-wider text-[10px] mb-1">📋 RESUMO FINANCEIRO DA PEÇA</p>
+          <div className="flex justify-between text-slate-500 w-full"><span>Materiais:</span><span className="font-bold">R$ {resumenFinanceiro.materiais}</span></div>
+          <div className="flex justify-between text-slate-500 w-full"><span>Mão de Obra:</span><span className="font-bold">R$ {resumenFinanceiro.maoObra}</span></div>
+          <div className="flex justify-between text-slate-500 w-full"><span>Extras / Custo Manual:</span><span className="font-bold">R$ {resumenFinanceiro.extras}</span></div>
+          <div className="flex justify-between text-slate-800 font-bold border-t pt-2 mt-1 w-full"><span>Custo Total da Peça:</span><span className="text-purple-700">R$ {resumenFinanceiro.custoPeca}</span></div>
           <div className="flex justify-between text-emerald-600 font-bold w-full"><span>Lucro Livre Gerado ({lucro}%) :</span><span>R$ {resumenFinanceiro.lucroLivre}</span></div>
         </div>
       )}
@@ -867,7 +783,7 @@ export default function App() {
         <div className="flex gap-2">
           <button onClick={async () => {
              if(!nomeProd) return alert("Digite o nome do produto!");
-             const dadosPedido = { nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed, vHora: valorDaHoraCalculado.toFixed(2), tGasto, custos, lucro, desconto, userId: user.uid, precoManual: precoManual, obsPedido: obsPedido, equipamentosSelecionados, materiaisUsados: precoManual ? [] : matsNoPed.map(m => ({ id: m.id, nome: m.nome, qtdUsada: Number(m.qtdUsada || 1) })) };
+             const dadosPedido = { nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed, vHora, tGasto, custos, lucro, desconto, userId: user.uid, precoManual: precoManual, obsPedido: obsPedido, materiaisUsados: precoManual ? [] : matsNoPed.map(m => ({ id: m.id, nome: m.nome, qtdUsada: Number(m.qtdUsada || 1) })) };
              if (pedidoEditandoId) await updateDoc(doc(db, "pedidos", pedidoEditandoId), dadosPedido);
              else await addDoc(collection(db, "pedidos"), { ...dadosPedido, data: new Date().toLocaleDateString('pt-BR'), status: 'Pendente', userId: user.uid });
              limparCalculadora(); setActiveTab('pedidos'); alert("Salvo!");
@@ -893,7 +809,6 @@ export default function App() {
             <nav className="flex flex-col gap-1">
               <button onClick={() => setActiveTab('inicio')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'inicio' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Home size={16}/> Início</button>
               <button onClick={() => setActiveTab('criar')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'criar' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Plus size={16}/> Orçar</button>
-              <button onClick={() => setActiveTab('financeiro')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'financeiro' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Landmark size={16}/> Configurações Financeiras</button>
               <button onClick={() => setActiveTab('pedidos')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'pedidos' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><History size={16}/> Histórico de Orçamentos</button>
               <button onClick={() => setActiveTab('balcao')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'balcao' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><ShoppingCart size={16}/> Balcão de Vendas Rápido</button>
               <button onClick={() => setActiveTab('catalogo')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'catalogo' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><BookOpen size={16}/> Meu Catálogo Visual</button>
@@ -965,119 +880,6 @@ export default function App() {
           </div>
         )}
 
-        {/* TELA DE MÓDULO FINANCEIRO FIHO E EQUIPAMENTOS */}
-        {activeTab === 'financeiro' && (
-          <div className="space-y-6 pt-2 w-full">
-            <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
-              <h2 className="text-purple-700 font-bold mb-2 flex items-center gap-2 uppercase text-xs tracking-widest"><Landmark size={18}/> Minha Estrutura & Salário</h2>
-              <p className="text-slate-400 text-[11px] mb-4">Cadastre aqui os custos fixos do seu negócio. Deixe zerado o que não tiver.</p>
-
-              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Seu Salário Desejado (Pró-labore)</label>
-              <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 font-bold text-purple-700 outline-none" value={financasFixo.salario} onChange={e => setFinancasFixo({...financasFixo, salario: e.target.value})} />
-
-              <div className="grid grid-cols-2 gap-3 mb-3 w-full">
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Aluguel de Espaço</label>
-                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={financasFixo.aluguel} onChange={e => setFinancasFixo({...financasFixo, aluguel: e.target.value})} />
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Internet / Telefone</label>
-                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={financasFixo.internet} onChange={e => setFinancasFixo({...financasFixo, internet: e.target.value})} />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 mb-4 w-full">
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Conta de Luz / Água</label>
-                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={financasFixo.luz} onChange={e => setFinancasFixo({...financasFixo, luz: e.target.value})} />
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Outros (Transporte...)</label>
-                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={financasFixo.outros} onChange={e => setFinancasFixo({...financasFixo, outros: e.target.value})} />
-                </div>
-              </div>
-
-              <h3 className="text-purple-700 font-bold text-xs uppercase tracking-wider mb-2 mt-4">Sua Rotina Mensal</h3>
-              <div className="grid grid-cols-2 gap-3 mb-5 w-full">
-                <div>
-                  <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Dias de Trabalho no Mês</label>
-                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={financasFixo.diasTrabalho} onChange={e => setFinancasFixo({...financasFixo, diasTrabalho: e.target.value})} />
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Horas de Trabalho por Dia</label>
-                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={financasFixo.horasDia} onChange={e => setFinancasFixo({...financasFixo, horasDia: e.target.value})} />
-                </div>
-              </div>
-
-              <div className="bg-purple-50 p-4 rounded-2xl border border-purple-100 text-xs mb-4">
-                💡 <strong>Sua hora calculada custa R$ {valorDaHoraCalculado.toFixed(2)}</strong>.<br/>
-                O app vai embutir esse custo sozinho proporcionalmente ao tempo que você trabalhar no orçamento!
-              </div>
-
-              <button onClick={async () => {
-                await setDoc(doc(db, "configuracoes_financeiras", user.uid), financasFixo);
-                alert("Estrutura financeira salva com sucesso! 🏢💰");
-              }} className="w-full bg-purple-700 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md">
-                Salvar Estrutura Fixa
-              </button>
-            </div>
-
-            {/* SEÇÃO DE DEPRECIAÇÃO DE MÁQUINAS */}
-            <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
-              <h2 className="text-purple-700 font-bold mb-2 flex items-center gap-2 uppercase text-xs tracking-widest"><Wrench size={18}/> Cadastrar Ferramenta / Máquina</h2>
-              <p className="text-slate-400 text-[11px] mb-4">Insira o secador, prensa ou máquina de costura para o app embutir o custo de desgaste por hora.</p>
-
-              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome da Máquina / Equipamento</label>
-              <input placeholder="Ex: Secador Profissional Taiff" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none" value={novoEquipamento.nome} onChange={e => setNovoEquipamento({...novoEquipamento, nome: e.target.value})} />
-
-              <div className="grid grid-cols-2 gap-3 mb-4 w-full">
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Quanto pagou por ela?</label>
-                  <input type="number" placeholder="R$ 0,00" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={novoEquipamento.valorPago} onChange={e => setNovoEquipamento({...novoEquipamento, valorPago: e.target.value})} />
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Estimativa de Uso (Anos)</label>
-                  <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={novoEquipamento.durabilidadeAnos} onChange={e => setNovoEquipamento({...novoEquipamento, durabilidadeAnos: e.target.value})}>
-                    <option value="1">1 Ano</option>
-                    <option value="2">2 Anos</option>
-                    <option value="3">3 Anos</option>
-                    <option value="5">5 Anos</option>
-                  </select>
-                </div>
-              </div>
-
-              <button onClick={async () => {
-                if(!novoEquipamento.nome || !novoEquipamento.valorPago) return alert("Preencha o nome e o preço da máquina!");
-                const d = { nome: novoEquipamento.nome, valorPago: Number(novoEquipamento.valorPago), durabilidadeAnos: Number(novoEquipamento.durabilidadeAnos), userId: user.uid };
-                if (novoEquipamento.id) await updateDoc(doc(db, "equipamentos", novoEquipamento.id), d);
-                else await addDoc(collection(db, "equipamentos"), d);
-                setNovoEquipamento({ id: '', nome: '', valorPago: '', durabilidadeAnos: '2' });
-                alert("Equipamento cadastrado com sucesso!");
-              }} className="w-full bg-orange-500 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md">
-                {novoEquipamento.id ? 'Atualizar Ferramenta' : 'Salvar Máquina 🛠️'}
-              </button>
-            </div>
-
-            <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider ml-2">Suas Máquinas Salvas</h3>
-            <div className="space-y-2 w-full">
-              {equipamentos.map(eq => {
-                const meses = Number(eq.durabilidadeAnos || 2) * 12;
-                const descMensal = Number(eq.valorPago || 0) / meses;
-                const descHora = descMensal / horasTrabalhadasNoMes;
-                return (
-                  <div key={eq.id} className="bg-white p-4 rounded-3xl flex justify-between items-center border shadow-sm w-full">
-                    <div>
-                      <p className="font-bold text-slate-800">{eq.nome}</p>
-                      <p className="text-xs text-slate-400 mt-0.5">Desgaste calculado: <span className="font-bold text-purple-700">R$ {descHora.toFixed(2)} por hora</span></p>
-                    </div>
-                    <button onClick={() => confirmarExcluir('equipamento', eq.id)} className="text-red-200 p-2"><Trash2 size={16}/></button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
         {/* SEÇÃO DO BALCÃO DE VENDAS RÁPIDO */}
         {activeTab === 'balcao' && (
           <div className="space-y-4 pt-2 w-full">
@@ -1098,7 +900,7 @@ export default function App() {
                   <input placeholder="Ex: 21983858055" className="flex-1 p-2.5 bg-black/20 text-white rounded-xl text-xs font-bold border border-purple-500/30 outline-none" value={zapDonaConta} onChange={e => setZapDonaConta(e.target.value)} />
                   <button onClick={async () => {
                     if(!zapDonaConta.trim()) return alert("Digite o número!");
-                    try { await setDoc(doc(db, "configuracoes_loja", user.uid), { whatsapp: zapDonaConta.trim() }, { merge: true }); alert("WhatsApp saved!"); } 
+                    try { await setDoc(doc(db, "configuracoes_loja", user.uid), { whatsapp: zapDonaConta.trim() }, { merge: true }); alert("WhatsApp salvo!"); } 
                     catch { alert("Erro ao salvar."); }
                   }} className="bg-orange-500 text-white text-xs font-black uppercase px-4 rounded-xl shadow">Salvar</button>
                 </div>
@@ -1131,6 +933,7 @@ export default function App() {
                 </select>
               </div>
 
+              {/* Ajuste: Novo seletor de prazo adicionado diretamente no Balcão de Vendas */}
               <div className="w-full">
                 <label className="text-[10px] font-bold text-orange-400 uppercase ml-1 block mb-1">Prazo de Entrega do Combo</label>
                 <input 
@@ -1271,10 +1074,10 @@ export default function App() {
             <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
               <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2"><Package size={20}/> Gerenciar Armário</h2>
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome do Insumo</label>
-              <input placeholder="Ex: Caneca Cerâmica ou Pomada Modeladora" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none" value={novoMat.nome} onChange={e => setNovoMat({...novoMat, nome: e.target.value})} />
+              <input placeholder="Ex: Caneca Cerâmica" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none" value={novoMat.nome} onChange={e => setNovoMat({...novoMat, nome: e.target.value})} />
               <div className="grid grid-cols-3 gap-3 mb-3 w-full">
                 <div className="col-span-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Preço Caixa/Rolo/Pote</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Preço Caixa/Rolo</label>
                   <input type="number" placeholder="R$ 0,00" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={novoMat.valor} onChange={e => setNovoMat({...novoMat, valor: e.target.value})} />
                 </div>
                 <div>
@@ -1296,8 +1099,6 @@ export default function App() {
                 <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Unidade de Medida</label>
                 <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-xs font-bold block border border-transparent focus:border-purple-400 mt-1" value={novoMat.unidade} onChange={e => setNovoMat({...novoMat, unidade: e.target.value})}>
                   <option value="un">📦 Unidade (un)</option>
-                  <option value="g">⚖️ Gramas (g)</option>
-                  <option value="kg">🏋️ Quilo (kg)</option>
                   <option value="Folha A4">📄 Folha A4</option>
                   <option value="m">📏 Metro (m)</option>
                   <option value="cm">📐 Centímetro (cm)</option>
