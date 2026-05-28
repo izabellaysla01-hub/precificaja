@@ -139,6 +139,7 @@ export default function App() {
 
   useEffect(() => {
     if (user && !idLojaPublica) {
+      // CORRIGIDO: Coleção apontando perfeitamente apenas para "materiais"
       const qMateriais = query(collection(db, "materiais"), where("userId", "==", user.uid));
       const unsubMateriais = onSnapshot(qMateriais, s => setMaterials(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
@@ -170,22 +171,21 @@ export default function App() {
     alert("Link do seu catálogo copiado! 🔗🚀");
   };
 
-  // Ajustado: Função automática do cliente blindada em largura de 750px para não amassar no mobile
   const dispararPdfAutomaticoCliente = (nomeCliente: string, itens: any[], total: number) => {
     const elemento = document.createElement('div');
     const dataEmissao = new Date().toLocaleDateString('pt-BR');
     
     const linhasProdutosHtml = itens.map(p => `
       <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px;">
-        <td style="padding: 15px 5px; font-weight: bold; color: #1e293b; text-align: left; width: 45%;">${p.nome}</td>
-        <td style="padding: 15px 5px; text-align: center; color: #475569; width: 15%;">${p.qtd}</td>
-        <td style="padding: 15px 5px; text-align: right; color: #475569; width: 20%;">R$ ${Number(p.precoVenda).toFixed(2)}</td>
-        <td style="padding: 15px 5px; text-align: right; font-weight: bold; color: #1e293b; width: 20%;">R$ ${(Number(p.precoVenda) * p.qtd).toFixed(2)}</td>
+        <td style="padding: 15px 5px; font-weight: bold; color: #1e293b; text-align: left;">${p.nome}</td>
+        <td style="padding: 15px 5px; text-align: center; color: #475569;">${p.qtd}</td>
+        <td style="padding: 15px 5px; text-align: right; color: #475569;">R$ ${Number(p.precoVenda).toFixed(2)}</td>
+        <td style="padding: 15px 5px; text-align: right; font-weight: bold; color: #1e293b;">R$ ${(Number(p.precoVenda) * p.qtd).toFixed(2)}</td>
       </tr>
     `).join('');
 
     elemento.innerHTML = `
-      <div style="padding: 35px; font-family: sans-serif; color: #334155; width: 750px; margin: 0 auto; box-sizing: border-box; background-color: #ffffff;">
+      <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto;">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px;">
           <div>
             <h1 style="color: #7c3aed; margin: 0; font-size: 32px; font-weight: 900;">Comprovante de Pedido 🚀</h1>
@@ -203,13 +203,13 @@ export default function App() {
         </div>
 
         <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Relação de Itens Escolhidos</div>
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; table-layout: fixed;">
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
           <thead>
             <tr style="border-bottom: 2px solid #e2e8f0; text-align: left; font-size: 11px; text-transform: uppercase; color: #94a3b8;">
-              <th style="padding: 10px 5px; text-align: left; width: 45%;">Produto</th>
-              <th style="padding: 10px 5px; text-align: center; width: 15%;">Quantidade</th>
-              <th style="padding: 10px 5px; text-align: right; width: 20%;">Preço Unit.</th>
-              <th style="padding: 10px 5px; text-align: right; width: 20%;">Subtotal</th>
+              <th style="padding: 10px 5px; text-align: left;">Produto</th>
+              <th style="padding: 10px 5px; text-align: center;">Quantidade</th>
+              <th style="padding: 10px 5px; text-align: right;">Preço Unit.</th>
+              <th style="padding: 10px 5px; text-align: right;">Subtotal</th>
             </tr>
           </thead>
           <tbody>
@@ -232,7 +232,7 @@ export default function App() {
       </div>
     `;
 
-    const opcoes = { margin: 0, filename: `Pedido_${nomeCliente.replace(/\s+/g, '_')}.pdf`, html2canvas: { scale: 2, useCORS: true, width: 750 }, jsPDF: { format: 'a4', orientation: 'portrait' } };
+    const opcoes = { margin: 0, filename: `Pedido_${nomeCliente.replace(/\s+/g, '_')}.pdf`, html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'a4', orientation: 'portrait' } };
     if ((window as any).html2pdf) { (window as any).html2pdf().from(elemento).set(opcoes).save(); }
   };
 
@@ -357,7 +357,6 @@ export default function App() {
     window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
   };
 
-  // Ajustado: Função de impressão do Histórico travada em 750px e com larguras de tabelas fixadas via CSS
   const gerarPDF = (p: any) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
     const dataEmissao = p.data || new Date().toLocaleDateString('pt-BR');
@@ -371,10 +370,10 @@ export default function App() {
     if (p.itensCombo && Array.isArray(p.itensCombo) && p.itensCombo.length > 0) {
       htmlLinhasTabela = p.itensCombo.map((item: any) => `
         <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px;">
-          <td style="padding: 15px 5px; font-weight: bold; color: #1e293b; text-align: left; width: 45%;">${item.nome}</td>
-          <td style="padding: 15px 5px; text-align: center; color: #475569; width: 15%;">${item.qtd}</td>
-          <td style="padding: 15px 5px; text-align: right; color: #475569; width: 20%;">R$ ${Number(item.precoVenda).toFixed(2)}</td>
-          <td style="padding: 15px 5px; text-align: right; font-weight: bold; color: #1e293b; width: 20%;">R$ ${(Number(item.qtd) * Number(item.precoVenda)).toFixed(2)}</td>
+          <td style="padding: 15px 5px; font-weight: bold; color: #1e293b; text-align: left;">${item.nome}</td>
+          <td style="padding: 15px 5px; text-align: center; color: #475569;">${item.qtd}</td>
+          <td style="padding: 15px 5px; text-align: right; color: #475569;">R$ ${Number(item.precoVenda).toFixed(2)}</td>
+          <td style="padding: 15px 5px; text-align: right; font-weight: bold; color: #1e293b;">R$ ${(Number(item.qtd) * Number(item.precoVenda)).toFixed(2)}</td>
         </tr>
       `).join('');
     } else {
@@ -393,10 +392,10 @@ export default function App() {
 
         return `
           <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px;">
-            <td style="padding: 15px 5px; font-weight: bold; color: #1e293b; text-align: left; width: 45%;">${nomeItemLimpo}</td>
-            <td style="padding: 15px 5px; text-align: center; color: #475569; width: 15%;">${quantidadeItem}</td>
-            <td style="padding: 15px 5px; text-align: right; color: #475569; width: 20%;">R$ ${unitario}</td>
-            <td style="padding: 15px 5px; text-align: right; font-weight: bold; color: #1e293b; width: 20%;">R$ ${(quantidadeItem * Number(unitario)).toFixed(2)}</td>
+            <td style="padding: 15px 5px; font-weight: bold; color: #1e293b; text-align: left;">${nomeItemLimpo}</td>
+            <td style="padding: 15px 5px; text-align: center; color: #475569;">${quantidadeItem}</td>
+            <td style="padding: 15px 5px; text-align: right; color: #475569;">R$ ${unitario}</td>
+            <td style="padding: 15px 5px; text-align: right; font-weight: bold; color: #1e293b;">R$ ${(quantidadeItem * Number(unitario)).toFixed(2)}</td>
           </tr>
         `;
       }).join('');
@@ -404,7 +403,7 @@ export default function App() {
 
     const elemento = document.createElement('div');
     elemento.innerHTML = `
-      <div style="padding: 35px; font-family: sans-serif; color: #334155; width: 750px; margin: 0 auto; box-sizing: border-box; background-color: #ffffff;">
+      <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto;">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px;">
           <div>
             <h1 style="color: #7c3aed; margin: 0; font-size: 32px; font-weight: 900;">PrecificaJá 🚀</h1>
@@ -434,13 +433,13 @@ export default function App() {
         </div>
 
         <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Produtos / Serviços Selecionados</div>
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; table-layout: fixed;">
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
           <thead>
             <tr style="border-bottom: 2px solid #e2e8f0; text-align: left; font-size: 11px; text-transform: uppercase; color: #94a3b8;">
-              <th style="padding: 10px 5px; text-align: left; width: 45%;">Descrição do Item</th>
-              <th style="padding: 10px 5px; text-align: center; width: 15%;">Qtd</th>
-              <th style="padding: 10px 5px; text-align: right; width: 20%;">Preço Unit.</th>
-              <th style="padding: 10px 5px; text-align: right; width: 20%;">Subtotal</th>
+              <th style="padding: 10px 5px; text-align: left;">Descrição do Item</th>
+              <th style="padding: 10px 5px; text-align: center;">Qtd</th>
+              <th style="padding: 10px 5px; text-align: right;">Preço Unit.</th>
+              <th style="padding: 10px 5px; text-align: right;">Subtotal</th>
             </tr>
           </thead>
           <tbody>
@@ -474,7 +473,7 @@ export default function App() {
         </div>
       </div>
     `;
-    const opcoes = { margin: 0, filename: `Orcamento.pdf`, html2canvas: { scale: 2, useCORS: true, width: 750 }, jsPDF: { format: 'a4', orientation: 'portrait' } };
+    const opcoes = { margin: 0, filename: `Orcamento.pdf`, html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'a4', orientation: 'portrait' } };
     
     if ((window as any).html2pdf) {
       (window as any).html2pdf().from(elemento).set(opcoes).save();
@@ -943,7 +942,8 @@ export default function App() {
                   type="date" 
                   className="w-full p-3.5 bg-slate-800/80 rounded-xl text-xs font-bold text-white border border-slate-700 outline-none focus:border-purple-400 block box-border h-[46px]"
                   value={prazoBalcao} 
-                  onChange={e => setPrazoBalcao(e.target.value)} />
+                  onChange={e => setPrazoBalcao(e.target.value)} 
+                />
               </div>
 
               <div className="bg-slate-800/40 border border-slate-800 p-3 rounded-2xl space-y-3 max-h-72 overflow-y-auto">
