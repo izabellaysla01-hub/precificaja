@@ -190,6 +190,20 @@ export default function App() {
     }
   }, [user, idLojaPublica]);
 
+  // CORREÇÃO: Sincroniza o valor por hora sempre que as configurações financeiras carregarem do banco
+  useEffect(() => {
+    const dias = Number(financasFixo.diasTrabalho || 20);
+    const horas = Number(financasFixo.horasDia || 8);
+    const totalHorasMes = dias * horas || 160;
+    const salario = Number(financasFixo.salario || 0);
+    const custosMes = Number(financasFixo.aluguel || 0) + Number(financasFixo.internet || 0) + Number(financasFixo.luz || 0) + Number(financasFixo.outros || 0);
+    
+    if (salario + custosMes > 0) {
+      const horaCalculada = (salario + custosMes) / totalHorasMes;
+      setVHora(horaCalculada.toFixed(2));
+    }
+  }, [financasFixo]);
+
   const linkDoCatalogoDestaCliente = useMemo(() => {
     if (!user) return '';
     return `${window.location.origin}${window.location.pathname}?loja=${user.uid}`;
@@ -370,7 +384,7 @@ export default function App() {
     const totalMaoObra = (Number(vHora || 0) / 60) * Number(tGasto || 0);
     const totalExtras = Number(custos.embalagem || 0) + Number(custos.impressao || 0) + Number(custos.energia || 0) + Number(custos.outros || 0);
     
-    // Calcula a depreciação apenas das máquinas que foram selecionadas pelo usuário na calculadora
+    // CORREÇÃO: Calcula a depreciação de forma isolada para renderizar na linha exclusiva do resumo
     let totalDesgasteMaquinas = 0;
     const dias = Number(financasFixo.diasTrabalho || 20);
     const horas = Number(financasFixo.horasDia || 8);
@@ -429,7 +443,7 @@ export default function App() {
         let quantidadeItem = Number(p.qtdPed || 1);
         let nomeItemLimpo = linhaTexto.trim();
         
-        const matchCombo = linhaTexto.trim().match(/^(\d+)x\s+(.+)$/i);
+        const matchCombo = inlineTexto = linhaTexto.trim().match(/^(\d+)x\s+(.+)$/i);
         if(matchCombo) {
           quantidadeItem = Number(matchCombo[1]);
           nomeItemLimpo = matchCombo[2].trim();
@@ -550,7 +564,7 @@ export default function App() {
     
     const textoVenda = String(pedido.nomeProd || '');
     if (textoVenda.includes('x ')) {
-      const partesItens = textoVenda.split(/\n| \+ /);
+      const partes Itens = textoVenda.split(/\n| \+ /);
       for (const parte of partesItens) {
         const regexMatch = parte.trim().match(/^(\d+)x\s+(.+)$/i);
         if (regexMatch) {
@@ -584,12 +598,25 @@ export default function App() {
     finally { setSubindoImagem(false); }
   };
 
+  // CORREÇÃO: Respeita o valor da hora financeira salva ao resetar o formulário
   const limparCalculadora = () => {
-    setNomeProd(''); setQtdPed('1'); setMatsNoPed([]); setVHora('9'); setTGasto('60');
+    setNomeProd(''); setQtdPed('1'); setMatsNoPed([]); setTGasto('60');
     setCustos({ embalagem: '0', impressao: '0', energia: '0', outros: '0' });
     setEquipamentosSelecionados([]);
     setLucro('100'); setDesconto('0'); setPrazo(''); setClienteSel('');
     setPedidoEditandoId(null); setPrecoManual(null); setObsPedido('');
+
+    const dias = Number(financasFixo.diasTrabalho || 20);
+    const horas = Number(financasFixo.horasDia || 8);
+    const totalHorasMes = dias * horas || 160;
+    const salario = Number(financasFixo.salario || 0);
+    const custosMes = Number(financasFixo.aluguel || 0) + Number(financasFixo.internet || 0) + Number(financasFixo.luz || 0) + Number(financasFixo.outros || 0);
+    
+    if (salario + custosMes > 0) {
+      setVHora(((salario + custosMes) / totalHorasMes).toFixed(2));
+    } else {
+      setVHora('9');
+    }
   };
 
   const carregarPedidoParaEdicao = (p: any) => {
@@ -679,10 +706,6 @@ export default function App() {
         )}
       </div>
     );
-  }
-
-  if (!user) {
-    return ( <Login isRegistering={isRegistering} setIsRegistering={setIsRegistering} email={email} setEmail={setEmail} password={password} setPassword={setPassword} handleAuth={handleAuth} /> );
   }
 
   const renderCalculadoraForm = () => (
@@ -777,6 +800,7 @@ export default function App() {
             </div>
           </div>
 
+          {/* CORREÇÃO: Mapeamento de botões de seleção de equipamentos ativos no orçamento */}
           {equipamentos.length > 0 && (
             <div className="mb-4 w-full">
               <label className="text-[10px] font-bold text-purple-600 uppercase ml-1 block mb-1">🛠️ Equipamentos Ativos neste Orçamento</label>
@@ -843,6 +867,7 @@ export default function App() {
           <div className="flex justify-between text-slate-500 w-full"><span>Materiais:</span><span className="font-bold">R$ {resumenFinanceiro.materiais}</span></div>
           <div className="flex justify-between text-slate-500 w-full"><span>Mão de Obra:</span><span className="font-bold">R$ {resumenFinanceiro.maoObra}</span></div>
           <div className="flex justify-between text-slate-500 w-full"><span>Extras / Custo Manual:</span><span className="font-bold">R$ {resumenFinanceiro.extras}</span></div>
+          {/* CORREÇÃO: Linha independente no detalhamento financeiro da peça */}
           <div className="flex justify-between text-slate-500 w-full"><span>Depreciação de Equipamentos:</span><span className="font-bold text-purple-700">R$ {resumenFinanceiro.deprec}</span></div>
           <div className="flex justify-between text-slate-800 font-bold border-t pt-2 mt-1 w-full"><span>Custo Total da Peça:</span><span className="text-purple-700">R$ {resumenFinanceiro.custoPeca}</span></div>
           <div className="flex justify-between text-emerald-600 font-bold w-full"><span>Lucro Livre Gerado ({lucro}%) :</span><span>R$ {resumenFinanceiro.lucroLivre}</span></div>
@@ -860,7 +885,7 @@ export default function App() {
              limparCalculadora(); setActiveTab('pedidos'); alert("Salvo!");
           }} className="bg-orange-500 text-white px-5 py-4 rounded-[22px] font-black uppercase text-xs shadow-lg">Salvar</button>
           <button onClick={() => gerarPDF({nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed, obsPedido})} className="bg-orange-500 text-white p-4 rounded-[22px] shadow-lg"><Printer size={18}/></button>
-          <button onClick={() => enviarZap({nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed})} className="bg-emerald-500 text-white p-4 rounded-[22px] shadow-lg"><MessageCircle size={18}/></button>
+          <button onClick={() => enviarZap({nomeProd: p.nomeProd, preco: p.preco, clienteId: p.clienteId, prazo: p.prazo, qtdPed: p.qtdPed})} className="bg-emerald-500 text-white p-4 rounded-[22px] shadow-lg"><MessageCircle size={18}/></button>
         </div>
       </div>
     </div>
@@ -980,7 +1005,7 @@ export default function App() {
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Outros Gastos Fixos</label>
-                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={financasFixo.outros} onChange={e => setFinancasFixo({...financasFixo, outros: e.target.value})} />
+                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={financasFixo.outros} onChange={e => setFinancasFixo({...financasFixo,大陸 outros: e.target.value})} />
                 </div>
               </div>
 
@@ -1034,7 +1059,7 @@ export default function App() {
               </div>
 
               <button onClick={async () => {
-                if(!novoEquipamento.nome || !novoEquipamento.valorPago) return alert("Preencha o nome e o preço del equipamento!");
+                if(!novoEquipamento.nome || !novoEquipamento.valorPago) return alert("Preencha o nome e o preço do equipamento!");
                 const d = { nome: novoEquipamento.nome, valorPago: Number(novoEquipamento.valorPago), durabilidadeAnos: Number(novoEquipamento.durabilidadeAnos), userId: user.uid };
                 if (novoEquipamento.id) await updateDoc(doc(db, "equipamentos", novoEquipamento.id), d);
                 else await addDoc(collection(db, "equipamentos"), d);
@@ -1085,7 +1110,7 @@ export default function App() {
                   <input placeholder="Ex: 21983858055" className="flex-1 p-2.5 bg-black/20 text-white rounded-xl text-xs font-bold border border-purple-500/30 outline-none" value={zapDonaConta} onChange={e => setZapDonaConta(e.target.value)} />
                   <button onClick={async () => {
                     if(!zapDonaConta.trim()) return alert("Digite o número!");
-                    try { await setDoc(doc(db, "configuracoes_loja", user.uid), { whatsapp: zapDonaConta.trim() }, { merge: true }); alert("WhatsApp salvo!"); } 
+                    try { await setDoc(doc(db, "configuracoes_loja", user.uid), { whatsapp: zapDonaConta.trim() }, { merge: true }); alert("WhatsApp saved!"); } 
                     catch { alert("Erro ao salvar."); }
                   }} className="bg-orange-500 text-white text-xs font-black uppercase px-4 rounded-xl shadow">Salvar</button>
                 </div>
@@ -1315,7 +1340,7 @@ export default function App() {
                     <button onClick={async () => await updateDoc(doc(db, "materiais", m.id), { qtdAtual: Math.max(0, Number(m.qtdAtual || 0) - 1) })} className="w-8 h-8 bg-slate-100 rounded-xl font-bold">-</button>
                     <button onClick={async () => await updateDoc(doc(db, "materiais", m.id), { qtdAtual: Number(m.qtdAtual || 0) + 1 })} className="w-8 h-8 bg-purple-100 rounded-xl font-bold text-purple-700">+</button>
                     <button onClick={() => setNovoMat({id: m.id, nome: m.nome, valor: String(m.valor), qtd: String(m.qtd), unidade: m.unidade, qtdAtual: String(m.qtdAtual), qtdMinima: String(m.qtdMinima)})} className="text-orange-400 p-2"><Edit2 size={16}/></button>
-                    <button onClick={() => confirmarExcluir('material', m.id)} className="text-red-200 p-2"><Trash2 size={16}/></button>
+                    <button onClick={() => abrirExcluir('material', m.id)} className="text-red-200 p-2"><Trash2 size={16}/></button>
                   </div>
                 </div>
               );
