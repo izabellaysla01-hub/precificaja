@@ -357,7 +357,8 @@ export default function App() {
     window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
   };
 
-    const gerarPDF = (p: any) => {
+  const gerarPDF = (p: any) => {
+    // CORREÇÃO CRÍTICA: Mapeia corretamente o id independente da tela de origem do clique
     const targetClienteId = p.clienteId || p.clienteSel || clienteSel;
     const cli = clientes.find(c => c.id === targetClienteId);
     
@@ -369,6 +370,7 @@ export default function App() {
 
     let htmlLinhasTabela = '';
 
+    // Caso 1: Veio do Balcão de Vendas com itens estruturados em array
     if (p.itensCombo && Array.isArray(p.itensCombo) && p.itensCombo.length > 0) {
       htmlLinhasTabela = p.itensCombo.map((item: any) => `
         <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px;">
@@ -379,11 +381,12 @@ export default function App() {
         </tr>
       `).join('');
     } else {
+      // Caso 2: Orçamento Livre / Manual com texto ou quebra de linha
       const arrayLinhasTexto = String(p.nomeProd || '').split('\n');
       htmlLinhasTabela = arrayLinhasTexto.map(linhaTexto => {
         if(!linhaTexto.trim()) return '';
         let quantidadeItem = Number(p.qtdPed || 1);
-        let nomeItemLimpo = inlineTexto = linhaTexto.trim();
+        let nomeItemLimpo = linhaTexto.trim();
         
         const matchCombo = linhaTexto.trim().match(/^(\d+)x\s+(.+)$/i);
         if(matchCombo) {
@@ -391,6 +394,7 @@ export default function App() {
           nomeItemLimpo = matchCombo[2].trim();
         }
         
+        // Evita divisão por zero ou exibição errada se quantidade for nula
         const unitario = (totalNum / (quantidadeItem || 1)).toFixed(2);
 
         return `
@@ -405,15 +409,8 @@ export default function App() {
     }
 
     const elemento = document.createElement('div');
-    
-    // Aplicando exatamente a correção de posicionamento oculto no DOM
-    elemento.style.position = 'fixed';
-    elemento.style.left = '-9999px';
-    elemento.style.top = '0';
-    elemento.style.width = '750px'; // Evita que o layout quebre ao entrar no DOM
-
     elemento.innerHTML = `
-      <div style="padding: 35px; font-family: sans-serif; color: #334155; width: 680px; margin: 0 auto; background-color: #ffffff;">
+      <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto;">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px;">
           <div>
             <h1 style="color: #7c3aed; margin: 0; font-size: 32px; font-weight: 900;">PrecificaJá 🚀</h1>
@@ -446,10 +443,10 @@ export default function App() {
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
           <thead>
             <tr style="border-bottom: 2px solid #e2e8f0; text-align: left; font-size: 11px; text-transform: uppercase; color: #94a3b8;">
-              <th style="padding: 10px 5px; text-align: left; width: 50%;">Descrição do Item</th>
-              <th style="padding: 10px 5px; text-align: center; width: 15%;">Qtd</th>
-              <th style="padding: 10px 5px; text-align: right; width: 15%;">Preço Unit.</th>
-              <th style="padding: 10px 5px; text-align: right; width: 20%;">Subtotal</th>
+              <th style="padding: 10px 5px; text-align: left;">Descrição do Item</th>
+              <th style="padding: 10px 5px; text-align: center;">Qtd</th>
+              <th style="padding: 10px 5px; text-align: right;">Preço Unit.</th>
+              <th style="padding: 10px 5px; text-align: right;">Subtotal</th>
             </tr>
           </thead>
           <tbody>
@@ -468,7 +465,7 @@ export default function App() {
         <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Forma de Pagamento Aceitas</div>
         <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; border: 1px solid #f1f5f9; font-size: 13px; display: flex; justify-content: space-between; margin-bottom: 15px;">
           <div><strong>Meios disponíveis:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">PIX / CARTÃO DE CRÉDITO</div></div>
-          <div><strong>Condições comerciais:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">A combinar directo no WhatsApp da Loja</div></div>
+          <div><strong>Condições comerciais:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">A combinar direto no WhatsApp da Loja</div></div>
         </div>
 
         ${p.obsPedido ? `
@@ -483,33 +480,14 @@ export default function App() {
         </div>
       </div>
     `;
-
-    // 1. Injeta obrigatoriamente no DOM para o Safari mapear o texto das variáveis
-    document.body.appendChild(elemento);
-
-    const opcoes = { 
-      margin: [10, 10, 10, 10], 
-      filename: `Orcamento_${cli?.nome || 'Cliente'}.pdf`, 
-      html2canvas: { scale: 2, useCORS: true, logging: false }, 
-      jsPDF: { format: 'a4', orientation: 'portrait' } 
-    };
+    const opcoes = { margin: 0, filename: `Orcamento_${cli?.nome || 'Cliente'}.pdf`, html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'a4', orientation: 'portrait' } };
     
-    // 2. Executa a geração usando a promessa (.then) para garantir que limpa só após a conclusão
     if ((window as any).html2pdf) {
-      (window as any).html2pdf().from(elemento).set(opcoes).save().then(() => {
-        // 3. Remove do DOM imediatamente após finalizar o download
-        document.body.removeChild(elemento);
-      }).catch((err: any) => {
-        // Tratamento de segurança caso ocorra erro interno no html2pdf
-        if (document.body.contains(elemento)) document.body.removeChild(elemento);
-        console.error("Erro ao gerar PDF:", err);
-      });
+      (window as any).html2pdf().from(elemento).set(opcoes).save();
     } else {
-      if (document.body.contains(elemento)) document.body.removeChild(elemento);
       alert("O motor do PDF está carregando no seu celular. Aguarde 3 segundos e clique de novo! 🚀");
     }
   };
-
 
   const handleAuth = async () => {
     try {
