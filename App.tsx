@@ -3,7 +3,7 @@ import { initializeApp } from "firebase/app";
 import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { getFirestore, collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc, getDocs, setDoc, getDoc } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2, Menu, Landmark } from 'lucide-react';
+import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2, Menu } from 'lucide-react';
 
 const firebaseConfig = {
   apiKey: "AIzaSyD0BWsNm9DbGGDqiHzkdDmNdxIGdJ9tWe8",
@@ -163,7 +163,6 @@ export default function App() {
           const dadosFin = snap.data() as any;
           setFinancasFixo(dadosFin);
           
-          // Se o usuário já configurou o salário, atualiza o valor da hora padrão da calculadora automaticamente
           const dias = Number(dadosFin.diasTrabalho || 20);
           const horas = Number(dadosFin.horasDia || 8);
           const totalHorasMes = dias * horas || 160;
@@ -190,23 +189,20 @@ export default function App() {
     }
   }, [user, idLojaPublica]);
 
-  // Altera os custos automáticos de energia (luz) e outros sempre que o tempo gasto mudar
+  // Sugere preenchimento automático apenas se houver configuração financeira salva
   useEffect(() => {
-    if (precoManual !== null || !financasFixo.salario) return;
+    if (precoManual !== null || Number(financasFixo.salario || 0) === 0) return;
     
     const dias = Number(financasFixo.diasTrabalho || 20);
     const horas = Number(financasFixo.horasDia || 8);
     const totalHorasMes = dias * horas || 160;
     const tempoEmHoras = Number(tGasto || 0) / 60;
 
-    // Calcula frações de custos automáticos baseados nas configurações financeiras
     const custoLuzMes = Number(financasFixo.luz || 0);
-    const custoLuzHora = custoLuzMes / totalHorasMes;
-    const luzAutomatica = (custoLuzHora * tempoEmHoras).toFixed(2);
+    const luzAutomatica = ((custoLuzMes / totalHorasMes) * tempoEmHoras).toFixed(2);
 
     const custoOutrosMes = Number(financasFixo.aluguel || 0) + Number(financasFixo.internet || 0) + Number(financasFixo.outros || 0);
-    const custoOutrosHora = custoOutrosMes / totalHorasMes;
-    const outrosAutomatico = (custoOutrosHora * tempoEmHoras).toFixed(2);
+    const outrosAutomatico = ((custoOutrosMes / totalHorasMes) * tempoEmHoras).toFixed(2);
 
     setCustos(prev => ({
       ...prev,
@@ -389,18 +385,14 @@ export default function App() {
     if (precoManual !== null) {
       const totalCatalogo = Number(precoManual) * Number(qtdPed || 1);
       const semDesconto = totalCatalogo - Number(desconto || 0);
-      return { materiais: "0.00", maoObra: "0.00", extras: "0.00", custoPeca: "0.00", lucroLivre: "0.00", final: isNaN(semDesconto) ? "0.00" : semDesconto.toFixed(2) };
+      return { materiais: "0.00", maoObra: "0.00", custosLimp: "0.00", deprec: "0.00", custoLote: "0.00", lucroLivre: "0.00", final: isNaN(semDesconto) ? "0.00" : semDesconto.toFixed(2) };
     }
 
     const totalMaterials = matsNoPed.reduce((acc, m) => acc + ((Number(m.valor || 0) / Number(m.qtd || 1)) * Number(m.qtdUsada || 0)), 0);
-    
-    // Cálculo de Mão de Obra baseado no valor digitado na tela principal
     const totalMaoObra = (Number(vHora || 0) / 60) * Number(tGasto || 0);
-    
-    // Custos manuais/preenchidos automaticamente
     const totalExtras = Number(custos.embalagem || 0) + Number(custos.impressao || 0) + Number(custos.energia || 0) + Number(custos.outros || 0);
     
-    // Desgaste de maquinários selecionados
+    // Cálculo de depreciação opcional
     let totalDepreciacaoEquipamentos = 0;
     const dias = Number(financasFixo.diasTrabalho || 20);
     const horas = Number(financasFixo.horasDia || 8);
@@ -426,11 +418,9 @@ export default function App() {
     return { 
       materiais: totalMaterials.toFixed(2), 
       maoObra: totalMaoObra.toFixed(2), 
-      extras: (totalExtras + totalDepreciacaoEquipamentos).toFixed(2), 
       custoLimp: totalExtras.toFixed(2),
       deprec: totalDepreciacaoEquipamentos.toFixed(2),
       custoLote: custoTotalLote.toFixed(2),
-      custoPeca: custoTotalPeca.toFixed(2), 
       lucroLivre: valorLucroLivre.toFixed(2), 
       final: isNaN(precoFinalCalculated) ? "0.00" : precoFinalCalculated.toFixed(2) 
     };
@@ -578,7 +568,7 @@ export default function App() {
   };
 
   const confirmarVendaPedido = async (pedido: any) => {
-    if (pedido.materialsUsados && pedido.materiaisUsados.length > 0) {
+    if (pedido.materiaisUsados && pedido.materiaisUsados.length > 0) {
       for (const m of pedido.materiaisUsados) {
         const matDoBanco = materiais.find(item => item.id === m.id);
         if (matDoBanco) {
@@ -632,8 +622,7 @@ export default function App() {
     setLucro('100'); setDesconto('0'); setPrazo(''); setClienteSel('');
     setPedidoEditandoId(null); setPrecoManual(null); setObsPedido('');
     
-    // Recarrega o preço padrão configurado se houver
-    if (financasFixo.salario) {
+    if (Number(financasFixo.salario || 0) > 0) {
       const dias = Number(financasFixo.diasTrabalho || 20);
       const horas = Number(financasFixo.horasDia || 8);
       const totalHorasMes = dias * horas || 160;
@@ -894,7 +883,7 @@ export default function App() {
       {precoManual === null && (
         <div className="bg-slate-50 p-5 rounded-3xl mb-8 border border-slate-100 text-xs space-y-2.5 w-full">
           <p className="font-black text-purple-700 uppercase tracking-wider text-[10px] mb-1">📋 RESUMO FINANCEIRO DA PEÇA</p>
-          <div className="flex justify-between text-slate-500 w-full"><span>Materiais Usados:</span><span className="font-bold">R$ {resumenFinanceiro.materials}</span></div>
+          <div className="flex justify-between text-slate-500 w-full"><span>Materiais Usados:</span><span className="font-bold">R$ {resumenFinanceiro.materiais}</span></div>
           <div className="flex justify-between text-slate-500 w-full"><span>Mão de Obra Pura:</span><span className="font-bold">R$ {resumenFinanceiro.maoObra}</span></div>
           <div className="flex justify-between text-slate-500 w-full"><span>Extras Editáveis (Luz/Tinta/etc):</span><span className="font-bold">R$ {resumenFinanceiro.custoLimp}</span></div>
           <div className="flex justify-between text-slate-500 w-full"><span>Desgaste de Ferramentas:</span><span className="font-bold">R$ {resumenFinanceiro.deprec}</span></div>
@@ -1082,7 +1071,7 @@ export default function App() {
                     <option value="1">1 Ano</option>
                     <option value="2">2 Anos</option>
                     <option value="3">3 Anos</option>
-                    <option value="5">5 An Anos</option>
+                    <option value="5">5 Anos</option>
                   </select>
                 </div>
               </div>
@@ -1297,7 +1286,7 @@ export default function App() {
                         </>
                       )}
                       <button onClick={() => gerarPDF(p)} className="text-orange-500 p-2 bg-orange-50 rounded-xl"><Printer size={18}/></button>
-                      <button onClick={() => enviarZap(p)} className="text-emerald-500 p-2 bg-emerald-50 rounded-xl"><MessageCircle size={18}/></button>
+                      <button onClick={() => enviarZap({nomeProd: p.nomeProd, preco: p.preco, clienteId: p.clienteId, prazo: p.prazo, qtdPed: p.qtdPed})} className="text-emerald-500 p-2 bg-emerald-50 rounded-xl"><MessageCircle size={18}/></button>
                       <button onClick={() => confirmarExcluir('pedido', p.id)} className="text-red-200 p-2"><Trash2 size={18}/></button>
                    </div>
                  </div>
