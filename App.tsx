@@ -170,16 +170,17 @@ export default function App() {
     alert("Link do seu catálogo copiado! 🔗🚀");
   };
 
+  // Ajustado: Função automática do cliente blindada em largura de 750px para não amassar no mobile
   const dispararPdfAutomaticoCliente = (nomeCliente: string, itens: any[], total: number) => {
     const elemento = document.createElement('div');
     const dataEmissao = new Date().toLocaleDateString('pt-BR');
     
     const linhasProdutosHtml = itens.map(p => `
       <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px;">
-        <td style="padding: 15px 5px; font-weight: bold; color: #1e293b; text-align: left;">${p.nome}</td>
-        <td style="padding: 15px 5px; text-align: center; color: #475569;">${p.qtd}</td>
-        <td style="padding: 15px 5px; text-align: right; color: #475569;">R$ ${Number(p.precoVenda).toFixed(2)}</td>
-        <td style="padding: 15px 5px; text-align: right; font-weight: bold; color: #1e293b;">R$ ${(Number(p.precoVenda) * p.qtd).toFixed(2)}</td>
+        <td style="padding: 15px 5px; font-weight: bold; color: #1e293b; text-align: left; width: 45%;">${p.nome}</td>
+        <td style="padding: 15px 5px; text-align: center; color: #475569; width: 15%;">${p.qtd}</td>
+        <td style="padding: 15px 5px; text-align: right; color: #475569; width: 20%;">R$ ${Number(p.precoVenda).toFixed(2)}</td>
+        <td style="padding: 15px 5px; text-align: right; font-weight: bold; color: #1e293b; width: 20%;">R$ ${(Number(p.precoVenda) * p.qtd).toFixed(2)}</td>
       </tr>
     `).join('');
 
@@ -202,7 +203,7 @@ export default function App() {
         </div>
 
         <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Relação de Itens Escolhidos</div>
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; table-layout: fixed;">
           <thead>
             <tr style="border-bottom: 2px solid #e2e8f0; text-align: left; font-size: 11px; text-transform: uppercase; color: #94a3b8;">
               <th style="padding: 10px 5px; text-align: left; width: 45%;">Produto</th>
@@ -231,7 +232,7 @@ export default function App() {
       </div>
     `;
 
-    const opcoes = { margin: 0, filename: `Pedido_${nomeCliente.replace(/\s+/g, '_')}.pdf`, html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'a4', orientation: 'portrait' } };
+    const opcoes = { margin: 0, filename: `Pedido_${nomeCliente.replace(/\s+/g, '_')}.pdf`, html2canvas: { scale: 2, useCORS: true, width: 750 }, jsPDF: { format: 'a4', orientation: 'portrait' } };
     if ((window as any).html2pdf) { (window as any).html2pdf().from(elemento).set(opcoes).save(); }
   };
 
@@ -356,6 +357,7 @@ export default function App() {
     window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
   };
 
+  // Ajustado: Função de impressão do Histórico travada em 750px e com larguras de tabelas fixadas via CSS
   const gerarPDF = (p: any) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
     const dataEmissao = p.data || new Date().toLocaleDateString('pt-BR');
@@ -432,7 +434,7 @@ export default function App() {
         </div>
 
         <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Produtos / Serviços Selecionados</div>
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; table-layout: fixed;">
           <thead>
             <tr style="border-bottom: 2px solid #e2e8f0; text-align: left; font-size: 11px; text-transform: uppercase; color: #94a3b8;">
               <th style="padding: 10px 5px; text-align: left; width: 45%;">Descrição do Item</th>
@@ -472,7 +474,7 @@ export default function App() {
         </div>
       </div>
     `;
-    const opcoes = { margin: 0, filename: `Orcamento.pdf`, html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'a4', orientation: 'portrait' } };
+    const opcoes = { margin: 0, filename: `Orcamento.pdf`, html2canvas: { scale: 2, useCORS: true, width: 750 }, jsPDF: { format: 'a4', orientation: 'portrait' } };
     
     if ((window as any).html2pdf) {
       (window as any).html2pdf().from(elemento).set(opcoes).save();
@@ -941,8 +943,7 @@ export default function App() {
                   type="date" 
                   className="w-full p-3.5 bg-slate-800/80 rounded-xl text-xs font-bold text-white border border-slate-700 outline-none focus:border-purple-400 block box-border h-[46px]"
                   value={prazoBalcao} 
-                  onChange={e => setPrazoBalcao(e.target.value)} 
-                />
+                  onChange={e => setPrazoBalcao(e.target.value)} />
               </div>
 
               <div className="bg-slate-800/40 border border-slate-800 p-3 rounded-2xl space-y-3 max-h-72 overflow-y-auto">
