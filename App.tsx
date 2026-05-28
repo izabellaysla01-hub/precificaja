@@ -56,11 +56,12 @@ export default function App() {
   const [nomeComprador, setNomeComprador] = useState('');
   const [zapDaLojaPublica, setZapDaLojaPublica] = useState('');
 
-  const [activeTab, useStateActiveTab] = useState<'inicio' | 'materiais' | 'criar' | 'pedidos' | 'clientes' | 'catalogo' | 'balcao'>('inicio');
+  const [activeTab, useStateActiveTab] = useState<'inicio' | 'materiais' | 'criar' | 'pedidos' | 'clientes' | 'catalogo' | 'balcao' | 'financeiro'>('inicio');
   const [materiais, setMaterials] = useState<any[]>([]);
   const [pedidos, setPedidos] = useState<any[]>([]);
   const [clientes, setClientes] = useState<any[]>([]);
   const [produtos, setProdutos] = useState<any[]>([]);
+  const [equipamentos, setEquipamentos] = useState<any[]>([]);
 
   const [pedidoEditandoId, setPedidoEditandoId] = useState<string | null>(null);
   const [mostrarSeletorCatalogo, setMostrarSeletorCatalogo] = useState(false);
@@ -88,10 +89,13 @@ export default function App() {
   const [zapDonaConta, setZapDonaConta] = useState('');
   const [subindoImagem, setSubindoImagem] = useState(false);
 
+  // Módulo Opcional de Estrutura de Custos Fixos e Maquinário
+  const [financasFixo, setFinancasFixo] = useState({ salario: '0', aluguel: '0', internet: '0', luz: '0', outros: '0', diasTrabalho: '20', horasDia: '8' });
+  const [novoEquipamento, setNovoEquipamento] = useState({ id: '', nome: '', valorPago: '', durabilidadeAnos: '2' });
+
   const [carrinhoInterno, setCarrinhoInterno] = useState<{ [key: string]: number }>({});
   const [clienteBalcao, setClienteBalcao] = useState('');
   const [nomeKitBalcao, setNomeKitBalcao] = useState('');
-  // Ajuste: Novo estado para armazenar o prazo comercial inserido no Balcão
   const [prazoBalcao, setPrazoBalcao] = useState('');
 
   const setActiveTab = (tab: any) => {
@@ -152,11 +156,35 @@ export default function App() {
       const qProdutos = query(collection(db, "produtos"), where("userId", "==", user.uid));
       const unsubProdutos = onSnapshot(qProdutos, s => setProdutos(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
+      // Carrega as configurações de custos automáticos e atualiza o estado vHora se existirem
+      const qConfigFin = doc(db, "configuracoes_financeiras", user.uid);
+      getDoc(qConfigFin).then(snap => {
+        if (snap.exists()) {
+          const dadosFin = snap.data() as any;
+          setFinancasFixo(dadosFin);
+          
+          const dias = Number(dadosFin.diasTrabalho || 20);
+          const horas = Number(dadosFin.horasDia || 8);
+          const totalHorasMes = dias * horas || 160;
+          const salario = Number(dadosFin.salario || 0);
+          const custosMes = Number(dadosFin.aluguel || 0) + Number(dadosFin.internet || 0) + Number(dadosFin.luz || 0) + Number(dadosFin.outros || 0);
+          
+          if (salario + custosMes > 0) {
+            const horaCalculada = (salario + custosMes) / totalHorasMes;
+            setVHora(horaCalculada.toFixed(2));
+          }
+        }
+      });
+
+      const qEquipamentos = query(collection(db, "equipamentos"), where("userId", "==", user.uid));
+      const unsubEquipamentos = onSnapshot(qEquipamentos, s => setEquipamentos(s.docs.map(d => ({ id: d.id, ...d.data() }))));
+
       return () => {
         unsubMaterials();
         unsubPedidos();
         unsubClientes();
         unsubProdutos();
+        unsubEquipamentos();
       };
     }
   }, [user, idLojaPublica]);
@@ -290,7 +318,6 @@ export default function App() {
     });
 
     const nomeFinalDoRegistro = nomeKitBalcao.trim() ? nomeKitBalcao.trim() : stringNomeCombo;
-    // Ajuste: Se a usuária não definiu um prazo na tela de balcão, assume o dia atual como padrão
     const prazoFinalVenda = prazoBalcao ? prazoBalcao : new Date().toISOString().split('T')[0];
 
     try {
@@ -298,7 +325,7 @@ export default function App() {
         nomeProd: nomeFinalDoRegistro,
         preco: totalGeral.toFixed(2),
         clienteId: clienteBalcao,
-        prazo: prazoFinalVenda, // Prazo customizado salvo corretamente no Firebase
+        prazo: prazoFinalVenda,
         qtdPed: "1",
         vHora: "0",
         tGasto: "0",
@@ -307,7 +334,7 @@ export default function App() {
         desconto: "0",
         userId: user.uid,
         precoManual: totalGeral.toFixed(2),
-        obsPedido: "", // Ajuste: Limpa a observação roxa automática conforme solicitado
+        obsPedido: "",
         data: new Date().toLocaleDateString('pt-BR'),
         status: 'Pendente',
         itensCombo: arrayItensSalvar 
@@ -316,7 +343,7 @@ export default function App() {
       setCarrinhoInterno({});
       setClienteBalcao('');
       setNomeKitBalcao('');
-      setPrazoBalcao(''); // Limpa o estado
+      setPrazoBalcao('');
       alert("Combo lançado com sucesso no Histórico! 🚀");
       setActiveTab('pedidos');
     } catch {
@@ -342,13 +369,27 @@ export default function App() {
     const totalMaoObra = (Number(vHora || 0) / 60) * Number(tGasto || 0);
     const totalExtras = Number(custos.embalagem || 0) + Number(custos.impressao || 0) + Number(custos.energia || 0) + Number(custos.outros || 0);
     
-    const custoTotalPeca = totalMaterials + totalMaoObra + totalExtras;
+    // Soma depreciação extra se houver ferramentas cadastradas
+    let totalDesgasteMaquinas = 0;
+    const dias = Number(financasFixo.diasTrabalho || 20);
+    const horas = Number(financasFixo.horasDia || 8);
+    const totalHorasMes = dias * horas || 160;
+    const tempoEmHoras = Number(tGasto || 0) / 60;
+
+    equipamentos.forEach(eq => {
+      const valorEquip = Number(eq.valorPago || 0);
+      const mesesVida = Number(eq.durabilidadeAnos || 2) * 12;
+      const custoHoraEquip = (valorEquip / mesesVida) / totalHorasMes;
+      totalDesgasteMaquinas += custoHoraEquip * tempoEmHoras;
+    });
+
+    const custoTotalPeca = totalMaterials + totalMaoObra + totalExtras + totalDesgasteMaquinas;
     const custoTotalLote = custoTotalPeca * Number(qtdPed || 1);
     const valorLucroLivre = custoTotalLote * (Number(lucro || 0) / 100);
     const precoFinalCalculado = (custoTotalLote + valorLucroLivre) - Number(desconto || 0);
 
-    return { materiais: totalMaterials.toFixed(2), maoObra: totalMaoObra.toFixed(2), extras: totalExtras.toFixed(2), custoPeca: custoTotalPeca.toFixed(2), lucroLivre: valorLucroLivre.toFixed(2), final: isNaN(precoFinalCalculado) ? "0.00" : precoFinalCalculado.toFixed(2) };
-  }, [matsNoPed, vHora, tGasto, custos, lucro, qtdPed, desconto, precoManual]);
+    return { materiais: totalMaterials.toFixed(2), maoObra: totalMaoObra.toFixed(2), extras: (totalExtras + totalDesgasteMaquinas).toFixed(2), custoPeca: custoTotalPeca.toFixed(2), lucroLivre: valorLucroLivre.toFixed(2), final: isNaN(precoFinalCalculado) ? "0.00" : precoFinalCalculado.toFixed(2) };
+  }, [matsNoPed, vHora, tGasto, custos, lucro, qtdPed, desconto, precoManual, equipamentos, financasFixo]);
 
   const enviarZap = (p: any) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
@@ -363,7 +404,6 @@ export default function App() {
     const dataEmissao = p.data || new Date().toLocaleDateString('pt-BR');
     const hoje = new Date(); hoje.setDate(hoje.getDate() + 7);
     const dataValidade = hoje.toLocaleDateString('pt-BR');
-    // Mapeia e corrige a data do prazo vinda do banco ou do balcão
     const dataPrazo = p.prazo ? new Date(p.prazo + 'T00:00:00').toLocaleDateString('pt-BR') : 'A combinar';
     const totalNum = Number(p.preco || 0);
 
@@ -383,7 +423,7 @@ export default function App() {
       htmlLinhasTabela = arrayLinhasTexto.map(linhaTexto => {
         if(!linhaTexto.trim()) return '';
         let quantidadeItem = Number(p.qtdPed || 1);
-        let nomeItemLimpo = linhaTexto.trim();
+        let nomeItemLimpo = inlineTexto = linhaTexto.trim();
         
         const matchCombo = linhaTexto.trim().match(/^(\d+)x\s+(.+)$/i);
         if(matchCombo) {
@@ -408,7 +448,7 @@ export default function App() {
       <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto;">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px;">
           <div>
-            <h1 style="color: #7c3aed; margin: 0; font-size: 32px; font-weight: 900;">PrecificaJá 🚀</h1>
+            <h1 style="color: #7c3aed; margin: 0; font-size: 32px; font-weight: 900;">PrecificaJá 2026 🚀</h1>
             <p style="color: #94a3b8; font-size: 11px; text-transform: uppercase; margin: 4px 0 0 0; font-weight: bold;">Documento de Orçamento Comercial</p>
           </div>
           <div style="text-align: right; background-color: #f8fafc; padding: 12px 20px; border-radius: 16px; border: 1px solid #e2e8f0;">
@@ -488,7 +528,7 @@ export default function App() {
 
   const confirmarExcluir = async (tipo: string, id: string) => {
     if (window.confirm(`Excluir ${tipo}?`)) {
-      await deleteDoc(doc(db, tipo === 'pedido' ? "pedidos" : tipo === 'cliente' ? "clientes" : tipo === 'produto' ? "produtos" : "materiais", id));
+      await deleteDoc(doc(db, tipo === 'pedido' ? "pedidos" : tipo === 'cliente' ? "clientes" : tipo === 'produto' ? "produtos" : tipo === 'equipamento' ? "equipamentos" : "materiais", id));
     }
   };
 
@@ -627,10 +667,6 @@ export default function App() {
     );
   }
 
-  if (!user) {
-    return ( <Login isRegistering={isRegistering} setIsRegistering={setIsRegistering} email={email} setEmail={setEmail} password={password} setPassword={setPassword} handleAuth={handleAuth} /> );
-  }
-
   const renderCalculadoraForm = () => (
     <div className="bg-white p-6 rounded-[35px] shadow-xl border mt-2 w-full">
       {pedidoEditandoId && (
@@ -715,11 +751,11 @@ export default function App() {
           <div className="grid grid-cols-2 gap-4 mb-4 w-full">
             <div className="w-full">
               <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Tempo Gasto (min)</label>
-              <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={tGasto} onChange={e => setTGasto(e.target.value)} />
+              <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={tGasto} onChange={e => setTGasto(e.target.value)} />
             </div>
             <div className="w-full">
               <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Valor da Hora (R$)</label>
-              <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={vHora} onChange={e => setVHora(e.target.value)} />
+              <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-purple-700" value={vHora} onChange={e => setVHora(e.target.value)} />
             </div>
           </div>
 
@@ -727,9 +763,9 @@ export default function App() {
             <label className="text-[10px] font-bold text-purple-600 uppercase ml-1 block mb-1">📦 Custos Extras por Unidade (R$)</label>
             <div className="grid grid-cols-4 gap-2 w-full">
               {[{id:'embalagem',label:'EMBAL.'},{id:'impressao',label:'TINTA'},{id:'energia',label:'LUZ'},{id:'outros',label:'OUTROS'}].map(c=>(
-                <div key={c.id} className="flex flex-col items-center bg-slate-50 p-2 rounded-xl w-full">
-                  <span className="text-[8px] font-black text-slate-300 mb-1">{c.label}</span>
-                  <input type="number" className="w-full bg-transparent text-center text-xs outline-none font-bold" value={(custos as any)[c.id]} onChange={e => setCustos({...custos, [c.id]: e.target.value})} />
+                <div key={c.id} className="flex flex-col items-center bg-slate-50 p-2 rounded-xl w-full border">
+                  <span className="text-[8px] font-black text-slate-400 mb-1">{c.label}</span>
+                  <input type="number" className="w-full bg-transparent text-center text-xs outline-none font-bold text-slate-700" value={(custos as any)[c.id]} onChange={e => setCustos({...custos, [c.id]: e.target.value})} />
                 </div>
               ))}
             </div>
@@ -809,6 +845,7 @@ export default function App() {
             <nav className="flex flex-col gap-1">
               <button onClick={() => setActiveTab('inicio')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'inicio' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Home size={16}/> Início</button>
               <button onClick={() => setActiveTab('criar')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'criar' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Plus size={16}/> Orçar</button>
+              <button onClick={() => setActiveTab('financeiro')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'financeiro' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Calculator size={16}/> Configurações de Custos</button>
               <button onClick={() => setActiveTab('pedidos')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'pedidos' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><History size={16}/> Histórico de Orçamentos</button>
               <button onClick={() => setActiveTab('balcao')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'balcao' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><ShoppingCart size={16}/> Balcão de Vendas Rápido</button>
               <button onClick={() => setActiveTab('catalogo')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'catalogo' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><BookOpen size={16}/> Meu Catálogo Visual</button>
@@ -880,6 +917,119 @@ export default function App() {
           </div>
         )}
 
+        {/* TELA DE CONFIGURAÇÃO DE CUSTOS FIXOS (OPCIONAL) */}
+        {activeTab === 'financeiro' && (
+          <div className="space-y-6 pt-2 w-full">
+            <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
+              <h2 className="text-purple-700 font-bold mb-2 flex items-center gap-2 uppercase text-xs tracking-widest"><Calculator size={18}/> Estrutura de Custos Fixos (Opcional)</h2>
+              <p className="text-slate-400 text-[11px] mb-4">Insira os dados se quiser que o app sugira o valor da hora automaticamente. Se preferir fazer na mão, deixe zerado.</p>
+
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Salário Mensal Pretendido</label>
+              <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 font-bold text-purple-700 outline-none" value={financasFixo.salario} onChange={e => setFinancasFixo({...financasFixo, salario: e.target.value})} />
+
+              <div className="grid grid-cols-2 gap-3 mb-3 w-full">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Aluguel / Ponto</label>
+                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={financasFixo.aluguel} onChange={e => setFinancasFixo({...financasFixo, aluguel: e.target.value})} />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Internet / Sistema</label>
+                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={financasFixo.internet} onChange={e => setFinancasFixo({...financasFixo, internet: e.target.value})} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 mb-4 w-full">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Conta de Luz Total</label>
+                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={financasFixo.luz} onChange={e => setFinancasFixo({...financasFixo, luz: e.target.value})} />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Outros Gastos Fixos</label>
+                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={financasFixo.outros} onChange={e => setFinancasFixo({...financasFixo, outros: e.target.value})} />
+                </div>
+              </div>
+
+              <h3 className="text-purple-700 font-bold text-xs uppercase tracking-wider mb-2 mt-4">Sua Carga Horária</h3>
+              <div className="grid grid-cols-2 gap-3 mb-5 w-full">
+                <div>
+                  <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Dias de Trabalho no Mês</label>
+                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={financasFixo.diasTrabalho} onChange={e => setFinancasFixo({...financasFixo, diasTrabalho: e.target.value})} />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Horas de Trabalho por Dia</label>
+                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={financasFixo.horasDia} onChange={e => setFinancasFixo({...financasFixo, horasDia: e.target.value})} />
+                </div>
+              </div>
+
+              <button onClick={async () => {
+                await setDoc(doc(db, "configuracoes_financeiras", user.uid), financasFixo);
+                
+                const totalHoras = Number(financasFixo.diasTrabalho || 20) * Number(financasFixo.horasDia || 8);
+                const intentCustos = Number(financasFixo.salario || 0) + Number(financasFixo.aluguel || 0) + Number(financasFixo.internet || 0) + Number(financasFixo.luz || 0) + Number(financasFixo.outros || 0);
+                if (intentCustos > 0) setVHora((intentCustos / totalHoras).toFixed(2));
+                
+                alert("Custos salvos com sucesso! O valor sugerido para a hora foi atualizado na calculadora. 🎉");
+              }} className="w-full bg-purple-700 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md">
+                Salvar Configurações Fixas
+              </button>
+            </div>
+
+            {/* SEÇÃO DE FERRAMENTAS */}
+            <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
+              <h2 className="text-purple-700 font-bold mb-2 flex items-center gap-2 uppercase text-xs tracking-widest"><Package size={18}/> Minhas Ferramentas de Trabalho (Depreciação)</h2>
+              <p className="text-slate-400 text-[11px] mb-4">Adicione ferramentas (secador, prensa) para incluir o desgaste financeiro automaticamente no resumo de custos.</p>
+
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome do Equipamento</label>
+              <input placeholder="Ex: Secador Profissional" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none" value={novoEquipamento.nome} onChange={e => setNovoEquipamento({...novoEquipamento, nome: e.target.value})} />
+
+              <div className="grid grid-cols-2 gap-3 mb-4 w-full">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Valor Pago</label>
+                  <input type="number" placeholder="R$ 0,00" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={novoEquipamento.valorPago} onChange={e => setNovoEquipamento({...novoEquipamento, valorPago: e.target.value})} />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Tempo de Vida (Anos)</label>
+                  <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={novoEquipamento.durabilidadeAnos} onChange={e => setNovoEquipamento({...novoEquipamento, durabilidadeAnos: e.target.value})}>
+                    <option value="1">1 Ano</option>
+                    <option value="2">2 Anos</option>
+                    <option value="3">3 Anos</option>
+                    <option value="5">5 Anos</option>
+                  </select>
+                </div>
+              </div>
+
+              <button onClick={async () => {
+                if(!novoEquipamento.nome || !novoEquipamento.valorPago) return alert("Preencha o nome e o preço do equipamento!");
+                const d = { nome: novoEquipamento.nome, valorPago: Number(novoEquipamento.valorPago), durabilidadeAnos: Number(novoEquipamento.durabilidadeAnos), userId: user.uid };
+                if (novoEquipamento.id) await updateDoc(doc(db, "equipamentos", novoEquipamento.id), d);
+                else await addDoc(collection(db, "equipamentos"), d);
+                setNovoEquipamento({ id: '', nome: '', valorPago: '', durabilidadeAnos: '2' });
+                alert("Equipamento salvo!");
+              }} className="w-full bg-orange-500 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md">
+                Salvar Equipamento
+              </button>
+            </div>
+
+            <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider ml-2">Equipamentos Cadastrados</h3>
+            <div className="space-y-2 w-full">
+              {equipamentos.map(eq => {
+                const meses = Number(eq.durabilidadeAnos || 2) * 12;
+                const totalHoras = Number(financasFixo.diasTrabalho || 20) * Number(financasFixo.horasDia || 8);
+                const descHora = (Number(eq.valorPago || 0) / meses) / totalHoras;
+                return (
+                  <div key={eq.id} className="bg-white p-4 rounded-3xl flex justify-between items-center border shadow-sm w-full">
+                    <div>
+                      <p className="font-bold text-slate-800">{eq.nome}</p>
+                      <p className="text-xs text-slate-400 mt-0.5">Desgaste: <span className="font-bold text-purple-700">R$ {isNaN(descHora) ? "0.00" : descHora.toFixed(2)} por hora de uso</span></p>
+                    </div>
+                    <button onClick={() => confirmarExcluir('equipamento', eq.id)} className="text-red-200 p-2"><Trash2 size={16}/></button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* SEÇÃO DO BALCÃO DE VENDAS RÁPIDO */}
         {activeTab === 'balcao' && (
           <div className="space-y-4 pt-2 w-full">
@@ -933,7 +1083,6 @@ export default function App() {
                 </select>
               </div>
 
-              {/* Ajuste: Novo seletor de prazo adicionado diretamente no Balcão de Vendas */}
               <div className="w-full">
                 <label className="text-[10px] font-bold text-orange-400 uppercase ml-1 block mb-1">Prazo de Entrega do Combo</label>
                 <input 
@@ -1097,8 +1246,10 @@ export default function App() {
               </div>
               <div className="mb-6 w-full">
                 <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Unidade de Medida</label>
-                <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-xs font-bold block border border-transparent focus:border-purple-400 mt-1" value={novoMat.unidade} onChange={e => setNovoMat({...novoMat, unidade: e.target.value})}>
+                <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-xs font-bold block border border-transparent focus:border-purple-400 mt-1" value={novoMat.unidade} onChange={e => setNovoMat({...novoMat, FlatUnidade: e.target.value})}>
                   <option value="un">📦 Unidade (un)</option>
+                  <option value="g">⚖️ Gramas (g)</option>
+                  <option value="kg">🏋️ Quilo (kg)</option>
                   <option value="Folha A4">📄 Folha A4</option>
                   <option value="m">📏 Metro (m)</option>
                   <option value="cm">📐 Centímetro (cm)</option>
