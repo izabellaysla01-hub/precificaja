@@ -72,7 +72,6 @@ export default function App() {
   const [vHora, setVHora] = useState('9');
   const [tGasto, setTGasto] = useState('60');
   const [custos, setCustos] = useState({ embalagem: '0', impressao: '0', energia: '0', outros: '0' });
-  const [equipamentosSelecionados, setEquipamentosSelecionados] = useState<string[]>([]);
   const [lucro, setLucro] = useState('100');
   const [desconto, setDesconto] = useState('0');
   const [prazo, setPrazo] = useState('');
@@ -90,7 +89,7 @@ export default function App() {
   const [zapDonaConta, setZapDonaConta] = useState('');
   const [subindoImagem, setSubindoImagem] = useState(false);
 
-  // Módulo opcional de estrutura financeira fixo e maquinário
+  // Módulo Opcional de Estrutura de Custos Fixos e Maquinário
   const [financasFixo, setFinancasFixo] = useState({ salario: '0', aluguel: '0', internet: '0', luz: '0', outros: '0', diasTrabalho: '20', horasDia: '8' });
   const [novoEquipamento, setNovoEquipamento] = useState({ id: '', nome: '', valorPago: '', durabilidadeAnos: '2' });
 
@@ -157,6 +156,7 @@ export default function App() {
       const qProdutos = query(collection(db, "produtos"), where("userId", "==", user.uid));
       const unsubProdutos = onSnapshot(qProdutos, s => setProdutos(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
+      // Busca as configurações de custos fixos salvas do usuário, se houverem
       const qConfigFin = doc(db, "configuracoes_financeiras", user.uid);
       getDoc(qConfigFin).then(snap => {
         if (snap.exists()) {
@@ -188,29 +188,6 @@ export default function App() {
       };
     }
   }, [user, idLojaPublica]);
-
-  // Sugere preenchimento automático apenas se houver configuração financeira salva
-  useEffect(() => {
-    if (precoManual !== null || Number(financasFixo.salario || 0) === 0) return;
-    
-    const dias = Number(financasFixo.diasTrabalho || 20);
-    const horas = Number(financasFixo.horasDia || 8);
-    const totalHorasMes = dias * horas || 160;
-    const tempoEmHoras = Number(tGasto || 0) / 60;
-
-    const custoLuzMes = Number(financasFixo.luz || 0);
-    const luzAutomatica = ((custoLuzMes / totalHorasMes) * tempoEmHoras).toFixed(2);
-
-    const custoOutrosMes = Number(financasFixo.aluguel || 0) + Number(financasFixo.internet || 0) + Number(financasFixo.outros || 0);
-    const outrosAutomatico = ((custoOutrosMes / totalHorasMes) * tempoEmHoras).toFixed(2);
-
-    setCustos(prev => ({
-      ...prev,
-      energia: Number(luzAutomatica) > 0 ? luzAutomatica : prev.energia,
-      outros: Number(outrosAutomatico) > 0 ? outrosAutomatico : prev.outros
-    }));
-
-  }, [tGasto, financasFixo, precoManual]);
 
   const linkDoCatalogoDestaCliente = useMemo(() => {
     if (!user) return '';
@@ -385,46 +362,36 @@ export default function App() {
     if (precoManual !== null) {
       const totalCatalogo = Number(precoManual) * Number(qtdPed || 1);
       const semDesconto = totalCatalogo - Number(desconto || 0);
-      return { materiais: "0.00", maoObra: "0.00", custosLimp: "0.00", deprec: "0.00", custoLote: "0.00", lucroLivre: "0.00", final: isNaN(semDesconto) ? "0.00" : semDesconto.toFixed(2) };
+      return { materiais: "0.00", maoObra: "0.00", extras: "0.00", custoPeca: "0.00", lucroLivre: "0.00", final: isNaN(semDesconto) ? "0.00" : semDesconto.toFixed(2) };
     }
 
     const totalMaterials = matsNoPed.reduce((acc, m) => acc + ((Number(m.valor || 0) / Number(m.qtd || 1)) * Number(m.qtdUsada || 0)), 0);
     const totalMaoObra = (Number(vHora || 0) / 60) * Number(tGasto || 0);
+    
+    // Soma os custos manuais normais da tela principal
     const totalExtras = Number(custos.embalagem || 0) + Number(custos.impressao || 0) + Number(custos.energia || 0) + Number(custos.outros || 0);
     
-    // Cálculo de depreciação opcional
-    let totalDepreciacaoEquipamentos = 0;
+    // Adiciona desgaste extra se houver ferramentas cadastradas
+    let totalDesgasteMaquinas = 0;
     const dias = Number(financasFixo.diasTrabalho || 20);
     const horas = Number(financasFixo.horasDia || 8);
     const totalHorasMes = dias * horas || 160;
     const tempoEmHoras = Number(tGasto || 0) / 60;
 
-    equipamentosSelecionados.forEach(idEquip => {
-      const eq = equipamentos.find(e => e.id === idEquip);
-      if (eq) {
-        const valorEquip = Number(eq.valorPago || 0);
-        const mesesVida = Number(eq.durabilidadeAnos || 2) * 12;
-        const custoMensalEquip = valorEquip / mesesVida;
-        const custoHoraEquip = custoMensalEquip / totalHorasMes;
-        totalDepreciacaoEquipamentos += custoHoraEquip * tempoEmHoras;
-      }
+    equipamentos.forEach(eq => {
+      const valorEquip = Number(eq.valorPago || 0);
+      const mesesVida = Number(eq.durabilidadeAnos || 2) * 12;
+      const custoHoraEquip = (valorEquip / mesesVida) / totalHorasMes;
+      totalDesgasteMaquinas += custoHoraEquip * tempoEmHoras;
     });
-    
-    const custoTotalPeca = totalMaterials + totalMaoObra + totalExtras + totalDepreciacaoEquipamentos;
+
+    const custoTotalPeca = totalMaterials + totalMaoObra + totalExtras + totalDesgasteMaquinas;
     const custoTotalLote = custoTotalPeca * Number(qtdPed || 1);
     const valorLucroLivre = custoTotalLote * (Number(lucro || 0) / 100);
     const precoFinalCalculado = (custoTotalLote + valorLucroLivre) - Number(desconto || 0);
 
-    return { 
-      materiais: totalMaterials.toFixed(2), 
-      maoObra: totalMaoObra.toFixed(2), 
-      custoLimp: totalExtras.toFixed(2),
-      deprec: totalDepreciacaoEquipamentos.toFixed(2),
-      custoLote: custoTotalLote.toFixed(2),
-      lucroLivre: valorLucroLivre.toFixed(2), 
-      final: isNaN(precoFinalCalculated) ? "0.00" : precoFinalCalculated.toFixed(2) 
-    };
-  }, [matsNoPed, vHora, tGasto, custos, lucro, qtdPed, desconto, precoManual, equipamentosSelecionados, equipamentos, financasFixo]);
+    return { materiais: totalMaterials.toFixed(2), maoObra: totalMaoObra.toFixed(2), extras: (totalExtras + totalDesgasteMaquinas).toFixed(2), custoPeca: custoTotalPeca.toFixed(2), lucroLivre: valorLucroLivre.toFixed(2), final: isNaN(precoFinalCalculado) ? "0.00" : precoFinalCalculado.toFixed(2) };
+  }, [matsNoPed, vHora, tGasto, custos, lucro, qtdPed, desconto, precoManual, equipamentos, financasFixo]);
 
   const enviarZap = (p: any) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
@@ -471,7 +438,7 @@ export default function App() {
           <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px;">
             <td style="padding: 15px 5px; font-weight: bold; color: #1e293b; text-align: left;">${nomeItemLimpo}</td>
             <td style="padding: 15px 5px; text-align: center; color: #475569;">${quantidadeItem}</td>
-            <td style="padding: 15px 5px; text-align: right;">R$ ${unitario}</td>
+            <td style="padding: 15px 5px; text-align: right; color: #475569;">R$ ${unitario}</td>
             <td style="padding: 15px 5px; text-align: right; font-weight: bold; color: #1e293b;">R$ ${(quantidadeItem * Number(unitario)).toFixed(2)}</td>
           </tr>
         `;
@@ -616,27 +583,14 @@ export default function App() {
   };
 
   const limparCalculadora = () => {
-    setNomeProd(''); setQtdPed('1'); setMatsNoPed([]); setTGasto('60');
-    setCustos({ embalagem: '0', impressao: '0', energia: '0', outros: '0' });
-    setEquipamentosSelecionados([]);
-    setLucro('100'); setDesconto('0'); setPrazo(''); setClienteSel('');
+    setNomeProd(''); setQtdPed('1'); setMatsNoPed([]); setVHora('9'); setTGasto('60');
+    setCustos({ embalagem: '0', impressao: '0', energia: '0',裝 outros: '0' });
     setPedidoEditandoId(null); setPrecoManual(null); setObsPedido('');
-    
-    if (Number(financasFixo.salario || 0) > 0) {
-      const dias = Number(financasFixo.diasTrabalho || 20);
-      const horas = Number(financasFixo.horasDia || 8);
-      const totalHorasMes = dias * horas || 160;
-      const horaCalculada = (Number(financasFixo.salario) + Number(financasFixo.aluguel || 0) + Number(financasFixo.internet || 0) + Number(financasFixo.luz || 0) + Number(financasFixo.outros || 0)) / totalHorasMes;
-      if (horaCalculada > 0) setVHora(horaCalculada.toFixed(2));
-    } else {
-      setVHora('9');
-    }
   };
 
   const carregarPedidoParaEdicao = (p: any) => {
     setPedidoEditandoId(p.id); setNomeProd(p.nomeProd || ''); setQtdPed(p.qtdPed || '1'); setVHora(p.vHora || '9'); setTGasto(p.tGasto || '60');
     setCustos(p.custos || { embalagem: '0', impressao: '0', energia: '0', outros: '0' });
-    setEquipamentosSelecionados(p.equipamentosSelecionados || []);
     setLucro(p.lucro || '100'); setDesconto(p.desconto || '0'); setPrazo(p.prazo || ''); setClienteSel(p.clienteId || '');
     setPrecoManual(p.precoManual || null); setObsPedido(p.obsPedido || '');
 
@@ -652,14 +606,6 @@ export default function App() {
 
   const venderItemDiretoDoCatalogo = (prod: any) => {
     limparCalculadora(); setNomeProd(prod.nome); setPrecoManual(prod.precoVenda); setActiveTab('criar');
-  };
-
-  const toggleEquipamento = (id: string) => {
-    if (equipamentosSelecionados.includes(id)) {
-      setEquipamentosSelecionados(equipamentosSelecionados.filter(item => item !== id));
-    } else {
-      setEquipamentosSelecionados([...equipamentosSelecionados, id]);
-    }
   };
 
   if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando o PrecificaJá... 🚀</div>;
@@ -722,6 +668,10 @@ export default function App() {
     );
   }
 
+  if (!user) {
+    return ( <Login isRegistering={isRegistering} setIsRegistering={setIsRegistering} email={email} setEmail={setEmail} password={password} setPassword={setPassword} handleAuth={handleAuth} /> );
+  }
+
   const renderCalculadoraForm = () => (
     <div className="bg-white p-6 rounded-[35px] shadow-xl border mt-2 w-full">
       {pedidoEditandoId && (
@@ -765,7 +715,7 @@ export default function App() {
 
       <div className="grid grid-cols-3 gap-3 mb-4 w-full">
          <div className="col-span-2">
-            <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Produto / Serviço</label>
+            <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Produto</label>
             <input className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-slate-800 border focus:border-purple-500" value={nomeProd} onChange={e => setNomeProd(e.target.value)} />
          </div>
          <div>
@@ -803,46 +753,24 @@ export default function App() {
                 ))}
              </div>
           </div>
-          
           <div className="grid grid-cols-2 gap-4 mb-4 w-full">
             <div className="w-full">
               <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Tempo Gasto (min)</label>
-              <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={tGasto} onChange={e => setTGasto(e.target.value)} />
+              <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={tGasto} onChange={e => setTGasto(e.target.value)} />
             </div>
             <div className="w-full">
               <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Valor da Hora (R$)</label>
-              <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-purple-700 border focus:border-purple-400" value={vHora} onChange={e => setVHora(e.target.value)} />
+              <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={vHora} onChange={e => setVHora(e.target.value)} />
             </div>
           </div>
 
-          {equipamentos.length > 0 && (
-            <div className="mb-4 w-full">
-              <label className="text-[10px] font-bold text-purple-600 uppercase ml-1 block mb-1">🛠️ Ferramentas Utilizadas (Desgaste Automático)</label>
-              <div className="flex flex-wrap gap-2 w-full">
-                {equipamentos.map(eq => {
-                  const selecionado = equipamentosSelecionados.includes(eq.id);
-                  return (
-                    <button key={eq.id} type="button" onClick={() => toggleEquipamento(eq.id)} className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${selecionado ? 'bg-purple-600 text-white border-purple-600 shadow-sm' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>
-                      {eq.nome}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
           <div className="mb-4 w-full">
-            <label className="text-[10px] font-bold text-purple-600 uppercase ml-1 block mb-1">📦 Custos Extras por Unidade (R$ - Editáveis)</label>
+            <label className="text-[10px] font-bold text-purple-600 uppercase ml-1 block mb-1">📦 Custos Extras por Unidade (R$)</label>
             <div className="grid grid-cols-4 gap-2 w-full">
-              {[
-                {id: 'embalagem', label: 'EMBAL.'},
-                {id: 'impressao', label: 'TINTA'},
-                {id: 'energia', label: 'LUZ'},
-                {id: 'outros', label: 'OUTROS'}
-              ].map(c => (
-                <div key={c.id} className="flex flex-col items-center bg-slate-50 p-2 rounded-xl w-full border">
-                  <span className="text-[8px] font-black text-slate-400 mb-1">{c.label}</span>
-                  <input type="number" className="w-full bg-transparent text-center text-xs outline-none font-bold text-slate-700" value={(custos as any)[c.id]} onChange={e => setCustos({...custos, [c.id]: e.target.value})} />
+              {[{id:'embalagem',label:'EMBAL.'},{id:'impressao',label:'TINTA'},{id:'energia',label:'LUZ'},{id:'outros',label:'OUTROS'}].map(c=>(
+                <div key={c.id} className="flex flex-col items-center bg-slate-50 p-2 rounded-xl w-full">
+                  <span className="text-[8px] font-black text-slate-300 mb-1">{c.label}</span>
+                  <input type="number" className="w-full bg-transparent text-center text-xs outline-none font-bold" value={(custos as any)[c.id]} onChange={e => setCustos({...custos, [c.id]: e.target.value})} />
                 </div>
               ))}
             </div>
@@ -883,11 +811,10 @@ export default function App() {
       {precoManual === null && (
         <div className="bg-slate-50 p-5 rounded-3xl mb-8 border border-slate-100 text-xs space-y-2.5 w-full">
           <p className="font-black text-purple-700 uppercase tracking-wider text-[10px] mb-1">📋 RESUMO FINANCEIRO DA PEÇA</p>
-          <div className="flex justify-between text-slate-500 w-full"><span>Materiais Usados:</span><span className="font-bold">R$ {resumenFinanceiro.materiais}</span></div>
-          <div className="flex justify-between text-slate-500 w-full"><span>Mão de Obra Pura:</span><span className="font-bold">R$ {resumenFinanceiro.maoObra}</span></div>
-          <div className="flex justify-between text-slate-500 w-full"><span>Extras Editáveis (Luz/Tinta/etc):</span><span className="font-bold">R$ {resumenFinanceiro.custoLimp}</span></div>
-          <div className="flex justify-between text-slate-500 w-full"><span>Desgaste de Ferramentas:</span><span className="font-bold">R$ {resumenFinanceiro.deprec}</span></div>
-          <div className="flex justify-between text-slate-800 font-bold border-t pt-2 mt-1 w-full"><span>Custo Total do Lote ({qtdPed} un):</span><span className="text-purple-700">R$ {resumenFinanceiro.custoLote}</span></div>
+          <div className="flex justify-between text-slate-500 w-full"><span>Materiais:</span><span className="font-bold">R$ {resumenFinanceiro.materiais}</span></div>
+          <div className="flex justify-between text-slate-500 w-full"><span>Mão de Obra:</span><span className="font-bold">R$ {resumenFinanceiro.maoObra}</span></div>
+          <div className="flex justify-between text-slate-500 w-full"><span>Extras / Custo Manual:</span><span className="font-bold">R$ {resumenFinanceiro.extras}</span></div>
+          <div className="flex justify-between text-slate-800 font-bold border-t pt-2 mt-1 w-full"><span>Custo Total da Peça:</span><span className="text-purple-700">R$ {resumenFinanceiro.custoPeca}</span></div>
           <div className="flex justify-between text-emerald-600 font-bold w-full"><span>Lucro Livre Gerado ({lucro}%) :</span><span>R$ {resumenFinanceiro.lucroLivre}</span></div>
         </div>
       )}
@@ -897,7 +824,7 @@ export default function App() {
         <div className="flex gap-2">
           <button onClick={async () => {
              if(!nomeProd) return alert("Digite o nome do produto!");
-             const dadosPedido = { nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed, vHora, tGasto, custos, lucro, desconto, userId: user.uid, precoManual: precoManual, obsPedido: obsPedido, equipamentosSelecionados, materiaisUsados: precoManual ? [] : matsNoPed.map(m => ({ id: m.id, nome: m.nome, qtdUsada: Number(m.qtdUsada || 1) })) };
+             const dadosPedido = { nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed, vHora, tGasto, custos, lucro, desconto, userId: user.uid, precoManual: precoManual, obsPedido: obsPedido, materiaisUsados: precoManual ? [] : matsNoPed.map(m => ({ id: m.id, nome: m.nome, qtdUsada: Number(m.qtdUsada || 1) })) };
              if (pedidoEditandoId) await updateDoc(doc(db, "pedidos", pedidoEditandoId), dadosPedido);
              else await addDoc(collection(db, "pedidos"), { ...dadosPedido, data: new Date().toLocaleDateString('pt-BR'), status: 'Pendente', userId: user.uid });
              limparCalculadora(); setActiveTab('pedidos'); alert("Salvo!");
@@ -923,7 +850,7 @@ export default function App() {
             <nav className="flex flex-col gap-1">
               <button onClick={() => setActiveTab('inicio')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'inicio' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Home size={16}/> Início</button>
               <button onClick={() => setActiveTab('criar')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'criar' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Plus size={16}/> Orçar</button>
-              <button onClick={() => setActiveTab('financeiro')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'financeiro' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Calculator size={16}/> Configurações de Custos</button>
+              <button onClick={() => setActiveTab('financeiro')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'financeiro' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Calculator size={16}/> Configurações de Custos Fixos</button>
               <button onClick={() => setActiveTab('pedidos')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'pedidos' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><History size={16}/> Histórico de Orçamentos</button>
               <button onClick={() => setActiveTab('balcao')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'balcao' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><ShoppingCart size={16}/> Balcão de Vendas Rápido</button>
               <button onClick={() => setActiveTab('catalogo')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'catalogo' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><BookOpen size={16}/> Meu Catálogo Visual</button>
@@ -995,12 +922,12 @@ export default function App() {
           </div>
         )}
 
-        {/* TELA DE CONFIGURAÇÃO DE CUSTOS GERAIS (OPCIONAL) */}
+        {/* TELA DE CONFIGURAÇÃO DE CUSTOS FIHOS E FERRAMENTAS (OPCIONAL) */}
         {activeTab === 'financeiro' && (
           <div className="space-y-6 pt-2 w-full">
             <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
               <h2 className="text-purple-700 font-bold mb-2 flex items-center gap-2 uppercase text-xs tracking-widest"><Calculator size={18}/> Estrutura de Custos Fixos (Opcional)</h2>
-              <p className="text-slate-400 text-[11px] mb-4">Insira os dados se quiser automatizar os campos de Luz, Outros e Valor da Hora. Se preferir fazer na mão, deixe zerado.</p>
+              <p className="text-slate-400 text-[11px] mb-4">Insira os dados se quiser que o app sugira o valor da hora e calcule o desgaste de ferramentas automaticamente. Se preferir fazer na mão, deixe zerado.</p>
 
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Salário Mensal Pretendido</label>
               <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 font-bold text-purple-700 outline-none" value={financasFixo.salario} onChange={e => setFinancasFixo({...financasFixo, salario: e.target.value})} />
@@ -1043,10 +970,10 @@ export default function App() {
                 await setDoc(doc(db, "configuracoes_financeiras", user.uid), financasFixo);
                 
                 const totalHoras = Number(financasFixo.diasTrabalho || 20) * Number(financasFixo.horasDia || 8);
-                const somaCustos = Number(financasFixo.salario || 0) + Number(financasFixo.aluguel || 0) + Number(financasFixo.internet || 0) + Number(financasFixo.luz || 0) + Number(financasFixo.outros || 0);
-                if (somaCustos > 0) setVHora((somaCustos / totalHoras).toFixed(2));
+                const intentCustos = Number(financasFixo.salario || 0) + Number(financasFixo.aluguel || 0) + Number(financasFixo.internet || 0) + Number(financasFixo.luz || 0) + Number(financasFixo.outros || 0);
+                if (intentCustos > 0) setVHora((intentCustos / totalHoras).toFixed(2));
                 
-                alert("Custos salvos com sucesso! Os campos sugeridos na calculadora foram atualizados. 🎉");
+                alert("Custos salvos com sucesso! O valor sugerido para a hora foi atualizado na calculadora. 🎉");
               }} className="w-full bg-purple-700 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md">
                 Salvar Configurações Fixas
               </button>
@@ -1055,14 +982,14 @@ export default function App() {
             {/* SEÇÃO DE FERRAMENTAS */}
             <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
               <h2 className="text-purple-700 font-bold mb-2 flex items-center gap-2 uppercase text-xs tracking-widest"><Package size={18}/> Minhas Ferramentas de Trabalho</h2>
-              <p className="text-slate-400 text-[11px] mb-4">Adicione secadores, prensas ou maquinários para calcular o desgaste automático de uso.</p>
+              <p className="text-slate-400 text-[11px] mb-4">Adicione ferramentas (secador, prensa) para incluir o desgaste financeiro no custo total.</p>
 
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome do Equipamento</label>
               <input placeholder="Ex: Secador Profissional" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none" value={novoEquipamento.nome} onChange={e => setNovoEquipamento({...novoEquipamento, nome: e.target.value})} />
 
               <div className="grid grid-cols-2 gap-3 mb-4 w-full">
                 <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Valor Pago nele</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Valor Pago</label>
                   <input type="number" placeholder="R$ 0,00" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={novoEquipamento.valorPago} onChange={e => setNovoEquipamento({...novoEquipamento, valorPago: e.target.value})} />
                 </div>
                 <div>
@@ -1077,7 +1004,7 @@ export default function App() {
               </div>
 
               <button onClick={async () => {
-                if(!novoEquipamento.nome || !novoEquipamento.valorPago) return alert("Preencha o nome e o preço da máquina!");
+                if(!novoEquipamento.nome || !novoEquipamento.valorPago) return alert("Preencha o nome e o preço do equipamento!");
                 const d = { nome: novoEquipamento.nome, valorPago: Number(novoEquipamento.valorPago), durabilidadeAnos: Number(novoEquipamento.durabilidadeAnos), userId: user.uid };
                 if (novoEquipamento.id) await updateDoc(doc(db, "equipamentos", novoEquipamento.id), d);
                 else await addDoc(collection(db, "equipamentos"), d);
@@ -1088,17 +1015,17 @@ export default function App() {
               </button>
             </div>
 
-            <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider ml-2">Ferramentas Cadastradas</h3>
+            <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider ml-2">Equipamentos Cadastrados</h3>
             <div className="space-y-2 w-full">
               {equipamentos.map(eq => {
                 const meses = Number(eq.durabilidadeAnos || 2) * 12;
-                const descMensal = Number(eq.valorPago || 0) / meses;
-                const descHora = descMensal / (Number(financasFixo.diasTrabalho || 20) * Number(financasFixo.horasDia || 8));
+                const totalHoras = Number(financasFixo.diasTrabalho || 20) * Number(financasFixo.horasDia || 8);
+                const descHora = (Number(eq.valorPago || 0) / meses) / totalHoras;
                 return (
                   <div key={eq.id} className="bg-white p-4 rounded-3xl flex justify-between items-center border shadow-sm w-full">
                     <div>
                       <p className="font-bold text-slate-800">{eq.nome}</p>
-                      <p className="text-xs text-slate-400 mt-0.5">Desgaste: <span className="font-bold text-purple-700">R$ {isNaN(descHora) ? "0.00" : descHora.toFixed(2)} por hora</span></p>
+                      <p className="text-xs text-slate-400 mt-0.5">Desgaste: <span className="font-bold text-purple-700">R$ {isNaN(descHora) ? "0.00" : descHora.toFixed(2)} por hora de uso</span></p>
                     </div>
                     <button onClick={() => confirmarExcluir('equipamento', eq.id)} className="text-red-200 p-2"><Trash2 size={16}/></button>
                   </div>
@@ -1286,7 +1213,7 @@ export default function App() {
                         </>
                       )}
                       <button onClick={() => gerarPDF(p)} className="text-orange-500 p-2 bg-orange-50 rounded-xl"><Printer size={18}/></button>
-                      <button onClick={() => enviarZap({nomeProd: p.nomeProd, preco: p.preco, clienteId: p.clienteId, prazo: p.prazo, qtdPed: p.qtdPed})} className="text-emerald-500 p-2 bg-emerald-50 rounded-xl"><MessageCircle size={18}/></button>
+                      <button onClick={() => enviarZap(p)} className="text-emerald-500 p-2 bg-emerald-50 rounded-xl"><MessageCircle size={18}/></button>
                       <button onClick={() => confirmarExcluir('pedido', p.id)} className="text-red-200 p-2"><Trash2 size={18}/></button>
                    </div>
                  </div>
@@ -1301,10 +1228,10 @@ export default function App() {
             <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
               <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2"><Package size={20}/> Gerenciar Armário</h2>
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome do Insumo</label>
-              <input placeholder="Ex: Caneca Cerâmica ou Pomada Modeladora" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none" value={novoMat.nome} onChange={e => setNovoMat({...novoMat, nome: e.target.value})} />
+              <input placeholder="Ex: Caneca Cerâmica" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none" value={novoMat.nome} onChange={e => setNovoMat({...novoMat, nome: e.target.value})} />
               <div className="grid grid-cols-3 gap-3 mb-3 w-full">
                 <div className="col-span-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Preço Caixa/Rolo/Pote</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Preço Caixa/Rolo</label>
                   <input type="number" placeholder="R$ 0,00" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={novoMat.valor} onChange={e => setNovoMat({...novoMat, valor: e.target.value})} />
                 </div>
                 <div>
