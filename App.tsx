@@ -812,7 +812,7 @@ export default function App() {
           )}
 
           <div className="mb-4 w-full">
-            <label className="text-[10px] font-bold text-purple-600 uppercase ml-1 block mb-1">📦 Custos Extras por Unidade (R$)</label>
+            <label className="text-[10px] font-bold text-purple-600 uppercase ml-1 block mb-1">📦 Custos Extras por Unidade - Opcional (R$)</label>
             <div className="grid grid-cols-4 gap-2 w-full">
               {[{id:'embalagem',label:'EMBAL.'},{id:'impressao',label:'TINTA'},{id:'energia',label:'LUZ'},{id:'outros',label:'OUTROS'}].map(c=>(
                 <div key={c.id} className="flex flex-col items-center bg-slate-50 p-2 rounded-xl w-full border">
