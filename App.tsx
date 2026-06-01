@@ -3,7 +3,7 @@ import { initializeApp } from "firebase/app";
 import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { getFirestore, collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc, getDocs, setDoc, getDoc } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2, Menu } from 'lucide-react';
+import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2, Menu, Search } from 'lucide-react';
 
 const firebaseConfig = {
   apiKey: "AIzaSyD0BWsNm9DbGGDqiHzkdDmNdxIGdJ9tWe8",
@@ -62,6 +62,9 @@ export default function App() {
   const [clientes, setClientes] = useState<any[]>([]);
   const [produtos, setProdutos] = useState<any[]>([]);
   const [equipamentos, setEquipamentos] = useState<any[]>([]);
+
+  // NOVO: Estado para a barra de pesquisa de materiais
+  const [pesquisaMateriais, setPesquisaMateriais] = useState('');
 
   const [pedidoEditandoId, setPedidoEditandoId] = useState<string | null>(null);
   const [mostrarSeletorCatalogo, setMostrarSeletorCatalogo] = useState(false);
@@ -157,7 +160,7 @@ export default function App() {
       const qProdutos = query(collection(db, "produtos"), where("userId", "==", user.uid));
       const unsubProdutos = onSnapshot(qProdutos, s => setProdutos(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
-      // Carrega as configurações de custos automáticos e atualiza o estado vHora se existirem
+      // Carrega as configurações de custos automáticos e updates o estado vHora se existirem
       const qConfigFin = doc(db, "configuracoes_financeiras", user.uid);
       getDoc(qConfigFin).then(snap => {
         if (snap.exists()) {
@@ -427,7 +430,7 @@ export default function App() {
       htmlLinhasTabela = arrayLinhasTexto.map(linhaTexto => {
         if(!linhaTexto.trim()) return '';
         let quantidadeItem = Number(p.qtdPed || 1);
-        let nomeItemLimpo = linhaTexto.trim();
+        let nomeItemLimpo = ApplinhaTexto.trim();
         
         const matchCombo = linhaTexto.trim().match(/^(\d+)x\s+(.+)$/i);
         if(matchCombo) {
@@ -530,9 +533,17 @@ export default function App() {
     } catch (e) { alert("E-mail ou senha incorretos!"); }
   };
 
+  // AJUSTADO: Agora aceita 'material' e apaga corretamente da coleção "materiais"
   const confirmarExcluir = async (tipo: string, id: string) => {
     if (window.confirm(`Excluir ${tipo}?`)) {
-      await deleteDoc(doc(db, tipo === 'pedido' ? "pedidos" : tipo === 'cliente' ? "clientes" : tipo === 'produto' ? "produtos" : "equipamentos", id));
+      let colecao = "";
+      if (tipo === 'pedido') colecao = "pedidos";
+      else if (tipo === 'cliente') colecao = "clientes";
+      else if (tipo === 'produto') colecao = "produtos";
+      else if (tipo === 'equipamento') colecao = "equipamentos";
+      else if (tipo === 'material') colecao = "materiais"; // Consertado!
+
+      await deleteDoc(doc(db, colecao, id));
     }
   };
 
@@ -620,6 +631,13 @@ export default function App() {
       setEquipamentosSelecionados([...equipamentosSelecionados, id]);
     }
   };
+
+  // NOVO: Filtragem dos materiais com base no input da lupa
+  const materiaisFiltrados = useMemo(() => {
+    return materiais.filter(m => 
+      m.nome?.toLowerCase().includes(pesquisaMateriais.toLowerCase())
+    );
+  }, [materiais, pesquisaMateriais]);
 
   if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando o PrecificaJá... 🚀</div>;
 
@@ -1085,9 +1103,9 @@ export default function App() {
                   <input placeholder="Ex: 21983858055" className="flex-1 p-2.5 bg-black/20 text-white rounded-xl text-xs font-bold border border-purple-500/30 outline-none" value={zapDonaConta} onChange={e => setZapDonaConta(e.target.value)} />
                   <button onClick={async () => {
                     if(!zapDonaConta.trim()) return alert("Digite o número!");
-                    try { await setDoc(doc(db, "configuracoes_loja", user.uid), { whatsapp: zapDonaConta.trim() }, { merge: true }); alert("WhatsApp salvo!"); } 
+                    try { await setDoc(doc(db, "configuracoes_loja", user.uid), { whatsapp: zapDonaConta.trim() }, { merge: true }); alert("WhatsApp saved!"); } 
                     catch { alert("Erro ao salvar."); }
-                  }} className="bg-orange-500 text-white text-xs font-black uppercase px-4 rounded-xl shadow">Salvar</button>
+                  }} className="bg-orange-50 text-white text-xs font-black uppercase px-4 rounded-xl shadow">Salvar</button>
                 </div>
               </div>
             </div>
@@ -1301,11 +1319,28 @@ export default function App() {
                 {novoMat.id ? 'Atualizar Insumo' : 'Salvar no Armário'}
               </button>
             </div>
-            {materiais.map(m => {
+
+            {/* MODIFICAÇÃO: Barra de Pesquisa com Lupa */}
+            <div className="relative w-full mb-2">
+              <Search 
+                size={18} 
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" 
+              />
+              <input
+                type="text"
+                placeholder="Pesquisar material no armário..."
+                value={pesquisaMateriais}
+                onChange={e => setPesquisaMateriais(e.target.value)}
+                className="w-full p-4 pl-11 bg-white rounded-2xl border border-slate-200 outline-none text-sm font-medium focus:border-purple-500 transition-colors shadow-sm"
+              />
+            </div>
+
+            {/* MODIFICAÇÃO: Loop usando a lista filtrada */}
+            {materiaisFiltrados.map(m => {
               const estaAcabando = Number(m.qtdAtual || 0) <= Number(m.qtdMinima || 0);
               const valorUnitarioCalculado = Number(m.qtd || 1) > 0 ? (Number(m.valor || 0) / Number(m.qtd || 1)).toFixed(2) : "0.00";
               return (
-                <div key={m.id} className="bg-white p-5 rounded-3xl flex justify-between items-center border w-full mb-2">
+                <div key={m.id} className="bg-white p-5 rounded-3xl flex justify-between items-center border w-full mb-2 shadow-sm">
                   <div>
                     <p className="font-bold text-slate-800">{estaAcabando ? '🔴' : '🟢'} {m.nome}</p>
                     <p className="text-xs text-slate-400 mt-1">Custo unitário: <span className="font-bold text-slate-600">R$ {valorUnitarioCalculado}</span></p>
@@ -1315,11 +1350,18 @@ export default function App() {
                     <button onClick={async () => await updateDoc(doc(db, "materiais", m.id), { qtdAtual: Math.max(0, Number(m.qtdAtual || 0) - 1) })} className="w-8 h-8 bg-slate-100 rounded-xl font-bold">-</button>
                     <button onClick={async () => await updateDoc(doc(db, "materiais", m.id), { qtdAtual: Number(m.qtdAtual || 0) + 1 })} className="w-8 h-8 bg-purple-100 rounded-xl font-bold text-purple-700">+</button>
                     <button onClick={() => setNovoMat({id: m.id, nome: m.nome, valor: String(m.valor), qtd: String(m.qtd), unidade: m.unidade, qtdAtual: String(m.qtdAtual), qtdMinima: String(m.qtdMinima)})} className="text-orange-400 p-2"><Edit2 size={16}/></button>
-                    <button onClick={() => confirmarExcluir('material', m.id)} className="text-red-200 p-2"><Trash2 size={16}/></button>
+                    
+                    {/* MODIFICAÇÃO: Botão de excluir material funcionando */}
+                    <button onClick={() => confirmarExcluir('material', m.id)} className="text-red-400 hover:text-red-600 p-2 transition-colors"><Trash2 size={16}/></button>
                   </div>
                 </div>
               );
             })}
+
+            {/* Aviso caso nada seja encontrado na pesquisa */}
+            {materiaisFiltrados.length === 0 && (
+              <p className="text-center text-xs text-slate-400 py-4">Nenhum insumo encontrado com esse nome.</p>
+            )}
           </div>
         )}
 
