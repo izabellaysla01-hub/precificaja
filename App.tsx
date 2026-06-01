@@ -4,6 +4,8 @@ import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword, creat
 import { getFirestore, collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc, getDocs, setDoc, getDoc } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2, Menu, Search } from 'lucide-react';
+// IMPORTANTE: Adicionado para a compressão automática das fotos do catálogo
+import imageCompression from 'browser-image-compression';
 
 const firebaseConfig = {
   apiKey: "AIzaSyD0BWsNm9DbGGDqiHzkdDmNdxIGdJ9tWe8",
@@ -63,7 +65,7 @@ export default function App() {
   const [produtos, setProdutos] = useState<any[]>([]);
   const [equipamentos, setEquipamentos] = useState<any[]>([]);
 
-  // NOVO: Estado para a barra de pesquisa de materiais
+  // Estado para a barra de pesquisa de materiais
   const [pesquisaMateriais, setPesquisaMateriais] = useState('');
 
   const [pedidoEditandoId, setPedidoEditandoId] = useState<string | null>(null);
@@ -160,7 +162,6 @@ export default function App() {
       const qProdutos = query(collection(db, "produtos"), where("userId", "==", user.uid));
       const unsubProdutos = onSnapshot(qProdutos, s => setProdutos(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
-      // Carrega as configurações de custos automáticos e updates o estado vHora se existirem
       const qConfigFin = doc(db, "configuracoes_financeiras", user.uid);
       getDoc(qConfigFin).then(snap => {
         if (snap.exists()) {
@@ -373,7 +374,6 @@ export default function App() {
     const totalMaoObra = (Number(vHora || 0) / 60) * Number(tGasto || 0);
     const totalExtras = Number(custos.embalagem || 0) + Number(custos.impressao || 0) + Number(custos.energia || 0) + Number(custos.outros || 0);
     
-    // Calcula a depreciação apenas das máquinas que foram selecionadas pelo usuário na calculadora
     let totalDesgasteMaquinas = 0;
     const dias = Number(financasFixo.diasTrabalho || 20);
     const horas = Number(financasFixo.horasDia || 8);
@@ -381,7 +381,7 @@ export default function App() {
     const tempoEmHoras = Number(tGasto || 0) / 60;
 
     equipamentosSelecionados.forEach(idEquip => {
-      const eq = equipamentos.find(e => e.id === idEquip);
+      const eq = equipments.find((e: any) => e.id === idEquip);
       if (eq) {
         const valorEquip = Number(eq.valorPago || 0);
         const mesesVida = Number(eq.durabilidadeAnos || 2) * 12;
@@ -430,7 +430,7 @@ export default function App() {
       htmlLinhasTabela = arrayLinhasTexto.map(linhaTexto => {
         if(!linhaTexto.trim()) return '';
         let quantidadeItem = Number(p.qtdPed || 1);
-        let nomeItemLimpo = ApplinhaTexto.trim();
+        let nomeItemLimpo = linhaTexto.trim();
         
         const matchCombo = linhaTexto.trim().match(/^(\d+)x\s+(.+)$/i);
         if(matchCombo) {
@@ -533,7 +533,6 @@ export default function App() {
     } catch (e) { alert("E-mail ou senha incorretos!"); }
   };
 
-  // AJUSTADO: Agora aceita 'material' e apaga corretamente da coleção "materiais"
   const confirmarExcluir = async (tipo: string, id: string) => {
     if (window.confirm(`Excluir ${tipo}?`)) {
       let colecao = "";
@@ -541,7 +540,7 @@ export default function App() {
       else if (tipo === 'cliente') colecao = "clientes";
       else if (tipo === 'produto') colecao = "produtos";
       else if (tipo === 'equipamento') colecao = "equipamentos";
-      else if (tipo === 'material') colecao = "materiais"; // Consertado!
+      else if (tipo === 'material') colecao = "materiais";
 
       await deleteDoc(doc(db, colecao, id));
     }
@@ -580,19 +579,38 @@ export default function App() {
     alert("Venda confirmada!");
   };
 
+  // MODIFICAÇÃO: Inserida compressão automática para fotos pesadas antes do upload
   const handleUploadImagem = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
+    
     setSubindoImagem(true);
+    
+    // Configurações de tamanho e resolução ideais
+    const options = {
+      maxSizeMB: 1,           // Reduz para no máximo ~1MB
+      maxWidthOrHeight: 1024, // Limita a resolução mantendo a proporção
+      useWebWorker: true
+    };
+
     try {
-      const nomeArquivo = `${user.uid}_${Date.now()}_${file.name}`;
+      // Faz a redução dinâmica do tamanho do arquivo
+      const compressedFile = await imageCompression(file, options);
+      
+      const nomeArquivo = `${user.uid}_${Date.now()}_${compressedFile.name}`;
       const imagemRef = ref(storage, `produtos/${nomeArquivo}`);
-      await uploadBytes(imagemRef, file);
+      
+      // Sobe o arquivo leve comprimido no lugar do original
+      await uploadBytes(imagemRef, compressedFile);
       const urlDisponivel = await getDownloadURL(imagemRef);
       setNovoProdCatalogo(prev => ({ ...prev, urlImagem: urlDisponivel }));
       alert("Foto carregada com sucesso! 📸");
-    } catch (error) { alert("Erro ao subir a foto!"); } 
-    finally { setSubindoImagem(false); }
+    } catch (error) { 
+      console.error(error);
+      alert("Erro ao subir a foto!"); 
+    } finally { 
+      setSubindoImagem(false); 
+    }
   };
 
   const limparCalculadora = () => {
@@ -610,7 +628,7 @@ export default function App() {
     setPrecoManual(p.precoManual || null); setObsPedido(p.obsPedido || '');
     setEquipamentosSelecionados(p.equipamentosSelecionados || []);
 
-    if (p.materiaisUsados && p.materiaisUsados.length > 0) {
+    if (p.materiaisUsados && p.materialsUsados.length > 0) {
       const listaReconstruida = p.materiaisUsados.map((mSalvo: any) => {
         const matDoArmario = materiais.find(item => item.id === mSalvo.id);
         return { id: mSalvo.id, nome: matDoArmario ? matDoArmario.nome : mSalvo.nome, qtdUsada: Number(mSalvo.qtdUsada || 1), valor: matDoArmario ? Number(matDoArmario.valor) : Number(mSalvo.valor || 0), qtd: matDoArmario ? Number(matDoArmario.qtd) : Number(mSalvo.qtd || 1), unidade: matDoArmario ? matDoArmario.unidade : (mSalvo.unidade || 'un') };
@@ -632,7 +650,6 @@ export default function App() {
     }
   };
 
-  // NOVO: Filtragem dos materiais com base no input da lupa
   const materiaisFiltrados = useMemo(() => {
     return materiais.filter(m => 
       m.nome?.toLowerCase().includes(pesquisaMateriais.toLowerCase())
@@ -1097,15 +1114,25 @@ export default function App() {
                 </div>
               </div>
 
+              {/* MODIFICAÇÃO: Ajustada a estilização e lógica para o botão "Salvar" funcionar visivelmente */}
               <div className="border-t border-purple-500/30 pt-2.5 w-full">
                 <label className="text-[9px] font-black uppercase text-purple-200 block mb-1">📱 Seu WhatsApp de Vendas (Com DDD)</label>
                 <div className="flex gap-2 w-full">
                   <input placeholder="Ex: 21983858055" className="flex-1 p-2.5 bg-black/20 text-white rounded-xl text-xs font-bold border border-purple-500/30 outline-none" value={zapDonaConta} onChange={e => setZapDonaConta(e.target.value)} />
-                  <button onClick={async () => {
-                    if(!zapDonaConta.trim()) return alert("Digite o número!");
-                    try { await setDoc(doc(db, "configuracoes_loja", user.uid), { whatsapp: zapDonaConta.trim() }, { merge: true }); alert("WhatsApp saved!"); } 
-                    catch { alert("Erro ao salvar."); }
-                  }} className="bg-orange-50 text-white text-xs font-black uppercase px-4 rounded-xl shadow">Salvar</button>
+                  <button 
+                    onClick={async () => {
+                      if(!zapDonaConta.trim()) return alert("Digite o número!");
+                      try { 
+                        await setDoc(doc(db, "configuracoes_loja", user.uid), { whatsapp: zapDonaConta.trim() }, { merge: true }); 
+                        alert("WhatsApp salvo!"); 
+                      } catch { 
+                        alert("Erro ao salvar."); 
+                      }
+                    }} 
+                    className="bg-orange-500 active:bg-orange-600 text-white text-xs font-black uppercase px-5 rounded-xl shadow-md transition-colors active:scale-95"
+                  >
+                    Salvar
+                  </button>
                 </div>
               </div>
             </div>
@@ -1187,7 +1214,7 @@ export default function App() {
                       <Camera size={22} />
                     </div>
                     <span className="text-xs font-bold uppercase tracking-wide text-[10px]">
-                      {subindoImagem ? 'Subindo Foto...' : '📸 Adicionar Foto do Produto'}
+                      {subindoImagem ? 'Comprimindo e Subindo Foto...' : '📸 Adicionar Foto do Produto'}
                     </span>
                     <input type="file" accept="image/*" className="hidden" onChange={handleUploadImagem} disabled={subindoImagem} />
                   </label>
@@ -1320,7 +1347,6 @@ export default function App() {
               </button>
             </div>
 
-            {/* MODIFICAÇÃO: Barra de Pesquisa com Lupa */}
             <div className="relative w-full mb-2">
               <Search 
                 size={18} 
@@ -1335,7 +1361,6 @@ export default function App() {
               />
             </div>
 
-            {/* MODIFICAÇÃO: Loop usando a lista filtrada */}
             {materiaisFiltrados.map(m => {
               const estaAcabando = Number(m.qtdAtual || 0) <= Number(m.qtdMinima || 0);
               const valorUnitarioCalculado = Number(m.qtd || 1) > 0 ? (Number(m.valor || 0) / Number(m.qtd || 1)).toFixed(2) : "0.00";
@@ -1350,15 +1375,12 @@ export default function App() {
                     <button onClick={async () => await updateDoc(doc(db, "materiais", m.id), { qtdAtual: Math.max(0, Number(m.qtdAtual || 0) - 1) })} className="w-8 h-8 bg-slate-100 rounded-xl font-bold">-</button>
                     <button onClick={async () => await updateDoc(doc(db, "materiais", m.id), { qtdAtual: Number(m.qtdAtual || 0) + 1 })} className="w-8 h-8 bg-purple-100 rounded-xl font-bold text-purple-700">+</button>
                     <button onClick={() => setNovoMat({id: m.id, nome: m.nome, valor: String(m.valor), qtd: String(m.qtd), unidade: m.unidade, qtdAtual: String(m.qtdAtual), qtdMinima: String(m.qtdMinima)})} className="text-orange-400 p-2"><Edit2 size={16}/></button>
-                    
-                    {/* MODIFICAÇÃO: Botão de excluir material funcionando */}
                     <button onClick={() => confirmarExcluir('material', m.id)} className="text-red-400 hover:text-red-600 p-2 transition-colors"><Trash2 size={16}/></button>
                   </div>
                 </div>
               );
             })}
 
-            {/* Aviso caso nada seja encontrado na pesquisa */}
             {materiaisFiltrados.length === 0 && (
               <p className="text-center text-xs text-slate-400 py-4">Nenhum insumo encontrado com esse nome.</p>
             )}
