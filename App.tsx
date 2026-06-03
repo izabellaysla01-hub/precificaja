@@ -3,7 +3,7 @@ import { initializeApp } from "firebase/app";
 import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { getFirestore, collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc, getDocs, setDoc, getDoc } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2, Menu, Search, Settings } from 'lucide-react';
+import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2, Menu, Search, Settings, BookMarkdown } from 'lucide-react';
 
 const firebaseConfig = {
   apiKey: "AIzaSyD0BWsNm9DbGGDqiHzkdDmNdxIGdJ9tWe8",
@@ -56,13 +56,15 @@ export default function App() {
   const [nomeComprador, setNomeComprador] = useState('');
   const [zapDaLojaPublica, setZapDaLojaPublica] = useState('');
 
-  // ADICIONADO: Aba 'perfil' no tipo de abas ativas
-  const [activeTab, useStateActiveTab] = useState<'inicio' | 'materiais' | 'criar' | 'pedidos' | 'clientes' | 'catalogo' | 'balcao' | 'financeiro' | 'perfil'>('inicio');
+  // MODIFICADO: Aceita aba 'perfil' e 'anotacoes'
+  const [activeTab, useStateActiveTab] = useState<'inicio' | 'materiais' | 'criar' | 'pedidos' | 'clientes' | 'catalogo' | 'balcao' | 'financeiro' | 'perfil' | 'anotacoes'>('inicio');
   const [materiais, setMaterials] = useState<any[]>([]);
   const [pedidos, setPedidos] = useState<any[]>([]);
   const [clientes, setClientes] = useState<any[]>([]);
   const [produtos, setProdutos] = useState<any[]>([]);
   const [equipamentos, setEquipamentos] = useState<any[]>([]);
+  // ADICIONADO: Estado da lista de anotações gerais
+  const [anotacoes, setAnotacoes] = useState<any[]>([]);
 
   const [pesquisaMateriais, setPesquisaMateriais] = useState('');
 
@@ -87,13 +89,16 @@ export default function App() {
   const [password, setPassword] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
   const [novoMat, setNovoMat] = useState({ id: '', nome: '', valor: '', qtd: '1', unidade: 'un', qtdAtual: '0', qtdMinima: '0' });
-  const [novoCli, setNovoCli] = useState({ id: '', nome: '', zap: '' });
+  
+  // MODIFICADO: Objeto do novo cliente expandido com email e endereco
+  const [novoCli, setNovoCli] = useState({ id: '', nome: '', zap: '', email: '', endereco: '' });
+  // ADICIONADO: Objeto para nova anotação geral
+  const [novaAnotacao, setNovaAnotacao] = useState({ id: '', titulo: '', conteudo: '' });
   
   const [novoProdCatalogo, setNovoProdCatalogo] = useState({ id: '', nome: '', precoVenda: '', urlImagem: '' });
   const [zapDonaConta, setZapDonaConta] = useState('');
   const [subindoImagem, setSubindoImagem] = useState(false);
 
-  // ADICIONADO: Estados para gerenciar o perfil da loja de quem usa o sistema
   const [nomeLojaPerfil, setNomeLojaPerfil] = useState('');
   const [logoLojaPerfil, setLogoLojaPerfil] = useState('');
   const [subindoLogo, setSubindoLogo] = useState(false);
@@ -137,9 +142,8 @@ export default function App() {
         getDoc(doc(db, "configuracoes_loja", u.uid)).then(docSnap => {
           if(docSnap.exists()) {
             setZapDonaConta(docSnap.data().whatsapp || '');
-            // ADICIONADO: Carregar nome da loja e logo salvos do perfil
             setNomeLojaPerfil(docSnap.data().nomeLoja || '');
-            setLogoLojaPerfil(docSnap.data().logoUrl || '');
+            logoLojaPerfil ? setLogoLojaPerfil(docSnap.data().logoUrl || '') : setLogoLojaPerfil(docSnap.data().logoUrl || '');
           }
         });
       }
@@ -157,8 +161,8 @@ export default function App() {
 
   useEffect(() => {
     if (user && !idLojaPublica) {
-      const qMateriais = query(collection(db, "materiais"), where("userId", "==", user.uid));
-      const unsubMaterials = onSnapshot(qMateriais, s => setMaterials(s.docs.map(d => ({ id: d.id, ...d.data() }))));
+      const qMaterials = query(collection(db, "materiais"), where("userId", "==", user.uid));
+      const unsubMaterials = onSnapshot(qMaterials, s => setMaterials(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
       const qPedidos = query(collection(db, "pedidos"), where("userId", "==", user.uid));
       const unsubPedidos = onSnapshot(qPedidos, s => setPedidos(s.docs.map(d => ({ id: d.id, ...d.data() }))));
@@ -168,6 +172,10 @@ export default function App() {
 
       const qProdutos = query(collection(db, "produtos"), where("userId", "==", user.uid));
       const unsubProdutos = onSnapshot(qProdutos, s => setProdutos(s.docs.map(d => ({ id: d.id, ...d.data() }))));
+
+      // ADICIONADO: Escuta em tempo real para as anotações gerais
+      const qAnotacoes = query(collection(db, "anotacoes"), where("userId", "==", user.uid));
+      const unsubAnotacoes = onSnapshot(qAnotacoes, s => setAnotacoes(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
       const qConfigFin = doc(db, "configuracoes_financeiras", user.uid);
       getDoc(qConfigFin).then(snap => {
@@ -197,6 +205,7 @@ export default function App() {
         unsubClientes();
         unsubProdutos();
         unsubEquipamentos();
+        unsubAnotacoes();
       };
     }
   }, [user, idLojaPublica]);
@@ -368,7 +377,7 @@ export default function App() {
     const pendentesCount = pedidos.filter(p => p.status !== 'Vendido 💰').length;
     const estoqueCriticoCount = materiais.filter(m => Number(m.qtdAtual || 0) <= Number(m.qtdMinima || 0)).length;
     return { faturamento: faturamentoTotal.toFixed(2), pendentes: pendentesCount, criticos: estoqueCriticoCount, totalClientes: clientes.length };
-  }, [pedidos, materiais, clientes]);
+  }, [pedidos, materials, clientes]);
 
   const resumenFinanceiro = useMemo(() => {
     if (precoManual !== null) {
@@ -388,7 +397,7 @@ export default function App() {
     const tempoEmHoras = Number(tGasto || 0) / 60;
 
     equipamentosSelecionados.forEach(idEquip => {
-      const eq = equipments.find(e => e.id === idEquip);
+      const eq = equipamentos.find(e => e.id === idEquip);
       if (eq) {
         const valorEquip = Number(eq.valorPago || 0);
         const mesesVida = Number(eq.durabilidadeAnos || 2) * 12;
@@ -413,7 +422,6 @@ export default function App() {
     window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
   };
 
-  // MODIFICADO: Atualizado para renderizar dinamicamente o Nome e Logo do Perfil do usuário no PDF comercial
   const gerarPDF = (p: any) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
     const dataEmissao = p.data || new Date().toLocaleDateString('pt-BR');
@@ -438,7 +446,7 @@ export default function App() {
       htmlLinhasTabela = arrayLinhasTexto.map(linhaTexto => {
         if(!linhaTexto.trim()) return '';
         let quantidadeItem = Number(p.qtdPed || 1);
-        let nomeItemLimpo = linhaTexto.trim();
+        let nomeItemLimpo = inlineTexto = linhaTexto.trim();
         
         const matchCombo = linhaTexto.trim().match(/^(\d+)x\s+(.+)$/i);
         if(matchCombo) {
@@ -458,7 +466,6 @@ export default function App() {
       }).join('');
     }
 
-    // Configuração de Marca no PDF baseado no Perfil
     const cabecalhoNomeHtml = nomeLojaPerfil ? nomeLojaPerfil : "PrecificaJá 🚀";
     const cabecalhoLogoHtml = logoLojaPerfil ? `<img src="${logoLojaPerfil}" style="max-height: 60px; max-width: 150px; object-fit: contain; border-radius: 8px; margin-bottom: 5px;"/>` : '';
 
@@ -554,6 +561,7 @@ export default function App() {
       else if (tipo === 'produto') colecao = "produtos";
       else if (tipo === 'equipamento') colecao = "equipamentos";
       else if (tipo === 'material') colecao = "materiais";
+      else if (tipo === 'anotacao') colecao = "anotacoes";
 
       await deleteDoc(doc(db, colecao, id));
     }
@@ -607,7 +615,6 @@ export default function App() {
     finally { setSubindoImagem(false); }
   };
 
-  // ADICIONADO: Função para fazer upload do logo da loja para o Storage e salvar URL
   const handleUploadLogo = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
@@ -646,6 +653,33 @@ export default function App() {
       setMatsNoPed(listaReconstruida);
     } else { setMatsNoPed([]); }
     setActiveTab('criar');
+  };
+
+  // ADICIONADO: Função para duplicar orçamento (id nulo para criar cópia limpa)
+  const handleDuplicarOrcamento = (p: any) => {
+    setPedidoEditandoId(null); 
+    setNomeProd(`${p.nomeProd} (Cópia)`); 
+    setQtdPed(p.qtdPed || '1'); 
+    setVHora(p.vHora || '9'); 
+    setTGasto(p.tGasto || '60');
+    setCustos(p.custos || { embalagem: '0', impressao: '0', energia: '0', outros: '0' });
+    setLucro(p.lucro || '100'); 
+    setDesconto(p.desconto || '0'); 
+    setPrazo(p.prazo || ''); 
+    setClienteSel(''); // Limpa cliente para redefinir na cópia
+    setPrecoManual(p.precoManual || null); 
+    setObsPedido(p.obsPedido || '');
+    setEquipamentosSelecionados(p.equipamentosSelecionados || []);
+
+    if (p.materiaisUsados && p.materiaisUsados.length > 0) {
+      const listaReconstruida = p.materiaisUsados.map((mSalvo: any) => {
+        const matDoArmario = materiais.find(item => item.id === mSalvo.id);
+        return { id: mSalvo.id, nome: matDoArmario ? matDoArmario.nome : mSalvo.nome, qtdUsada: Number(mSalvo.qtdUsada || 1), valor: matDoArmario ? Number(matDoArmario.valor) : Number(mSalvo.valor || 0), qtd: matDoArmario ? Number(matDoArmario.qtd) : Number(mSalvo.qtd || 1), unidade: matDoArmario ? matDoArmario.unidade : (mSalvo.unidade || 'un') };
+      });
+      setMatsNoPed(listaReconstruida);
+    } else { setMatsNoPed([]); }
+    setActiveTab('criar');
+    alert("Orçamento duplicado com sucesso! Defina o cliente e salve. ✨");
   };
 
   const venderItemDiretoDoCatalogo = (prod: any) => {
@@ -926,9 +960,11 @@ export default function App() {
               <button onClick={() => setActiveTab('inicio')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'inicio' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Home size={16}/> Início</button>
               <button onClick={() => setActiveTab('criar')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'criar' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Plus size={16}/> Orçar</button>
               
-              {/* ADICIONADO: Aba "Minha Loja / Logo" no Menu lateral */}
               <button onClick={() => setActiveTab('perfil')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'perfil' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Settings size={16}/> Minha Loja (Logo)</button>
               
+              {/* ADICIONADO: Link da aba de Anotações no Menu lateral */}
+              <button onClick={() => setActiveTab('anotacoes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'anotacoes' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><BookMarkdown size={16}/> Minhas Anotações 📝</button>
+
               <button onClick={() => setActiveTab('financeiro')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'financeiro' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Calculator size={16}/> Configurações de Custos</button>
               <button onClick={() => setActiveTab('pedidos')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'pedidos' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><History size={16}/> Histórico de Orçamentos</button>
               <button onClick={() => setActiveTab('balcao')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'balcao' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><ShoppingCart size={16}/> Balcão de Vendas Rápido</button>
@@ -1001,14 +1037,13 @@ export default function App() {
           </div>
         )}
 
-        {/* ADICIONADO: NOVA TELA DE PERFIL DA LOJA (Nome da Loja e Logo da Marca) */}
+        {/* TELA DE PERFIL DA LOJA */}
         {activeTab === 'perfil' && (
           <div className="space-y-6 pt-2 w-full">
             <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
               <h2 className="text-purple-700 font-bold mb-2 flex items-center gap-2 uppercase text-xs tracking-widest"><Settings size={18}/> Perfil da Minha Loja</h2>
               <p className="text-slate-400 text-[11px] mb-6">Personalize o aplicativo com a sua marca. O logo e o nome definidos aqui aparecerão no topo de todos os seus orçamentos em PDF!</p>
 
-              {/* Upload do Logo da Loja */}
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Logo Oficial da Empresa</label>
               <div className="mb-5 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-3xl p-4 bg-slate-50 relative min-h-[140px] w-full">
                 {logoLojaPerfil ? (
@@ -1029,7 +1064,6 @@ export default function App() {
                 )}
               </div>
 
-              {/* Input de Texto do Nome da Loja */}
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome Comercial da Loja</label>
               <input 
                 placeholder="Ex: Loop Criative" 
@@ -1038,14 +1072,13 @@ export default function App() {
                 onChange={e => setNomeLojaPerfil(e.target.value)} 
               />
 
-              {/* Botão de Salvar Alterações */}
               <button onClick={async () => {
                 try {
                   await setDoc(doc(db, "configuracoes_loja", user.uid), {
                     nomeLoja: nomeLojaPerfil.trim(),
                     logoUrl: logoLojaPerfil
                   }, { merge: true });
-                  alert("Perfil da empresa atualizado com sucesso! 🚀");
+                  alert("Perfil da empresa updated com sucesso! 🚀");
                   setActiveTab('inicio');
                 } catch {
                   alert("Erro ao salvar as configurações da empresa.");
@@ -1053,6 +1086,53 @@ export default function App() {
               }} className="w-full bg-purple-700 hover:bg-purple-800 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md transition-colors" disabled={subindoLogo}>
                 Salvar Configurações da Marca
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* ADICIONADO: NOVA TELA DE ANOTAÇÕES GERAIS */}
+        {activeTab === 'anotacoes' && (
+          <div className="space-y-4 pt-2 w-full">
+            <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
+              <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2"><BookMarkdown size={20}/> Minhas Anotações Internas</h2>
+              <p className="text-slate-400 text-[11px] mb-4">Use este espaço como seu bloco de notas geral da empresa. Seus clientes não têm acesso a essas notas.</p>
+              
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Título da Nota</label>
+              <input placeholder="Ex: Lembrar de comprar fitas / Ideia Dia dos Pais" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-bold text-sm" value={novaAnotacao.titulo} onChange={e => setNovaAnotacao({...novaAnotacao, titulo: e.target.value})} />
+              
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Conteúdo da Anotação</label>
+              <textarea placeholder="Escreva seus lembretes aqui..." className="w-full p-4 bg-slate-50 rounded-2xl mb-6 outline-none border focus:border-purple-400 resize-none h-28 text-sm font-semibold" value={novaAnotacao.conteudo} onChange={e => setNovaAnotacao({...novaAnotacao, conteudo: e.target.value})} />
+              
+              <button onClick={async () => {
+                if(!novaAnotacao.titulo) return alert("Sua anotação precisa de um título!");
+                const dadosNota = { titulo: novaAnotacao.titulo, conteudo: novaAnotacao.conteudo || '', userId: user.uid, dataCriacao: new Date().toLocaleDateString('pt-BR') };
+                
+                if (novaAnotacao.id) await updateDoc(doc(db, "anotacoes", novaAnotacao.id), dadosNota);
+                else await addDoc(collection(db, "anotacoes"), dadosNota);
+                
+                setNovaAnotacao({ id: '', titulo: '', conteudo: '' });
+                alert("Nota guardada com sucesso! 📝✨");
+              }} className="w-full bg-orange-500 text-white p-5 rounded-2xl font-black uppercase text-xs shadow-md">
+                {novaAnotacao.id ? 'Atualizar Nota' : 'Guardar no Caderno'}
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 w-full">
+              {anotacoes.map(item => (
+                <div key={item.id} className="bg-white p-5 rounded-3xl border shadow-sm w-full flex flex-col gap-2 relative">
+                  <div className="flex justify-between items-start w-full">
+                    <div>
+                      <h4 className="font-black text-slate-800 text-base">{item.titulo}</h4>
+                      <p className="text-[10px] text-purple-500 font-bold uppercase mt-0.5">Criado em: {item.dataCriacao}</p>
+                    </div>
+                    <div className="flex gap-1 shrink-0">
+                      <button onClick={() => setNovaAnotacao({ id: item.id, titulo: item.titulo, conteudo: item.conteudo })} className="text-orange-400 p-2 hover:bg-orange-50 rounded-xl"><Edit2 size={16}/></button>
+                      <button onClick={() => confirmarExcluir('anotacao', item.id)} className="text-red-200 p-2 hover:bg-red-50 rounded-xl"><Trash2 size={16}/></button>
+                    </div>
+                  </div>
+                  {item.conteudo && <p className="text-slate-600 text-xs font-semibold bg-slate-50 p-3 rounded-2xl border whitespace-pre-line leading-relaxed">{item.conteudo}</p>}
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -1324,10 +1404,10 @@ export default function App() {
         {/* ABA DA CALCULADORA COMPOSTA */}
         {activeTab === 'criar' && renderCalculadoraForm()}
 
-{/* HISTÓRICO DE ORÇAMENTOS */}
+        {/* HISTÓRICO DE ORÇAMENTOS EXPANDIDO */}
         {activeTab === 'pedidos' && (
           <div className="space-y-3 pt-2 w-full">
-            <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2"><History size={20}/> Histórico</h2>
+            <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2"><History size={20}/> Histórico Completo</h2>
             {pedidos.map(p => {
                const cli = clientes.find(c => c.id === p.clienteId);
                const ehPendente = p.status !== 'Vendido 💰';
@@ -1339,8 +1419,22 @@ export default function App() {
                           {cli?.nome || 'Sem Cliente'} {p.data ? `— ${p.data}` : ''} — <span className={ehPendente ? "text-orange-400" : "text-emerald-500"}>{p.status || 'Pendente'}</span>
                         </p>
                         <div className="font-bold text-slate-700 text-sm whitespace-pre-line">{p.nomeProd} <span className="text-xs text-slate-400 font-normal">({p.qtdPed || 1} un)</span></div>
+                        
+                        {/* ADICIONADO: Detalhes rápidos do cliente direto no histórico */}
+                        {cli && (cli.zap || cli.email || cli.endereco) && (
+                          <div className="mt-2 text-[11px] text-slate-400 bg-slate-50 p-2.5 rounded-xl border border-dashed border-slate-200 space-y-0.5">
+                            {cli.zap && <p>📱 WhatsApp: <span className="font-semibold text-slate-600">{cli.zap}</span></p>}
+                            {cli.email && <p>✉️ E-mail: <span className="font-semibold text-slate-600">{cli.email}</span></p>}
+                            {cli.endereco && <p className="mt-1">📍 Entrega: <span className="font-semibold text-slate-600 whitespace-pre-line">{cli.endereco}</span></p>}
+                          </div>
+                        )}
+
+                        {/* Exibição rápida de observações internas salvas */}
+                        {p.obsPedido && (
+                          <p className="text-[11px] text-purple-600 bg-purple-50 p-2 rounded-lg font-medium border border-purple-100 mt-2">🗒️ Notas: {p.obsPedido}</p>
+                        )}
                      </div>
-                     <div className="text-orange-500 font-black text-xl">R$ {p.preco}</div>
+                     <div className="text-orange-500 font-black text-xl shrink-0">R$ {p.preco}</div>
                    </div>
                    <div className="flex items-center justify-end border-t pt-2 gap-1 w-full">
                       {ehPendente && (
@@ -1349,6 +1443,9 @@ export default function App() {
                           <button onClick={() => carregarPedidoParaEdicao(p)} className="text-purple-600 p-2 bg-purple-50 rounded-xl"><Edit2 size={18}/></button>
                         </>
                       )}
+                      {/* ADICIONADO: Botão Duplicar Orçamento */}
+                      <button onClick={() => handleDuplicarOrcamento(p)} title="Duplicar este Orçamento" className="text-blue-500 p-2 bg-blue-50 rounded-xl active:scale-95 transition-transform"><Copy size={18}/></button>
+                      
                       <button onClick={() => gerarPDF(p)} className="text-orange-500 p-2 bg-orange-50 rounded-xl"><Printer size={18}/></button>
                       <button onClick={() => enviarZap({nomeProd: p.nomeProd, preco: p.preco, clienteId: p.clienteId, prazo: p.prazo, qtdPed: p.qtdPed})} className="text-emerald-500 p-2 bg-emerald-50 rounded-xl"><MessageCircle size={18}/></button>
                       <button onClick={() => confirmarExcluir('pedido', p.id)} className="text-red-200 p-2"><Trash2 size={18}/></button>
@@ -1449,27 +1546,55 @@ export default function App() {
           </div>
         )}
 
-        {/* ABA DE CLIENTES */}
+        {/* ABA DE CLIENTES - TOTALMENTE EXPANDIDA */}
         {activeTab === 'clientes' && (
            <div className="space-y-4 pt-2 w-full">
             <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
               <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2"><User size={20}/> Gerenciar Clientes</h2>
-              <input placeholder="Nome Comercial" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none" value={novoCli.nome} onChange={e => setNovoCli({...novoCli, nome: e.target.value})} />
-              <input placeholder="WhatsApp com DDD" className="w-full p-4 bg-slate-50 rounded-2xl mb-6 outline-none" value={novoCli.zap} onChange={e => setNovoCli({...novoCli, zap: e.target.value})} />
+              
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome Comercial / Completo</label>
+              <input placeholder="Ex: Maria Silva" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm" value={novoCli.nome} onChange={e => setNovoCli({...novoCli, nome: e.target.value})} />
+              
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">WhatsApp com DDD</label>
+              <input placeholder="Ex: 21999999999" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm" value={novoCli.zap} onChange={e => setNovoCli({...novoCli, zap: e.target.value})} />
+              
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">E-mail de Contato</label>
+              <input type="email" placeholder="Ex: cliente@email.com" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm" value={novoCli.email || ''} onChange={e => setNovoCli({...novoCli, email: e.target.value})} />
+              
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Endereço de Entrega Completo</label>
+              <textarea placeholder="Rua, Número, Bairro, Cidade, CEP..." className="w-full p-4 bg-slate-50 rounded-2xl mb-6 outline-none border focus:border-purple-400 resize-none h-20 font-medium text-sm" value={novoCli.endereco || ''} onChange={e => setNovoCli({...novoCli, endereco: e.target.value})} />
+
               <button onClick={async () => {
                 if(!novoCli.nome) return alert("Digite o nome do cliente!");
-                if(novoCli.id) await updateDoc(doc(db, "clientes", novoCli.id), { nome: novoCli.nome, zap: novoCli.zap, userId: user.uid });
-                else await addDoc(collection(db, "clientes"), { nome: novoCli.nome, zap: novoCli.zap, userId: user.uid });
-                setNovoCli({ id: '', nome: '', zap: '' }); 
-                alert("Cliente Salvo!");
+                
+                const dadosCliente = { 
+                  nome: novoCli.nome, 
+                  zap: novoCli.zap, 
+                  email: novoCli.email || '', 
+                  endereco: novoCli.endereco || '', 
+                  userId: user.uid 
+                };
+
+                if(novoCli.id) await updateDoc(doc(db, "clientes", novoCli.id), dadosCliente);
+                else await addDoc(collection(db, "clientes"), dadosCliente);
+                
+                setNovoCli({ id: '', nome: '', zap: '', email: '', endereco: '' }); 
+                alert("Cadastro do cliente salvo com sucesso! 🎉");
               }} className="w-full bg-orange-500 text-white p-5 rounded-2xl font-black uppercase text-xs">Salvar Cliente</button>
             </div>
             {clientes.map(c => (
-              <div key={c.id} className="bg-white p-5 rounded-3xl flex justify-between items-center border shadow-sm font-bold w-full mb-2">
-                <div className="flex flex-col ml-2"><span className="text-slate-800">{c.nome}</span><span className="text-xs text-slate-400 font-normal">{c.zap ? `📱 ${c.zap}` : 'Sem número'}</span></div>
-                <div className="flex gap-1">
-                  <button onClick={() => setNovoCli({ id: c.id, nome: c.nome, zap: c.zap || '' })} className="text-orange-400 p-2"><Edit2 size={18}/></button>
-                  <button onClick={() => confirmarExcluir('cliente', c.id)} className="text-red-200 p-2"><Trash2 size={20}/></button>
+              <div key={c.id} className="bg-white p-5 rounded-3xl flex flex-col gap-2 border shadow-sm font-bold w-full mb-2">
+                <div className="flex justify-between items-start w-full">
+                  <div className="flex flex-col ml-2">
+                    <span className="text-slate-800 text-base">{c.nome}</span>
+                    <span className="text-xs text-slate-400 font-normal mt-0.5">{c.zap ? `📱 ${c.zap}` : 'Sem número'}</span>
+                    {c.email && <span className="text-xs text-slate-400 font-normal mt-0.5">✉️ {c.email}</span>}
+                    {c.endereco && <span className="text-xs text-slate-500 font-medium bg-slate-50 p-2.5 rounded-xl mt-2 border border-slate-100 whitespace-pre-line">📍 {c.endereco}</span>}
+                  </div>
+                  <div className="flex gap-1 shrink-0">
+                    <button onClick={() => setNovoCli({ id: c.id, nome: c.nome, zap: c.zap || '', email: c.email || '', endereco: c.endereco || '' })} className="text-orange-400 p-2"><Edit2 size={18}/></button>
+                    <button onClick={() => confirmarExcluir('cliente', c.id)} className="text-red-200 p-2"><Trash2 size={20}/></button>
+                  </div>
                 </div>
               </div>
             ))}
