@@ -3,7 +3,7 @@ import { initializeApp } from "firebase/app";
 import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { getFirestore, collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc, getDocs, setDoc, getDoc } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2, Menu, Search, Settings, NotebookTabs } from 'lucide-react';
+import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2, Menu, Search, Settings } from 'lucide-react';
 
 const firebaseConfig = {
   apiKey: "AIzaSyD0BWsNm9DbGGDqiHzkdDmNdxIGdJ9tWe8",
@@ -145,7 +145,7 @@ export default function App() {
       }
       setLoading(false);
     }); 
-  }, [logoLojaPerfil]);
+  }, []);
   
   useEffect(() => {
     const script = document.createElement('script');
@@ -328,7 +328,6 @@ export default function App() {
       
       arrayItensSalvar.push({
         nome: p.nome,
-        bold: true,
         qtd: qtd,
         precoVenda: Number(p.precoVenda)
       });
@@ -444,7 +443,7 @@ export default function App() {
         let quantidadeItem = Number(p.qtdPed || 1);
         let nomeItemLimpo = linhaTexto.trim();
         
-        const matchCombo = linhaTexto.trim().match(/^(\d+)x\s+(.+)$/i);
+        const matchCombo = inlineTexto = linhaTexto.trim().match(/^(\d+)x\s+(.+)$/i);
         if(matchCombo) {
           quantidadeItem = Number(matchCombo[1]);
           nomeItemLimpo = matchCombo[2].trim();
@@ -641,7 +640,7 @@ export default function App() {
     setPrecoManual(p.precoManual || null); setObsPedido(p.obsPedido || '');
     setEquipamentosSelecionados(p.equipamentosSelecionados || []);
 
-    if (p.materiaisUsados && p.materiaisUsados.length > 0) {
+    if (p.materiaisUsados && p.materialsUsados.length > 0) {
       const listaReconstruida = p.materiaisUsados.map((mSalvo: any) => {
         const matDoArmario = materiais.find(item => item.id === mSalvo.id);
         return { id: mSalvo.id, nome: matDoArmario ? matDoArmario.nome : mSalvo.nome, qtdUsada: Number(mSalvo.qtdUsada || 1), valor: matDoArmario ? Number(matDoArmario.valor) : Number(mSalvo.valor || 0), qtd: matDoArmario ? Number(matDoArmario.qtd) : Number(mSalvo.qtd || 1), unidade: matDoArmario ? matDoArmario.unidade : (mSalvo.unidade || 'un') };
@@ -927,7 +926,7 @@ export default function App() {
         <div className="text-orange-500 font-black text-4xl tracking-tighter">R$ {resumenFinanceiro.final}</div>
         <div className="flex gap-2">
           <button onClick={async () => {
-             if(!nomeProd) return alert("Digite o nome do produto!");
+             if(!nomeProd) return alert("Digite o nome do product!");
              const dadosPedido = { nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed, vHora, tGasto, custos, lucro, desconto, userId: user.uid, precoManual: precoManual, obsPedido: obsPedido, equipamentosSelecionados, materiaisUsados: precoManual ? [] : matsNoPed.map(m => ({ id: m.id, nome: m.nome, qtdUsada: Number(m.qtdUsada || 1) })) };
              if (pedidoEditandoId) await updateDoc(doc(db, "pedidos", pedidoEditandoId), dadosPedido);
              else await addDoc(collection(db, "pedidos"), { ...dadosPedido, data: new Date().toLocaleDateString('pt-BR'), status: 'Pendente', userId: user.uid });
@@ -957,8 +956,8 @@ export default function App() {
               
               <button onClick={() => setActiveTab('perfil')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'perfil' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Settings size={16}/> Perfil da Loja</button>
               
-              {/* MODIFICADO: Link corrigido com NotebookTabs no Menu lateral */}
-              <button onClick={() => setActiveTab('anotacoes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'anotacoes' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><NotebookTabs size={16}/> Minhas Anotações 📝</button>
+              {/* MODIFICADO: Ícone substituído por BookOpen para evitar incompatibilidade */}
+              <button onClick={() => setActiveTab('anotacoes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'anotacoes' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><BookOpen size={16}/> Minhas Anotações 📝</button>
 
               <button onClick={() => setActiveTab('financeiro')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'financeiro' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Calculator size={16}/> Configurações de Custos</button>
               <button onClick={() => setActiveTab('pedidos')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'pedidos' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><History size={16}/> Histórico de Orçamentos</button>
@@ -1089,8 +1088,8 @@ export default function App() {
         {activeTab === 'anotacoes' && (
           <div className="space-y-4 pt-2 w-full">
             <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
-              {/* MODIFICADO: Ícone NotebookTabs aplicado no título */}
-              <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2"><NotebookTabs size={20}/> Minhas Anotações Internas</h2>
+              {/* MODIFICADO: Ícone BookOpen aplicado no título para máxima estabilidade */}
+              <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2"><BookOpen size={20}/> Minhas Anotações Internas</h2>
               <p className="text-slate-400 text-[11px] mb-4">Use este espaço como seu bloco de notas geral da empresa. Seus clientes não têm acesso a essas notas.</p>
               
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Título da Nota</label>
@@ -1516,7 +1515,7 @@ export default function App() {
               />
             </div>
 
-            {materiaisFiltrados.map(m => {
+            {materialsFiltrados = materiais.filter(m => m.nome?.toLowerCase().includes(pesquisaMateriais.toLowerCase())).map(m => {
               const estaAcabando = Number(m.qtdAtual || 0) <= Number(m.qtdMinima || 0);
               const valorUnitarioCalculado = Number(m.qtd || 1) > 0 ? (Number(m.valor || 0) / Number(m.qtd || 1)).toFixed(2) : "0.00";
               return (
@@ -1589,7 +1588,7 @@ export default function App() {
                   </div>
                   <div className="flex gap-1 shrink-0">
                     <button onClick={() => setNovoCli({ id: c.id, nome: c.nome, zap: c.zap || '', email: c.email || '', endereco: c.endereco || '' })} className="text-orange-400 p-2"><Edit2 size={18}/></button>
-                    <button onClick={() => confirmarExcluir('cliente', c.id)} className="text-red-200 p-2"><Trash2 size={20}/></button>
+                    <button onClick={() => quarterfinalsExcluir('cliente', c.id)} className="text-red-200 p-2"><Trash2 size={20}/></button>
                   </div>
                 </div>
               </div>
