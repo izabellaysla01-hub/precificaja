@@ -3,7 +3,7 @@ import { initializeApp } from "firebase/app";
 import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { getFirestore, collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc, getDocs, setDoc, getDoc } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2, Menu, Search } from 'lucide-react';
+import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2, Menu, Search, Settings } from 'lucide-react';
 
 const firebaseConfig = {
   apiKey: "AIzaSyD0BWsNm9DbGGDqiHzkdDmNdxIGdJ9tWe8",
@@ -56,7 +56,8 @@ export default function App() {
   const [nomeComprador, setNomeComprador] = useState('');
   const [zapDaLojaPublica, setZapDaLojaPublica] = useState('');
 
-  const [activeTab, useStateActiveTab] = useState<'inicio' | 'materiais' | 'criar' | 'pedidos' | 'clientes' | 'catalogo' | 'balcao' | 'financeiro'>('inicio');
+  // ADICIONADO: Aba 'perfil' no tipo de abas ativas
+  const [activeTab, useStateActiveTab] = useState<'inicio' | 'materiais' | 'criar' | 'pedidos' | 'clientes' | 'catalogo' | 'balcao' | 'financeiro' | 'perfil'>('inicio');
   const [materiais, setMaterials] = useState<any[]>([]);
   const [pedidos, setPedidos] = useState<any[]>([]);
   const [clientes, setClientes] = useState<any[]>([]);
@@ -91,6 +92,11 @@ export default function App() {
   const [novoProdCatalogo, setNovoProdCatalogo] = useState({ id: '', nome: '', precoVenda: '', urlImagem: '' });
   const [zapDonaConta, setZapDonaConta] = useState('');
   const [subindoImagem, setSubindoImagem] = useState(false);
+
+  // ADICIONADO: Estados para gerenciar o perfil da loja de quem usa o sistema
+  const [nomeLojaPerfil, setNomeLojaPerfil] = useState('');
+  const [logoLojaPerfil, setLogoLojaPerfil] = useState('');
+  const [subindoLogo, setSubindoLogo] = useState(false);
 
   const [financasFixo, setFinancasFixo] = useState({ salario: '0', aluguel: '0', internet: '0', luz: '0', outros: '0', diasTrabalho: '20', horasDia: '8' });
   const [novoEquipamento, setNovoEquipamento] = useState({ id: '', nome: '', valorPago: '', durabilidadeAnos: '2' });
@@ -129,7 +135,12 @@ export default function App() {
       setUser(u);
       if (u) {
         getDoc(doc(db, "configuracoes_loja", u.uid)).then(docSnap => {
-          if(docSnap.exists()) setZapDonaConta(docSnap.data().whatsapp || '');
+          if(docSnap.exists()) {
+            setZapDonaConta(docSnap.data().whatsapp || '');
+            // ADICIONADO: Carregar nome da loja e logo salvos do perfil
+            setNomeLojaPerfil(docSnap.data().nomeLoja || '');
+            setLogoLojaPerfil(docSnap.data().logoUrl || '');
+          }
         });
       }
       setLoading(false);
@@ -377,7 +388,7 @@ export default function App() {
     const tempoEmHoras = Number(tGasto || 0) / 60;
 
     equipamentosSelecionados.forEach(idEquip => {
-      const eq = equipamentos.find(e => e.id === idEquip);
+      const eq = equipments.find(e => e.id === idEquip);
       if (eq) {
         const valorEquip = Number(eq.valorPago || 0);
         const mesesVida = Number(eq.durabilidadeAnos || 2) * 12;
@@ -402,6 +413,7 @@ export default function App() {
     window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
   };
 
+  // MODIFICADO: Atualizado para renderizar dinamicamente o Nome e Logo do Perfil do usuário no PDF comercial
   const gerarPDF = (p: any) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
     const dataEmissao = p.data || new Date().toLocaleDateString('pt-BR');
@@ -426,7 +438,7 @@ export default function App() {
       htmlLinhasTabela = arrayLinhasTexto.map(linhaTexto => {
         if(!linhaTexto.trim()) return '';
         let quantidadeItem = Number(p.qtdPed || 1);
-        let nomeItemLimpo = linhaTexto.trim(); // AJUSTADO: Removido bug do 'ApplinhaTexto'
+        let nomeItemLimpo = linhaTexto.trim();
         
         const matchCombo = linhaTexto.trim().match(/^(\d+)x\s+(.+)$/i);
         if(matchCombo) {
@@ -446,12 +458,17 @@ export default function App() {
       }).join('');
     }
 
+    // Configuração de Marca no PDF baseado no Perfil
+    const cabecalhoNomeHtml = nomeLojaPerfil ? nomeLojaPerfil : "PrecificaJá 🚀";
+    const cabecalhoLogoHtml = logoLojaPerfil ? `<img src="${logoLojaPerfil}" style="max-height: 60px; max-width: 150px; object-fit: contain; border-radius: 8px; margin-bottom: 5px;"/>` : '';
+
     const elemento = document.createElement('div');
     elemento.innerHTML = `
       <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto;">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px;">
           <div>
-            <h1 style="color: #7c3aed; margin: 0; font-size: 32px; font-weight: 900;">PrecificaJá 🚀</h1>
+            ${cabecalhoLogoHtml}
+            <h1 style="color: #7c3aed; margin: 0; font-size: 28px; font-weight: 900;">${cabecalhoNomeHtml}</h1>
             <p style="color: #94a3b8; font-size: 11px; text-transform: uppercase; margin: 4px 0 0 0; font-weight: bold;">Documento de Orçamento Comercial</p>
           </div>
           <div style="text-align: right; background-color: #f8fafc; padding: 12px 20px; border-radius: 16px; border: 1px solid #e2e8f0;">
@@ -588,6 +605,22 @@ export default function App() {
       alert("Foto carregada com sucesso! 📸");
     } catch (error) { alert("Erro ao subir a foto!"); } 
     finally { setSubindoImagem(false); }
+  };
+
+  // ADICIONADO: Função para fazer upload do logo da loja para o Storage e salvar URL
+  const handleUploadLogo = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    setSubindoLogo(true);
+    try {
+      const nomeArquivo = `logo_${user.uid}_${Date.now()}_${file.name}`;
+      const logoRef = ref(storage, `logos/${nomeArquivo}`);
+      await uploadBytes(logoRef, file);
+      const urlDisponivel = await getDownloadURL(logoRef);
+      setLogoLojaPerfil(urlDisponivel);
+      alert("Logo carregado com sucesso! Salve o perfil para aplicar. 📸");
+    } catch (error) { alert("Erro ao subir o logo!"); }
+    finally { setSubindoLogo(false); }
   };
 
   const limparCalculadora = () => {
@@ -892,6 +925,10 @@ export default function App() {
             <nav className="flex flex-col gap-1">
               <button onClick={() => setActiveTab('inicio')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'inicio' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Home size={16}/> Início</button>
               <button onClick={() => setActiveTab('criar')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'criar' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Plus size={16}/> Orçar</button>
+              
+              {/* ADICIONADO: Aba "Minha Loja / Logo" no Menu lateral */}
+              <button onClick={() => setActiveTab('perfil')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'perfil' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Settings size={16}/> Minha Loja (Logo)</button>
+              
               <button onClick={() => setActiveTab('financeiro')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'financeiro' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Calculator size={16}/> Configurações de Custos</button>
               <button onClick={() => setActiveTab('pedidos')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'pedidos' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><History size={16}/> Histórico de Orçamentos</button>
               <button onClick={() => setActiveTab('balcao')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'balcao' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><ShoppingCart size={16}/> Balcão de Vendas Rápido</button>
@@ -964,6 +1001,62 @@ export default function App() {
           </div>
         )}
 
+        {/* ADICIONADO: NOVA TELA DE PERFIL DA LOJA (Nome da Loja e Logo da Marca) */}
+        {activeTab === 'perfil' && (
+          <div className="space-y-6 pt-2 w-full">
+            <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
+              <h2 className="text-purple-700 font-bold mb-2 flex items-center gap-2 uppercase text-xs tracking-widest"><Settings size={18}/> Perfil da Minha Loja</h2>
+              <p className="text-slate-400 text-[11px] mb-6">Personalize o aplicativo com a sua marca. O logo e o nome definidos aqui aparecerão no topo de todos os seus orçamentos em PDF!</p>
+
+              {/* Upload do Logo da Loja */}
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Logo Oficial da Empresa</label>
+              <div className="mb-5 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-3xl p-4 bg-slate-50 relative min-h-[140px] w-full">
+                {logoLojaPerfil ? (
+                  <div className="relative w-full h-32 rounded-2xl overflow-hidden flex items-center justify-center bg-white p-2">
+                    <img src={logoLojaPerfil} alt="Logo da Loja" className="max-w-full max-h-full object-contain" />
+                    <button onClick={() => setLogoLojaPerfil('')} className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600 transition-colors"><X size={14}/></button>
+                  </div>
+                ) : (
+                  <label className="cursor-pointer flex flex-col items-center gap-2 text-slate-400 hover:text-purple-600 transition-colors w-full h-full justify-center py-4">
+                    <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center shadow-sm text-purple-600">
+                      <Camera size={22} />
+                    </div>
+                    <span className="text-xs font-bold uppercase tracking-wide text-[10px]">
+                      {subindoLogo ? 'Enviando Imagem...' : '📸 Enviar Logo da Empresa'}
+                    </span>
+                    <input type="file" accept="image/*" className="hidden" onChange={handleUploadLogo} disabled={subindoLogo} />
+                  </label>
+                )}
+              </div>
+
+              {/* Input de Texto do Nome da Loja */}
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome Comercial da Loja</label>
+              <input 
+                placeholder="Ex: Loop Criative" 
+                className="w-full p-4 bg-slate-50 rounded-2xl mb-6 font-bold text-slate-800 outline-none border focus:border-purple-400" 
+                value={nomeLojaPerfil} 
+                onChange={e => setNomeLojaPerfil(e.target.value)} 
+              />
+
+              {/* Botão de Salvar Alterações */}
+              <button onClick={async () => {
+                try {
+                  await setDoc(doc(db, "configuracoes_loja", user.uid), {
+                    nomeLoja: nomeLojaPerfil.trim(),
+                    logoUrl: logoLojaPerfil
+                  }, { merge: true });
+                  alert("Perfil da empresa atualizado com sucesso! 🚀");
+                  setActiveTab('inicio');
+                } catch {
+                  alert("Erro ao salvar as configurações da empresa.");
+                }
+              }} className="w-full bg-purple-700 hover:bg-purple-800 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md transition-colors" disabled={subindoLogo}>
+                Salvar Configurações da Marca
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* TELA DE CONFIGURAÇÃO DE CUSTOS FIXOS */}
         {activeTab === 'financeiro' && (
           <div className="space-y-6 pt-2 w-full">
@@ -996,15 +1089,17 @@ export default function App() {
                 </div>
               </div>
 
-              <h3 className="text-purple-700 font-bold text-xs uppercase tracking-wider mb-2 mt-4">Sua Carga Horária</h3>
-              <div className="grid grid-cols-2 gap-3 mb-5 w-full">
-                <div>
-                  <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Dias de Trabalho no Mês</label>
-                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={financasFixo.diasTrabalho} onChange={e => setFinancasFixo({...financasFixo, diasTrabalho: e.target.value})} />
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Horas de Trabalho por Dia</label>
-                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={financasFixo.horasDia} onChange={e => setFinancasFixo({...financasFixo, horasDia: e.target.value})} />
+              <div className="w-full">
+                <h3 className="text-purple-700 font-bold text-xs uppercase tracking-wider mb-2 mt-4">Sua Carga Horária</h3>
+                <div className="grid grid-cols-2 gap-3 mb-5 w-full">
+                  <div>
+                    <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Dias de Trabalho no Mês</label>
+                    <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={financasFixo.diasTrabalho} onChange={e => setFinancasFixo({...financasFixo, diasTrabalho: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Horas de Trabalho por Dia</label>
+                    <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={financasFixo.horasDia} onChange={e => setFinancasFixo({...financasFixo, horasDia: e.target.value})} />
+                  </div>
                 </div>
               </div>
 
@@ -1097,7 +1192,7 @@ export default function App() {
                   <input placeholder="Ex: 21983858055" className="flex-1 p-2.5 bg-black/20 text-white rounded-xl text-xs font-bold border border-purple-500/30 outline-none" value={zapDonaConta} onChange={e => setZapDonaConta(e.target.value)} />
                   <button onClick={async () => {
                     if(!zapDonaConta.trim()) return alert("Digite o número!");
-                    try { await setDoc(doc(db, "configuracoes_loja", user.uid), { whatsapp: zapDonaConta.trim() }, { merge: true }); alert("WhatsApp salvo!"); } 
+                    try { await setDoc(doc(db, "configuracoes_loja", user.uid), { whatsapp: zapDonaConta.trim() }, { merge: true }); alert("WhatsApp saved!"); } 
                     catch { alert("Erro ao salvar."); }
                   }} className="bg-orange-500 text-white text-xs font-black uppercase px-4 rounded-xl shadow">Salvar</button>
                 </div>
@@ -1252,7 +1347,7 @@ export default function App() {
                         <>
                           <button onClick={() => confirmarVendaPedido(p)} className="text-emerald-600 p-2 bg-emerald-50 rounded-xl text-xs font-bold flex items-center gap-1 mr-auto active:scale-95"><CheckCircle size={16}/> Confirmar Venda</button>
                           <button onClick={() => carregarPedidoParaEdicao(p)} className="text-purple-600 p-2 bg-purple-50 rounded-xl"><Edit2 size={18}/></button>
-                        </>
+                        </                        <>
                       )}
                       <button onClick={() => gerarPDF(p)} className="text-orange-500 p-2 bg-orange-50 rounded-xl"><Printer size={18}/></button>
                       <button onClick={() => enviarZap({nomeProd: p.nomeProd, preco: p.preco, clienteId: p.clienteId, prazo: p.prazo, qtdPed: p.qtdPed})} className="text-emerald-500 p-2 bg-emerald-50 rounded-xl"><MessageCircle size={18}/></button>
@@ -1308,7 +1403,7 @@ export default function App() {
                 if (novoMat.id) await updateDoc(doc(db, "materiais", novoMat.id), d);
                 else await addDoc(collection(db, "materiais"), d);
                 setNovoMat({ id: '', nome: '', valor: '', qtd: '1', unidade: 'un', qtdAtual: '0', qtdMinima: '0' });
-                alert("Material salvo!");
+                alert("Material Salvo!");
               }} className="w-full bg-orange-500 text-white p-5 rounded-2xl font-black uppercase text-xs">
                 {novoMat.id ? 'Atualizar Insumo' : 'Salvar no Armário'}
               </button>
