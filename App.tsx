@@ -1324,7 +1324,7 @@ export default function App() {
         {/* ABA DA CALCULADORA COMPOSTA */}
         {activeTab === 'criar' && renderCalculadoraForm()}
 
-        {/* HISTÓRICO DE ORÇAMENTOS */}
+{/* HISTÓRICO DE ORÇAMENTOS */}
         {activeTab === 'pedidos' && (
           <div className="space-y-3 pt-2 w-full">
             <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2"><History size={20}/> Histórico</h2>
@@ -1347,7 +1347,7 @@ export default function App() {
                         <>
                           <button onClick={() => confirmarVendaPedido(p)} className="text-emerald-600 p-2 bg-emerald-50 rounded-xl text-xs font-bold flex items-center gap-1 mr-auto active:scale-95"><CheckCircle size={16}/> Confirmar Venda</button>
                           <button onClick={() => carregarPedidoParaEdicao(p)} className="text-purple-600 p-2 bg-purple-50 rounded-xl"><Edit2 size={18}/></button>
-                        </                        <>
+                        </>
                       )}
                       <button onClick={() => gerarPDF(p)} className="text-orange-500 p-2 bg-orange-50 rounded-xl"><Printer size={18}/></button>
                       <button onClick={() => enviarZap({nomeProd: p.nomeProd, preco: p.preco, clienteId: p.clienteId, prazo: p.prazo, qtdPed: p.qtdPed})} className="text-emerald-500 p-2 bg-emerald-50 rounded-xl"><MessageCircle size={18}/></button>
