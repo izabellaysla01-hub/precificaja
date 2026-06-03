@@ -69,9 +69,7 @@ export default function App() {
   const [pedidoEditandoId, setPedidoEditandoId] = useState<string | null>(null);
   const [mostrarSeletorCatalogo, setMostrarSeletorCatalogo] = useState(false);
 
-  // ADICIONADO: Filtro ativo para sub-abas do histórico de pedidos
   const [filtroStatusPedido, setFiltroStatusPedido] = useState<'Pendente' | 'Vendido' | 'Cancelado'>('Pendente');
-  // ADICIONADO: Detecta se o formulário atual veio de uma ação de duplicar
   const [isDuplicando, setIsDuplicando] = useState(false);
 
   const [nomeProd, setNomeProd] = useState('');
@@ -102,6 +100,7 @@ export default function App() {
 
   const [nomeLojaPerfil, setNomeLojaPerfil] = useState('');
   const [logoLojaPerfil, setLogoLojaPerfil] = useState('');
+  const [corLojaPerfil, setCorLojaPerfil] = useState('#7c3aed'); // Estado para a cor customizada da marca
   const [subindoLogo, setSubindoLogo] = useState(false);
 
   const [financasFixo, setFinancasFixo] = useState({ salario: '0', aluguel: '0', internet: '0', luz: '0', outros: '0', diasTrabalho: '20', horasDia: '8' });
@@ -145,6 +144,7 @@ export default function App() {
             setZapDonaConta(docSnap.data().whatsapp || '');
             setNomeLojaPerfil(docSnap.data().nomeLoja || '');
             setLogoLojaPerfil(docSnap.data().logoUrl || '');
+            setCorLojaPerfil(docSnap.data().corLoja || '#7c3aed'); // Carrega a cor salva
           }
         });
       }
@@ -373,7 +373,6 @@ export default function App() {
   };
 
   const dashboardMetrics = useMemo(() => {
-    // MODIFICADO: Contabiliza o faturamento apenas para itens vendidos de fato
     const faturamentoTotal = pedidos.filter(p => p.status === 'Vendido 💰' || p.status === 'Vendido').reduce((acc, p) => acc + Number(p.preco || 0), 0);
     const pendentesCount = pedidos.filter(p => p.status === 'Pendente' || !p.status).length;
     const estoqueCriticoCount = materiais.filter(m => Number(m.qtdAtual || 0) <= Number(m.qtdMinima || 0)).length;
@@ -423,7 +422,7 @@ export default function App() {
     window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
   };
 
-  // MODIFICADO: Consertado erro de atribuição de string que quebrava a renderização de tabelas normais no PDF
+  // MODIFICADO: Aplicada correção CORS definitiva para renderizar o logo sem quebrar o canvas do PDF
   const gerarPDF = (p: any) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
     const dataEmissao = p.data || new Date().toLocaleDateString('pt-BR');
@@ -469,7 +468,8 @@ export default function App() {
     }
 
     const cabecalhoNomeHtml = nomeLojaPerfil ? nomeLojaPerfil : "PrecificaJá 🚀";
-    const cabecalhoLogoHtml = logoLojaPerfil ? `<div style="margin-bottom: 10px;"><img src="${logoLojaPerfil}" style="max-height: 55px; max-width: 140px; object-fit: contain; border-radius: 8px;"/></div>` : '';
+    // MODIFICADO: crossOrigin="anonymous" adicionado para injetar imagens externas no Canvas de maneira segura
+    const cabecalhoLogoHtml = logoLojaPerfil ? `<div style="margin-bottom: 10px;"><img src="${logoLojaPerfil}" crossOrigin="anonymous" style="max-height: 55px; max-width: 140px; object-fit: contain; border-radius: 8px;"/></div>` : '';
 
     const elemento = document.createElement('div');
     elemento.innerHTML = `
@@ -477,33 +477,33 @@ export default function App() {
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px;">
           <div>
             ${cabecalhoLogoHtml}
-            <h1 style="color: #7c3aed; margin: 0; font-size: 28px; font-weight: 900;">${cabecalhoNomeHtml}</h1>
+            <h1 style="color: ${corLojaPerfil}; margin: 0; font-size: 28px; font-weight: 900;">${cabecalhoNomeHtml}</h1>
             <p style="color: #94a3b8; font-size: 11px; text-transform: uppercase; margin: 4px 0 0 0; font-weight: bold;">Documento de Orçamento Comercial</p>
           </div>
           <div style="text-align: right; background-color: #f8fafc; padding: 12px 20px; border-radius: 16px; border: 1px solid #e2e8f0;">
-            <span style="font-size: 10px; font-weight: bold; color: #a78bfa; text-transform: uppercase; display: block;">Código Ref</span>
+            <span style="font-size: 10px; font-weight: bold; color: #94a3b8; text-transform: uppercase; display: block;">Código Ref</span>
             <span style="font-size: 14px; font-weight: bold; color: #475569; display: block; margin-top: 2px;">ORC-${Math.floor(1000 + Math.random() * 9000)}</span>
           </div>
         </div>
         
-        <div style="background-color: #f8fafc; padding: 12px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #e2e8f0; font-size: 14px; font-weight: bold; color: #7c3aed;">
+        <div style="background-color: #f8fafc; padding: 12px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #e2e8f0; font-size: 14px; font-weight: bold; color: ${corLojaPerfil};">
           Referência do Pedido: ${p.nomeProd}
         </div>
 
-        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Dados do Cliente</div>
+        <div style="background-color: ${corLojaPerfil}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Dados do Cliente</div>
         <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 25px; border: 1px solid #f1f5f9;">
           <p style="margin: 0 0 6px 0; font-size: 14px;"><strong>Cliente:</strong> ${cli?.nome || 'Cliente não informado'}</p>
           <p style="margin: 0; font-size: 13px; color: #64748b;"><strong>WhatsApp:</strong> ${cli?.zap || 'Não informado'}</p>
         </div>
 
-        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Informações Básicas e Prazos</div>
+        <div style="background-color: ${corLojaPerfil}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Informações Básicas e Prazos</div>
         <div style="display: flex; justify-content: space-between; background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 25px; border: 1px solid #f1f5f9; font-size: 13px;">
           <div><strong>Data de Emissão:</strong><div style="margin-top: 4px; color: #64748b; font-weight: bold;">${dataEmissao}</div></div>
           <div><strong>Validade do Orçamento:</strong><div style="margin-top: 4px; color: #ef4444; font-weight: bold;">${dataValidade} (7 dias)</div></div>
-          <div><strong>Prazo de Entrega:</strong><div style="margin-top: 4px; color: #7c3aed; font-weight: bold;">${dataPrazo}</div></div>
+          <div><strong>Prazo de Entrega:</strong><div style="margin-top: 4px; color: ${corLojaPerfil}; font-weight: bold;">${dataPrazo}</div></div>
         </div>
 
-        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Produtos / Serviços Selecionados</div>
+        <div style="background-color: ${corLojaPerfil}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Produtos / Serviços Selecionados</div>
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
           <thead>
             <tr style="border-bottom: 2px solid #e2e8f0; text-align: left; font-size: 11px; text-transform: uppercase; color: #94a3b8;">
@@ -520,13 +520,13 @@ export default function App() {
 
         <div style="display: flex; flex-direction: column; align-items: flex-end; margin-bottom: 35px; padding-right: 5px; page-break-inside: avoid; break-inside: avoid;">
           <div style="font-size: 13px; color: #64748b; margin-bottom: 5px;">Subtotal Geral: <strong>R$ ${totalNum.toFixed(2)}</strong></div>
-          <div style="background-color: #7c3aed; color: white; padding: 12px 25px; border-radius: 12px; font-size: 18px; font-weight: 900; text-align: right; min-width: 180px;">
+          <div style="color: white; padding: 12px 25px; border-radius: 12px; font-size: 18px; font-weight: 900; text-align: right; min-width: 180px; background-color: ${corLojaPerfil};">
             <span style="font-size: 10px; font-weight: bold; text-transform: uppercase; display: block; opacity: 0.8; margin-bottom: 2px;">Total do Pedido</span>
             R$ ${totalNum.toFixed(2)}
           </div>
         </div>
 
-        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px; page-break-inside: avoid; break-inside: avoid;">Forma de Pagamento Aceitas</div>
+        <div style="color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px; page-break-inside: avoid; break-inside: avoid; background-color: ${corLojaPerfil};">Forma de Pagamento Aceitas</div>
         <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; border: 1px solid #f1f5f9; font-size: 13px; display: flex; justify-content: space-between; margin-bottom: 15px; page-break-inside: avoid; break-inside: avoid;">
           <div><strong>Meios disponíveis:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">PIX / CARTÃO DE CRÉDITO</div></div>
           <div><strong>Condições comerciais:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">A combinar direto no WhatsApp da Loja</div></div>
@@ -544,7 +544,8 @@ export default function App() {
         </div>
       </div>
     `;
-    const opcoes = { margin: 10, filename: `Orcamento.pdf`, html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'a4', orientation: 'portrait' }, pagebreak: { mode: ['avoid-all', 'css'] } };
+    // MODIFICADO: useCORS e allowTaint habilitados para renderizar o link da imagem sem gerar erro de segurança no Canvas
+    const opcoes = { margin: 10, filename: `Orcamento.pdf`, html2canvas: { scale: 2, useCORS: true, allowTaint: true }, jsPDF: { format: 'a4', orientation: 'portrait' }, pagebreak: { mode: ['avoid-all', 'css'] } };
     (window as any).html2pdf().from(elemento).set(opcoes).save();
   };
 
@@ -602,7 +603,6 @@ export default function App() {
     alert("Venda confirmada!");
   };
 
-  // ADICIONADO: Nova função para mudar status do pedido para Cancelado no Firebase
   const cancelarPedidoSemExcluir = async (id: string) => {
     if (window.confirm("Deseja realmente mover este orçamento para os cancelados?")) {
       await updateDoc(doc(db, "pedidos", id), { status: 'Cancelado ❌' });
@@ -646,7 +646,6 @@ export default function App() {
     setEquipamentosSelecionados([]);
     setLucro('100'); setDesconto('0'); setPrazo(''); setClienteSel('');
     setPedidoEditandoId(null); setPrecoManual(null); setObsPedido('');
-    // Reseta flags de controle de ações de cópia/duplicação
     setIsDuplicando(false);
   };
 
@@ -670,7 +669,6 @@ export default function App() {
 
   const handleDuplicarOrcamento = (p: any) => {
     setPedidoEditandoId(null); 
-    // Ativa a flag informando que é um processo de duplicação em andamento
     setIsDuplicando(true);
     setNomeProd(`${p.nomeProd} (Cópia)`); 
     setQtdPed(p.qtdPed || '1'); 
@@ -714,7 +712,6 @@ export default function App() {
     );
   }, [materiais, pesquisaMateriais]);
 
-  // ADICIONADO: Filtra dinamicamente a listagem de pedidos de acordo com o status selecionado nas abas
   const pedidosFiltradosPorStatus = useMemo(() => {
     return pedidos.filter(p => {
       const st = p.status || 'Pendente';
@@ -790,7 +787,6 @@ export default function App() {
 
   const renderCalculadoraForm = () => (
     <div className="bg-white p-6 rounded-[35px] shadow-xl border mt-2 w-full">
-      {/* MODIFICADO: Exibe alerta e botão dinâmico para cancelar edições ou cópias em andamento */}
       {(pedidoEditandoId || isDuplicando) && (
         <div className="bg-amber-50 border border-amber-200 p-4 rounded-3xl mb-6 flex justify-between items-center animate-pulse w-full">
           <div className="text-xs text-amber-800 font-bold">
@@ -801,19 +797,19 @@ export default function App() {
       )}
 
       <div className="flex justify-between items-center mb-6 w-full">
-        <h2 className="text-purple-700 font-bold flex items-center gap-2 uppercase text-xs tracking-widest">
+        <h2 className="font-bold flex items-center gap-2 uppercase text-xs tracking-widest" style={{ color: corLojaPerfil }}>
           <ShoppingCart size={18}/> {pedidoEditandoId ? 'Editando Dados' : isDuplicando ? 'Salvando Cópia' : 'Novo Orçamento'}
         </h2>
         {!pedidoEditandoId && (
-          <button onClick={() => setMostrarSeletorCatalogo(!mostrarSeletorCatalogo)} className="text-xs bg-purple-50 text-purple-700 px-3 py-1.5 rounded-xl font-black uppercase border border-purple-100">
+          <button onClick={() => setMostrarSeletorCatalogo(!mostrarSeletorCatalogo)} className="text-xs bg-purple-50 px-3 py-1.5 rounded-xl font-black uppercase border" style={{ color: corLojaPerfil, backgroundColor: `${corLojaPerfil}10`, borderColor: `${corLojaPerfil}20` }}>
             {precoManual ? '✨ Item de Catálogo' : '📖 Usar Catálogo'}
           </button>
         )}
       </div>
 
       {mostrarSeletorCatalogo && !pedidoEditandoId && (
-        <div className="bg-purple-50/50 border border-purple-100 p-4 rounded-3xl mb-4 text-xs space-y-2 w-full">
-          <p className="font-bold text-purple-700 uppercase text-[10px]">Escolha um produto pronto:</p>
+        <div className="bg-purple-50/50 border p-4 rounded-3xl mb-4 text-xs space-y-2 w-full" style={{ borderColor: `${corLojaPerfil}20` }}>
+          <p className="font-bold uppercase text-[10px]" style={{ color: corLojaPerfil }}>Escolha um produto pronto:</p>
           <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto w-full">
             {produtos.map(p => (
               <div key={p.id} onClick={() => { setNomeProd(p.nome); setPrecoManual(String(p.precoVenda)); setMostrarSeletorCatalogo(false); }} className="bg-white p-2.5 rounded-xl border flex justify-between items-center cursor-pointer hover:border-purple-400 w-full">
@@ -823,7 +819,7 @@ export default function App() {
                   </div>
                   <span className="font-bold">{p.nome}</span>
                 </div>
-                <span className="text-purple-700 font-black">R$ {Number(p.precoVenda).toFixed(2)}</span>
+                <span className="font-black" style={{ color: corLojaPerfil }}>R$ {Number(p.precoVenda).toFixed(2)}</span>
               </div>
             ))}
           </div>
@@ -859,7 +855,7 @@ export default function App() {
              </select>
              <div className="space-y-2 w-full">
                 {matsNoPed.map((m, i) => (
-                  <div key={i} className="flex justify-between items-center bg-purple-50 p-3 rounded-2xl border border-purple-100 text-purple-700 font-bold text-xs w-full">
+                  <div key={i} className="flex justify-between items-center p-3 rounded-2xl border font-bold text-xs w-full" style={{ color: corLojaPerfil, backgroundColor: `${corLojaPerfil}10`, borderColor: `${corLojaPerfil}20` }}>
                     <span>{m.nome}</span>
                     <div className="flex items-center gap-2">
                       <input type="number" className="w-16 bg-white rounded-lg p-1 text-center" value={m.qtdUsada} onChange={e => { const nova = [...matsNoPed]; nova[i].qtdUsada = e.target.value; setMatsNoPed(nova); }} />
@@ -877,7 +873,7 @@ export default function App() {
             </div>
             <div className="w-full">
               <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Valor da Hora (R$)</label>
-              <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-purple-700 border focus:border-purple-400" value={vHora} onChange={e => setVHora(e.target.value)} />
+              <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold border focus:border-purple-400" style={{ color: corLojaPerfil }} value={vHora} onChange={e => setVHora(e.target.value)} />
             </div>
           </div>
 
@@ -888,7 +884,7 @@ export default function App() {
                 {equipamentos.map(eq => {
                   const selecionado = equipamentosSelecionados.includes(eq.id);
                   return (
-                    <button key={eq.id} type="button" onClick={() => toggleEquipamento(eq.id)} className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${selecionado ? 'bg-purple-600 text-white border-purple-600 shadow-md' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-purple-300'}`}>
+                    <button key={eq.id} type="button" onClick={() => toggleEquipamento(eq.id)} className="px-4 py-2.5 rounded-xl text-xs font-bold transition-all border shadow-sm" style={selecionado ? { backgroundColor: corLojaPerfil, color: '#fff', borderColor: corLojaPerfil } : { backgroundColor: '#f8fafc', color: '#64748b', borderColor: '#e2e8f0' }}>
                       {eq.nome}
                     </button>
                   );
@@ -943,12 +939,12 @@ export default function App() {
 
       {precoManual === null && (
         <div className="bg-slate-50 p-5 rounded-3xl mb-8 border border-slate-100 text-xs space-y-2.5 w-full">
-          <p className="font-black text-purple-700 uppercase tracking-wider text-[10px] mb-1">📋 RESUMO FINANCEIRO DA PEÇA</p>
+          <p className="font-black uppercase tracking-wider text-[10px] mb-1" style={{ color: corLojaPerfil }}>📋 RESUMO FINANCEIRO DA PEÇA</p>
           <div className="flex justify-between text-slate-500 w-full"><span>Materiais:</span><span className="font-bold">R$ {resumenFinanceiro.materiais}</span></div>
           <div className="flex justify-between text-slate-500 w-full"><span>Mão de Obra:</span><span className="font-bold">R$ {resumenFinanceiro.maoObra}</span></div>
           <div className="flex justify-between text-slate-500 w-full"><span>Extras / Custo Manual:</span><span className="font-bold">R$ {resumenFinanceiro.extras}</span></div>
           <div className="flex justify-between text-slate-500 w-full"><span>Depreciação de Equipamentos:</span><span className="font-bold text-purple-700">R$ {resumenFinanceiro.deprec}</span></div>
-          <div className="flex justify-between text-slate-800 font-bold border-t pt-2 mt-1 w-full"><span>Custo Total da Peça:</span><span className="text-purple-700">R$ {resumenFinanceiro.custoPeca}</span></div>
+          <div className="flex justify-between text-slate-800 font-bold border-t pt-2 mt-1 w-full"><span>Custo Total da Peça:</span><span className="text-purple-700" style={{ color: corLojaPerfil }}>R$ {resumenFinanceiro.custoPeca}</span></div>
           <div className="flex justify-between text-emerald-600 font-bold w-full"><span>Lucro Livre Gerado ({lucro}%) :</span><span>R$ {resumenFinanceiro.lucroLivre}</span></div>
         </div>
       )}
@@ -978,22 +974,20 @@ export default function App() {
         <div className={`w-72 bg-white h-full shadow-2xl p-6 flex flex-col justify-between transition-transform duration-300 ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'}`} onClick={e => e.stopPropagation()}>
           <div className="space-y-6">
             <div className="flex justify-between items-center border-b pb-4">
-              <div className="font-black text-purple-700 text-lg flex items-center gap-2"><Calculator size={22}/> Menu PrecificaJá</div>
+              <div className="font-black text-lg flex items-center gap-2" style={{ color: corLojaPerfil }}><Calculator size={22}/> Menu {nomeLojaPerfil || 'PrecificaJá'}</div>
               <button onClick={() => setIsMenuOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={22}/></button>
             </div>
             <nav className="flex flex-col gap-1">
-              <button onClick={() => setActiveTab('inicio')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'inicio' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Home size={16}/> Início</button>
-              <button onClick={() => setActiveTab('criar')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'criar' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Plus size={16}/> Orçar</button>
-              
-              <button onClick={() => setActiveTab('perfil')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'perfil' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Settings size={16}/> Perfil da Loja</button>
-              <button onClick={() => setActiveTab('anotacoes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'anotacoes' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><BookOpen size={16}/> Minhas Anotações 📝</button>
-
-              <button onClick={() => setActiveTab('financeiro')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'financeiro' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Calculator size={16}/> Configurações de Custos</button>
-              <button onClick={() => setActiveTab('pedidos')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'pedidos' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><History size={16}/> Histórico de Orçamentos</button>
-              <button onClick={() => setActiveTab('balcao')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'balcao' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><ShoppingCart size={16}/> Balcão de Vendas Rápido</button>
-              <button onClick={() => setActiveTab('catalogo')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'catalogo' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><BookOpen size={16}/> Meu Catálogo Visual</button>
-              <button onClick={() => setActiveTab('materiais')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'materiais' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Package size={16}/> Armário / Insumos</button>
-              <button onClick={() => setActiveTab('clientes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'clientes' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><User size={16}/> Meus Clientes</button>
+              <button onClick={() => setActiveTab('inicio')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'inicio' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={activeTab === 'inicio' ? { color: corLojaPerfil, backgroundColor: `${corLojaPerfil}10` } : {}}><Home size={16}/> Início</button>
+              <button onClick={() => setActiveTab('criar')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'criar' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={activeTab === 'criar' ? { color: corLojaPerfil, backgroundColor: `${corLojaPerfil}10` } : {}}><Plus size={16}/> Orçar</button>
+              <button onClick={() => setActiveTab('perfil')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'perfil' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={activeTab === 'perfil' ? { color: corLojaPerfil, backgroundColor: `${corLojaPerfil}10` } : {}}><Settings size={16}/> Perfil da Loja</button>
+              <button onClick={() => setActiveTab('anotacoes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'anotacoes' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={activeTab === 'anotacoes' ? { color: corLojaPerfil, backgroundColor: `${corLojaPerfil}10` } : {}}><BookOpen size={16}/> Minhas Anotações 📝</button>
+              <button onClick={() => setActiveTab('financeiro')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'financeiro' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={activeTab === 'financeiro' ? { color: corLojaPerfil, backgroundColor: `${corLojaPerfil}10` } : {}}><Calculator size={16}/> Configurações de Custos</button>
+              <button onClick={() => setActiveTab('pedidos')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'pedidos' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={activeTab === 'pedidos' ? { color: corLojaPerfil, backgroundColor: `${corLojaPerfil}10` } : {}}><History size={16}/> Histórico de Orçamentos</button>
+              <button onClick={() => setActiveTab('balcao')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'balcao' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={activeTab === 'balcao' ? { color: corLojaPerfil, backgroundColor: `${corLojaPerfil}10` } : {}}><ShoppingCart size={16}/> Balcão de Vendas Rápido</button>
+              <button onClick={() => setActiveTab('catalogo')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'catalogo' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={activeTab === 'catalogo' ? { color: corLojaPerfil, backgroundColor: `${corLojaPerfil}10` } : {}}><BookOpen size={16}/> Meu Catálogo Visual</button>
+              <button onClick={() => setActiveTab('materiais')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'materiais' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={activeTab === 'materiais' ? { color: corLojaPerfil, backgroundColor: `${corLojaPerfil}10` } : {}}><Package size={16}/> Armário / Insumos</button>
+              <button onClick={() => setActiveTab('clientes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'clientes' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={activeTab === 'clientes' ? { color: corLojaPerfil, backgroundColor: `${corLojaPerfil}10` } : {}}><User size={16}/> Meus Clientes</button>
             </nav>
           </div>
           <button onClick={() => signOut(auth)} className="w-full text-red-500 bg-red-50 p-4 rounded-xl text-xs font-black uppercase flex items-center justify-center gap-1.5"><LogOut size={16}/> Sair</button>
@@ -1005,7 +999,7 @@ export default function App() {
         <button onClick={() => setIsMenuOpen(true)} className="p-2 text-slate-700 hover:text-purple-700 transition-colors">
           <Menu size={24} />
         </button>
-        <div className="font-black text-purple-700 text-lg flex items-center gap-2"><Calculator size={22}/> PrecificaJá</div>
+        <div className="font-black text-lg flex items-center gap-2" style={{ color: corLojaPerfil }}><Calculator size={22}/> {nomeLojaPerfil || 'PrecificaJá'}</div>
         <div className="w-10"></div> 
       </header>
 
@@ -1013,10 +1007,10 @@ export default function App() {
         {/* TELA INICIAL */}
         {activeTab === 'inicio' && (
           <div className="space-y-5 pt-2 w-full">
-            <div className="bg-gradient-to-tr from-purple-700 to-indigo-600 p-6 rounded-[35px] shadow-lg text-white w-full">
-              <p className="text-xs font-bold uppercase tracking-widest text-purple-200">Faturamento Realizado</p>
+            <div className="p-6 rounded-[35px] shadow-lg text-white w-full" style={{ backgroundColor: corLojaPerfil }}>
+              <p className="text-xs font-bold uppercase tracking-widest opacity-80">Faturamento Realizado</p>
               <h2 className="text-4xl font-black mt-1 tracking-tight">R$ {dashboardMetrics.faturamento}</h2>
-              <p className="text-[11px] text-purple-200 mt-2 opacity-80">📈 Dinheiro gerado de pedidos marcados como vendidos</p>
+              <p className="text-[11px] mt-2 opacity-80">📈 Dinheiro gerado de pedidos marcados como vendidos</p>
             </div>
 
             <div onClick={() => { limparCalculadora(); setActiveTab('criar'); }} 
@@ -1064,7 +1058,7 @@ export default function App() {
         {activeTab === 'perfil' && (
           <div className="space-y-6 pt-2 w-full">
             <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
-              <h2 className="text-purple-700 font-bold mb-2 flex items-center gap-2 uppercase text-xs tracking-widest"><Settings size={18}/> Perfil da Minha Loja</h2>
+              <h2 className="font-bold mb-2 flex items-center gap-2 uppercase text-xs tracking-widest" style={{ color: corLojaPerfil }}><Settings size={18}/> Perfil da Minha Loja</h2>
               <p className="text-slate-400 text-[11px] mb-6">Personalize o aplicativo com a sua marca. O logo e o nome definidos aqui aparecerão no topo de todos os seus orçamentos em PDF!</p>
 
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Logo Oficial da Empresa</label>
@@ -1087,6 +1081,15 @@ export default function App() {
                 )}
               </div>
 
+              {/* Input Color Picker para cor da marca */}
+              <div className="mb-5 w-full">
+                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Cor Identidade da Loja</label>
+                <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-2xl border">
+                  <input type="color" className="w-12 h-12 rounded-xl cursor-pointer border-0 bg-transparent" value={corLojaPerfil} onChange={e => setCorLojaPerfil(e.target.value)} />
+                  <span className="text-xs font-black uppercase font-mono text-slate-600">{corLojaPerfil}</span>
+                </div>
+              </div>
+
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome Comercial da Loja</label>
               <input 
                 placeholder="Ex: Loop Criative" 
@@ -1099,14 +1102,15 @@ export default function App() {
                 try {
                   await setDoc(doc(db, "configuracoes_loja", user.uid), {
                     nomeLoja: nomeLojaPerfil.trim(),
-                    logoUrl: logoLojaPerfil
+                    logoUrl: logoLojaPerfil,
+                    corLoja: corLojaPerfil
                   }, { merge: true });
-                  alert("Perfil da empresa updated com sucesso! 🚀");
+                  alert("Perfil da empresa atualizado com sucesso! 🚀");
                   setActiveTab('inicio');
                 } catch {
                   alert("Erro ao salvar as configurações da empresa.");
                 }
-              }} className="w-full bg-purple-700 hover:bg-purple-800 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md transition-colors" disabled={subindoLogo}>
+              }} className="w-full text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md transition-colors" style={{ backgroundColor: corLojaPerfil }} disabled={subindoLogo}>
                 Salvar Configurações da Marca
               </button>
             </div>
@@ -1117,7 +1121,7 @@ export default function App() {
         {activeTab === 'anotacoes' && (
           <div className="space-y-4 pt-2 w-full">
             <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
-              <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2"><BookOpen size={20}/> Minhas Anotações Internas</h2>
+              <h2 className="font-bold mb-4 flex items-center gap-2" style={{ color: corLojaPerfil }}><BookOpen size={20}/> Minhas Anotações Internas</h2>
               <p className="text-slate-400 text-[11px] mb-4">Use este espaço como seu bloco de notas geral da empresa. Seus clientes não têm acesso a essas notas.</p>
               
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Título da Nota</label>
@@ -1135,7 +1139,7 @@ export default function App() {
                 
                 setNovaAnotacao({ id: '', titulo: '', conteudo: '' });
                 alert("Nota guardada com sucesso! 📝✨");
-              }} className="w-full bg-orange-500 text-white p-5 rounded-2xl font-black uppercase text-xs shadow-md">
+              }} className="w-full text-white p-5 rounded-2xl font-black uppercase text-xs shadow-md" style={{ backgroundColor: corLojaPerfil }}>
                 {novaAnotacao.id ? 'Atualizar Nota' : 'Guardar no Caderno'}
               </button>
             </div>
@@ -1146,7 +1150,7 @@ export default function App() {
                   <div className="flex justify-between items-start w-full">
                     <div>
                       <h4 className="font-black text-slate-800 text-base">{item.titulo}</h4>
-                      <p className="text-[10px] text-purple-500 font-bold uppercase mt-0.5">Criado em: {item.dataCriacao}</p>
+                      <p className="text-[10px] font-bold uppercase mt-0.5" style={{ color: corLojaPerfil }}>Criado em: {item.dataCriacao}</p>
                     </div>
                     <div className="flex gap-1 shrink-0">
                       <button onClick={() => setNovaAnotacao({ id: item.id, titulo: item.titulo, conteudo: item.conteudo })} className="text-orange-400 p-2 hover:bg-orange-50 rounded-xl"><Edit2 size={16}/></button>
@@ -1164,11 +1168,11 @@ export default function App() {
         {activeTab === 'financeiro' && (
           <div className="space-y-6 pt-2 w-full">
             <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
-              <h2 className="text-purple-700 font-bold mb-2 flex items-center gap-2 uppercase text-xs tracking-widest"><Calculator size={18}/> Estrutura de Custos Fixos (Opcional)</h2>
+              <h2 className="font-bold mb-2 flex items-center gap-2 uppercase text-xs tracking-widest" style={{ color: corLojaPerfil }}><Calculator size={18}/> Estrutura de Custos Fixos (Opcional)</h2>
               <p className="text-slate-400 text-[11px] mb-4">Insira ou edite seus valores aqui. Eles ficam salvos e você pode alterá-los quando quiser.</p>
 
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Salário Mensal Pretendido</label>
-              <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 font-bold text-purple-700 outline-none" value={financasFixo.salario} onChange={e => setFinancasFixo({...financasFixo, salario: e.target.value})} />
+              <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 font-bold outline-none" style={{ color: corLojaPerfil }} value={financasFixo.salario} onChange={e => setFinancasFixo({...financasFixo, salario: e.target.value})} />
 
               <div className="grid grid-cols-2 gap-3 mb-3 w-full">
                 <div>
@@ -1193,7 +1197,7 @@ export default function App() {
               </div>
 
               <div className="w-full">
-                <h3 className="text-purple-700 font-bold text-xs uppercase tracking-wider mb-2 mt-4">Sua Carga Horária</h3>
+                <h3 className="font-bold text-xs uppercase tracking-wider mb-2 mt-4" style={{ color: corLojaPerfil }}>Sua Carga Horária</h3>
                 <div className="grid grid-cols-2 gap-3 mb-5 w-full">
                   <div>
                     <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Dias de Trabalho no Mês</label>
@@ -1208,24 +1212,22 @@ export default function App() {
 
               <button onClick={async () => {
                 await setDoc(doc(db, "configuracoes_financeiras", user.uid), financasFixo);
-                
                 const totalHoras = Number(financasFixo.diasTrabalho || 20) * Number(financasFixo.horasDia || 8);
                 const intentCustos = Number(financasFixo.salario || 0) + Number(financasFixo.aluguel || 0) + Number(financasFixo.internet || 0) + Number(financasFixo.luz || 0) + Number(financasFixo.outros || 0);
                 if (intentCustos > 0) setVHora((intentCustos / totalHoras).toFixed(2));
-                
-                alert("Custos salvos com sucesso! O valor sugerido para a hora foi atualizado na calculadora. 🎉");
-              }} className="w-full bg-purple-700 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md">
+                alert("Custos salvos com sucesso! 🎉");
+              }} className="w-full text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md" style={{ backgroundColor: corLojaPerfil }}>
                 Salvar Configurações Fixas
               </button>
             </div>
 
             {/* SEÇÃO DE FERRAMENTAS */}
             <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
-              <h2 className="text-purple-700 font-bold mb-2 flex items-center gap-2 uppercase text-xs tracking-widest"><Package size={18}/> Minhas Ferramentas de Trabalho (Depreciação)</h2>
+              <h2 className="font-bold mb-2 flex items-center gap-2 uppercase text-xs tracking-widest" style={{ color: corLojaPerfil }}><Package size={18}/> Minhas Ferramentas de Trabalho (Depreciação)</h2>
               <p className="text-slate-400 text-[11px] mb-4">Adicione ferramentas (secador, prensa) para incluir o desgaste financeiro automaticamente no resumo de custos.</p>
 
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome do Equipamento</label>
-              <input placeholder="Ex: Secador Profissional" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none" value={novoEquipamento.nome} onChange={e => setNovoEquipamento({...novoEquipamento, nome: e.target.value})} />
+              <input placeholder="Ex: Prensa Térmica" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none" value={novoEquipamento.nome} onChange={e => setNovoEquipamento({...novoEquipamento, nome: e.target.value})} />
 
               <div className="grid grid-cols-2 gap-3 mb-4 w-full">
                 <div>
@@ -1265,7 +1267,7 @@ export default function App() {
                   <div key={eq.id} className="bg-white p-4 rounded-3xl flex justify-between items-center border shadow-sm w-full">
                     <div>
                       <p className="font-bold text-slate-800">{eq.nome}</p>
-                      <p className="text-xs text-slate-400 mt-0.5">Desgaste: <span className="font-bold text-purple-700">R$ {isNaN(descHora) ? "0.00" : descHora.toFixed(2)} por hour de uso</span></p>
+                      <p className="text-xs text-slate-400 mt-0.5">Desgaste: <span className="font-bold" style={{ color: corLojaPerfil }}>R$ {isNaN(descHora) ? "0.00" : descHora.toFixed(2)} por hora de uso</span></p>
                     </div>
                     <button onClick={() => confirmarExcluir('equipamento', eq.id)} className="text-red-200 p-2"><Trash2 size={16}/></button>
                   </div>
@@ -1278,24 +1280,24 @@ export default function App() {
         {/* SEÇÃO DO BALCÃO DE VENDAS RÁPIDO */}
         {activeTab === 'balcao' && (
           <div className="space-y-4 pt-2 w-full">
-            <div className="bg-gradient-to-tr from-purple-800 to-purple-600 p-5 rounded-[35px] text-white shadow-md border border-purple-900 space-y-3.5 w-full">
+            <div className="p-5 rounded-[35px] text-white shadow-md border space-y-3.5 w-full" style={{ backgroundColor: corLojaPerfil, borderColor: corLojaPerfil }}>
               <div className="w-full">
-                <h3 className="text-xs font-black uppercase tracking-widest text-purple-200 flex items-center gap-1.5"><Share2 size={14}/> Link da Vitrine de Clientes</h3>
-                <div className="mt-1.5 bg-purple-900/40 p-3 rounded-xl text-[11px] font-mono select-all break-all border border-purple-500/30 bg-black/10 w-full font-bold">
+                <h3 className="text-xs font-black uppercase tracking-widest flex items-center gap-1.5 opacity-90"><Share2 size={14}/> Link da Vitrine de Clientes</h3>
+                <div className="mt-1.5 p-3 rounded-xl text-[11px] font-mono select-all break-all bg-black/10 w-full font-bold border border-white/10">
                   {linkDoCatalogoDestaCliente}
                 </div>
-                <div onClick={copiarLinkCatalogo} className="mt-2 w-full bg-white text-purple-800 font-bold p-2.5 rounded-xl text-xs uppercase shadow flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer">
+                <div onClick={copiarLinkCatalogo} className="mt-2 w-full bg-white font-bold p-2.5 rounded-xl text-xs uppercase shadow flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer" style={{ color: corLojaPerfil }}>
                   <Copy size={13}/> Copiar Link da Vitrine
                 </div>
               </div>
 
-              <div className="border-t border-purple-500/30 pt-2.5 w-full">
-                <label className="text-[9px] font-black uppercase text-purple-200 block mb-1">📱 Seu WhatsApp de Vendas (Com DDD)</label>
+              <div className="border-t border-white/20 pt-2.5 w-full">
+                <label className="text-[9px] font-black uppercase block mb-1 opacity-90">📱 Seu WhatsApp de Vendas (Com DDD)</label>
                 <div className="flex gap-2 w-full">
-                  <input placeholder="Ex: 21983858055" className="flex-1 p-2.5 bg-black/20 text-white rounded-xl text-xs font-bold border border-purple-500/30 outline-none" value={zapDonaConta} onChange={e => setZapDonaConta(e.target.value)} />
+                  <input placeholder="Ex: 21983858055" className="flex-1 p-2.5 bg-black/20 text-white rounded-xl text-xs font-bold border border-white/10 outline-none" value={zapDonaConta} onChange={e => setZapDonaConta(e.target.value)} />
                   <button onClick={async () => {
                     if(!zapDonaConta.trim()) return alert("Digite o número!");
-                    try { await setDoc(doc(db, "configuracoes_loja", user.uid), { whatsapp: zapDonaConta.trim() }, { merge: true }); alert("WhatsApp saved!"); } 
+                    try { await setDoc(doc(db, "configuracoes_loja", user.uid), { whatsapp: zapDonaConta.trim() }, { merge: merge: true }); alert("WhatsApp salvo!"); } 
                     catch { alert("Erro ao salvar."); }
                   }} className="bg-orange-500 text-white text-xs font-black uppercase px-4 rounded-xl shadow">Salvar</button>
                 </div>
@@ -1348,7 +1350,7 @@ export default function App() {
                         <span className="text-[11px] font-black text-purple-300 mr-1">R$ {Number(p.precoVenda).toFixed(2)}</span>
                         <button onClick={() => setCarrinhoInterno({...carrinhoInterno, [p.id]: Math.max(0, qtdInterna - 1)})} className="w-7 h-7 bg-slate-800 rounded-lg font-black text-slate-300">-</button>
                         <span className="font-bold text-xs w-4 text-center">{qtdInterna}</span>
-                        <button onClick={() => setCarrinhoInterno({...carrinhoInterno, [p.id]: qtdInterna + 1})} className="w-7 h-7 bg-purple-600 rounded-lg font-black text-white">+</button>
+                        <button onClick={() => setCarrinhoInterno({...carrinhoInterno, [p.id]: qtdInterna + 1})} className="w-7 h-7 bg-purple-600 rounded-lg font-black text-white" style={{ backgroundColor: corLojaPerfil }}>+</button>
                       </div>
                     </div>
                   );
@@ -1366,7 +1368,7 @@ export default function App() {
         {activeTab === 'catalogo' && (
           <div className="space-y-4 pt-2 w-full">
             <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
-              <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2 uppercase text-xs tracking-widest"><BookOpen size={18}/> Novo Item de Venda Fixa</h2>
+              <h2 className="font-bold mb-4 flex items-center gap-2 uppercase text-xs tracking-widest" style={{ color: corLojaPerfil }}><BookOpen size={18}/> Novo Item de Venda Fixa</h2>
               <div className="mb-4 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-3xl p-4 bg-slate-50 relative min-h-[140px] w-full">
                 {novoProdCatalogo.urlImagem ? (
                   <div className="relative w-full h-32 rounded-2xl overflow-hidden">
@@ -1374,8 +1376,8 @@ export default function App() {
                     <button onClick={() => setNovoProdCatalogo(p => ({...p, urlImagem: ''}))} className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full"><X size={14}/></button>
                   </div>
                 ) : (
-                  <label className="cursor-pointer flex flex-col items-center gap-2 text-slate-400 hover:text-purple-600 transition-colors w-full h-full flex justify-center">
-                    <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center shadow-sm text-purple-600">
+                  <label className="cursor-pointer flex flex-col items-center gap-2 text-slate-400 transition-colors w-full h-full flex justify-center">
+                    <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center shadow-sm" style={{ color: corLojaPerfil }}>
                       <Camera size={22} />
                     </div>
                     <span className="text-xs font-bold uppercase tracking-wide text-[10px]">
@@ -1389,7 +1391,7 @@ export default function App() {
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome do Produto</label>
               <input placeholder="Ex: Caneca Alça Coração" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none" value={novoProdCatalogo.nome} onChange={e => setNovoProdCatalogo({...novoProdCatalogo, nome: e.target.value})} />
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Preço Fixo de Venda (R$)</label>
-              <input type="number" placeholder="Ex: 35.00" className="w-full p-4 bg-slate-50 rounded-2xl mb-4 outline-none font-bold text-purple-700" value={novoProdCatalogo.precoVenda} onChange={e => setNovoProdCatalogo({...novoProdCatalogo, precoVenda: e.target.value})} />
+              <input type="number" placeholder="Ex: 35.00" className="w-full p-4 bg-slate-50 rounded-2xl mb-4 outline-none font-bold" style={{ color: corLojaPerfil }} value={novoProdCatalogo.precoVenda} onChange={e => setNovoProdCatalogo({...novoProdCatalogo, precoVenda: e.target.value})} />
 
               <button onClick={async () => {
                 if(!novoProdCatalogo.nome || !novoProdCatalogo.precoVenda) return alert("Preencha o nome e o preço!");
@@ -1398,7 +1400,7 @@ export default function App() {
                 else await addDoc(collection(db, "produtos"), d);
                 setNovoProdCatalogo({ id: '', nome: '', precoVenda: '', urlImagem: '' });
                 alert("Produto salvo no catálogo!");
-              }} className="w-full bg-purple-700 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md" disabled={subindoImagem}>
+              }} className="w-full text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md" style={{ backgroundColor: corLojaPerfil }} disabled={subindoImagem}>
                 {novoProdCatalogo.id ? 'Atualizar Item' : 'Salvar no Catálogo 📖'}
               </button>
             </div>
@@ -1412,7 +1414,7 @@ export default function App() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-slate-800 text-sm truncate">{p.nome}</p>
-                    <p className="text-purple-700 font-black text-sm mt-0.5">R$ {Number(p.precoVenda).toFixed(2)}</p>
+                    <p className="font-black text-sm mt-0.5" style={{ color: corLojaPerfil }}>R$ {Number(p.precoVenda).toFixed(2)}</p>
                   </div>
                   <div className="flex items-center gap-1">
                     <button onClick={() => venderItemDiretoDoCatalogo(p)} className="bg-orange-500 text-white px-3 py-2 rounded-xl text-xs font-black uppercase shadow active:scale-95">Vender 🛍️</button>
@@ -1431,12 +1433,11 @@ export default function App() {
         {activeTab === 'pedidos' && (
           <div className="space-y-3 pt-2 w-full">
             <div className="flex justify-between items-center mb-1 w-full">
-              <h2 className="text-purple-700 font-bold flex items-center gap-2"><History size={20}/> Histórico da Loja</h2>
+              <h2 className="font-bold flex items-center gap-2" style={{ color: corLojaPerfil }}><History size={20}/> Histórico da Loja</h2>
             </div>
 
-            {/* ADICIONADO: Sub-abas de controle visual para selecionar o status da listagem */}
             <div className="flex bg-slate-100 p-1.5 rounded-2xl gap-1 w-full mb-4 border">
-              <button onClick={() => setFiltroStatusPedido('Pendente')} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${filtroStatusPedido === 'Pendente' ? 'bg-white text-purple-700 shadow-sm' : 'text-slate-400'}`}>Pendentes ⏳</button>
+              <button onClick={() => setFiltroStatusPedido('Pendente')} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${filtroStatusPedido === 'Pendente' ? 'bg-white shadow-sm' : 'text-slate-400'}`} style={filtroStatusPedido === 'Pendente' ? { color: corLojaPerfil } : {}}>Pendentes ⏳</button>
               <button onClick={() => setFiltroStatusPedido('Vendido')} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${filtroStatusPedido === 'Vendido' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400'}`}>Vendidos 💰</button>
               <button onClick={() => setFiltroStatusPedido('Cancelado')} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${filtroStatusPedido === 'Cancelado' ? 'bg-white text-red-500 shadow-sm' : 'text-slate-400'}`}>Cancelados ❌</button>
             </div>
@@ -1448,12 +1449,11 @@ export default function App() {
                  <div key={p.id} className="bg-white p-5 rounded-[30px] shadow-sm flex flex-col gap-3 border w-full">
                    <div className="flex justify-between items-center w-full">
                      <div>
-                        <p className="font-black text-[10px] uppercase text-purple-700 mb-1">
+                        <p className="font-black text-[10px] uppercase mb-1" style={{ color: corLojaPerfil }}>
                           {cli?.nome || 'Sem Cliente'} {p.data ? `— ${p.data}` : ''} — <span className={statusAtual.includes('Vendido') ? "text-emerald-500" : statusAtual.includes('Cancelado') ? "text-red-400" : "text-orange-400"}>{statusAtual}</span>
                         </p>
                         <div className="font-bold text-slate-700 text-sm whitespace-pre-line">{p.nomeProd} <span className="text-xs text-slate-400 font-normal">({p.qtdPed || 1} un)</span></div>
                         
-                        {/* Detalhes rápidos do cliente direto no histórico */}
                         {cli && (cli.zap || cli.email || cli.endereco) && (
                           <div className="mt-2 text-[11px] text-slate-400 bg-slate-50 p-2.5 rounded-xl border border-dashed border-slate-200 space-y-0.5">
                             {cli.zap && <p>📱 WhatsApp: <span className="font-semibold text-slate-600">{cli.zap}</span></p>}
@@ -1462,9 +1462,8 @@ export default function App() {
                           </div>
                         )}
 
-                        {/* Exibição rápida de observações internas salvas */}
                         {p.obsPedido && (
-                          <p className="text-[11px] text-purple-600 bg-purple-50 p-2 rounded-lg font-medium border border-purple-100 mt-2">🗒️ Notas: {p.obsPedido}</p>
+                          <p className="text-[11px] p-2 rounded-lg font-medium border mt-2" style={{ color: corLojaPerfil, backgroundColor: `${corLojaPerfil}10`, borderColor: `${corLojaPerfil}20` }}>🗒️ Notas: {p.obsPedido}</p>
                         )}
                      </div>
                      <div className="text-orange-500 font-black text-xl shrink-0">R$ {p.preco}</div>
@@ -1474,14 +1473,11 @@ export default function App() {
                         <>
                           <button onClick={() => confirmarVendaPedido(p)} className="text-emerald-600 p-2 bg-emerald-50 rounded-xl text-xs font-bold flex items-center gap-1 mr-auto active:scale-95"><CheckCircle size={16}/> Confirmar Venda</button>
                           <button onClick={() => carregarPedidoParaEdicao(p)} className="text-purple-600 p-2 bg-purple-50 rounded-xl"><Edit2 size={18}/></button>
-                          {/* MODIFICADO: Opção de cancelar pedido sem deletar o registro definitivo */}
                           <button onClick={() => cancelarPedidoSemExcluir(p.id)} title="Cancelar Orçamento" className="text-red-500 p-2 bg-red-50 rounded-xl"><X size={18}/></button>
                         </>
                       )}
                       
-                      {/* Botão Duplicar Orçamento disponível para todos os status */}
                       <button onClick={() => handleDuplicarOrcamento(p)} title="Duplicar este Orçamento" className="text-blue-500 p-2 bg-blue-50 rounded-xl active:scale-95 transition-transform"><Copy size={18}/></button>
-                      
                       <button onClick={() => gerarPDF(p)} className="text-orange-500 p-2 bg-orange-50 rounded-xl"><Printer size={18}/></button>
                       <button onClick={() => enviarZap({nomeProd: p.nomeProd, preco: p.preco, clienteId: p.clienteId, prazo: p.prazo, qtdPed: p.qtdPed})} className="text-emerald-500 p-2 bg-emerald-50 rounded-xl"><MessageCircle size={18}/></button>
                       <button onClick={() => confirmarExcluir('pedido', p.id)} className="text-red-200 p-2"><Trash2 size={18}/></button>
@@ -1502,7 +1498,7 @@ export default function App() {
         {activeTab === 'materiais' && (
           <div className="space-y-4 pt-2 w-full">
             <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
-              <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2"><Package size={20}/> Gerenciar Armário</h2>
+              <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2" style={{ color: corLojaPerfil }}><Package size={20}/> Gerenciar Armário</h2>
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome do Insumo</label>
               <input placeholder="Ex: Caneca Cerâmica" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none" value={novoMat.nome} onChange={e => setNovoMat({...novoMat, nome: e.target.value})} />
               <div className="grid grid-cols-3 gap-3 mb-3 w-full">
@@ -1549,10 +1545,7 @@ export default function App() {
             </div>
 
             <div className="relative w-full mb-2">
-              <Search 
-                size={18} 
-                className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" 
-              />
+              <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
                 placeholder="Pesquisar material no armário..."
@@ -1581,18 +1574,14 @@ export default function App() {
                 </div>
               );
             })}
-
-            {materialsFiltrados.length === 0 && (
-              <p className="text-center text-xs text-slate-400 py-4">Nenhum insumo encontrado com esse nome.</p>
-            )}
           </div>
         )}
 
-        {/* ABA DE CLIENTES - TOTALMENTE EXPANDIDA */}
+        {/* ABA DE CLIENTES - EXPANDIDA */}
         {activeTab === 'clientes' && (
            <div className="space-y-4 pt-2 w-full">
             <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
-              <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2"><User size={20}/> Gerenciar Clientes</h2>
+              <h2 className="font-bold mb-4 flex items-center gap-2" style={{ color: corLojaPerfil }}><User size={20}/> Gerenciar Clientes</h2>
               
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome Comercial / Completo</label>
               <input placeholder="Ex: Maria Silva" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm" value={novoCli.nome} onChange={e => setNovoCli({...novoCli, nome: e.target.value})} />
@@ -1608,21 +1597,12 @@ export default function App() {
 
               <button onClick={async () => {
                 if(!novoCli.nome) return alert("Digite o nome do cliente!");
-                
-                const dadosCliente = { 
-                  nome: novoCli.nome, 
-                  zap: novoCli.zap, 
-                  email: novoCli.email || '', 
-                  endereco: novoCli.endereco || '', 
-                  userId: user.uid 
-                };
-
+                const dadosCliente = { nome: novoCli.nome, zap: novoCli.zap, email: novoCli.email || '', endereco: novoCli.endereco || '', userId: user.uid };
                 if(novoCli.id) await updateDoc(doc(db, "clientes", novoCli.id), dadosCliente);
                 else await addDoc(collection(db, "clientes"), dadosCliente);
-                
                 setNovoCli({ id: '', nome: '', zap: '', email: '', endereco: '' }); 
                 alert("Cadastro do cliente salvo com sucesso! 🎉");
-              }} className="w-full bg-orange-500 text-white p-5 rounded-2xl font-black uppercase text-xs">Salvar Cliente</button>
+              }} className="w-full text-white p-5 rounded-2xl font-black uppercase text-xs" style={{ backgroundColor: corLojaPerfil }}>Salvar Cliente</button>
             </div>
             {clientes.map(c => (
               <div key={c.id} className="bg-white p-5 rounded-3xl flex flex-col gap-2 border shadow-sm font-bold w-full mb-2">
@@ -1642,21 +1622,73 @@ export default function App() {
             ))}
           </div>
         )}
+
+        {/* TELA DE PERFIL DA LOJA */}
+        {activeTab === 'perfil' && (
+          <div className="space-y-6 pt-2 w-full">
+            <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
+              <h2 className="font-bold mb-2 flex items-center gap-2 uppercase text-xs tracking-widest" style={{ color: corLojaPerfil }}><Settings size={18}/> Perfil da Minha Loja</h2>
+              <p className="text-slate-400 text-[11px] mb-6">Personalize o aplicativo com a sua marca. O logo, o nome e a cor definidos aqui mudarão o layout do sistema e dos PDFs dos orçamentos!</p>
+
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Logo Oficial da Empresa</label>
+              <div className="mb-5 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-3xl p-4 bg-slate-50 relative min-h-[140px] w-full">
+                {logoLojaPerfil ? (
+                  <div className="relative w-full h-32 rounded-2xl overflow-hidden flex items-center justify-center bg-white p-2">
+                    <img src={logoLojaPerfil} alt="Logo da Loja" className="max-w-full max-h-full object-contain" />
+                    <button onClick={() => setLogoLojaPerfil('')} className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600 transition-colors"><X size={14}/></button>
+                  </div>
+                ) : (
+                  <label className="cursor-pointer flex flex-col items-center gap-2 text-slate-400 hover:text-purple-600 transition-colors w-full h-full justify-center py-4">
+                    <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center shadow-sm" style={{ color: corLojaPerfil }}>
+                      <Camera size={22} />
+                    </div>
+                    <span className="text-xs font-bold uppercase tracking-wide text-[10px]">
+                      {subindoLogo ? 'Enviando Imagem...' : '📸 Enviar Logo da Empresa'}
+                    </span>
+                    <input type="file" accept="image/*" className="hidden" onChange={handleUploadLogo} disabled={subindoLogo} />
+                  </label>
+                )}
+              </div>
+
+              {/* Input Color Picker para Cor da Loja */}
+              <div className="mb-5 w-full">
+                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Cor Principal da Empresa</label>
+                <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-2xl border">
+                  <input type="color" className="w-12 h-12 rounded-xl cursor-pointer border-0 bg-transparent" value={corLojaPerfil} onChange={e => setCorLojaPerfil(e.target.value)} />
+                  <span className="text-xs font-black uppercase font-mono text-slate-600">{corLojaPerfil}</span>
+                </div>
+              </div>
+
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome Comercial da Loja</label>
+              <input placeholder="Ex: Loop Criative" className="w-full p-4 bg-slate-50 rounded-2xl mb-6 font-bold text-slate-800 outline-none border focus:border-purple-400" value={nomeLojaPerfil} onChange={e => setNomeLojaPerfil(e.target.value)} />
+
+              <button onClick={async () => {
+                try {
+                  await setDoc(doc(db, "configuracoes_loja", user.uid), { nomeLoja: nomeLojaPerfil.trim(), logoUrl: logoLojaPerfil, corLoja: corLojaPerfil }, { merge: true });
+                  alert("Configurações aplicadas com sucesso! 🚀");
+                  setActiveTab('inicio');
+                } catch { alert("Erro ao salvar as configurações."); }
+              }} className="w-full text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md transition-colors" style={{ backgroundColor: corLojaPerfil }} disabled={subindoLogo}>
+                Salvar Configurações da Marca
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* MENU INFERIOR FIXO ENXUTO */}
+      {/* MENU INFERIOR FIXO */}
       <div className="fixed bottom-0 left-0 right-0 flex justify-center p-4 z-30 bg-transparent pointer-events-none">
         <div className="bg-white shadow-[0_-10px_30px_rgba(0,0,0,0.06)] rounded-[28px] flex justify-around items-center px-4 h-16 w-full max-w-xl pointer-events-auto border">
-          <button onClick={() => setActiveTab('inicio')} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'inicio' ? 'text-orange-500' : 'text-slate-300'}`}>
-            <Home size={22} className={activeTab === 'inicio' ? 'stroke-[2.5]' : 'stroke-[2]'} />
+          <button onClick={() => setActiveTab('inicio')} className="flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95" style={activeTab === 'inicio' ? { color: corLojaPerfil } : { color: '#cbd5e1' }}>
+            <Home size={22} className="stroke-[2.5]" />
             <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Início</span>
           </button>
-          <button onClick={() => setActiveTab('criar')} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'criar' ? 'text-orange-500' : 'text-slate-300'}`}>
-            <Plus size={22} className={activeTab === 'criar' ? 'stroke-[3]' : 'stroke-[2]'} />
+          <button onClick={() => setActiveTab('criar')} className="flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95" style={activeTab === 'criar' ? { color: corLojaPerfil } : { color: '#cbd5e1' }}>
+            <Plus size={22} className="stroke-[3]" />
             <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Orçar</span>
           </button>
-          <button onClick={() => setActiveTab('pedidos')} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'pedidos' ? 'text-orange-500' : 'text-slate-300'}`}>
-            <History size={22} className={activeTab === 'pedidos' ? 'stroke-[2.5]' : 'stroke-[2]'} />
+          <button onClick={() => setActiveTab('pedidos')} className="flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95" style={activeTab === 'pedidos' ? { color: corLojaPerfil } : { color: '#cbd5e1' }}>
+            <History size={22} className="stroke-[2.5]" />
             <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Histórico</span>
           </button>
         </div>
