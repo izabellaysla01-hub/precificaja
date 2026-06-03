@@ -3,7 +3,7 @@ import { initializeApp } from "firebase/app";
 import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { getFirestore, collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc, getDocs, setDoc, getDoc } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2, Menu, Search, Settings, BookMarkdown } from 'lucide-react';
+import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2, Menu, Search, Settings, NotebookTabs } from 'lucide-react';
 
 const firebaseConfig = {
   apiKey: "AIzaSyD0BWsNm9DbGGDqiHzkdDmNdxIGdJ9tWe8",
@@ -56,14 +56,12 @@ export default function App() {
   const [nomeComprador, setNomeComprador] = useState('');
   const [zapDaLojaPublica, setZapDaLojaPublica] = useState('');
 
-  // MODIFICADO: Aceita aba 'perfil' e 'anotacoes'
   const [activeTab, useStateActiveTab] = useState<'inicio' | 'materiais' | 'criar' | 'pedidos' | 'clientes' | 'catalogo' | 'balcao' | 'financeiro' | 'perfil' | 'anotacoes'>('inicio');
   const [materiais, setMaterials] = useState<any[]>([]);
   const [pedidos, setPedidos] = useState<any[]>([]);
   const [clientes, setClientes] = useState<any[]>([]);
   const [produtos, setProdutos] = useState<any[]>([]);
   const [equipamentos, setEquipamentos] = useState<any[]>([]);
-  // ADICIONADO: Estado da lista de anotações gerais
   const [anotacoes, setAnotacoes] = useState<any[]>([]);
 
   const [pesquisaMateriais, setPesquisaMateriais] = useState('');
@@ -90,9 +88,7 @@ export default function App() {
   const [isRegistering, setIsRegistering] = useState(false);
   const [novoMat, setNovoMat] = useState({ id: '', nome: '', valor: '', qtd: '1', unidade: 'un', qtdAtual: '0', qtdMinima: '0' });
   
-  // MODIFICADO: Objeto do novo cliente expandido com email e endereco
   const [novoCli, setNovoCli] = useState({ id: '', nome: '', zap: '', email: '', endereco: '' });
-  // ADICIONADO: Objeto para nova anotação geral
   const [novaAnotacao, setNovaAnotacao] = useState({ id: '', titulo: '', conteudo: '' });
   
   const [novoProdCatalogo, setNovoProdCatalogo] = useState({ id: '', nome: '', precoVenda: '', urlImagem: '' });
@@ -143,13 +139,13 @@ export default function App() {
           if(docSnap.exists()) {
             setZapDonaConta(docSnap.data().whatsapp || '');
             setNomeLojaPerfil(docSnap.data().nomeLoja || '');
-            logoLojaPerfil ? setLogoLojaPerfil(docSnap.data().logoUrl || '') : setLogoLojaPerfil(docSnap.data().logoUrl || '');
+            setLogoLojaPerfil(docSnap.data().logoUrl || '');
           }
         });
       }
       setLoading(false);
     }); 
-  }, []);
+  }, [logoLojaPerfil]);
   
   useEffect(() => {
     const script = document.createElement('script');
@@ -173,7 +169,6 @@ export default function App() {
       const qProdutos = query(collection(db, "produtos"), where("userId", "==", user.uid));
       const unsubProdutos = onSnapshot(qProdutos, s => setProdutos(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
-      // ADICIONADO: Escuta em tempo real para as anotações gerais
       const qAnotacoes = query(collection(db, "anotacoes"), where("userId", "==", user.uid));
       const unsubAnotacoes = onSnapshot(qAnotacoes, s => setAnotacoes(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
@@ -333,6 +328,7 @@ export default function App() {
       
       arrayItensSalvar.push({
         nome: p.nome,
+        bold: true,
         qtd: qtd,
         precoVenda: Number(p.precoVenda)
       });
@@ -377,7 +373,7 @@ export default function App() {
     const pendentesCount = pedidos.filter(p => p.status !== 'Vendido 💰').length;
     const estoqueCriticoCount = materiais.filter(m => Number(m.qtdAtual || 0) <= Number(m.qtdMinima || 0)).length;
     return { faturamento: faturamentoTotal.toFixed(2), pendentes: pendentesCount, criticos: estoqueCriticoCount, totalClientes: clientes.length };
-  }, [pedidos, materials, clientes]);
+  }, [pedidos, materiais, clientes]);
 
   const resumenFinanceiro = useMemo(() => {
     if (precoManual !== null) {
@@ -446,7 +442,7 @@ export default function App() {
       htmlLinhasTabela = arrayLinhasTexto.map(linhaTexto => {
         if(!linhaTexto.trim()) return '';
         let quantidadeItem = Number(p.qtdPed || 1);
-        let nomeItemLimpo = inlineTexto = linhaTexto.trim();
+        let nomeItemLimpo = linhaTexto.trim();
         
         const matchCombo = linhaTexto.trim().match(/^(\d+)x\s+(.+)$/i);
         if(matchCombo) {
@@ -655,7 +651,6 @@ export default function App() {
     setActiveTab('criar');
   };
 
-  // ADICIONADO: Função para duplicar orçamento (id nulo para criar cópia limpa)
   const handleDuplicarOrcamento = (p: any) => {
     setPedidoEditandoId(null); 
     setNomeProd(`${p.nomeProd} (Cópia)`); 
@@ -666,7 +661,7 @@ export default function App() {
     setLucro(p.lucro || '100'); 
     setDesconto(p.desconto || '0'); 
     setPrazo(p.prazo || ''); 
-    setClienteSel(''); // Limpa cliente para redefinir na cópia
+    setClienteSel(''); 
     setPrecoManual(p.precoManual || null); 
     setObsPedido(p.obsPedido || '');
     setEquipamentosSelecionados(p.equipamentosSelecionados || []);
@@ -960,10 +955,10 @@ export default function App() {
               <button onClick={() => setActiveTab('inicio')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'inicio' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Home size={16}/> Início</button>
               <button onClick={() => setActiveTab('criar')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'criar' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Plus size={16}/> Orçar</button>
               
-              <button onClick={() => setActiveTab('perfil')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'perfil' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Settings size={16}/> Minha Loja (Logo)</button>
+              <button onClick={() => setActiveTab('perfil')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'perfil' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Settings size={16}/> Perfil da Loja</button>
               
-              {/* ADICIONADO: Link da aba de Anotações no Menu lateral */}
-              <button onClick={() => setActiveTab('anotacoes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'anotacoes' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><BookMarkdown size={16}/> Minhas Anotações 📝</button>
+              {/* MODIFICADO: Link corrigido com NotebookTabs no Menu lateral */}
+              <button onClick={() => setActiveTab('anotacoes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'anotacoes' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><NotebookTabs size={16}/> Minhas Anotações 📝</button>
 
               <button onClick={() => setActiveTab('financeiro')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'financeiro' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Calculator size={16}/> Configurações de Custos</button>
               <button onClick={() => setActiveTab('pedidos')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'pedidos' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><History size={16}/> Histórico de Orçamentos</button>
@@ -1078,7 +1073,7 @@ export default function App() {
                     nomeLoja: nomeLojaPerfil.trim(),
                     logoUrl: logoLojaPerfil
                   }, { merge: true });
-                  alert("Perfil da empresa updated com sucesso! 🚀");
+                  alert("Perfil da empresa atualizado com sucesso! 🚀");
                   setActiveTab('inicio');
                 } catch {
                   alert("Erro ao salvar as configurações da empresa.");
@@ -1090,11 +1085,12 @@ export default function App() {
           </div>
         )}
 
-        {/* ADICIONADO: NOVA TELA DE ANOTAÇÕES GERAIS */}
+        {/* TELA DE ANOTAÇÕES GERAIS */}
         {activeTab === 'anotacoes' && (
           <div className="space-y-4 pt-2 w-full">
             <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
-              <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2"><BookMarkdown size={20}/> Minhas Anotações Internas</h2>
+              {/* MODIFICADO: Ícone NotebookTabs aplicado no título */}
+              <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2"><NotebookTabs size={20}/> Minhas Anotações Internas</h2>
               <p className="text-slate-400 text-[11px] mb-4">Use este espaço como seu bloco de notas geral da empresa. Seus clientes não têm acesso a essas notas.</p>
               
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Título da Nota</label>
@@ -1420,7 +1416,7 @@ export default function App() {
                         </p>
                         <div className="font-bold text-slate-700 text-sm whitespace-pre-line">{p.nomeProd} <span className="text-xs text-slate-400 font-normal">({p.qtdPed || 1} un)</span></div>
                         
-                        {/* ADICIONADO: Detalhes rápidos do cliente direto no histórico */}
+                        {/* Detalhes rápidos do cliente direto no histórico */}
                         {cli && (cli.zap || cli.email || cli.endereco) && (
                           <div className="mt-2 text-[11px] text-slate-400 bg-slate-50 p-2.5 rounded-xl border border-dashed border-slate-200 space-y-0.5">
                             {cli.zap && <p>📱 WhatsApp: <span className="font-semibold text-slate-600">{cli.zap}</span></p>}
@@ -1443,7 +1439,7 @@ export default function App() {
                           <button onClick={() => carregarPedidoParaEdicao(p)} className="text-purple-600 p-2 bg-purple-50 rounded-xl"><Edit2 size={18}/></button>
                         </>
                       )}
-                      {/* ADICIONADO: Botão Duplicar Orçamento */}
+                      {/* Botão Duplicar Orçamento */}
                       <button onClick={() => handleDuplicarOrcamento(p)} title="Duplicar este Orçamento" className="text-blue-500 p-2 bg-blue-50 rounded-xl active:scale-95 transition-transform"><Copy size={18}/></button>
                       
                       <button onClick={() => gerarPDF(p)} className="text-orange-500 p-2 bg-orange-50 rounded-xl"><Printer size={18}/></button>
