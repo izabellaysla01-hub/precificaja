@@ -69,6 +69,11 @@ export default function App() {
   const [pedidoEditandoId, setPedidoEditandoId] = useState<string | null>(null);
   const [mostrarSeletorCatalogo, setMostrarSeletorCatalogo] = useState(false);
 
+  // ADICIONADO: Filtro ativo para sub-abas do histórico de pedidos
+  const [filtroStatusPedido, setFiltroStatusPedido] = useState<'Pendente' | 'Vendido' | 'Cancelado'>('Pendente');
+  // ADICIONADO: Detecta se o formulário atual veio de uma ação de duplicar
+  const [isDuplicando, setIsDuplicando] = useState(false);
+
   const [nomeProd, setNomeProd] = useState('');
   const [qtdPed, setQtdPed] = useState('1');
   const [matsNoPed, setMatsNoPed] = useState<any[]>([]);
@@ -368,8 +373,9 @@ export default function App() {
   };
 
   const dashboardMetrics = useMemo(() => {
-    const faturamentoTotal = pedidos.filter(p => p.status === 'Vendido 💰').reduce((acc, p) => acc + Number(p.preco || 0), 0);
-    const pendentesCount = pedidos.filter(p => p.status !== 'Vendido 💰').length;
+    // MODIFICADO: Contabiliza o faturamento apenas para itens vendidos de fato
+    const faturamentoTotal = pedidos.filter(p => p.status === 'Vendido 💰' || p.status === 'Vendido').reduce((acc, p) => acc + Number(p.preco || 0), 0);
+    const pendentesCount = pedidos.filter(p => p.status === 'Pendente' || !p.status).length;
     const estoqueCriticoCount = materiais.filter(m => Number(m.qtdAtual || 0) <= Number(m.qtdMinima || 0)).length;
     return { faturamento: faturamentoTotal.toFixed(2), pendentes: pendentesCount, criticos: estoqueCriticoCount, totalClientes: clientes.length };
   }, [pedidos, materiais, clientes]);
@@ -417,6 +423,7 @@ export default function App() {
     window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
   };
 
+  // MODIFICADO: Consertado erro de atribuição de string que quebrava a renderização de tabelas normais no PDF
   const gerarPDF = (p: any) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
     const dataEmissao = p.data || new Date().toLocaleDateString('pt-BR');
@@ -443,7 +450,7 @@ export default function App() {
         let quantidadeItem = Number(p.qtdPed || 1);
         let nomeItemLimpo = linhaTexto.trim();
         
-        const matchCombo = inlineTexto = linhaTexto.trim().match(/^(\d+)x\s+(.+)$/i);
+        const matchCombo = linhaTexto.trim().match(/^(\d+)x\s+(.+)$/i);
         if(matchCombo) {
           quantidadeItem = Number(matchCombo[1]);
           nomeItemLimpo = matchCombo[2].trim();
@@ -462,7 +469,7 @@ export default function App() {
     }
 
     const cabecalhoNomeHtml = nomeLojaPerfil ? nomeLojaPerfil : "PrecificaJá 🚀";
-    const cabecalhoLogoHtml = logoLojaPerfil ? `<img src="${logoLojaPerfil}" style="max-height: 60px; max-width: 150px; object-fit: contain; border-radius: 8px; margin-bottom: 5px;"/>` : '';
+    const cabecalhoLogoHtml = logoLojaPerfil ? `<div style="margin-bottom: 10px;"><img src="${logoLojaPerfil}" style="max-height: 55px; max-width: 140px; object-fit: contain; border-radius: 8px;"/></div>` : '';
 
     const elemento = document.createElement('div');
     elemento.innerHTML = `
@@ -595,6 +602,14 @@ export default function App() {
     alert("Venda confirmada!");
   };
 
+  // ADICIONADO: Nova função para mudar status do pedido para Cancelado no Firebase
+  const cancelarPedidoSemExcluir = async (id: string) => {
+    if (window.confirm("Deseja realmente mover este orçamento para os cancelados?")) {
+      await updateDoc(doc(db, "pedidos", id), { status: 'Cancelado ❌' });
+      alert("Pedido cancelado!");
+    }
+  };
+
   const handleUploadImagem = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
@@ -631,16 +646,19 @@ export default function App() {
     setEquipamentosSelecionados([]);
     setLucro('100'); setDesconto('0'); setPrazo(''); setClienteSel('');
     setPedidoEditandoId(null); setPrecoManual(null); setObsPedido('');
+    // Reseta flags de controle de ações de cópia/duplicação
+    setIsDuplicando(false);
   };
 
   const carregarPedidoParaEdicao = (p: any) => {
+    setIsDuplicando(false);
     setPedidoEditandoId(p.id); setNomeProd(p.nomeProd || ''); setQtdPed(p.qtdPed || '1'); setVHora(p.vHora || '9'); setTGasto(p.tGasto || '60');
     setCustos(p.custos || { embalagem: '0', impressao: '0', energia: '0', outros: '0' });
     setLucro(p.lucro || '100'); setDesconto(p.desconto || '0'); setPrazo(p.prazo || ''); setClienteSel(p.clienteId || '');
     setPrecoManual(p.precoManual || null); setObsPedido(p.obsPedido || '');
     setEquipamentosSelecionados(p.equipamentosSelecionados || []);
 
-    if (p.materiaisUsados && p.materialsUsados.length > 0) {
+    if (p.materiaisUsados && p.materiaisUsados.length > 0) {
       const listaReconstruida = p.materiaisUsados.map((mSalvo: any) => {
         const matDoArmario = materiais.find(item => item.id === mSalvo.id);
         return { id: mSalvo.id, nome: matDoArmario ? matDoArmario.nome : mSalvo.nome, qtdUsada: Number(mSalvo.qtdUsada || 1), valor: matDoArmario ? Number(matDoArmario.valor) : Number(mSalvo.valor || 0), qtd: matDoArmario ? Number(matDoArmario.qtd) : Number(mSalvo.qtd || 1), unidade: matDoArmario ? matDoArmario.unidade : (mSalvo.unidade || 'un') };
@@ -652,6 +670,8 @@ export default function App() {
 
   const handleDuplicarOrcamento = (p: any) => {
     setPedidoEditandoId(null); 
+    // Ativa a flag informando que é um processo de duplicação em andamento
+    setIsDuplicando(true);
     setNomeProd(`${p.nomeProd} (Cópia)`); 
     setQtdPed(p.qtdPed || '1'); 
     setVHora(p.vHora || '9'); 
@@ -694,6 +714,16 @@ export default function App() {
     );
   }, [materiais, pesquisaMateriais]);
 
+  // ADICIONADO: Filtra dinamicamente a listagem de pedidos de acordo com o status selecionado nas abas
+  const pedidosFiltradosPorStatus = useMemo(() => {
+    return pedidos.filter(p => {
+      const st = p.status || 'Pendente';
+      if (filtroStatusPedido === 'Vendido') return st.includes('Vendido');
+      if (filtroStatusPedido === 'Cancelado') return st.includes('Cancelado');
+      return st === 'Pendente';
+    });
+  }, [pedidos, filtroStatusPedido]);
+
   if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando o PrecificaJá... 🚀</div>;
 
   if (idLojaPublica) {
@@ -730,7 +760,7 @@ export default function App() {
                     <div className="flex items-center gap-2 mt-2">
                       <button onClick={() => setCarrinho({ ...carrinho, [p.id]: Math.max(0, qtdNoCarinho - 1) })} className="w-8 h-8 bg-slate-100 rounded-xl font-black text-slate-600">-</button>
                       <span className="font-bold text-sm w-6 text-center">{qtdNoCarinho}</span>
-                      <button onClick={() => setCarrinho({ ...carrinho, [p.id]: qtdNoCarinho + 1 })} className="w-8 h-8 bg-purple-100 rounded-xl font-black text-purple-700">+</button>
+                      <button onClick={() => setCarrinho({ ...carrinho, [p.id]: Math.max(0, qtdNoCarinho - 1) })} className="w-8 h-8 bg-purple-100 rounded-xl font-black text-purple-700">+</button>
                     </div>
                   </div>
                 </div>
@@ -760,18 +790,19 @@ export default function App() {
 
   const renderCalculadoraForm = () => (
     <div className="bg-white p-6 rounded-[35px] shadow-xl border mt-2 w-full">
-      {pedidoEditandoId && (
+      {/* MODIFICADO: Exibe alerta e botão dinâmico para cancelar edições ou cópias em andamento */}
+      {(pedidoEditandoId || isDuplicando) && (
         <div className="bg-amber-50 border border-amber-200 p-4 rounded-3xl mb-6 flex justify-between items-center animate-pulse w-full">
           <div className="text-xs text-amber-800 font-bold">
-            <span>✏️ Você está editando um orçamento salvo!</span>
+            <span>{isDuplicando ? '✨ Você está configurando uma cópia duplicada!' : '✏️ Você está editando um orçamento salvo!'}</span>
           </div>
-          <button onClick={() => { limparCalculadora(); setActiveTab('pedidos'); }} className="text-[10px] bg-red-500 text-white px-3 py-1.5 rounded-xl font-black uppercase tracking-wider shadow-sm active:scale-95 transition-all">Cancelar Edição ❌</button>
+          <button onClick={() => { limparCalculadora(); setActiveTab('pedidos'); }} className="text-[10px] bg-red-500 text-white px-3 py-1.5 rounded-xl font-black uppercase tracking-wider shadow-sm active:scale-95 transition-all">Cancelar Cópia / Edição ❌</button>
         </div>
       )}
 
       <div className="flex justify-between items-center mb-6 w-full">
         <h2 className="text-purple-700 font-bold flex items-center gap-2 uppercase text-xs tracking-widest">
-          <ShoppingCart size={18}/> {pedidoEditandoId ? 'Editando Dados' : 'Novo Orçamento'}
+          <ShoppingCart size={18}/> {pedidoEditandoId ? 'Editando Dados' : isDuplicando ? 'Salvando Cópia' : 'Novo Orçamento'}
         </h2>
         {!pedidoEditandoId && (
           <button onClick={() => setMostrarSeletorCatalogo(!mostrarSeletorCatalogo)} className="text-xs bg-purple-50 text-purple-700 px-3 py-1.5 rounded-xl font-black uppercase border border-purple-100">
@@ -926,7 +957,7 @@ export default function App() {
         <div className="text-orange-500 font-black text-4xl tracking-tighter">R$ {resumenFinanceiro.final}</div>
         <div className="flex gap-2">
           <button onClick={async () => {
-             if(!nomeProd) return alert("Digite o nome do product!");
+             if(!nomeProd) return alert("Digite o nome do produto!");
              const dadosPedido = { nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed, vHora, tGasto, custos, lucro, desconto, userId: user.uid, precoManual: precoManual, obsPedido: obsPedido, equipamentosSelecionados, materiaisUsados: precoManual ? [] : matsNoPed.map(m => ({ id: m.id, nome: m.nome, qtdUsada: Number(m.qtdUsada || 1) })) };
              if (pedidoEditandoId) await updateDoc(doc(db, "pedidos", pedidoEditandoId), dadosPedido);
              else await addDoc(collection(db, "pedidos"), { ...dadosPedido, data: new Date().toLocaleDateString('pt-BR'), status: 'Pendente', userId: user.uid });
@@ -955,8 +986,6 @@ export default function App() {
               <button onClick={() => setActiveTab('criar')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'criar' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Plus size={16}/> Orçar</button>
               
               <button onClick={() => setActiveTab('perfil')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'perfil' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Settings size={16}/> Perfil da Loja</button>
-              
-              {/* MODIFICADO: Ícone substituído por BookOpen para evitar incompatibilidade */}
               <button onClick={() => setActiveTab('anotacoes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'anotacoes' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><BookOpen size={16}/> Minhas Anotações 📝</button>
 
               <button onClick={() => setActiveTab('financeiro')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'financeiro' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Calculator size={16}/> Configurações de Custos</button>
@@ -1072,7 +1101,7 @@ export default function App() {
                     nomeLoja: nomeLojaPerfil.trim(),
                     logoUrl: logoLojaPerfil
                   }, { merge: true });
-                  alert("Perfil da empresa atualizado com sucesso! 🚀");
+                  alert("Perfil da empresa updated com sucesso! 🚀");
                   setActiveTab('inicio');
                 } catch {
                   alert("Erro ao salvar as configurações da empresa.");
@@ -1088,7 +1117,6 @@ export default function App() {
         {activeTab === 'anotacoes' && (
           <div className="space-y-4 pt-2 w-full">
             <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
-              {/* MODIFICADO: Ícone BookOpen aplicado no título para máxima estabilidade */}
               <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2"><BookOpen size={20}/> Minhas Anotações Internas</h2>
               <p className="text-slate-400 text-[11px] mb-4">Use este espaço como seu bloco de notas geral da empresa. Seus clientes não têm acesso a essas notas.</p>
               
@@ -1237,7 +1265,7 @@ export default function App() {
                   <div key={eq.id} className="bg-white p-4 rounded-3xl flex justify-between items-center border shadow-sm w-full">
                     <div>
                       <p className="font-bold text-slate-800">{eq.nome}</p>
-                      <p className="text-xs text-slate-400 mt-0.5">Desgaste: <span className="font-bold text-purple-700">R$ {isNaN(descHora) ? "0.00" : descHora.toFixed(2)} por hora de uso</span></p>
+                      <p className="text-xs text-slate-400 mt-0.5">Desgaste: <span className="font-bold text-purple-700">R$ {isNaN(descHora) ? "0.00" : descHora.toFixed(2)} por hour de uso</span></p>
                     </div>
                     <button onClick={() => confirmarExcluir('equipamento', eq.id)} className="text-red-200 p-2"><Trash2 size={16}/></button>
                   </div>
@@ -1399,19 +1427,29 @@ export default function App() {
         {/* ABA DA CALCULADORA COMPOSTA */}
         {activeTab === 'criar' && renderCalculadoraForm()}
 
-        {/* HISTÓRICO DE ORÇAMENTOS EXPANDIDO */}
+        {/* HISTÓRICO DE ORÇAMENTOS EXPANDIDO E SEPARADO POR STATUS */}
         {activeTab === 'pedidos' && (
           <div className="space-y-3 pt-2 w-full">
-            <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2"><History size={20}/> Histórico Completo</h2>
-            {pedidos.map(p => {
+            <div className="flex justify-between items-center mb-1 w-full">
+              <h2 className="text-purple-700 font-bold flex items-center gap-2"><History size={20}/> Histórico da Loja</h2>
+            </div>
+
+            {/* ADICIONADO: Sub-abas de controle visual para selecionar o status da listagem */}
+            <div className="flex bg-slate-100 p-1.5 rounded-2xl gap-1 w-full mb-4 border">
+              <button onClick={() => setFiltroStatusPedido('Pendente')} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${filtroStatusPedido === 'Pendente' ? 'bg-white text-purple-700 shadow-sm' : 'text-slate-400'}`}>Pendentes ⏳</button>
+              <button onClick={() => setFiltroStatusPedido('Vendido')} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${filtroStatusPedido === 'Vendido' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400'}`}>Vendidos 💰</button>
+              <button onClick={() => setFiltroStatusPedido('Cancelado')} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${filtroStatusPedido === 'Cancelado' ? 'bg-white text-red-500 shadow-sm' : 'text-slate-400'}`}>Cancelados ❌</button>
+            </div>
+
+            {pedidosFiltradosPorStatus.map(p => {
                const cli = clientes.find(c => c.id === p.clienteId);
-               const ehPendente = p.status !== 'Vendido 💰';
+               const statusAtual = p.status || 'Pendente';
                return (
                  <div key={p.id} className="bg-white p-5 rounded-[30px] shadow-sm flex flex-col gap-3 border w-full">
                    <div className="flex justify-between items-center w-full">
                      <div>
                         <p className="font-black text-[10px] uppercase text-purple-700 mb-1">
-                          {cli?.nome || 'Sem Cliente'} {p.data ? `— ${p.data}` : ''} — <span className={ehPendente ? "text-orange-400" : "text-emerald-500"}>{p.status || 'Pendente'}</span>
+                          {cli?.nome || 'Sem Cliente'} {p.data ? `— ${p.data}` : ''} — <span className={statusAtual.includes('Vendido') ? "text-emerald-500" : statusAtual.includes('Cancelado') ? "text-red-400" : "text-orange-400"}>{statusAtual}</span>
                         </p>
                         <div className="font-bold text-slate-700 text-sm whitespace-pre-line">{p.nomeProd} <span className="text-xs text-slate-400 font-normal">({p.qtdPed || 1} un)</span></div>
                         
@@ -1432,13 +1470,16 @@ export default function App() {
                      <div className="text-orange-500 font-black text-xl shrink-0">R$ {p.preco}</div>
                    </div>
                    <div className="flex items-center justify-end border-t pt-2 gap-1 w-full">
-                      {ehPendente && (
+                      {statusAtual === 'Pendente' && (
                         <>
                           <button onClick={() => confirmarVendaPedido(p)} className="text-emerald-600 p-2 bg-emerald-50 rounded-xl text-xs font-bold flex items-center gap-1 mr-auto active:scale-95"><CheckCircle size={16}/> Confirmar Venda</button>
                           <button onClick={() => carregarPedidoParaEdicao(p)} className="text-purple-600 p-2 bg-purple-50 rounded-xl"><Edit2 size={18}/></button>
+                          {/* MODIFICADO: Opção de cancelar pedido sem deletar o registro definitivo */}
+                          <button onClick={() => cancelarPedidoSemExcluir(p.id)} title="Cancelar Orçamento" className="text-red-500 p-2 bg-red-50 rounded-xl"><X size={18}/></button>
                         </>
                       )}
-                      {/* Botão Duplicar Orçamento */}
+                      
+                      {/* Botão Duplicar Orçamento disponível para todos os status */}
                       <button onClick={() => handleDuplicarOrcamento(p)} title="Duplicar este Orçamento" className="text-blue-500 p-2 bg-blue-50 rounded-xl active:scale-95 transition-transform"><Copy size={18}/></button>
                       
                       <button onClick={() => gerarPDF(p)} className="text-orange-500 p-2 bg-orange-50 rounded-xl"><Printer size={18}/></button>
@@ -1448,6 +1489,12 @@ export default function App() {
                  </div>
                );
             })}
+
+            {pedidosFiltradosPorStatus.length === 0 && (
+              <div className="text-center text-slate-400 py-12 text-xs font-bold bg-white rounded-[30px] border shadow-sm">
+                Nenhum pedido nesta categoria no momento. 🎉
+              </div>
+            )}
           </div>
         )}
 
@@ -1515,7 +1562,7 @@ export default function App() {
               />
             </div>
 
-            {materialsFiltrados = materiais.filter(m => m.nome?.toLowerCase().includes(pesquisaMateriais.toLowerCase())).map(m => {
+            {materialsFiltrados.map(m => {
               const estaAcabando = Number(m.qtdAtual || 0) <= Number(m.qtdMinima || 0);
               const valorUnitarioCalculado = Number(m.qtd || 1) > 0 ? (Number(m.valor || 0) / Number(m.qtd || 1)).toFixed(2) : "0.00";
               return (
@@ -1535,7 +1582,7 @@ export default function App() {
               );
             })}
 
-            {materiaisFiltrados.length === 0 && (
+            {materialsFiltrados.length === 0 && (
               <p className="text-center text-xs text-slate-400 py-4">Nenhum insumo encontrado com esse nome.</p>
             )}
           </div>
@@ -1588,7 +1635,7 @@ export default function App() {
                   </div>
                   <div className="flex gap-1 shrink-0">
                     <button onClick={() => setNovoCli({ id: c.id, nome: c.nome, zap: c.zap || '', email: c.email || '', endereco: c.endereco || '' })} className="text-orange-400 p-2"><Edit2 size={18}/></button>
-                    <button onClick={() => quarterfinalsExcluir('cliente', c.id)} className="text-red-200 p-2"><Trash2 size={20}/></button>
+                    <button onClick={() => deleteDoc(doc(db, "clientes", c.id))} className="text-red-200 p-2"><Trash2 size={20}/></button>
                   </div>
                 </div>
               </div>
