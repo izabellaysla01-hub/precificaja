@@ -69,9 +69,7 @@ export default function App() {
   const [pedidoEditandoId, setPedidoEditandoId] = useState<string | null>(null);
   const [mostrarSeletorCatalogo, setMostrarSeletorCatalogo] = useState(false);
 
-  // ADICIONADO: Filtro ativo para sub-abas do histórico de pedidos
   const [filtroStatusPedido, setFiltroStatusPedido] = useState<'Pendente' | 'Vendido' | 'Cancelado'>('Pendente');
-  // ADICIONADO: Detecta se o formulário atual veio de uma ação de duplicar
   const [isDuplicando, setIsDuplicando] = useState(false);
 
   const [nomeProd, setNomeProd] = useState('');
@@ -92,7 +90,7 @@ export default function App() {
   const [password, setPassword] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
   const [novoMat, setNovoMat] = useState({ id: '', nome: '', valor: '', qtd: '1', unidade: 'un', qtdAtual: '0', qtdMinima: '0' });
-  
+    
   const [novoCli, setNovoCli] = useState({ id: '', nome: '', zap: '', email: '', endereco: '' });
   const [novaAnotacao, setNovaAnotacao] = useState({ id: '', titulo: '', conteudo: '' });
   
@@ -373,7 +371,6 @@ export default function App() {
   };
 
   const dashboardMetrics = useMemo(() => {
-    // MODIFICADO: Contabiliza o faturamento apenas para itens vendidos de fato
     const faturamentoTotal = pedidos.filter(p => p.status === 'Vendido 💰' || p.status === 'Vendido').reduce((acc, p) => acc + Number(p.preco || 0), 0);
     const pendentesCount = pedidos.filter(p => p.status === 'Pendente' || !p.status).length;
     const estoqueCriticoCount = materiais.filter(m => Number(m.qtdAtual || 0) <= Number(m.qtdMinima || 0)).length;
@@ -423,7 +420,6 @@ export default function App() {
     window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
   };
 
-  // MODIFICADO: Consertado erro de atribuição de string que quebrava a renderização de tabelas normais no PDF
   const gerarPDF = (p: any) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
     const dataEmissao = p.data || new Date().toLocaleDateString('pt-BR');
@@ -448,7 +444,7 @@ export default function App() {
       htmlLinhasTabela = arrayLinhasTexto.map(linhaTexto => {
         if(!linhaTexto.trim()) return '';
         let quantidadeItem = Number(p.qtdPed || 1);
-        let nomeItemLimpo = linhaTexto.trim();
+        let nomeItemLimpo = inlineTexto.trim();
         
         const matchCombo = linhaTexto.trim().match(/^(\d+)x\s+(.+)$/i);
         if(matchCombo) {
@@ -602,7 +598,6 @@ export default function App() {
     alert("Venda confirmada!");
   };
 
-  // ADICIONADO: Nova função para mudar status do pedido para Cancelado no Firebase
   const cancelarPedidoSemExcluir = async (id: string) => {
     if (window.confirm("Deseja realmente mover este orçamento para os cancelados?")) {
       await updateDoc(doc(db, "pedidos", id), { status: 'Cancelado ❌' });
@@ -646,7 +641,6 @@ export default function App() {
     setEquipamentosSelecionados([]);
     setLucro('100'); setDesconto('0'); setPrazo(''); setClienteSel('');
     setPedidoEditandoId(null); setPrecoManual(null); setObsPedido('');
-    // Reseta flags de controle de ações de cópia/duplicação
     setIsDuplicando(false);
   };
 
@@ -658,8 +652,8 @@ export default function App() {
     setPrecoManual(p.precoManual || null); setObsPedido(p.obsPedido || '');
     setEquipamentosSelecionados(p.equipamentosSelecionados || []);
 
-    if (p.materiaisUsados && p.materiaisUsados.length > 0) {
-      const listaReconstruida = p.materiaisUsados.map((mSalvo: any) => {
+    if (p.materialsUsados && p.materialsUsados.length > 0) {
+      const listaReconstruida = p.materialsUsados.map((mSalvo: any) => {
         const matDoArmario = materiais.find(item => item.id === mSalvo.id);
         return { id: mSalvo.id, nome: matDoArmario ? matDoArmario.nome : mSalvo.nome, qtdUsada: Number(mSalvo.qtdUsada || 1), valor: matDoArmario ? Number(matDoArmario.valor) : Number(mSalvo.valor || 0), qtd: matDoArmario ? Number(matDoArmario.qtd) : Number(mSalvo.qtd || 1), unidade: matDoArmario ? matDoArmario.unidade : (mSalvo.unidade || 'un') };
       });
@@ -670,7 +664,6 @@ export default function App() {
 
   const handleDuplicarOrcamento = (p: any) => {
     setPedidoEditandoId(null); 
-    // Ativa a flag informando que é um processo de duplicação em andamento
     setIsDuplicando(true);
     setNomeProd(`${p.nomeProd} (Cópia)`); 
     setQtdPed(p.qtdPed || '1'); 
@@ -685,8 +678,8 @@ export default function App() {
     setObsPedido(p.obsPedido || '');
     setEquipamentosSelecionados(p.equipamentosSelecionados || []);
 
-    if (p.materiaisUsados && p.materiaisUsados.length > 0) {
-      const listaReconstruida = p.materiaisUsados.map((mSalvo: any) => {
+    if (p.materialsUsados && p.materialsUsados.length > 0) {
+      const listaReconstruida = p.materialsUsados.map((mSalvo: any) => {
         const matDoArmario = materiais.find(item => item.id === mSalvo.id);
         return { id: mSalvo.id, nome: matDoArmario ? matDoArmario.nome : mSalvo.nome, qtdUsada: Number(mSalvo.qtdUsada || 1), valor: matDoArmario ? Number(matDoArmario.valor) : Number(mSalvo.valor || 0), qtd: matDoArmario ? Number(matDoArmario.qtd) : Number(mSalvo.qtd || 1), unidade: matDoArmario ? matDoArmario.unidade : (mSalvo.unidade || 'un') };
       });
@@ -714,7 +707,6 @@ export default function App() {
     );
   }, [materiais, pesquisaMateriais]);
 
-  // ADICIONADO: Filtra dinamicamente a listagem de pedidos de acordo com o status selecionado nas abas
   const pedidosFiltradosPorStatus = useMemo(() => {
     return pedidos.filter(p => {
       const st = p.status || 'Pendente';
@@ -760,7 +752,7 @@ export default function App() {
                     <div className="flex items-center gap-2 mt-2">
                       <button onClick={() => setCarrinho({ ...carrinho, [p.id]: Math.max(0, qtdNoCarinho - 1) })} className="w-8 h-8 bg-slate-100 rounded-xl font-black text-slate-600">-</button>
                       <span className="font-bold text-sm w-6 text-center">{qtdNoCarinho}</span>
-                      <button onClick={() => setCarrinho({ ...carrinho, [p.id]: Math.max(0, qtdNoCarinho - 1) })} className="w-8 h-8 bg-purple-100 rounded-xl font-black text-purple-700">+</button>
+                      <button onClick={() => setCarrinho({ ...carrinho, [p.id]: qtdNoCarinho + 1 })} className="w-8 h-8 bg-purple-100 rounded-xl font-black text-purple-700">+</button>
                     </div>
                   </div>
                 </div>
@@ -790,7 +782,6 @@ export default function App() {
 
   const renderCalculadoraForm = () => (
     <div className="bg-white p-6 rounded-[35px] shadow-xl border mt-2 w-full">
-      {/* MODIFICADO: Exibe alerta e botão dinâmico para cancelar edições ou cópias em andamento */}
       {(pedidoEditandoId || isDuplicando) && (
         <div className="bg-amber-50 border border-amber-200 p-4 rounded-3xl mb-6 flex justify-between items-center animate-pulse w-full">
           <div className="text-xs text-amber-800 font-bold">
@@ -1101,7 +1092,7 @@ export default function App() {
                     nomeLoja: nomeLojaPerfil.trim(),
                     logoUrl: logoLojaPerfil
                   }, { merge: true });
-                  alert("Perfil da empresa updated com sucesso! 🚀");
+                  alert("Perfil da empresa atualizado com sucesso! 🚀");
                   setActiveTab('inicio');
                 } catch {
                   alert("Erro ao salvar as configurações da empresa.");
@@ -1188,7 +1179,7 @@ export default function App() {
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Outros Gastos Fixos</label>
-                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={financasFixo.outros} onChange={e => setFinancasFixo({...financasFixo, outdated: e.target.value})} />
+                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={financasFixo.outros} onChange={e => setFinancasFixo({...financasFixo, outros: e.target.value})} />
                 </div>
               </div>
 
@@ -1265,7 +1256,7 @@ export default function App() {
                   <div key={eq.id} className="bg-white p-4 rounded-3xl flex justify-between items-center border shadow-sm w-full">
                     <div>
                       <p className="font-bold text-slate-800">{eq.nome}</p>
-                      <p className="text-xs text-slate-400 mt-0.5">Desgaste: <span className="font-bold text-purple-700">R$ {isNaN(descHora) ? "0.00" : descHora.toFixed(2)} por hour de uso</span></p>
+                      <p className="text-xs text-slate-400 mt-0.5">Desgaste: <span className="font-bold text-purple-700">R$ {isNaN(descHora) ? "0.00" : descHora.toFixed(2)} por hora de uso</span></p>
                     </div>
                     <button onClick={() => confirmarExcluir('equipamento', eq.id)} className="text-red-200 p-2"><Trash2 size={16}/></button>
                   </div>
@@ -1295,9 +1286,9 @@ export default function App() {
                   <input placeholder="Ex: 21983858055" className="flex-1 p-2.5 bg-black/20 text-white rounded-xl text-xs font-bold border border-purple-500/30 outline-none" value={zapDonaConta} onChange={e => setZapDonaConta(e.target.value)} />
                   <button onClick={async () => {
                     if(!zapDonaConta.trim()) return alert("Digite o número!");
-                    try { await setDoc(doc(db, "configuracoes_loja", user.uid), { whatsapp: zapDonaConta.trim() }, { merge: true }); alert("WhatsApp saved!"); } 
+                    try { await setDoc(doc(db, "configuracoes_loja", user.uid), { whatsapp: zapDonaConta.trim() }, { merge: true }); alert("WhatsApp salvo!"); } 
                     catch { alert("Erro ao salvar."); }
-                  }} className="bg-orange-500 text-white text-xs font-black uppercase px-4 rounded-xl shadow">Salvar</button>
+                  }} className="bg-orange-50 text-white text-xs font-black uppercase px-4 rounded-xl shadow">Salvar</button>
                 </div>
               </div>
             </div>
@@ -1434,7 +1425,6 @@ export default function App() {
               <h2 className="text-purple-700 font-bold flex items-center gap-2"><History size={20}/> Histórico da Loja</h2>
             </div>
 
-            {/* ADICIONADO: Sub-abas de controle visual para selecionar o status da listagem */}
             <div className="flex bg-slate-100 p-1.5 rounded-2xl gap-1 w-full mb-4 border">
               <button onClick={() => setFiltroStatusPedido('Pendente')} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${filtroStatusPedido === 'Pendente' ? 'bg-white text-purple-700 shadow-sm' : 'text-slate-400'}`}>Pendentes ⏳</button>
               <button onClick={() => setFiltroStatusPedido('Vendido')} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${filtroStatusPedido === 'Vendido' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400'}`}>Vendidos 💰</button>
@@ -1453,7 +1443,6 @@ export default function App() {
                         </p>
                         <div className="font-bold text-slate-700 text-sm whitespace-pre-line">{p.nomeProd} <span className="text-xs text-slate-400 font-normal">({p.qtdPed || 1} un)</span></div>
                         
-                        {/* Detalhes rápidos do cliente direto no histórico */}
                         {cli && (cli.zap || cli.email || cli.endereco) && (
                           <div className="mt-2 text-[11px] text-slate-400 bg-slate-50 p-2.5 rounded-xl border border-dashed border-slate-200 space-y-0.5">
                             {cli.zap && <p>📱 WhatsApp: <span className="font-semibold text-slate-600">{cli.zap}</span></p>}
@@ -1462,7 +1451,6 @@ export default function App() {
                           </div>
                         )}
 
-                        {/* Exibição rápida de observações internas salvas */}
                         {p.obsPedido && (
                           <p className="text-[11px] text-purple-600 bg-purple-50 p-2 rounded-lg font-medium border border-purple-100 mt-2">🗒️ Notas: {p.obsPedido}</p>
                         )}
@@ -1474,12 +1462,10 @@ export default function App() {
                         <>
                           <button onClick={() => confirmarVendaPedido(p)} className="text-emerald-600 p-2 bg-emerald-50 rounded-xl text-xs font-bold flex items-center gap-1 mr-auto active:scale-95"><CheckCircle size={16}/> Confirmar Venda</button>
                           <button onClick={() => carregarPedidoParaEdicao(p)} className="text-purple-600 p-2 bg-purple-50 rounded-xl"><Edit2 size={18}/></button>
-                          {/* MODIFICADO: Opção de cancelar pedido sem deletar o registro definitivo */}
                           <button onClick={() => cancelarPedidoSemExcluir(p.id)} title="Cancelar Orçamento" className="text-red-500 p-2 bg-red-50 rounded-xl"><X size={18}/></button>
                         </>
                       )}
                       
-                      {/* Botão Duplicar Orçamento disponível para todos os status */}
                       <button onClick={() => handleDuplicarOrcamento(p)} title="Duplicar este Orçamento" className="text-blue-500 p-2 bg-blue-50 rounded-xl active:scale-95 transition-transform"><Copy size={18}/></button>
                       
                       <button onClick={() => gerarPDF(p)} className="text-orange-500 p-2 bg-orange-50 rounded-xl"><Printer size={18}/></button>
@@ -1562,7 +1548,7 @@ export default function App() {
               />
             </div>
 
-            {materialsFiltrados.map(m => {
+            {materiaisFiltrados.map(m => {
               const estaAcabando = Number(m.qtdAtual || 0) <= Number(m.qtdMinima || 0);
               const valorUnitarioCalculado = Number(m.qtd || 1) > 0 ? (Number(m.valor || 0) / Number(m.qtd || 1)).toFixed(2) : "0.00";
               return (
@@ -1582,7 +1568,7 @@ export default function App() {
               );
             })}
 
-            {materialsFiltrados.length === 0 && (
+            {materiaisFiltrados.length === 0 && (
               <p className="text-center text-xs text-slate-400 py-4">Nenhum insumo encontrado com esse nome.</p>
             )}
           </div>
