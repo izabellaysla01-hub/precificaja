@@ -3,7 +3,7 @@ import { initializeApp } from "firebase/app";
 import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { getFirestore, collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc, getDocs, setDoc, getDoc } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2, Menu, Search, Settings } from 'lucide-react';
+import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2, Menu, Search, Settings, CheckSquare, Square } from 'lucide-react';
 
 const firebaseConfig = {
   apiKey: "AIzaSyD0BWsNm9DbGGDqiHzkdDmNdxIGdJ9tWe8",
@@ -72,6 +72,9 @@ export default function App() {
   const [filtroStatusPedido, setFiltroStatusPedido] = useState<'Pendente' | 'Vendido' | 'Cancelado'>('Pendente');
   const [isDuplicando, setIsDuplicando] = useState(false);
 
+  // Estado para controlar o dia selecionado no calendário horizontal (padrão é hoje em formato YYYY-MM-DD)
+  const [diaSelecionadoAgenda, setDiaSelecionadoAgenda] = useState<string>(new Date().toISOString().split('T')[0]);
+
   const [nomeProd, setNomeProd] = useState('');
   const [qtdPed, setQtdPed] = useState('1');
   const [matsNoPed, setMatsNoPed] = useState<any[]>([]);
@@ -92,7 +95,7 @@ export default function App() {
   const [novoMat, setNovoMat] = useState({ id: '', nome: '', valor: '', qtd: '1', unidade: 'un', qtdAtual: '0', qtdMinima: '0' });
     
   const [novoCli, setNovoCli] = useState({ id: '', nome: '', zap: '', email: '', endereco: '' });
-  const [novaAnotacao, setNovaAnotacao] = useState({ id: '', titulo: '', conteudo: '' });
+  const [novaAnotacao, setNovaAnotacao] = useState({ id: '', titulo: '', conteudo: '', dataPrazo: new Date().toISOString().split('T')[0] });
   
   const [novoProdCatalogo, setNovoProdCatalogo] = useState({ id: '', nome: '', precoVenda: '', urlImagem: '' });
   const [zapDonaConta, setZapDonaConta] = useState('');
@@ -216,6 +219,40 @@ export default function App() {
   const copiarLinkCatalogo = () => {
     navigator.clipboard.writeText(linkDoCatalogoDestaCliente);
     alert("Link do seu catálogo copiado! 🔗🚀");
+  };
+
+  // Lógica para gerar os próximos 7 dias da semana atual para o calendário horizontal da Home
+  const proximosSeteDias = useMemo(() => {
+    const dias = [];
+    const nomesDias = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+    const nomesMeses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    
+    for (let i = 0; i < 7; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() + i);
+      
+      const ano = d.getFullYear();
+      const mes = String(d.getMonth() + 1).padStart(2, '0');
+      const diaNum = String(d.getDate()).padStart(2, '0');
+      const stringData = `${ano}-${mes}-${diaNum}`; // Formato de id/busca igual ao Firebase
+      
+      dias.push({
+        stringData,
+        diaNumero: d.getDate(),
+        diaSemanaTexto: nomesDias[d.getDay()],
+        mesTexto: nomesMeses[d.getMonth()]
+      });
+    }
+    return dias;
+  }, []);
+
+  // Filtra as tarefas/anotações pendentes especificamente do dia selecionado no carrossel da Home
+  const anotacoesDoDiaSelecionado = useMemo(() => {
+    return anotacoes.filter(a => a.dataPrazo === diaSelecionadoAgenda && !a.concluido);
+  }, [anotacoes, diaSelecionadoAgenda]);
+
+  const toggleStatusAnotacao = async (id: string, valorAtual: boolean) => {
+    await updateDoc(doc(db, "anotacoes", id), { concluido: !valorAtual });
   };
 
   const dispararPdfAutomaticoCliente = (nomeCliente: string, itens: any[], total: number) => {
@@ -444,7 +481,7 @@ export default function App() {
       htmlLinhasTabela = arrayLinhasTexto.map(linhaTexto => {
         if(!linhaTexto.trim()) return '';
         let quantidadeItem = Number(p.qtdPed || 1);
-        let nomeItemLimpo = inlineTexto.trim();
+        let nomeItemLimpo = linhaTexto.trim();
         
         const matchCombo = linhaTexto.trim().match(/^(\d+)x\s+(.+)$/i);
         if(matchCombo) {
@@ -488,8 +525,8 @@ export default function App() {
 
         <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Dados do Cliente</div>
         <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 25px; border: 1px solid #f1f5f9;">
-          <p style="margin: 0 0 6px 0; font-size: 14px;"><strong>Cliente:</strong> ${cli?.nome || 'Cliente não informado'}</p>
-          <p style="margin: 0; font-size: 13px; color: #64748b;"><strong>WhatsApp:</strong> ${cli?.zap || 'Não informado'}</p>
+          <p style="margin: 0; font-size: 14px;"><strong>Cliente:</strong> ${cli?.nome || 'Cliente não informado'}</p>
+          <p style="margin: 6px 0 0 0; font-size: 13px; color: #64748b;"><strong>WhatsApp:</strong> ${cli?.zap || 'Não informado'}</p>
         </div>
 
         <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Informações Básicas e Prazos</div>
@@ -948,7 +985,7 @@ export default function App() {
         <div className="text-orange-500 font-black text-4xl tracking-tighter">R$ {resumenFinanceiro.final}</div>
         <div className="flex gap-2">
           <button onClick={async () => {
-             if(!nomeProd) return alert("Digite o nome do produto!");
+             if(!nomeProd) return alert("Digite o nome do product!");
              const dadosPedido = { nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed, vHora, tGasto, custos, lucro, desconto, userId: user.uid, precoManual: precoManual, obsPedido: obsPedido, equipamentosSelecionados, materiaisUsados: precoManual ? [] : matsNoPed.map(m => ({ id: m.id, nome: m.nome, qtdUsada: Number(m.qtdUsada || 1) })) };
              if (pedidoEditandoId) await updateDoc(doc(db, "pedidos", pedidoEditandoId), dadosPedido);
              else await addDoc(collection(db, "pedidos"), { ...dadosPedido, data: new Date().toLocaleDateString('pt-BR'), status: 'Pendente', userId: user.uid });
@@ -977,7 +1014,7 @@ export default function App() {
               <button onClick={() => setActiveTab('criar')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'criar' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Plus size={16}/> Orçar</button>
               
               <button onClick={() => setActiveTab('perfil')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'perfil' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Settings size={16}/> Perfil da Loja</button>
-              <button onClick={() => setActiveTab('anotacoes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'anotacoes' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><BookOpen size={16}/> Minhas Anotações 📝</button>
+              <button onClick={() => setActiveTab('anotacoes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'anotacoes' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Calendar size={16}/> Agenda / Tarefas 📅</button>
 
               <button onClick={() => setActiveTab('financeiro')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'financeiro' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Calculator size={16}/> Configurações de Custos</button>
               <button onClick={() => setActiveTab('pedidos')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'pedidos' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><History size={16}/> Histórico de Orçamentos</button>
@@ -1001,7 +1038,7 @@ export default function App() {
       </header>
 
       <div className="p-4 max-w-xl mx-auto w-full">
-        {/* TELA INICIAL */}
+        {/* TELA INICIAL COMPLETA ESTILO UNISUAM */}
         {activeTab === 'inicio' && (
           <div className="space-y-5 pt-2 w-full">
             <div className="bg-gradient-to-tr from-purple-700 to-indigo-600 p-6 rounded-[35px] shadow-lg text-white w-full">
@@ -1018,6 +1055,58 @@ export default function App() {
               </div>
               <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center text-white">
                 <Calculator size={24}/>
+              </div>
+            </div>
+
+            {/* SEÇÃO CALENDÁRIO AGENDA HORIZONTAL ESTILO UNISUAM */}
+            <div className="bg-white p-5 rounded-[35px] border shadow-sm w-full space-y-4">
+              <div className="flex justify-between items-center px-1">
+                <h3 className="text-purple-700 font-black uppercase text-xs tracking-wider flex items-center gap-1.5">
+                  <Calendar size={16}/> Agenda da Semana
+                </h3>
+                <span className="text-[10px] bg-purple-50 text-purple-600 px-2 py-1 rounded-md font-bold uppercase">Mês Atual</span>
+              </div>
+              
+              {/* O Carrossel Horizontal de Dias */}
+              <div className="flex justify-between gap-1 overflow-x-auto pb-1 scrollbar-none w-full">
+                {proximosSeteDias.map((dia) => {
+                  const isActive = diaSelecionadoAgenda === dia.stringData;
+                  return (
+                    <div 
+                      key={dia.stringData} 
+                      onClick={() => setDiaSelecionadoAgenda(dia.stringData)}
+                      className="flex flex-col items-center gap-1 cursor-pointer min-w-[46px] select-none"
+                    >
+                      <span className={`text-[10px] font-bold ${isActive ? 'text-orange-500 font-extrabold' : 'text-slate-400'}`}>
+                        {dia.diaSemanaTexto}
+                      </span>
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-black transition-all border ${isActive ? 'bg-orange-500 text-white border-orange-500 shadow-md scale-105' : 'bg-slate-50 text-slate-700 border-slate-100'}`}>
+                        {dia.diaNumero}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Lista dinâmica de Tarefas do dia clicado */}
+              <div className="border-t border-slate-100 pt-3 space-y-2 w-full">
+                {anotacoesDoDiaSelecionado.map((item) => (
+                  <div key={item.id} className="flex items-center gap-3 bg-slate-50/80 p-3 rounded-2xl border border-slate-100 animate-fadeIn">
+                    <button onClick={() => toggleStatusAnotacao(item.id, item.concluido)} className="text-purple-600 transition-transform active:scale-95 shrink-0">
+                      {item.concluido ? <CheckSquare size={19} /> : <Square size={19} className="text-slate-400" />}
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-slate-800 text-sm truncate">{item.titulo}</p>
+                      {item.conteudo && <p className="text-xs text-slate-500 truncate">{item.conteudo}</p>}
+                    </div>
+                  </div>
+                ))}
+
+                {anotacoesDoDiaSelecionado.length === 0 && (
+                  <p className="text-center text-xs font-bold text-slate-400 py-4 italic">
+                    ✨ Nenhuma pendência agendada para este dia!
+                  </p>
+                )}
               </div>
             </div>
 
@@ -1104,49 +1193,69 @@ export default function App() {
           </div>
         )}
 
-        {/* TELA DE ANOTAÇÕES GERAIS */}
+        {/* TELA DE AGENDA / COMPROMISSOS COM PRAZOS */}
         {activeTab === 'anotacoes' && (
           <div className="space-y-4 pt-2 w-full">
             <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
-              <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2"><BookOpen size={20}/> Minhas Anotações Internas</h2>
-              <p className="text-slate-400 text-[11px] mb-4">Use este espaço como seu bloco de notas geral da empresa. Seus clientes não têm acesso a essas notas.</p>
+              <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2"><Calendar size={20}/> Criar Nova Tarefa / Lembrete</h2>
+              <p className="text-slate-400 text-[11px] mb-4">Gerencie as pendências e compras do seu negócio por data. O que você colocar aqui alimenta o painel da sua Tela Inicial.</p>
               
-              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Título da Nota</label>
-              <input placeholder="Ex: Lembrar de comprar fitas / Ideia Dia dos Pais" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-bold text-sm" value={novaAnotacao.titulo} onChange={e => setNovaAnotacao({...novaAnotacao, titulo: e.target.value})} />
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">O que precisa fazer?</label>
+              <input placeholder="Ex: Comprar papel fotográfico A4 / Entregar caneca do cliente" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-bold text-sm" value={novaAnotacao.titulo} onChange={e => setNovaAnotacao({...novaAnotacao, titulo: e.target.value})} />
               
-              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Conteúdo da Anotação</label>
-              <textarea placeholder="Escreva seus lembretes aqui..." className="w-full p-4 bg-slate-50 rounded-2xl mb-6 outline-none border focus:border-purple-400 resize-none h-28 text-sm font-semibold" value={novaAnotacao.conteudo} onChange={e => setNovaAnotacao({...novaAnotacao, conteudo: e.target.value})} />
+              <div className="mb-4 w-full">
+                <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Data Limite / Prazo</label>
+                <input type="date" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm block mt-1" value={novaAnotacao.dataPrazo} onChange={e => setNovaAnotacao({...novaAnotacao, dataPrazo: e.target.value})} />
+              </div>
+
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Detalhes Adicionais (Opcional)</label>
+              <textarea placeholder="Escreva informações extras ou observações aqui..." className="w-full p-4 bg-slate-50 rounded-2xl mb-6 outline-none border focus:border-purple-400 resize-none h-20 text-sm font-semibold" value={novaAnotacao.conteudo} onChange={e => setNovaAnotacao({...novaAnotacao, conteudo: e.target.value})} />
               
               <button onClick={async () => {
-                if(!novaAnotacao.titulo) return alert("Sua anotação precisa de um título!");
-                const dadosNota = { titulo: novaAnotacao.titulo, conteudo: novaAnotacao.conteudo || '', userId: user.uid, dataCriacao: new Date().toLocaleDateString('pt-BR') };
+                if(!novaAnotacao.titulo) return alert("Sua tarefa precisa de uma descrição básica!");
+                const dadosNota = { titulo: novaAnotacao.titulo, conteudo: novaAnotacao.conteudo || '', dataPrazo: novaAnotacao.dataPrazo, concluido: false, userId: user.uid, dataCriacao: new Date().toLocaleDateString('pt-BR') };
                 
                 if (novaAnotacao.id) await updateDoc(doc(db, "anotacoes", novaAnotacao.id), dadosNota);
                 else await addDoc(collection(db, "anotacoes"), dadosNota);
                 
-                setNovaAnotacao({ id: '', titulo: '', conteudo: '' });
-                alert("Nota guardada com sucesso! 📝✨");
+                setNovaAnotacao({ id: '', titulo: '', conteudo: '', dataPrazo: new Date().toISOString().split('T')[0] });
+                alert("Agendado com sucesso! 📅✨");
               }} className="w-full bg-orange-500 text-white p-5 rounded-2xl font-black uppercase text-xs shadow-md">
-                {novaAnotacao.id ? 'Atualizar Nota' : 'Guardar no Caderno'}
+                {novaAnotacao.id ? 'Atualizar Compromisso' : 'Agendar Tarefa'}
               </button>
             </div>
 
+            <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider ml-2 mt-4">Lista Geral de Pendências</h3>
             <div className="grid grid-cols-1 gap-3 w-full">
-              {anotacoes.map(item => (
-                <div key={item.id} className="bg-white p-5 rounded-3xl border shadow-sm w-full flex flex-col gap-2 relative">
-                  <div className="flex justify-between items-start w-full">
-                    <div>
-                      <h4 className="font-black text-slate-800 text-base">{item.titulo}</h4>
-                      <p className="text-[10px] text-purple-500 font-bold uppercase mt-0.5">Criado em: {item.dataCriacao}</p>
+              {anotacoes.map(item => {
+                // Formata a data americana AAAA-MM-DD para visualização brasileira DD/MM
+                const dataFormatada = item.dataPrazo ? item.dataPrazo.split('-').reverse().slice(0, 2).join('/') : '';
+                return (
+                  <div key={item.id} className={`bg-white p-5 rounded-3xl border shadow-sm w-full flex flex-col gap-2 relative ${item.concluido ? 'opacity-50' : ''}`}>
+                    <div className="flex justify-between items-start anonymity-wrapper w-full">
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        <button onClick={() => toggleStatusAnotacao(item.id, item.concluido)} className="text-purple-600 mt-0.5 shrink-0">
+                          {item.concluido ? <CheckSquare size={20} /> : <Square size={20} className="text-slate-400" />}
+                        </button>
+                        <div className="min-w-0 flex-1">
+                          <h4 className={`font-black text-slate-800 text-base break-words ${item.concluido ? 'line-through text-slate-400' : ''}`}>
+                            {item.titulo}
+                          </h4>
+                          <div className="flex gap-2 mt-1 flex-wrap">
+                            <span className="text-[9px] bg-purple-50 text-purple-600 px-2 py-0.5 rounded font-black uppercase">🗓️ Prazo: {dataFormatada}</span>
+                            {item.concluido && <span className="text-[9px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded font-black uppercase">Concluído</span>}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex gap-1 shrink-0 ml-2">
+                        <button onClick={() => setNovaAnotacao({ id: item.id, titulo: item.titulo, conteudo: item.conteudo, dataPrazo: item.dataPrazo || new Date().toISOString().split('T')[0] })} className="text-orange-400 p-2 hover:bg-orange-50 rounded-xl"><Edit2 size={16}/></button>
+                        <button onClick={() => confirmarExcluir('anotacao', item.id)} className="text-red-200 p-2 hover:bg-red-50 rounded-xl"><Trash2 size={16}/></button>
+                      </div>
                     </div>
-                    <div className="flex gap-1 shrink-0">
-                      <button onClick={() => setNovaAnotacao({ id: item.id, titulo: item.titulo, conteudo: item.conteudo })} className="text-orange-400 p-2 hover:bg-orange-50 rounded-xl"><Edit2 size={16}/></button>
-                      <button onClick={() => confirmarExcluir('anotacao', item.id)} className="text-red-200 p-2 hover:bg-red-50 rounded-xl"><Trash2 size={16}/></button>
-                    </div>
+                    {item.conteudo && <p className="text-slate-600 text-xs font-semibold bg-slate-50 p-3 rounded-2xl border whitespace-pre-line leading-relaxed">{item.conteudo}</p>}
                   </div>
-                  {item.conteudo && <p className="text-slate-600 text-xs font-semibold bg-slate-50 p-3 rounded-2xl border whitespace-pre-line leading-relaxed">{item.conteudo}</p>}
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
