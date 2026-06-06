@@ -457,7 +457,7 @@ export default function App() {
     window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
   };
 
-  const gerarPDF = (p: any) => {
+    const gerarPDF = (p: any) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
     const dataEmissao = p.data || new Date().toLocaleDateString('pt-BR');
     const hoje = new Date(); hoje.setDate(hoje.getDate() + 7);
@@ -467,16 +467,24 @@ export default function App() {
 
     let htmlLinhasTabela = '';
 
+    // CORREÇÃO AQUI: Verifica se o pedido veio do balcão e tem a lista de itens mapeada
     if (p.itensCombo && Array.isArray(p.itensCombo) && p.itensCombo.length > 0) {
-      htmlLinhasTabela = p.itensCombo.map((item: any) => `
-        <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px; page-break-inside: avoid; break-inside: avoid;">
-          <td style="padding: 15px 5px; font-weight: bold; color: #1e293b; text-align: left;">${item.nome}</td>
-          <td style="padding: 15px 5px; text-align: center; color: #475569;">${item.qtd}</td>
-          <td style="padding: 15px 5px; text-align: right; color: #475569;">R$ ${Number(item.precoVenda).toFixed(2)}</td>
-          <td style="padding: 15px 5px; text-align: right; font-weight: bold; color: #1e293b;">R$ ${(Number(item.qtd) * Number(item.precoVenda)).toFixed(2)}</td>
-        </tr>
-      `).join('');
+      htmlLinhasTabela = p.itensCombo.map((item: any) => {
+        const qtd = Number(item.qtd || 1);
+        const precoVenda = Number(item.precoVenda || 0);
+        const subtotal = qtd * precoVenda;
+        
+        return `
+          <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px; page-break-inside: avoid; break-inside: avoid;">
+            <td style="padding: 15px 5px; font-weight: bold; color: #1e293b; text-align: left;">${item.nome}</td>
+            <td style="padding: 15px 5px; text-align: center; color: #475569;">${qtd}</td>
+            <td style="padding: 15px 5px; text-align: right; color: #475569;">R$ ${precoVenda.toFixed(2)}</td>
+            <td style="padding: 15px 5px; text-align: right; font-weight: bold; color: #1e293b;">R$ ${subtotal.toFixed(2)}</td>
+          </tr>
+        `;
+      }).join('');
     } else {
+      // Fallback para quando o orçamento é simples (visto pela calculadora tradicional)
       const arrayLinhasTexto = String(p.nomeProd || '').split('\n');
       htmlLinhasTabela = arrayLinhasTexto.map(linhaTexto => {
         if(!linhaTexto.trim()) return '';
@@ -488,7 +496,10 @@ export default function App() {
           quantidadeItem = Number(matchCombo[1]);
           nomeItemLimpo = matchCombo[2].trim();
         }
-        const unitario = (totalNum / quantidadeItem).toFixed(2);
+        
+        // Evita divisão por zero se a quantidade sumir por algum motivo
+        const qtdSegura = quantidadeItem > 0 ? quantidadeItem : 1;
+        const unitario = (totalNum / qtdSegura).toFixed(2);
 
         return `
           <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px; page-break-inside: avoid; break-inside: avoid;">
@@ -520,7 +531,7 @@ export default function App() {
         </div>
         
         <div style="background-color: #f8fafc; padding: 12px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #e2e8f0; font-size: 14px; font-weight: bold; color: #7c3aed;">
-          Referência do Pedido: ${p.nomeProd}
+          Referência do Pedido: ${p.nomeProd.replace(/\n/g, ' + ')}
         </div>
 
         <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Dados do Cliente</div>
@@ -559,7 +570,7 @@ export default function App() {
           </div>
         </div>
 
-        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px; page-break-inside: avoid; break-inside: avoid;">Forma de Pagamento Aceitas</div>
+        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px; page-break-inside: avoid; break-inside: avoid;">Formas de Pagamento Aceitas</div>
         <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; border: 1px solid #f1f5f9; font-size: 13px; display: flex; justify-content: space-between; margin-bottom: 15px; page-break-inside: avoid; break-inside: avoid;">
           <div><strong>Meios disponíveis:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">PIX / CARTÃO DE CRÉDITO</div></div>
           <div><strong>Condições comerciais:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">A combinar direto no WhatsApp da Loja</div></div>
