@@ -491,6 +491,7 @@ export default function App() {
     return { faturamento: faturamentoTotal.toFixed(2), pendentes: pendentesCount, criticos: estoqueCriticoCount, totalClientes: clientes.length };
   }, [pedidos, materiais, clientes]);
 
+  // CORRIGIDO: Fórmula consertada de 'discount' para 'desconto' evitando a tela branca!
   const resumenFinanceiro = useMemo(() => {
     if (precoManual !== null) {
       const totalCatalogo = Number(precoManual) * Number(qtdPed || 1);
@@ -509,7 +510,7 @@ export default function App() {
     const tempoEmHoras = Number(tGasto || 0) / 60;
 
     equipamentosSelecionados.forEach(idEquip => {
-      const eq = equipments.find(e => e.id === idEquip);
+      const eq = equipamentos.find(e => e.id === idEquip);
       if (eq) {
         const valorEquip = Number(eq.valorPago || 0);
         const mesesVida = Number(eq.durabilidadeAnos || 2) * 12;
@@ -922,7 +923,7 @@ export default function App() {
                     <div className="flex items-center gap-2 mt-2">
                       <button onClick={() => setCarrinho({ ...carrinho, [p.id]: Math.max(0, qtdNoCarinho - 1) })} className="w-8 h-8 bg-slate-100 rounded-xl font-black text-slate-600">-</button>
                       <span className="font-bold text-sm w-6 text-center">{qtdNoCarinho}</span>
-                      <button onClick={() => setCarrinho({ ...carrinho, [p.id]: carrinho[p.id] + 1 })} className="w-8 h-8 bg-purple-100 rounded-xl font-black text-purple-700">+</button>
+                      <button onClick={() => setCarrinho({ ...carrinho, [p.id]: qtdNoCarinho + 1 })} className="w-8 h-8 bg-purple-100 rounded-xl font-black text-purple-700">+</button>
                     </div>
                   </div>
                 </div>
@@ -1047,7 +1048,7 @@ export default function App() {
               <label className="text-[10px] font-bold text-purple-600 uppercase ml-1 block mb-1">🛠️ Equipamentos Ativos neste Orçamento</label>
               <div className="flex flex-wrap gap-2 w-full">
                 {equipamentos.map(eq => {
-                  const selecionado = equipmentsSelecionados.includes(eq.id);
+                  const selecionado = equipamentosSelecionados.includes(eq.id);
                   return (
                     <button key={eq.id} type="button" onClick={() => toggleEquipamento(eq.id)} className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${selecionado ? 'bg-purple-600 text-white border-purple-600 shadow-md' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-purple-300'}`}>
                       {eq.nome}
@@ -1119,7 +1120,7 @@ export default function App() {
         <div className="flex gap-2">
           <button onClick={async () => {
              if(!nomeProd) return alert("Digite o nome do produto!");
-             const dadosPedido = { nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed, vHora, tGasto, custos, lucro, discount: desconto, desconto, precoManual: precoManual, obsPedido: obsPedido, equipamentosSelecionados, materiaisUsados: precoManual ? [] : matsNoPed.map(m => ({ id: m.id, nome: m.nome, qtdUsada: Number(m.qtdUsada || 1) })) };
+             const dadosPedido = { nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed, vHora, tGasto, custos, lucro, desconto, userId: user.uid, precoManual: precoManual, obsPedido: obsPedido, equipamentosSelecionados, materiaisUsados: precoManual ? [] : matsNoPed.map(m => ({ id: m.id, nome: m.nome, qtdUsada: Number(m.qtdUsada || 1) })) };
              if (pedidoEditandoId) await updateDoc(doc(db, "pedidos", pedidoEditandoId), dadosPedido);
              else await addDoc(collection(db, "pedidos"), { ...dadosPedido, data: new Date().toLocaleDateString('pt-BR'), status: 'Pendente', userId: user.uid });
              limparCalculadora(); setActiveTab('pedidos'); alert("Salvo!");
@@ -1154,12 +1155,12 @@ export default function App() {
               <button onClick={() => setActiveTab('balcao')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'balcao' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><ShoppingCart size={16}/> Balcão de Vendas Rápido</button>
               <button onClick={() => setActiveTab('catalogo')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'catalogo' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><BookOpen size={16}/> Meu Catálogo Visual</button>
               
-              <button onClick={() => setActiveTab('fornecedores')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'fornecedores' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Globe size={16}/> Biblioteca Fornecedores </button>
+              <button onClick={() => setActiveTab('fornecedores')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'fornecedores' ? 'bg-purple-700 text-slate-600 hover:bg-slate-50'}`}><Globe size={16}/> Biblioteca Fornecedores </button>
               
               <button onClick={() => setActiveTab('materiais')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'materiais' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Package size={16}/> Armário / Insumos</button>
               <button onClick={() => setActiveTab('clientes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'clientes' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><User size={16}/> Meus Clientes</button>
 
-              {/* ABA SUPORTE NO HAMBÚRGUER DIRECIONANDO PARA O WHATSAPP */}
+              {/* ABA SUPORTE COM REDIRECIONAMENTO DIRETO PARA O SUPORTE VIA WHATSAPP */}
               <a href="https://wa.me/5521983858055?text=Ol%C3%A1!%20Estou%20usando%20o%20PrecificaJ%C3%A1%20e%20fiquei%20com%20uma%20d%C3%BAvida.%20Pode%20me%20ajudar%3F" 
                  target="_blank" 
                  rel="noopener noreferrer" 
@@ -1197,7 +1198,7 @@ export default function App() {
                 <h3 className="text-xl font-black mt-0.5 tracking-tight">Novo Orçamento Rápido 🚀</h3>
               </div>
               <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center text-white">
-                <Calculator size={24}/>
+                <button><Calculator size={24}/></button>
               </div>
             </div>
 
@@ -1438,7 +1439,7 @@ export default function App() {
                 
                 alert("Todos os custos estruturais foram salvos com sucesso no banco de dados! A calculadora já recalculou seu valor por hora. 🎉🚀");
               }} className="w-full bg-purple-700 hover:bg-purple-800 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md transition-colors">
-                Save Configurações Fixas
+                Salvar Configurações Fixas
               </button>
             </div>
 
@@ -1794,7 +1795,7 @@ export default function App() {
                       <button onClick={() => window.open(`https://wa.me/55${f.whatsapp.replace(/\D/g, '')}`, '_blank')} className="flex items-center gap-1 text-xs font-black uppercase bg-emerald-50 text-emerald-600 px-3 py-2 rounded-xl active:scale-95 transition-transform"><MessageCircle size={13}/> WhatsApp</button>
                     )}
                     {f.endereco && (
-                      <button onClick={() => window.open(`https://maps.google.com/?q=${encodeURIComponent(f.endereco)}`, '_blank')} className="flex items-center gap-1 text-xs font-black uppercase bg-slate-50 text-slate-600 px-3 py-2 rounded-xl active:scale-95 transition-transform"><MapPin size={13}/> Mapa</button>
+                      <button onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(f.endereco)}`, '_blank')} className="flex items-center gap-1 text-xs font-black uppercase bg-slate-50 text-slate-600 px-3 py-2 rounded-xl active:scale-95 transition-transform"><MapPin size={13}/> Mapa</button>
                     )}
                   </div>
                 </div>
