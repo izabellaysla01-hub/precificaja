@@ -90,7 +90,7 @@ export default function App() {
   const [matsNoPed, setMatsNoPed] = useState<any[]>([]);
   const [vHora, setVHora] = useState('9');
   const [tGasto, setTGasto] = useState('60');
-  const [custos, setCustos] = useState({ embalagem: '0', impressao: '0', energia: '0', outros: '0' });
+  const [custos, setCustos] = useState({ embalagem: '0', impressao: '0', energia: '0' });
   const [equipamentosSelecionados, setEquipamentosSelecionados] = useState<string[]>([]);
   const [lucro, setLucro] = useState('100');
   const [desconto, setDesconto] = useState('0');
@@ -388,7 +388,7 @@ export default function App() {
         <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px; page-break-inside: avoid; break-inside: avoid;">Forma de Pagamento</div>
         <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; border: 1px solid #f1f5f9; font-size: 13px; display: flex; justify-content: space-between; margin-bottom: 15px; page-break-inside: avoid; break-inside: avoid;">
           <div><strong>Forma de pagamento:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">PIX / CARTÃO</div></div>
-          <div><strong>Condições de pagamento:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">A combinar direto no WhatsApp</div></div>
+          <div><strong>Conditions de pagamento:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">A combinar direto no WhatsApp</div></div>
         </div>
       </div>
     `;
@@ -462,7 +462,7 @@ export default function App() {
         qtdPed: "1",
         vHora: "0",
         tGasto: "0",
-        custos: { embalagem: '0', impressao: '0', energia: '0', outros: '0' },
+        custos: { embalagem: '0', impressao: '0', energia: '0' },
         lucro: "0",
         desconto: "0",
         userId: user.uid,
@@ -524,7 +524,7 @@ export default function App() {
     const precoFinalCalculado = (custoTotalLote + valorLucroLivre) - Number(desconto || 0);
 
     return { materiais: totalMaterials.toFixed(2), maoObra: totalMaoObra.toFixed(2), extras: totalExtras.toFixed(2), deprec: totalDesgasteMaquinas.toFixed(2), custoPeca: custoTotalPeca.toFixed(2), lucroLivre: valorLucroLivre.toFixed(2), final: isNaN(precoFinalCalculado) ? "0.00" : precoFinalCalculado.toFixed(2) };
-  }, [matsNoPed, vHora, tGasto, custos, lucro, qtdPed, desconto, precoManual, equipamentos, equipamentosSelecionados, financasFixo]);
+  }, [matsNoPed, vHora, tGasto, custos, lucro, qtdPed, discount, desconto, precoManual, equipamentos, equipamentosSelecionados, financasFixo]);
 
   const enviarZap = (p: any) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
@@ -760,7 +760,7 @@ export default function App() {
 
   const limparCalculadora = () => {
     setNomeProd(''); setQtdPed('1'); setMatsNoPed([]); setVHora('9'); setTGasto('60');
-    setCustos({ embalagem: '0', impressao: '0', energia: '0', outros: '0' });
+    setCustos({ embalagem: '0', impressao: '0', energia: '0' });
     setEquipamentosSelecionados([]);
     setLucro('100'); setDesconto('0'); setPrazo(''); setClienteSel('');
     setPedidoEditandoId(null); setPrecoManual(null); setObsPedido('');
@@ -770,7 +770,7 @@ export default function App() {
   const carregarPedidoParaEdicao = (p: any) => {
     setIsDuplicando(false);
     setPedidoEditandoId(p.id); setNomeProd(p.nomeProd || ''); setQtdPed(p.qtdPed || '1'); setVHora(p.vHora || '9'); setTGasto(p.tGasto || '60');
-    setCustos(p.custos || { embalagem: '0', impressao: '0', energia: '0', outros: '0' });
+    setCustos(p.custos || { embalagem: '0', impressao: '0', energia: '0' });
     setLucro(p.lucro || '100'); setDesconto(p.desconto || '0'); setPrazo(p.prazo || ''); setClienteSel(p.clienteId || '');
     setPrecoManual(p.precoManual || null); setObsPedido(p.obsPedido || '');
     setEquipamentosSelecionados(p.equipamentosSelecionados || []);
@@ -792,7 +792,7 @@ export default function App() {
     setQtdPed(p.qtdPed || '1'); 
     setVHora(p.vHora || '9'); 
     setTGasto(p.tGasto || '60');
-    setCustos(p.custos || { embalagem: '0', impressao: '0', energia: '0', outros: '0' });
+    setCustos(p.custos || { embalagem: '0', impressao: '0', energia: '0' });
     setLucro(p.lucro || '100'); 
     setDesconto(p.desconto || '0'); 
     setPrazo(p.prazo || ''); 
@@ -950,6 +950,7 @@ export default function App() {
     );
   }
 
+  // --- FORMULÁRIO ORÇAR INTEIRAMENTE CORRIGIDO ---
   const renderCalculadoraForm = () => (
     <div className="bg-white p-6 rounded-[35px] shadow-xl border mt-2 w-full">
       {(pedidoEditandoId || isDuplicando) && (
@@ -1047,7 +1048,7 @@ export default function App() {
               <label className="text-[10px] font-bold text-purple-600 uppercase ml-1 block mb-1">🛠️ Equipamentos Ativos neste Orçamento</label>
               <div className="flex flex-wrap gap-2 w-full">
                 {equipamentos.map(eq => {
-                  const selecionado = equipmentsSelecionados.includes(eq.id);
+                  const selecionado = equipamentosSelecionados.includes(eq.id);
                   return (
                     <button key={eq.id} type="button" onClick={() => toggleEquipamento(eq.id)} className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${selecionado ? 'bg-purple-600 text-white border-purple-600 shadow-md' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-purple-300'}`}>
                       {eq.nome}
@@ -1058,6 +1059,7 @@ export default function App() {
             </div>
           )}
 
+          {/* CORRIGIDO: Removida a linha que procurava custos.outros (Causava a Tela Branca!) */}
           <div className="mb-4 w-full">
             <label className="text-[10px] font-bold text-purple-600 uppercase ml-1 block mb-1">📦 Custos Extras por Unidade - Opcional (R$)</label>
             <div className="grid grid-cols-3 gap-2 w-full">
