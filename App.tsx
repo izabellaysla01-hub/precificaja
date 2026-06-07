@@ -491,6 +491,7 @@ export default function App() {
     return { faturamento: faturamentoTotal.toFixed(2), pendentes: pendentesCount, criticos: estoqueCriticoCount, totalClientes: clientes.length };
   }, [pedidos, materiais, clientes]);
 
+  // CORRIGIDO: Removido o campo 'custos.outros' obsoleto para evitar quebra com custos dinâmicos
   const resumenFinanceiro = useMemo(() => {
     if (precoManual !== null) {
       const totalCatalogo = Number(precoManual) * Number(qtdPed || 1);
@@ -500,7 +501,7 @@ export default function App() {
 
     const totalMaterials = matsNoPed.reduce((acc, m) => acc + ((Number(m.valor || 0) / Number(m.qtd || 1)) * Number(m.qtdUsada || 0)), 0);
     const totalMaoObra = (Number(vHora || 0) / 60) * Number(tGasto || 0);
-    const totalExtras = Number(custos.embalagem || 0) + Number(custos.impressao || 0) + Number(custos.energia || 0) + Number(custos.outros || 0);
+    const totalExtras = Number(custos.embalagem || 0) + Number(custos.impressao || 0) + Number(custos.energia || 0);
     
     let totalDesgasteMaquinas = 0;
     const dias = Number(financasFixo.diasTrabalho || 20);
@@ -836,7 +837,7 @@ export default function App() {
   const toggleCategoriaNoFornecedor = (catNome: string) => {
     const jaTem = novoFornecedor.categorias?.includes(catNome) || false;
     if(jaTem) {
-      setNovoFornecedor({...novoFornecedor, categorias: novoFornecedor.categorias.filter(c => c !== catNome)});
+      setNovoFornecedor({...novoFornecedor, categories: novoFornecedor.categorias.filter(c => c !== catNome)});
     } else {
       setNovoFornecedor({...novoFornecedor, categorias: [...(novoFornecedor.categorias || []), catNome]});
     }
@@ -846,7 +847,7 @@ export default function App() {
     return materiais.filter(m => 
       m.nome?.toLowerCase().includes(pesquisaMateriais.toLowerCase())
     );
-  }, [materiais, pesquisaMateriais]);
+  }, [materials, pesquisaMateriais]);
 
   const produtosPublicosFiltrados = useMemo(() => {
     if (filtroVitrineSelecionado === 'Todos') return produtosPublicos;
@@ -1047,7 +1048,7 @@ export default function App() {
               <label className="text-[10px] font-bold text-purple-600 uppercase ml-1 block mb-1">🛠️ Equipamentos Ativos neste Orçamento</label>
               <div className="flex flex-wrap gap-2 w-full">
                 {equipamentos.map(eq => {
-                  const selecionado = equipmentsSelecionados.includes(eq.id);
+                  const selecionado = equipamentosSelecionados.includes(eq.id);
                   return (
                     <button key={eq.id} type="button" onClick={() => toggleEquipamento(eq.id)} className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${selecionado ? 'bg-purple-600 text-white border-purple-600 shadow-md' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-purple-300'}`}>
                       {eq.nome}
@@ -1060,8 +1061,8 @@ export default function App() {
 
           <div className="mb-4 w-full">
             <label className="text-[10px] font-bold text-purple-600 uppercase ml-1 block mb-1">📦 Custos Extras por Unidade - Opcional (R$)</label>
-            <div className="grid grid-cols-4 gap-2 w-full">
-              {[{id:'embalagem',label:'EMBAL.'},{id:'impressao',label:'TINTA'},{id:'energia',label:'LUZ'},{id:'outros',label:'OUTROS'}].map(c=>(
+            <div className="grid grid-cols-3 gap-2 w-full">
+              {[{id:'embalagem',label:'EMBAL.'},{id:'impressao',label:'TINTA'},{id:'energia',label:'LUZ'}].map(c=>(
                 <div key={c.id} className="flex flex-col items-center bg-slate-50 p-2 rounded-xl w-full border">
                   <span className="text-[8px] font-black text-slate-400 mb-1">{c.label}</span>
                   <input type="number" className="w-full bg-transparent text-center text-xs outline-none font-bold text-slate-700" value={(custos as any)[c.id]} onChange={e => setCustos({...custos, [c.id]: e.target.value})} />
@@ -1159,7 +1160,7 @@ export default function App() {
               <button onClick={() => setActiveTab('materiais')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'materiais' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Package size={16}/> Armário / Insumos</button>
               <button onClick={() => setActiveTab('clientes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'clientes' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><User size={16}/> Meus Clientes</button>
 
-              {/* ABA SUPORTE COM ICONE DO LUCIDE E DIRECIONANDO PARA O WHATSAPP */}
+              {/* ABA SUPORTE NO HAMBÚRGUER DIRECIONANDO PARA O WHATSAPP */}
               <a href="https://wa.me/5521983858055?text=Ol%C3%A1!%20Estou%20usando%20o%20PrecificaJ%C3%A1%20e%20fiquei%20com%20uma%20d%C3%BAvida.%20Pode%20me%20ajudar%3F" 
                  target="_blank" 
                  rel="noopener noreferrer" 
@@ -1277,24 +1278,6 @@ export default function App() {
                 <p className="text-2xl font-black mt-0.5">{dashboardMetrics.totalClientes}</p>
               </div>
             </div>
-
-            {/* SEÇÃO DE SUPORTE TAMBÉM NO INÍCIO */}
-            <div className="bg-white p-6 rounded-[35px] border border-emerald-100 shadow-sm text-center space-y-3 w-full">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-500 mx-auto">
-                <MessageCircle size={24} />
-              </div>
-              <div>
-                <h3 className="text-slate-800 font-black text-base">Precisa de suporte nos cálculos? 💡</h3>
-                <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">Se surgir qualquer dúvida ao preencher custos ou configurar seu preço, clique abaixo e fale direto comigo!</p>
-              </div>
-              <a href="https://wa.me/5521983858055?text=Ol%C3%A1!%20Estou%20usando%20o%20PrecificaJ%C3%A1%20e%20fiquei%20com%20uma%20d%C3%BAvida.%20Pode%20me%20ajudar%3F" 
-                 target="_blank" 
-                 rel="noopener noreferrer"
-                 className="inline-flex items-center justify-center gap-2 w-full max-w-xs bg-[#25D366] hover:bg-[#128C7E] text-white p-3.5 rounded-2xl font-black uppercase text-xs tracking-wide shadow-md transition-all active:scale-95">
-                💬 Chamar no WhatsApp
-              </a>
-            </div>
-
           </div>
         )}
 
@@ -1449,7 +1432,6 @@ export default function App() {
                 
                 {financasFixo.custosExtras?.map((item, idx) => (
                   <div key={item.id} className="flex gap-2 items-center animate-fadeIn w-full">
-                    {/* Input do Nome ocupando cerca de 60% */}
                     <input 
                       type="text" 
                       placeholder="Ex: Canva, MEI" 
@@ -1461,7 +1443,6 @@ export default function App() {
                         setFinancasFixo({...financasFixo, custosExtras: listaCopiada});
                       }}
                     />
-                    {/* Input do Valor ocupando cerca de 30% */}
                     <input 
                       type="number" 
                       placeholder="0,00" 
@@ -1473,7 +1454,6 @@ export default function App() {
                         setFinancasFixo({...financasFixo, custosExtras: listaCopiada});
                       }}
                     />
-                    {/* Botão de lixeira encaixado perfeitamente no final */}
                     <button 
                       type="button" 
                       onClick={() => {
@@ -1643,7 +1623,7 @@ export default function App() {
                   type="date" 
                   className="w-full p-3.5 bg-slate-800/80 rounded-xl text-xs font-bold text-white border border-slate-700 outline-none focus:border-purple-400 block"
                   value={prazoBalcao} 
-                  onChange={e => setPrazoBalcao(e.target.value)} 
+                  onChange={e => setPrazoBalcao(e.target.value)}Logic
                 />
               </div>
 
