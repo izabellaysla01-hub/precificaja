@@ -90,7 +90,7 @@ export default function App() {
   const [matsNoPed, setMatsNoPed] = useState<any[]>([]);
   const [vHora, setVHora] = useState('9');
   const [tGasto, setTGasto] = useState('60');
-  const [custos, setCustos] = useState({ embalagem: '0', impressao: '0', energia: '0' });
+  const [custos, setCustos] = useState({ embalagem: '0', impressao: '0', energia: '0', outros: '0' });
   const [equipamentosSelecionados, setEquipamentosSelecionados] = useState<string[]>([]);
   const [lucro, setLucro] = useState('100');
   const [desconto, setDesconto] = useState('0');
@@ -124,25 +124,7 @@ export default function App() {
   const [logoLojaPerfil, setLogoLojaPerfil] = useState('');
   const [subindoLogo, setSubindoLogo] = useState(false);
 
-  // ESTRUTURA FINANCEIRA FIXA REVISADA
-  const [financasFixo, setFinancasFixo] = useState<{
-    salario: string;
-    aluguel: string;
-    internet: string;
-    luz: string;
-    diasTrabalho: string;
-    horasDia: string;
-    custosExtras: Array<{ id: string; nome: string; valor: string }>;
-  }>({ 
-    salario: '0', 
-    aluguel: '0', 
-    internet: '0', 
-    luz: '0', 
-    diasTrabalho: '20', 
-    horasDia: '8',
-    custosExtras: [] 
-  });
-
+  const [financasFixo, setFinancasFixo] = useState({ salario: '0', aluguel: '0', internet: '0', luz: '0', outros: '0', diasTrabalho: '20', horasDia: '8' });
   const [novoEquipamento, setNovoEquipamento] = useState({ id: '', nome: '', valorPago: '', durabilidadeAnos: '2' });
 
   const [carrinhoInterno, setCarrinhoInterno] = useState<{ [key: string]: number }>({});
@@ -249,22 +231,13 @@ export default function App() {
       getDoc(qConfigFin).then(snap => {
         if (snap.exists()) {
           const dadosFin = snap.data() as any;
-          setFinancasFixo({
-            salario: dadosFin.salario || '0',
-            aluguel: dadosFin.aluguel || '0',
-            internet: dadosFin.internet || '0',
-            luz: dadosFin.luz || '0',
-            diasTrabalho: dadosFin.diasTrabalho || '20',
-            horasDia: dadosFin.horasDia || '8',
-            custosExtras: dadosFin.custosExtras || []
-          });
+          setFinancasFixo(dadosFin);
           
           const dias = Number(dadosFin.diasTrabalho || 20);
           const horas = Number(dadosFin.horasDia || 8);
           const totalHorasMes = dias * horas || 160;
           const salario = Number(dadosFin.salario || 0);
-          const somaExtras = (dadosFin.custosExtras || []).reduce((acc: number, item: any) => acc + Number(item.valor || 0), 0);
-          const custosMes = Number(dadosFin.aluguel || 0) + Number(dadosFin.internet || 0) + Number(dadosFin.luz || 0) + somaExtras;
+          const custosMes = Number(dadosFin.aluguel || 0) + Number(dadosFin.internet || 0) + Number(dadosFin.luz || 0) + Number(dadosFin.outros || 0);
           
           if (salario + custosMes > 0) {
             const fontHoraCalculada = (salario + custosMes) / totalHorasMes;
@@ -360,7 +333,7 @@ export default function App() {
         
         <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Identificação do Comprador</div>
         <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 25px; border: 1px solid #f1f5f9;">
-          <p style="margin: 0; font-size: 14px;"><strong>Cliente Final:</strong> ${nomeComprador}</p>
+          <p style="margin: 0; font-size: 14px;"><strong>Cliente Final:</strong> ${nomeCliente}</p>
         </div>
 
         <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Relação de Itens Escolhidos</div>
@@ -393,7 +366,7 @@ export default function App() {
       </div>
     `;
 
-    const opcoes = { margin: 10, filename: `Pedido_${nomeComprador.replace(/\s+/g, '_')}.pdf`, html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'a4', orientation: 'portrait' }, pagebreak: { mode: ['avoid-all', 'css'] } };
+    const opcoes = { margin: 10, filename: `Pedido_${nomeCliente.replace(/\s+/g, '_')}.pdf`, html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'a4', orientation: 'portrait' }, pagebreak: { mode: ['avoid-all', 'css'] } };
     if ((window as any).html2pdf) { (window as any).html2pdf().from(elemento).set(opcoes).save(); }
   };
 
@@ -462,7 +435,7 @@ export default function App() {
         qtdPed: "1",
         vHora: "0",
         tGasto: "0",
-        custos: { embalagem: '0', impressao: '0', energia: '0' },
+        custos: { embalagem: '0', impressao: '0', energia: '0', outros: '0' },
         lucro: "0",
         desconto: "0",
         userId: user.uid,
@@ -500,7 +473,7 @@ export default function App() {
 
     const totalMaterials = matsNoPed.reduce((acc, m) => acc + ((Number(m.valor || 0) / Number(m.qtd || 1)) * Number(m.qtdUsada || 0)), 0);
     const totalMaoObra = (Number(vHora || 0) / 60) * Number(tGasto || 0);
-    const totalExtras = Number(custos.embalagem || 0) + Number(custos.impressao || 0) + Number(custos.energia || 0);
+    const totalExtras = Number(custos.embalagem || 0) + Number(custos.impressao || 0) + Number(custos.energia || 0) + Number(custos.outros || 0);
     
     let totalDesgasteMaquinas = 0;
     const dias = Number(financasFixo.diasTrabalho || 20);
@@ -564,7 +537,7 @@ export default function App() {
       htmlLinhasTabela = arrayLinhasTexto.map(linhaTexto => {
         if(!linhaTexto.trim()) return '';
         let quantidadeItem = Number(p.qtdPed || 1);
-        let nomeItemLimpo = linhaTexto.trim();
+        let nomeItemLimpo = inlineTexto.trim();
         
         const matchCombo = linhaTexto.trim().match(/^(\d+)x\s+(.+)$/i);
         if(matchCombo) {
@@ -760,7 +733,7 @@ export default function App() {
 
   const limparCalculadora = () => {
     setNomeProd(''); setQtdPed('1'); setMatsNoPed([]); setVHora('9'); setTGasto('60');
-    setCustos({ embalagem: '0', impressao: '0', energia: '0' });
+    setCustos({ embalagem: '0', impressao: '0', energia: '0', outros: '0' });
     setEquipamentosSelecionados([]);
     setLucro('100'); setDesconto('0'); setPrazo(''); setClienteSel('');
     setPedidoEditandoId(null); setPrecoManual(null); setObsPedido('');
@@ -770,7 +743,7 @@ export default function App() {
   const carregarPedidoParaEdicao = (p: any) => {
     setIsDuplicando(false);
     setPedidoEditandoId(p.id); setNomeProd(p.nomeProd || ''); setQtdPed(p.qtdPed || '1'); setVHora(p.vHora || '9'); setTGasto(p.tGasto || '60');
-    setCustos(p.custos || { embalagem: '0', impressao: '0', energia: '0' });
+    setCustos(p.custos || { embalagem: '0', impressao: '0', energia: '0', outros: '0' });
     setLucro(p.lucro || '100'); setDesconto(p.desconto || '0'); setPrazo(p.prazo || ''); setClienteSel(p.clienteId || '');
     setPrecoManual(p.precoManual || null); setObsPedido(p.obsPedido || '');
     setEquipamentosSelecionados(p.equipamentosSelecionados || []);
@@ -792,7 +765,7 @@ export default function App() {
     setQtdPed(p.qtdPed || '1'); 
     setVHora(p.vHora || '9'); 
     setTGasto(p.tGasto || '60');
-    setCustos(p.custos || { embalagem: '0', impressao: '0', energia: '0' });
+    setCustos(p.custos || { embalagem: '0', impressao: '0', energia: '0', outros: '0' });
     setLucro(p.lucro || '100'); 
     setDesconto(p.desconto || '0'); 
     setPrazo(p.prazo || ''); 
@@ -842,6 +815,7 @@ export default function App() {
     }
   };
 
+  // CORRIGIDO: Modificado de 'materials' para 'materiais' para evitar a quebra do app
   const materiaisFiltrados = useMemo(() => {
     return materiais.filter(m => 
       m.nome?.toLowerCase().includes(pesquisaMateriais.toLowerCase())
@@ -922,7 +896,7 @@ export default function App() {
                     <div className="flex items-center gap-2 mt-2">
                       <button onClick={() => setCarrinho({ ...carrinho, [p.id]: Math.max(0, qtdNoCarinho - 1) })} className="w-8 h-8 bg-slate-100 rounded-xl font-black text-slate-600">-</button>
                       <span className="font-bold text-sm w-6 text-center">{qtdNoCarinho}</span>
-                      <button onClick={() => setCarrinho({ ...carrinho, [p.id]: carrinho[p.id] + 1 })} className="w-8 h-8 bg-purple-100 rounded-xl font-black text-purple-700">+</button>
+                      <button onClick={() => setCarrinho({ ...carrinho, [p.id]: qtdNoCarinho + 1 })} className="w-8 h-8 bg-purple-100 rounded-xl font-black text-purple-700">+</button>
                     </div>
                   </div>
                 </div>
@@ -1060,8 +1034,8 @@ export default function App() {
 
           <div className="mb-4 w-full">
             <label className="text-[10px] font-bold text-purple-600 uppercase ml-1 block mb-1">📦 Custos Extras por Unidade - Opcional (R$)</label>
-            <div className="grid grid-cols-3 gap-2 w-full">
-              {[{id:'embalagem',label:'EMBAL.'},{id:'impressao',label:'TINTA'},{id:'energia',label:'LUZ'}].map(c=>(
+            <div className="grid grid-cols-4 gap-2 w-full">
+              {[{id:'embalagem',label:'EMBAL.'},{id:'impressao',label:'TINTA'},{id:'energia',label:'LUZ'},{id:'outros',label:'OUTROS'}].map(c=>(
                 <div key={c.id} className="flex flex-col items-center bg-slate-50 p-2 rounded-xl w-full border">
                   <span className="text-[8px] font-black text-slate-400 mb-1">{c.label}</span>
                   <input type="number" className="w-full bg-transparent text-center text-xs outline-none font-bold text-slate-700" value={(custos as any)[c.id]} onChange={e => setCustos({...custos, [c.id]: e.target.value})} />
@@ -1118,14 +1092,14 @@ export default function App() {
         <div className="text-orange-500 font-black text-4xl tracking-tighter">R$ {resumenFinanceiro.final}</div>
         <div className="flex gap-2">
           <button onClick={async () => {
-             if(!nomeProd) return alert("Digite o nome do produto!");
-             const dadosPedido = { nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed, vHora, tGasto, custos, lucro, discount: desconto, desconto, precoManual: precoManual, obsPedido: obsPedido, equipamentosSelecionados, materiaisUsados: precoManual ? [] : matsNoPed.map(m => ({ id: m.id, nome: m.nome, qtdUsada: Number(m.qtdUsada || 1) })) };
+             if(!nomeProd) return alert("Digite o nome do product!");
+             const dadosPedido = { nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed, vHora, tGasto, custos, lucro, desconto, userId: user.uid, precoManual: precoManual, obsPedido: obsPedido, equipamentosSelecionados, materiaisUsados: precoManual ? [] : matsNoPed.map(m => ({ id: m.id, nome: m.nome, qtdUsada: Number(m.qtdUsada || 1) })) };
              if (pedidoEditandoId) await updateDoc(doc(db, "pedidos", pedidoEditandoId), dadosPedido);
              else await addDoc(collection(db, "pedidos"), { ...dadosPedido, data: new Date().toLocaleDateString('pt-BR'), status: 'Pendente', userId: user.uid });
              limparCalculadora(); setActiveTab('pedidos'); alert("Salvo!");
           }} className="bg-orange-500 text-white px-5 py-4 rounded-[22px] font-black uppercase text-xs shadow-lg">Salvar</button>
           <button onClick={() => gerarPDF({nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed, obsPedido})} className="bg-orange-500 text-white p-4 rounded-[22px] shadow-lg"><Printer size={18}/></button>
-          <button onClick={() => enviarZap({nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed})} className="bg-emerald-500 text-white p-4 rounded-[22px] shadow-lg"><MessageCircle size={18}/></button>
+          <button onClick={() => enviarZap({nomeProd: p.nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed})} className="bg-emerald-500 text-white p-4 rounded-[22px] shadow-lg"><MessageCircle size={18}/></button>
         </div>
       </div>
     </div>
@@ -1134,7 +1108,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-50 pb-32 font-sans text-slate-700 w-full relative overflow-x-hidden">
       
-      {/* MENU HAMBÚRGUER LATERAL COMPLETO COM NOVA ABA DE SUPORTE */}
+      {/* MENU HAMBÚRGUER LATERAL COMPLETO */}
       <div className={`fixed inset-0 bg-black/40 z-50 transition-opacity duration-300 ${isMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`} onClick={() => setIsMenuOpen(false)}>
         <div className={`w-72 bg-white h-full shadow-2xl p-6 flex flex-col justify-between transition-transform duration-300 ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'}`} onClick={e => e.stopPropagation()}>
           <div className="space-y-6 overflow-y-auto max-h-[85vh] scrollbar-none">
@@ -1154,18 +1128,10 @@ export default function App() {
               <button onClick={() => setActiveTab('balcao')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'balcao' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><ShoppingCart size={16}/> Balcão de Vendas Rápido</button>
               <button onClick={() => setActiveTab('catalogo')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'catalogo' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><BookOpen size={16}/> Meu Catálogo Visual</button>
               
-              <button onClick={() => setActiveTab('fornecedores')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'fornecedores' ? 'bg-purple-700 text-slate-600 hover:bg-slate-50'}`}><Globe size={16}/> Biblioteca Fornecedores </button>
+              <button onClick={() => setActiveTab('fornecedores')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'fornecedores' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Globe size={16}/> Biblioteca Fornecedores </button>
               
               <button onClick={() => setActiveTab('materiais')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'materiais' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Package size={16}/> Armário / Insumos</button>
               <button onClick={() => setActiveTab('clientes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'clientes' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><User size={16}/> Meus Clientes</button>
-
-              {/* ABA SUPORTE NO HAMBÚRGUER DIRECIONANDO PARA O WHATSAPP */}
-              <a href="https://wa.me/5521983858055?text=Ol%C3%A1!%20Estou%20usando%20o%20PrecificaJ%C3%A1%20e%20fiquei%20com%20uma%20d%C3%BAvida.%20Pode%20me%20ajudar%3F" 
-                 target="_blank" 
-                 rel="noopener noreferrer" 
-                 className="w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs text-emerald-600 hover:bg-emerald-50">
-                <MessageCircle size={16}/> Suporte
-              </a>
             </nav>
           </div>
           <button onClick={() => signOut(auth)} className="w-full text-red-500 bg-red-50 p-4 rounded-xl text-xs font-black uppercase flex items-center justify-center gap-1.5"><LogOut size={16}/> Sair</button>
@@ -1197,9 +1163,7 @@ export default function App() {
                 <h3 className="text-xl font-black mt-0.5 tracking-tight">Novo Orçamento Rápido 🚀</h3>
               </div>
               <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center text-white">
-                <button type="button" onClick={(e) => { e.stopPropagation(); limparCalculadora(); setActiveTab('criar'); }} className="text-white hover:text-orange-200 transition-colors">
-                  <Calculator size={24}/>
-                </button>
+                <Calculator size={24}/>
               </div>
             </div>
 
@@ -1234,7 +1198,7 @@ export default function App() {
               <div className="border-t border-slate-100 pt-3 space-y-2 w-full">
                 {anotacoesDoDiaSelecionado.map((item) => (
                   <div key={item.id} className="flex items-center gap-3 bg-slate-50/80 p-3 rounded-2xl border border-slate-100 animate-fadeIn">
-                    <button onClick={() => toggleStatusAnotacao(item.id, item.concluido)} className="text-purple-600 mt-0.5 shrink-0">
+                    <button onClick={() => toggleStatusAnotacao(item.id, item.concluido)} className="text-purple-600 transition-transform active:scale-95 shrink-0">
                       {item.concluido ? <CheckSquare size={19} /> : <Square size={19} className="text-slate-400" />}
                     </button>
                     <div className="flex-1 min-w-0">
@@ -1335,88 +1299,106 @@ export default function App() {
           </div>
         )}
 
-        {/* TELA DE CONFIGURAÇÃO DE CUSTOS FIXOS CORRIGIDA PARA CELULAR */}
+        {/* TELA DE AGENDA / COMPROMISSOS COM PRAZOS */}
+        {activeTab === 'anotacoes' && (
+          <div className="space-y-4 pt-2 w-full">
+            <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
+              <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2"><Calendar size={20}/> Criar Nova Tarefa / Lembrete</h2>
+              <p className="text-slate-400 text-[11px] mb-4">Gerencie as pendências e compras do seu negócio por data. O que você colocar aqui alimenta o painel da sua Tela Inicial.</p>
+              
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">O que precisa fazer?</label>
+              <input placeholder="Ex: Comprar papel fotográfico A4 / Entregar caneca do cliente" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-bold text-sm" value={novaAnotacao.titulo} onChange={e => setNovaAnotacao({...novaAnotacao, titulo: e.target.value})} />
+              
+              <div className="mb-4 w-full">
+                <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Data Limite / Prazo</label>
+                <input type="date" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm block mt-1" value={novaAnotacao.dataPrazo} onChange={e => setNovaAnotacao({...novaAnotacao, dataPrazo: e.target.value})} />
+              </div>
+
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Detalhes Adicionais (Opcional)</label>
+              <textarea placeholder="Escreva informações extras ou observações aqui..." className="w-full p-4 bg-slate-50 rounded-2xl mb-6 outline-none border focus:border-purple-400 resize-none h-20 text-sm font-semibold" value={novaAnotacao.conteudo} onChange={e => setNovaAnotacao({...novaAnotacao, conteudo: e.target.value})} />
+              
+              <button onClick={async () => {
+                if(!novaAnotacao.titulo) return alert("Sua tarefa precisa de uma descrição básica!");
+                const dadosNota = { titulo: novaAnotacao.titulo, conteudo: novaAnotacao.conteudo || '', dataPrazo: novaAnotacao.dataPrazo, concluido: false, userId: user.uid, dataCriacao: new Date().toLocaleDateString('pt-BR') };
+                
+                if (novaAnotacao.id) await updateDoc(doc(db, "anotacoes", novaAnotacao.id), dadosNota);
+                else await addDoc(collection(db, "anotacoes"), dadosNota);
+                
+                setNovaAnotacao({ id: '', titulo: '', conteudo: '', dataPrazo: new Date().toISOString().split('T')[0] });
+                alert("Agendado com sucesso! 📅✨");
+              }} className="w-full bg-orange-500 text-white p-5 rounded-2xl font-black uppercase text-xs shadow-md">
+                {novaAnotacao.id ? 'Atualizar Compromisso' : 'Agendar Tarefa'}
+              </button>
+            </div>
+
+            <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider ml-2 mt-4">Lista Geral de Pendências</h3>
+            <div className="grid grid-cols-1 gap-3 w-full">
+              {anotacoes.map(item => {
+                const dataFormatada = item.dataPrazo ? item.dataPrazo.split('-').reverse().slice(0, 2).join('/') : '';
+                return (
+                  <div key={item.id} className={`bg-white p-5 rounded-3xl border shadow-sm w-full flex flex-col gap-2 relative ${item.concluido ? 'opacity-50' : ''}`}>
+                    <div className="flex justify-between items-start anonymity-wrapper w-full">
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        <button onClick={() => toggleStatusAnotacao(item.id, item.concluido)} className="text-purple-600 mt-0.5 shrink-0">
+                          {item.concluido ? <CheckSquare size={20} /> : <Square size={20} className="text-slate-400" />}
+                        </button>
+                        <div className="min-w-0 flex-1">
+                          <h4 className={`font-black text-slate-800 text-base break-words ${item.concluido ? 'line-through text-slate-400' : ''}`}>
+                            {item.titulo}
+                          </h4>
+                          <div className="flex gap-2 mt-1 flex-wrap">
+                            <span className="text-[9px] bg-purple-50 text-purple-600 px-2 py-0.5 rounded font-black uppercase">🗓️ Prazo: {dataFormatada}</span>
+                            {item.concluido && <span className="text-[9px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded font-black uppercase">Concluído</span>}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex gap-1 shrink-0 ml-2">
+                        <button onClick={() => setNovaAnotacao({ id: item.id, titulo: item.titulo, conteudo: item.conteudo, dataPrazo: item.dataPrazo || new Date().toISOString().split('T')[0] })} className="text-orange-400 p-2 hover:bg-orange-50 rounded-xl"><Edit2 size={16}/></button>
+                        <button onClick={() => confirmarExcluir('anotacao', item.id)} className="text-red-200 p-2 hover:bg-red-50 rounded-xl"><Trash2 size={16}/></button>
+                      </div>
+                    </div>
+                    {item.conteudo && <p className="text-slate-600 text-xs font-semibold bg-slate-50 p-3 rounded-2xl border whitespace-pre-line leading-relaxed">{item.conteudo}</p>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* TELA DE CONFIGURAÇÃO DE CUSTOS FIXOS */}
         {activeTab === 'financeiro' && (
           <div className="space-y-6 pt-2 w-full">
             <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
-              <h2 className="text-purple-700 font-bold mb-2 flex items-center gap-2 uppercase text-xs tracking-widest"><Calculator size={18}/> Estrutura de Custos Fixos</h2>
-              <p className="text-slate-400 text-[11px] mb-4">Estes são seus gastos operacionais fixos mensais para manter a empresa aberta.</p>
+              <h2 className="text-purple-700 font-bold mb-2 flex items-center gap-2 uppercase text-xs tracking-widest"><Calculator size={18}/> Estrutura de Custos Fixos (Opcional)</h2>
+              <p className="text-slate-400 text-[11px] mb-4">Insira ou edite seus valores aqui. Eles ficam salvos e você pode alterá-los quando quiser.</p>
 
-              <label className="text-[10px] font-bold text-purple-700 uppercase ml-1">1. Pró-labore (Seu Salário Mensal)</label>
+              <label className="text-[10px] font-bold text-purple-700 outline-none uppercase ml-1">Salário Mensal Pretendido</label>
               <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 font-bold text-purple-700 outline-none" value={financasFixo.salario} onChange={e => setFinancasFixo({...financasFixo, salario: e.target.value})} />
 
               <div className="grid grid-cols-2 gap-3 mb-3 w-full">
                 <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">2. Aluguel / Espaço</label>
-                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={financasFixo.aluguel} onChange={e => setFinancasFixo({...financasFixo, aluguel: e.target.value})} />
+                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Aluguel / Ponto</label>
+                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={financasFixo.aluguel} onChange={e => setFinancasFixo({...financasFixo, aluguel: e.target.value})} />
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">3. Internet / Sistemas</label>
-                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={financasFixo.internet} onChange={e => setFinancasFixo({...financasFixo, internet: e.target.value})} />
+                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Internet / Sistema</label>
+                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={financasFixo.internet} onChange={e => setFinancasFixo({...financasFixo, internet: e.target.value})} />
                 </div>
               </div>
 
-              <div className="mb-4 w-full">
-                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">4. Conta de Luz Base</label>
-                <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={financasFixo.luz} onChange={e => setFinancasFixo({...financasFixo, luz: e.target.value})} />
+              <div className="grid grid-cols-2 gap-3 mb-4 w-full">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Conta de Luz Total</label>
+                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={financasFixo.luz} onChange={e => setFinancasFixo({...financasFixo, luz: e.target.value})} />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Outros Gastos Fixos</label>
+                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={financasFixo.outros} onChange={e => setFinancasFixo({...financasFixo, outros: e.target.value})} />
+                </div>
               </div>
 
-              {/* AREA DOS CUSTOS EXTRAS DINÂMICOS - COMPACTADO COM GRID PARA NÃO QUEBRAR EM CELULAR */}
-              <div className="border-t border-dashed border-slate-200 pt-3 mt-4 space-y-2.5 w-full">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1">💸 Custos Fixos Adicionais Personalizados</label>
-                
-                {financasFixo.custosExtras?.map((item, idx) => (
-                  <div key={item.id} className="flex gap-2 items-center animate-fadeIn w-full">
-                    <input 
-                      type="text" 
-                      placeholder="Ex: Canva, MEI" 
-                      className="w-[60%] p-3.5 bg-slate-50 border rounded-2xl text-xs font-bold outline-none"
-                      value={item.nome}
-                      onChange={e => {
-                        const listaCopiada = [...financasFixo.custosExtras];
-                        listaCopiada[idx].nome = e.target.value;
-                        setFinancasFixo({...financasFixo, custosExtras: listaCopiada});
-                      }}
-                    />
-                    <input 
-                      type="number" 
-                      placeholder="0,00" 
-                      className="w-[30%] p-3.5 bg-slate-50 border rounded-2xl text-xs font-bold text-center outline-none"
-                      value={item.valor}
-                      onChange={e => {
-                        const listaCopiada = [...financasFixo.custosExtras];
-                        listaCopiada[idx].valor = e.target.value;
-                        setFinancasFixo({...financasFixo, custosExtras: listaCopiada});
-                      }}
-                    />
-                    <button 
-                      type="button" 
-                      onClick={() => {
-                        const filtrados = financasFixo.custosExtras.filter((_, i) => i !== idx);
-                        setFinancasFixo({...financasFixo, custosExtras: filtrados});
-                      }}
-                      className="text-red-500 p-2 hover:bg-red-50 rounded-lg shrink-0">
-                      <X size={16}/>
-                    </button>
-                  </div>
-                ))}
-
-                <button 
-                  type="button" 
-                  onClick={() => {
-                    const novoItemExtra = { id: String(Date.now()), nome: '', valor: '0' };
-                    setFinancasFixo({
-                      ...financasFixo, 
-                      custosExtras: [...(financasFixo.custosExtras || []), novoItemExtra]
-                    });
-                  }}
-                  className="w-full text-center py-4 px-3 border border-dashed rounded-2xl bg-purple-50/50 hover:bg-purple-50 text-purple-700 text-xs font-black uppercase tracking-wider transition-colors mt-2">
-                  + Adicionar outro custo fixo
-                </button>
-              </div>
-
-              <div className="w-full border-t mt-4 pt-2">
-                <h3 className="text-purple-700 font-bold text-xs uppercase tracking-wider mb-2 mt-2">Sua Carga Horária</h3>
+              <div className="w-full">
+                <h3 className="text-purple-700 font-bold text-xs uppercase tracking-wider mb-2 mt-4">Sua Carga Horária</h3>
                 <div className="grid grid-cols-2 gap-3 mb-5 w-full">
                   <div>
                     <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Dias de Trabalho no Mês</label>
@@ -1433,13 +1415,11 @@ export default function App() {
                 await setDoc(doc(db, "configuracoes_financeiras", user.uid), financasFixo);
                 
                 const totalHoras = Number(financasFixo.diasTrabalho || 20) * Number(financasFixo.horasDia || 8);
-                const somaCustosExtrasDinamicos = (financasFixo.custosExtras || []).reduce((acc, item) => acc + Number(item.valor || 0), 0);
+                const intentCustos = Number(financasFixo.salario || 0) + Number(financasFixo.aluguel || 0) + Number(financasFixo.internet || 0) + Number(financasFixo.luz || 0) + Number(financasFixo.outros || 0);
+                if (intentCustos > 0) setVHora((intentCustos / totalHoras).toFixed(2));
                 
-                const intentCustos = Number(financasFixo.salario || 0) + Number(financasFixo.aluguel || 0) + Number(financasFixo.internet || 0) + Number(financasFixo.luz || 0) + somaCustosExtrasDinamicos;
-                if (totalHoras > 0 && intentCustos > 0) setVHora((intentCustos / totalHoras).toFixed(2));
-                
-                alert("Todos os custos estruturais foram salvos com sucesso no banco de dados! A calculadora já recalculou seu valor por hora. 🎉🚀");
-              }} className="w-full bg-purple-700 hover:bg-purple-800 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md transition-colors">
+                alert("Custos salvos com sucesso! O valor sugerido para a hora foi atualizado na calculadora. 🎉");
+              }} className="w-full bg-purple-700 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md">
                 Salvar Configurações Fixas
               </button>
             </div>
@@ -1558,7 +1538,7 @@ export default function App() {
                   type="date" 
                   className="w-full p-3.5 bg-slate-800/80 rounded-xl text-xs font-bold text-white border border-slate-700 outline-none focus:border-purple-400 block"
                   value={prazoBalcao} 
-                  onChange={e => setPrazoBalcao(e.target.value)}
+                  onChange={e => setPrazoBalcao(e.target.value)} 
                 />
               </div>
 
@@ -1708,7 +1688,7 @@ export default function App() {
               <input placeholder="Ex: www.pampapapeis.com.br" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm" value={novoFornecedor.site} onChange={e => setNovoFornecedor({...novoFornecedor, site: e.target.value})} />
               
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">WhatsApp com DDD</label>
-              <input placeholder="Ex: 11999999999" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm" value={novoFornecedor.whatsapp} onChange={e => setNovoFornecedor({...novoFornecedor, whatsapp: e.target.value})} />
+              <input placeholder="Ex: 11999999999" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm" value={novoFornecedor.whatsapp} onChange={e => setNovoFornecedor({...novoFornecedor, whatsapp: f.target.value})} />
               
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Endereço Físico (Cidade/Estado)</label>
               <textarea placeholder="Ex: Rua das Flores, 123 - Centro, São Paulo - SP" className="w-full p-4 bg-slate-50 rounded-2xl mb-4 outline-none border focus:border-purple-400 resize-none h-16 font-medium text-sm" value={novoFornecedor.endereco} onChange={e => setNovoFornecedor({...novoFornecedor, endereco: e.target.value})} />
@@ -1730,7 +1710,7 @@ export default function App() {
                   <button type="button" onClick={() => setMostrarInputNovaCatForn(true)} className="text-[10px] text-purple-600 font-black uppercase mt-1 tracking-wider hover:underline">+ Criar Categoria de Compras</button>
                 ) : (
                   <div className="flex gap-2 items-center bg-slate-50 p-2.5 rounded-2xl border border-dashed border-purple-200 mt-2 animate-fadeIn">
-                    <input placeholder="Ex: 🧵 Fitas e Cordões" className="flex-1 bg-white p-2.5 rounded-xl text-xs font-bold outline-none border" value={inputNovaCategoriaForn} onChange={e => inputNovaCategoriaForn(e.target.value)} />
+                    <input placeholder="Ex: 🧵 Fitas e Cordões" className="flex-1 bg-white p-2.5 rounded-xl text-xs font-bold outline-none border" value={inputNovaCategoriaForn} onChange={e => setInputNovaCategoriaForn(e.target.value)} />
                     <button type="button" onClick={async () => {
                       if(!inputNovaCategoriaForn.trim()) return setMostrarInputNovaCatForn(false);
                       await addDoc(collection(db, "categorias_fornecedores"), { nome: inputNovaCategoriaForn.trim(), userId: user.uid });
