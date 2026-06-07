@@ -150,7 +150,6 @@ export default function App() {
         }
       });
 
-      // Carrega também as categorias daquela loja para o cliente poder filtrar na vitrine pública
       const qCats = query(collection(db, "categorias_produtos"), where("userId", "==", lojaId));
       getDocs(qCats).then(snapshot => {
         setCategoriasProd(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
@@ -203,11 +202,9 @@ export default function App() {
       const qAnotacoes = query(collection(db, "anotacoes"), where("userId", "==", user.uid));
       const unsubAnotacoes = onSnapshot(qAnotacoes, s => setAnotacoes(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
-      // Escutas em Tempo Real para Categorias Dinâmicas e Fornecedores
       const qCatsProd = query(collection(db, "categorias_produtos"), where("userId", "==", user.uid));
       const unsubCatsProd = onSnapshot(qCatsProd, s => {
         if(s.docs.length === 0 && categoriasProd.length === 0) {
-          // Inicializa categorias padrão caso o usuário não tenha nenhuma
           const padroes = ["🖨️ Sublimação", "✂️ Papelaria Personalizada", "🎁 Personalizados", "💕 Datas Comemorativas"];
           padroes.forEach(async (cat) => {
             await addDoc(collection(db, "categorias_produtos"), { nome: cat, userId: user.uid });
@@ -219,7 +216,6 @@ export default function App() {
       const qCatsForn = query(collection(db, "categorias_fornecedores"), where("userId", "==", user.uid));
       const unsubCatsForn = onSnapshot(qCatsForn, s => {
         if(s.docs.length === 0 && categoriasForn.length === 0) {
-          // Inicializa categorias padrão para fornecedores
           const padroesForn = ["🖨️ Insumos de Sublimação", "✂️ Papelaria e Papéis", "📦 Embalagens e Caixas", "🎁 Brindes e Acrílicos"];
           padroesForn.forEach(async (cat) => {
             await addDoc(collection(db, "categorias_fornecedores"), { nome: cat, userId: user.uid });
@@ -541,7 +537,7 @@ export default function App() {
       htmlLinhasTabela = arrayLinhasTexto.map(linhaTexto => {
         if(!linhaTexto.trim()) return '';
         let quantidadeItem = Number(p.qtdPed || 1);
-        let nomeItemLimpo = linhaTexto.trim();
+        let nomeItemLimpo = inlineTexto.trim();
         
         const matchCombo = linhaTexto.trim().match(/^(\d+)x\s+(.+)$/i);
         if(matchCombo) {
@@ -801,7 +797,6 @@ export default function App() {
     }
   };
 
-  // Funções Auxiliares para controle de Seleção Múltipla (Tags)
   const toggleCategoriaNoProduto = (catNome: string) => {
     const jaTem = novoProdCatalogo.categorias?.includes(catNome) || false;
     if(jaTem) {
@@ -820,19 +815,18 @@ export default function App() {
     }
   };
 
+  // CORRIGIDO: Modificado de 'materials' para 'materiais' para evitar a quebra do app
   const materiaisFiltrados = useMemo(() => {
     return materiais.filter(m => 
       m.nome?.toLowerCase().includes(pesquisaMateriais.toLowerCase())
     );
-  }, [materials, pesquisaMateriais]);
+  }, [materiais, pesquisaMateriais]);
 
-  // Filtro Inteligente da Vitrine Pública do Cliente por Categoria
   const produtosPublicosFiltrados = useMemo(() => {
     if (filtroVitrineSelecionado === 'Todos') return produtosPublicos;
     return produtosPublicos.filter(p => p.categorias && p.categorias.includes(filtroVitrineSelecionado));
   }, [produtosPublicos, filtroVitrineSelecionado]);
 
-  // Filtro Avançado de Fornecedores por Nome e Categoria
   const fornecedoresFiltrados = useMemo(() => {
     return fornecedores.filter(f => {
       const matchNome = f.nome?.toLowerCase().includes(pesquisaFornecedores.toLowerCase());
@@ -862,7 +856,6 @@ export default function App() {
     return (
       <div className="min-h-screen bg-slate-50 pb-40 font-sans text-slate-700 w-full relative">
         <header className="bg-white p-4 flex justify-between items-center shadow-sm border-b sticky top-0 z-50">
-          {/* Botão de Menu Hambúrguer para o cliente filtrar por categorias */}
           <div className="relative">
             <button onClick={() => setIsMenuFiltroVitrineOpen(!isMenuFiltroVitrineOpen)} className="p-2 text-slate-700 hover:text-purple-700 transition-colors flex items-center gap-1 bg-slate-100 rounded-xl text-xs font-bold">
               <Menu size={18} /> Filtrar
@@ -929,10 +922,6 @@ export default function App() {
         )}
       </div>
     );
-  }
-
-  if (!user) {
-    return ( <Login isRegistering={isRegistering} setIsRegistering={setIsRegistering} email={email} setEmail={setEmail} password={password} setPassword={setPassword} handleAuth={handleAuth} /> );
   }
 
   const renderCalculadoraForm = () => (
@@ -1110,7 +1099,7 @@ export default function App() {
              limparCalculadora(); setActiveTab('pedidos'); alert("Salvo!");
           }} className="bg-orange-500 text-white px-5 py-4 rounded-[22px] font-black uppercase text-xs shadow-lg">Salvar</button>
           <button onClick={() => gerarPDF({nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed, obsPedido})} className="bg-orange-500 text-white p-4 rounded-[22px] shadow-lg"><Printer size={18}/></button>
-          <button onClick={() => enviarZap({nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed})} className="bg-emerald-500 text-white p-4 rounded-[22px] shadow-lg"><MessageCircle size={18}/></button>
+          <button onClick={() => enviarZap({nomeProd: p.nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed})} className="bg-emerald-500 text-white p-4 rounded-[22px] shadow-lg"><MessageCircle size={18}/></button>
         </div>
       </div>
     </div>
@@ -1139,7 +1128,6 @@ export default function App() {
               <button onClick={() => setActiveTab('balcao')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'balcao' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><ShoppingCart size={16}/> Balcão de Vendas Rápido</button>
               <button onClick={() => setActiveTab('catalogo')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'catalogo' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><BookOpen size={16}/> Meu Catálogo Visual</button>
               
-              {/* Novo Botão no Menu Lateral para Fornecedores */}
               <button onClick={() => setActiveTab('fornecedores')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'fornecedores' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Globe size={16}/> Biblioteca Fornecedores 📦</button>
               
               <button onClick={() => setActiveTab('materiais')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'materiais' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Package size={16}/> Armário / Insumos</button>
@@ -1299,7 +1287,7 @@ export default function App() {
                     nomeLoja: nomeLojaPerfil.trim(),
                     logoUrl: logoLojaPerfil
                   }, { merge: true });
-                  alert("Perfil da empresa updated com sucesso! 🚀");
+                  alert("Perfil da empresa atualizado com sucesso! 🚀");
                   setActiveTab('inicio');
                 } catch {
                   alert("Erro ao salvar as configurações da empresa.");
@@ -1384,7 +1372,7 @@ export default function App() {
               <h2 className="text-purple-700 font-bold mb-2 flex items-center gap-2 uppercase text-xs tracking-widest"><Calculator size={18}/> Estrutura de Custos Fixos (Opcional)</h2>
               <p className="text-slate-400 text-[11px] mb-4">Insira ou edite seus valores aqui. Eles ficam salvos e você pode alterá-los quando quiser.</p>
 
-              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Salário Mensal Pretendido</label>
+              <label className="text-[10px] font-bold text-purple-700 outline-none uppercase ml-1">Salário Mensal Pretendido</label>
               <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 font-bold text-purple-700 outline-none" value={financasFixo.salario} onChange={e => setFinancasFixo({...financasFixo, salario: e.target.value})} />
 
               <div className="grid grid-cols-2 gap-3 mb-3 w-full">
@@ -1629,7 +1617,6 @@ export default function App() {
                   })}
                 </div>
                 
-                {/* Criador Dinâmico de Categoria em Linha */}
                 {!mostrarInputNovaCatProd ? (
                   <button type="button" onClick={() => setMostrarInputNovaCatProd(true)} className="text-[10px] text-purple-600 font-black uppercase mt-1 tracking-wider hover:underline">+ Criar Nova Categoria</button>
                 ) : (
@@ -1676,7 +1663,6 @@ export default function App() {
                   </div>
                   <div className="flex items-center gap-1">
                     <button onClick={() => venderItemDiretoDoCatalogo(p)} className="bg-orange-500 text-white px-3 py-2 rounded-xl text-xs font-black uppercase shadow active:scale-95">Vender 🛍️</button>
-                    {/* Botão de Edição que joga as informações do produto de volta para a tela superior de cadastro */}
                     <button onClick={() => setNovoProdCatalogo({ id: p.id, nome: p.nome, precoVenda: String(p.precoVenda), urlImagem: p.urlImagem || '', categorias: p.categorias || [] })} className="text-orange-400 hover:bg-orange-50 p-1.5 rounded-xl"><Edit2 size={15}/></button>
                     <button onClick={() => confirmarExcluir('produto', p.id)} className="text-red-200 p-1.5"><Trash2 size={15}/></button>
                   </div>
@@ -1689,7 +1675,7 @@ export default function App() {
         {/* ABA DA CALCULADORA COMPOSTA */}
         {activeTab === 'criar' && renderCalculadoraForm()}
 
-        {/* TELA NOVA: BIBLIOTECA DE FORNECEDORES (OPÇÃO A: TOTALMENTE INDEPENDENTE) */}
+        {/* BIBLIOTECA DE FORNECEDORES COMPLETA */}
         {activeTab === 'fornecedores' && (
           <div className="space-y-4 pt-2 w-full animate-fadeIn">
             <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
@@ -1702,12 +1688,11 @@ export default function App() {
               <input placeholder="Ex: www.pampapapeis.com.br" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm" value={novoFornecedor.site} onChange={e => setNovoFornecedor({...novoFornecedor, site: e.target.value})} />
               
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">WhatsApp com DDD</label>
-              <input placeholder="Ex: 11999999999" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm" value={novoFornecedor.whatsapp} onChange={e => setNovoFornecedor({...novoFornecedor, whatsapp: e.target.value})} />
+              <input placeholder="Ex: 11999999999" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm" value={novoFornecedor.whatsapp} onChange={e => setNovoFornecedor({...novoFornecedor, whatsapp: f.target.value})} />
               
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Endereço Físico (Cidade/Estado)</label>
               <textarea placeholder="Ex: Rua das Flores, 123 - Centro, São Paulo - SP" className="w-full p-4 bg-slate-50 rounded-2xl mb-4 outline-none border focus:border-purple-400 resize-none h-16 font-medium text-sm" value={novoFornecedor.endereco} onChange={e => setNovoFornecedor({...novoFornecedor, endereco: e.target.value})} />
 
-              {/* Tags de Categorias Independentes de Fornecedores */}
               <div className="mb-6 w-full">
                 <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Categorias do Fornecedor</label>
                 <div className="flex flex-wrap gap-2 mb-2">
@@ -1749,7 +1734,6 @@ export default function App() {
               </button>
             </div>
 
-            {/* Barra de Pesquisa e Filtro de Fornecedores */}
             <div className="flex flex-col gap-2 w-full mt-4">
               <div className="relative w-full">
                 <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -1763,7 +1747,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Lista dos Fornecedores Cadastrados */}
             <div className="grid grid-cols-1 gap-3 w-full">
               {fornecedoresFiltrados.map(f => (
                 <div key={f.id} className="bg-white p-5 rounded-[30px] border shadow-sm flex flex-col gap-3 w-full">
@@ -1785,7 +1768,6 @@ export default function App() {
                     </div>
                   </div>
                   
-                  {/* Botões de Ação Direta Integrados (Whats, Site, Maps) */}
                   <div className="flex gap-2 border-t pt-3 w-full justify-end">
                     {f.site && (
                       <button onClick={() => window.open(f.site.startsWith('http') ? f.site : `https://${f.site}`, '_blank')} className="flex items-center gap-1 text-xs font-black uppercase bg-blue-50 text-blue-600 px-3 py-2 rounded-xl active:scale-95 transition-transform"><Globe size={13}/> Site</button>
@@ -1879,25 +1861,25 @@ export default function App() {
             <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
               <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2"><Package size={20}/> Gerenciar Armário</h2>
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome do Insumo</label>
-              <input placeholder="Ex: Caneca Cerâmica" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none" value={novoMat.nome} onChange={e => setNovoMat({...novoMat, nome: e.target.value})} />
+              <input placeholder="Ex: Caneca Cerâmica" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none font-medium text-sm border focus:border-purple-400" value={novoMat.nome} onChange={e => setNovoMat({...novoMat, nome: e.target.value})} />
               <div className="grid grid-cols-3 gap-3 mb-3 w-full">
                 <div className="col-span-2">
                   <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Preço Unidade/Caixa/Rolo</label>
-                  <input type="number" placeholder="R$ 0,00" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={novoMat.valor} onChange={e => setNovoMat({...novoMat, valor: e.target.value})} />
+                  <input type="number" placeholder="R$ 0,00" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-medium text-sm border focus:border-purple-400" value={novoMat.valor} onChange={e => setNovoMat({...novoMat, valor: e.target.value})} />
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-slate-400 uppercase block text-center">Rende Quantos?</label>
-                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-center" value={novoMat.qtd} onChange={e => setNovoMat({...novoMat, qtd: e.target.value})} />
+                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-center font-medium text-sm border focus:border-purple-400" value={novoMat.qtd} onChange={e => setNovoMat({...novoMat, qtd: e.target.value})} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3 mb-4 w-full">
                 <div>
                   <label className="text-[10px] font-bold text-purple-600 uppercase ml-1">Estoque Atual</label>
-                  <input type="number" className="w-full p-4 bg-purple-50 rounded-2xl outline-none text-center font-bold text-purple-700" value={novoMat.qtdAtual} onChange={e => setNovoMat({...novoMat, qtdAtual: e.target.value})} />
+                  <input type="number" className="w-full p-4 bg-purple-50 rounded-2xl outline-none text-center font-bold text-purple-700 border focus:border-purple-400" value={novoMat.qtdAtual} onChange={e => setNovoMat({...novoMat, qtdAtual: e.target.value})} />
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-red-500 uppercase ml-1">Mínimo Alerta</label>
-                  <input type="number" className="w-full p-4 bg-red-50 rounded-2xl outline-none text-center font-bold text-red-700" value={novoMat.qtdMinima} onChange={e => setNovoMat({...novoMat, qtdMinima: e.target.value})} />
+                  <input type="number" className="w-full p-4 bg-red-50 rounded-2xl outline-none text-center font-bold text-red-700 border focus:border-purple-400" value={novoMat.qtdMinima} onChange={e => setNovoMat({...novoMat, qtdMinima: e.target.value})} />
                 </div>
               </div>
               <div className="mb-6 w-full">
@@ -1963,7 +1945,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ABA DE CLIENTES - TOTALMENTE EXPANDIDA */}
+        {/* ABA DE CLIENTES */}
         {activeTab === 'clientes' && (
            <div className="space-y-4 pt-2 w-full">
             <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
