@@ -491,7 +491,6 @@ export default function App() {
     return { faturamento: faturamentoTotal.toFixed(2), pendentes: pendentesCount, criticos: estoqueCriticoCount, totalClientes: clientes.length };
   }, [pedidos, materiais, clientes]);
 
-  // CORRIGIDO: Removido o campo 'custos.outros' obsoleto para evitar quebra com custos dinâmicos
   const resumenFinanceiro = useMemo(() => {
     if (precoManual !== null) {
       const totalCatalogo = Number(precoManual) * Number(qtdPed || 1);
@@ -837,7 +836,7 @@ export default function App() {
   const toggleCategoriaNoFornecedor = (catNome: string) => {
     const jaTem = novoFornecedor.categorias?.includes(catNome) || false;
     if(jaTem) {
-      setNovoFornecedor({...novoFornecedor, categories: novoFornecedor.categorias.filter(c => c !== catNome)});
+      setNovoFornecedor({...novoFornecedor, categorias: novoFornecedor.categorias.filter(c => c !== catNome)});
     } else {
       setNovoFornecedor({...novoFornecedor, categorias: [...(novoFornecedor.categorias || []), catNome]});
     }
@@ -847,7 +846,7 @@ export default function App() {
     return materiais.filter(m => 
       m.nome?.toLowerCase().includes(pesquisaMateriais.toLowerCase())
     );
-  }, [materials, pesquisaMateriais]);
+  }, [materiais, pesquisaMateriais]);
 
   const produtosPublicosFiltrados = useMemo(() => {
     if (filtroVitrineSelecionado === 'Todos') return produtosPublicos;
@@ -1048,7 +1047,7 @@ export default function App() {
               <label className="text-[10px] font-bold text-purple-600 uppercase ml-1 block mb-1">🛠️ Equipamentos Ativos neste Orçamento</label>
               <div className="flex flex-wrap gap-2 w-full">
                 {equipamentos.map(eq => {
-                  const selecionado = equipamentosSelecionados.includes(eq.id);
+                  const selecionado = equipmentsSelecionados.includes(eq.id);
                   return (
                     <button key={eq.id} type="button" onClick={() => toggleEquipamento(eq.id)} className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${selecionado ? 'bg-purple-600 text-white border-purple-600 shadow-md' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-purple-300'}`}>
                       {eq.nome}
@@ -1623,7 +1622,7 @@ export default function App() {
                   type="date" 
                   className="w-full p-3.5 bg-slate-800/80 rounded-xl text-xs font-bold text-white border border-slate-700 outline-none focus:border-purple-400 block"
                   value={prazoBalcao} 
-                  onChange={e => setPrazoBalcao(e.target.value)}Logic
+                  onChange={e => setPrazoBalcao(e.target.value)}
                 />
               </div>
 
@@ -1718,7 +1717,7 @@ export default function App() {
 
               <button onClick={async () => {
                 if(!novoProdCatalogo.nome || !novoProdCatalogo.precoVenda) return alert("Preencha o nome e o preço!");
-                const d = { nome: novoProdCatalogo.nome, precoVenda: Number(novoProdCatalogo.precoVenda), urlImagem: novoProdCatalogo.urlImagem || '', categorias: novoProdCatalogo.categorias || [], userId: user.uid };
+                const d = { nome: novoProdCatalogo.nome, precoVenda: Number(novoProdCatalogo.precoVenda), urlImagem: novoProdCatalogo.urlImagem || '', categories: novoProdCatalogo.categorias || [], userId: user.uid };
                 if (novoProdCatalogo.id) await updateDoc(doc(db, "produtos", novoProdCatalogo.id), d);
                 else await addDoc(collection(db, "produtos"), d);
                 setNovoProdCatalogo({ id: '', nome: '', precoVenda: '', urlImagem: '', categorias: [] });
