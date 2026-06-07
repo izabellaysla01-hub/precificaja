@@ -3,7 +3,7 @@ import { initializeApp } from "firebase/app";
 import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { getFirestore, collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc, getDocs, setDoc, getDoc } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2, Menu, Search, Settings, CheckSquare, Square } from 'lucide-react';
+import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2, Menu, Search, Settings, CheckSquare, Square, Filter, MapPin, Globe } from 'lucide-react';
 
 const firebaseConfig = {
   apiKey: "AIzaSyD0BWsNm9DbGGDqiHzkdDmNdxIGdJ9tWe8",
@@ -56,15 +56,26 @@ export default function App() {
   const [nomeComprador, setNomeComprador] = useState('');
   const [zapDaLojaPublica, setZapDaLojaPublica] = useState('');
 
-  const [activeTab, useStateActiveTab] = useState<'inicio' | 'materiais' | 'criar' | 'pedidos' | 'clientes' | 'catalogo' | 'balcao' | 'financeiro' | 'perfil' | 'anotacoes'>('inicio');
+  // Estados para Filtro na Vitrine Pública do Cliente
+  const [filtroVitrineSelecionado, setFiltroVitrineSelecionado] = useState('Todos');
+  const [isMenuFiltroVitrineOpen, setIsMenuFiltroVitrineOpen] = useState(false);
+
+  const [activeTab, useStateActiveTab] = useState<'inicio' | 'materiais' | 'criar' | 'pedidos' | 'clientes' | 'catalogo' | 'balcao' | 'financeiro' | 'perfil' | 'anotacoes' | 'fornecedores'>('inicio');
   const [materiais, setMaterials] = useState<any[]>([]);
   const [pedidos, setPedidos] = useState<any[]>([]);
   const [clientes, setClientes] = useState<any[]>([]);
   const [produtos, setProdutos] = useState<any[]>([]);
   const [equipamentos, setEquipamentos] = useState<any[]>([]);
   const [anotacoes, setAnotacoes] = useState<any[]>([]);
+  
+  // Estados Novos para Categorias Dinâmicas e Fornecedores
+  const [categoriasProd, setCategoriasProd] = useState<any[]>([]);
+  const [categoriasForn, setCategoriasForn] = useState<any[]>([]);
+  const [fornecedores, setFornecedores] = useState<any[]>([]);
 
   const [pesquisaMateriais, setPesquisaMateriais] = useState('');
+  const [pesquisaFornecedores, setPesquisaFornecedores] = useState('');
+  const [filtroFornSelecionado, setFiltroFornSelecionado] = useState('Todos');
 
   const [pedidoEditandoId, setPedidoEditandoId] = useState<string | null>(null);
   const [mostrarSeletorCatalogo, setMostrarSeletorCatalogo] = useState(false);
@@ -72,7 +83,6 @@ export default function App() {
   const [filtroStatusPedido, setFiltroStatusPedido] = useState<'Pendente' | 'Vendido' | 'Cancelado'>('Pendente');
   const [isDuplicando, setIsDuplicando] = useState(false);
 
-  // Estado para controlar o dia selecionado no calendário horizontal (padrão é hoje em formato YYYY-MM-DD)
   const [diaSelecionadoAgenda, setDiaSelecionadoAgenda] = useState<string>(new Date().toISOString().split('T')[0]);
 
   const [nomeProd, setNomeProd] = useState('');
@@ -97,7 +107,16 @@ export default function App() {
   const [novoCli, setNovoCli] = useState({ id: '', nome: '', zap: '', email: '', endereco: '' });
   const [novaAnotacao, setNovaAnotacao] = useState({ id: '', titulo: '', conteudo: '', dataPrazo: new Date().toISOString().split('T')[0] });
   
-  const [novoProdCatalogo, setNovoProdCatalogo] = useState({ id: '', nome: '', precoVenda: '', urlImagem: '' });
+  // Estados de Cadastro Atualizados com Categorias
+  const [novoProdCatalogo, setNovoProdCatalogo] = useState<{id: string, nome: string, precoVenda: string, urlImagem: string, categorias: string[]}>({ id: '', nome: '', precoVenda: '', urlImagem: '', categorias: [] });
+  const [inputNovaCategoriaProd, setInputNovaCategoriaProd] = useState('');
+  const [mostrarInputNovaCatProd, setMostrarInputNovaCatProd] = useState(false);
+
+  // Estados de Cadastro para Fornecedores
+  const [novoFornecedor, setNovoFornecedor] = useState<{id: string, nome: string, site: string, whatsapp: string, endereco: string, categorias: string[]}>({ id: '', nome: '', site: '', whatsapp: '', endereco: '', categorias: [] });
+  const [inputNovaCategoriaForn, setInputNovaCategoriaForn] = useState('');
+  const [mostrarInputNovaCatForn, setMostrarInputNovaCatForn] = useState(false);
+
   const [zapDonaConta, setZapDonaConta] = useState('');
   const [subindoImagem, setSubindoImagem] = useState(false);
 
@@ -129,6 +148,12 @@ export default function App() {
         if(docSnap.exists()) {
           setZapDaLojaPublica(docSnap.data().whatsapp || '');
         }
+      });
+
+      // Carrega também as categorias daquela loja para o cliente poder filtrar na vitrine pública
+      const qCats = query(collection(db, "categorias_produtos"), where("userId", "==", lojaId));
+      getDocs(qCats).then(snapshot => {
+        setCategoriasProd(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
       });
 
       const q = query(collection(db, "produtos"), where("userId", "==", lojaId));
@@ -178,6 +203,34 @@ export default function App() {
       const qAnotacoes = query(collection(db, "anotacoes"), where("userId", "==", user.uid));
       const unsubAnotacoes = onSnapshot(qAnotacoes, s => setAnotacoes(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
+      // Escutas em Tempo Real para Categorias Dinâmicas e Fornecedores
+      const qCatsProd = query(collection(db, "categorias_produtos"), where("userId", "==", user.uid));
+      const unsubCatsProd = onSnapshot(qCatsProd, s => {
+        if(s.docs.length === 0 && categoriasProd.length === 0) {
+          // Inicializa categorias padrão caso o usuário não tenha nenhuma
+          const padroes = ["🖨️ Sublimação", "✂️ Papelaria Personalizada", "🎁 Personalizados", "💕 Datas Comemorativas"];
+          padroes.forEach(async (cat) => {
+            await addDoc(collection(db, "categorias_produtos"), { nome: cat, userId: user.uid });
+          });
+        }
+        setCategoriasProd(s.docs.map(d => ({ id: d.id, ...d.data() })));
+      });
+
+      const qCatsForn = query(collection(db, "categorias_fornecedores"), where("userId", "==", user.uid));
+      const unsubCatsForn = onSnapshot(qCatsForn, s => {
+        if(s.docs.length === 0 && categoriasForn.length === 0) {
+          // Inicializa categorias padrão para fornecedores
+          const padroesForn = ["🖨️ Insumos de Sublimação", "✂️ Papelaria e Papéis", "📦 Embalagens e Caixas", "🎁 Brindes e Acrílicos"];
+          padroesForn.forEach(async (cat) => {
+            await addDoc(collection(db, "categorias_fornecedores"), { nome: cat, userId: user.uid });
+          });
+        }
+        setCategoriasForn(s.docs.map(d => ({ id: d.id, ...d.data() })));
+      });
+
+      const qFornecedores = query(collection(db, "fornecedores"), where("userId", "==", user.uid));
+      const unsubFornecedores = onSnapshot(qFornecedores, s => setFornecedores(s.docs.map(d => ({ id: d.id, ...d.data() }))));
+
       const qConfigFin = doc(db, "configuracoes_financeiras", user.uid);
       getDoc(qConfigFin).then(snap => {
         if (snap.exists()) {
@@ -207,6 +260,9 @@ export default function App() {
         unsubProdutos();
         unsubEquipamentos();
         unsubAnotacoes();
+        unsubCatsProd();
+        unsubCatsForn();
+        unsubFornecedores();
       };
     }
   }, [user, idLojaPublica]);
@@ -221,7 +277,6 @@ export default function App() {
     alert("Link do seu catálogo copiado! 🔗🚀");
   };
 
-  // Lógica para gerar os próximos 7 dias da semana atual para o calendário horizontal da Home
   const proximosSeteDias = useMemo(() => {
     const dias = [];
     const nomesDias = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
@@ -234,7 +289,7 @@ export default function App() {
       const ano = d.getFullYear();
       const mes = String(d.getMonth() + 1).padStart(2, '0');
       const diaNum = String(d.getDate()).padStart(2, '0');
-      const stringData = `${ano}-${mes}-${diaNum}`; // Formato de id/busca igual ao Firebase
+      const stringData = `${ano}-${mes}-${diaNum}`;
       
       dias.push({
         stringData,
@@ -246,7 +301,6 @@ export default function App() {
     return dias;
   }, []);
 
-  // Filtra as tarefas/anotações pendentes especificamente do dia selecionado no carrossel da Home
   const anotacoesDoDiaSelecionado = useMemo(() => {
     return anotacoes.filter(a => a.dataPrazo === diaSelecionadoAgenda && !a.concluido);
   }, [anotacoes, diaSelecionadoAgenda]);
@@ -322,7 +376,7 @@ export default function App() {
 
   const finalizarPedidoPublicoWhatsapp = () => {
     if (!nomeComprador.trim()) return alert("Por favor, digite seu nome antes de enviar!");
-    const itensSelecionados = produtosPublicos.filter(p => carrinho[p.id] > 0);
+    const itensSelecionados = produtosPublicosFiltrados.filter(p => carrinho[p.id] > 0);
     if (itensSelecionados.length === 0) return alert("Seu carrinho está vazio!");
 
     let textoPedido = `*NOVO PEDIDO VIA CATÁLOGO DE VENDAS*%0A`;
@@ -457,7 +511,7 @@ export default function App() {
     window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
   };
 
-    const gerarPDF = (p: any) => {
+  const gerarPDF = (p: any) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
     const dataEmissao = p.data || new Date().toLocaleDateString('pt-BR');
     const hoje = new Date(); hoje.setDate(hoje.getDate() + 7);
@@ -467,7 +521,6 @@ export default function App() {
 
     let htmlLinhasTabela = '';
 
-    // CORREÇÃO AQUI: Verifica se o pedido veio do balcão e tem a lista de itens mapeada
     if (p.itensCombo && Array.isArray(p.itensCombo) && p.itensCombo.length > 0) {
       htmlLinhasTabela = p.itensCombo.map((item: any) => {
         const qtd = Number(item.qtd || 1);
@@ -484,7 +537,6 @@ export default function App() {
         `;
       }).join('');
     } else {
-      // Fallback para quando o orçamento é simples (visto pela calculadora tradicional)
       const arrayLinhasTexto = String(p.nomeProd || '').split('\n');
       htmlLinhasTabela = arrayLinhasTexto.map(linhaTexto => {
         if(!linhaTexto.trim()) return '';
@@ -497,7 +549,6 @@ export default function App() {
           nomeItemLimpo = matchCombo[2].trim();
         }
         
-        // Evita divisão por zero se a quantidade sumir por algum motivo
         const qtdSegura = quantidadeItem > 0 ? quantidadeItem : 1;
         const unitario = (totalNum / qtdSegura).toFixed(2);
 
@@ -608,6 +659,7 @@ export default function App() {
       else if (tipo === 'equipamento') colecao = "equipamentos";
       else if (tipo === 'material') colecao = "materiais";
       else if (tipo === 'anotacao') colecao = "anotacoes";
+      else if (tipo === 'fornecedor') colecao = "fornecedores";
 
       await deleteDoc(doc(db, colecao, id));
     }
@@ -749,11 +801,45 @@ export default function App() {
     }
   };
 
+  // Funções Auxiliares para controle de Seleção Múltipla (Tags)
+  const toggleCategoriaNoProduto = (catNome: string) => {
+    const jaTem = novoProdCatalogo.categorias?.includes(catNome) || false;
+    if(jaTem) {
+      setNovoProdCatalogo({...novoProdCatalogo, categorias: novoProdCatalogo.categorias.filter(c => c !== catNome)});
+    } else {
+      setNovoProdCatalogo({...novoProdCatalogo, categorias: [...(novoProdCatalogo.categorias || []), catNome]});
+    }
+  };
+
+  const toggleCategoriaNoFornecedor = (catNome: string) => {
+    const jaTem = novoFornecedor.categorias?.includes(catNome) || false;
+    if(jaTem) {
+      setNovoFornecedor({...novoFornecedor, categorias: novoFornecedor.categorias.filter(c => c !== catNome)});
+    } else {
+      setNovoFornecedor({...novoFornecedor, categorias: [...(novoFornecedor.categorias || []), catNome]});
+    }
+  };
+
   const materiaisFiltrados = useMemo(() => {
     return materiais.filter(m => 
       m.nome?.toLowerCase().includes(pesquisaMateriais.toLowerCase())
     );
-  }, [materiais, pesquisaMateriais]);
+  }, [materials, pesquisaMateriais]);
+
+  // Filtro Inteligente da Vitrine Pública do Cliente por Categoria
+  const produtosPublicosFiltrados = useMemo(() => {
+    if (filtroVitrineSelecionado === 'Todos') return produtosPublicos;
+    return produtosPublicos.filter(p => p.categorias && p.categorias.includes(filtroVitrineSelecionado));
+  }, [produtosPublicos, filtroVitrineSelecionado]);
+
+  // Filtro Avançado de Fornecedores por Nome e Categoria
+  const fornecedoresFiltrados = useMemo(() => {
+    return fornecedores.filter(f => {
+      const matchNome = f.nome?.toLowerCase().includes(pesquisaFornecedores.toLowerCase());
+      const matchCat = filtroFornSelecionado === 'Todos' ? true : (f.categorias && f.categorias.includes(filtroFornSelecionado));
+      return matchNome && matchCat;
+    });
+  }, [fornecedores, pesquisaFornecedores, filtroFornSelecionado]);
 
   const pedidosFiltradosPorStatus = useMemo(() => {
     return pedidos.filter(p => {
@@ -774,10 +860,27 @@ export default function App() {
     }, 0);
 
     return (
-      <div className="min-h-screen bg-slate-50 pb-40 font-sans text-slate-700">
-        <header className="bg-white p-4 text-center shadow-sm border-b sticky top-0 z-50">
-          <h1 className="text-xl font-black text-purple-700">Vitrine de Destaques 🎉</h1>
-          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">Faça suas escolhas e envie no WhatsApp</p>
+      <div className="min-h-screen bg-slate-50 pb-40 font-sans text-slate-700 w-full relative">
+        <header className="bg-white p-4 flex justify-between items-center shadow-sm border-b sticky top-0 z-50">
+          {/* Botão de Menu Hambúrguer para o cliente filtrar por categorias */}
+          <div className="relative">
+            <button onClick={() => setIsMenuFiltroVitrineOpen(!isMenuFiltroVitrineOpen)} className="p-2 text-slate-700 hover:text-purple-700 transition-colors flex items-center gap-1 bg-slate-100 rounded-xl text-xs font-bold">
+              <Menu size={18} /> Filtrar
+            </button>
+            {isMenuFiltroVitrineOpen && (
+              <div className="absolute left-0 mt-2 w-56 bg-white border border-slate-100 rounded-2xl shadow-xl py-2 z-50 animate-fadeIn">
+                <button onClick={() => { setFiltroVitrineSelecionado('Todos'); setIsMenuFiltroVitrineOpen(false); }} className={`w-full text-left px-4 py-2 text-xs font-bold ${filtroVitrineSelecionado === 'Todos' ? 'bg-purple-50 text-purple-700' : 'text-slate-600'}`}>✨ Todos os Produtos</button>
+                {categoriasProd.map(cat => (
+                  <button key={cat.id} onClick={() => { setFiltroVitrineSelecionado(cat.nome); setIsMenuFiltroVitrineOpen(false); }} className={`w-full text-left px-4 py-2 text-xs font-bold ${filtroVitrineSelecionado === cat.nome ? 'bg-purple-50 text-purple-700' : 'text-slate-600'}`}>{cat.nome}</button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="text-center">
+            <h1 className="text-base font-black text-purple-700">Vitrine de Destaques 🎉</h1>
+            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Filtro: {filtroVitrineSelecionado}</p>
+          </div>
+          <div className="w-14"></div>
         </header>
 
         <main className="p-4 max-w-xl mx-auto space-y-6">
@@ -787,7 +890,7 @@ export default function App() {
           </div>
 
           <div className="grid grid-cols-1 gap-4">
-            {produtosPublicos.map(p => {
+            {produtosPublicosFiltrados.map(p => {
               const qtdNoCarinho = carrinho[p.id] || 0;
               return (
                 <div key={p.id} className="bg-white p-4 rounded-[35px] border shadow-sm flex gap-4 items-center">
@@ -806,6 +909,10 @@ export default function App() {
                 </div>
               );
             })}
+            
+            {produtosPublicosFiltrados.length === 0 && (
+              <p className="text-center font-bold text-xs text-slate-400 py-12">Nenhum produto em destaque nesta categoria no momento. 🙌</p>
+            )}
           </div>
         </main>
 
@@ -1015,7 +1122,7 @@ export default function App() {
       {/* MENU HAMBÚRGUER LATERAL COMPLETO */}
       <div className={`fixed inset-0 bg-black/40 z-50 transition-opacity duration-300 ${isMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`} onClick={() => setIsMenuOpen(false)}>
         <div className={`w-72 bg-white h-full shadow-2xl p-6 flex flex-col justify-between transition-transform duration-300 ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'}`} onClick={e => e.stopPropagation()}>
-          <div className="space-y-6">
+          <div className="space-y-6 overflow-y-auto max-h-[85vh] scrollbar-none">
             <div className="flex justify-between items-center border-b pb-4">
               <div className="font-black text-purple-700 text-lg flex items-center gap-2"><Calculator size={22}/> Menu PrecificaJá</div>
               <button onClick={() => setIsMenuOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={22}/></button>
@@ -1031,6 +1138,10 @@ export default function App() {
               <button onClick={() => setActiveTab('pedidos')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'pedidos' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><History size={16}/> Histórico de Orçamentos</button>
               <button onClick={() => setActiveTab('balcao')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'balcao' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><ShoppingCart size={16}/> Balcão de Vendas Rápido</button>
               <button onClick={() => setActiveTab('catalogo')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'catalogo' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><BookOpen size={16}/> Meu Catálogo Visual</button>
+              
+              {/* Novo Botão no Menu Lateral para Fornecedores */}
+              <button onClick={() => setActiveTab('fornecedores')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'fornecedores' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Globe size={16}/> Biblioteca Fornecedores 📦</button>
+              
               <button onClick={() => setActiveTab('materiais')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'materiais' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Package size={16}/> Armário / Insumos</button>
               <button onClick={() => setActiveTab('clientes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'clientes' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><User size={16}/> Meus Clientes</button>
             </nav>
@@ -1049,7 +1160,6 @@ export default function App() {
       </header>
 
       <div className="p-4 max-w-xl mx-auto w-full">
-        {/* TELA INICIAL COMPLETA ESTILO UNISUAM */}
         {activeTab === 'inicio' && (
           <div className="space-y-5 pt-2 w-full">
             <div className="bg-gradient-to-tr from-purple-700 to-indigo-600 p-6 rounded-[35px] shadow-lg text-white w-full">
@@ -1069,7 +1179,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* SEÇÃO CALENDÁRIO AGENDA HORIZONTAL ESTILO UNISUAM */}
             <div className="bg-white p-5 rounded-[35px] border shadow-sm w-full space-y-4">
               <div className="flex justify-between items-center px-1">
                 <h3 className="text-purple-700 font-black uppercase text-xs tracking-wider flex items-center gap-1.5">
@@ -1078,7 +1187,6 @@ export default function App() {
                 <span className="text-[10px] bg-purple-50 text-purple-600 px-2 py-1 rounded-md font-bold uppercase">Mês Atual</span>
               </div>
               
-              {/* O Carrossel Horizontal de Dias */}
               <div className="flex justify-between gap-1 overflow-x-auto pb-1 scrollbar-none w-full">
                 {proximosSeteDias.map((dia) => {
                   const isActive = diaSelecionadoAgenda === dia.stringData;
@@ -1099,7 +1207,6 @@ export default function App() {
                 })}
               </div>
 
-              {/* Lista dinâmica de Tarefas do dia clicado */}
               <div className="border-t border-slate-100 pt-3 space-y-2 w-full">
                 {anotacoesDoDiaSelecionado.map((item) => (
                   <div key={item.id} className="flex items-center gap-3 bg-slate-50/80 p-3 rounded-2xl border border-slate-100 animate-fadeIn">
@@ -1192,7 +1299,7 @@ export default function App() {
                     nomeLoja: nomeLojaPerfil.trim(),
                     logoUrl: logoLojaPerfil
                   }, { merge: true });
-                  alert("Perfil da empresa atualizado com sucesso! 🚀");
+                  alert("Perfil da empresa updated com sucesso! 🚀");
                   setActiveTab('inicio');
                 } catch {
                   alert("Erro ao salvar as configurações da empresa.");
@@ -1239,7 +1346,6 @@ export default function App() {
             <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider ml-2 mt-4">Lista Geral de Pendências</h3>
             <div className="grid grid-cols-1 gap-3 w-full">
               {anotacoes.map(item => {
-                // Formata a data americana AAAA-MM-DD para visualização brasileira DD/MM
                 const dataFormatada = item.dataPrazo ? item.dataPrazo.split('-').reverse().slice(0, 2).join('/') : '';
                 return (
                   <div key={item.id} className={`bg-white p-5 rounded-3xl border shadow-sm w-full flex flex-col gap-2 relative ${item.concluido ? 'opacity-50' : ''}`}>
@@ -1330,7 +1436,6 @@ export default function App() {
               </button>
             </div>
 
-            {/* SEÇÃO DE FERRAMENTAS */}
             <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
               <h2 className="text-purple-700 font-bold mb-2 flex items-center gap-2 uppercase text-xs tracking-widest"><Package size={18}/> Minhas Ferramentas de Trabalho (Depreciação)</h2>
               <p className="text-slate-400 text-[11px] mb-4">Adicione ferramentas (secador, prensa) para incluir o desgaste financeiro automaticamente no resumo de custos.</p>
@@ -1473,11 +1578,18 @@ export default function App() {
           </div>
         )}
 
-        {/* MEU CATÁLOGO VISUAL */}
+        {/* MEU CATÁLOGO VISUAL MUDADO COM MODO EDIÇÃO E SELETOR DE CATEGORIAS (TAGS) */}
         {activeTab === 'catalogo' && (
           <div className="space-y-4 pt-2 w-full">
             <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
-              <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2 uppercase text-xs tracking-widest"><BookOpen size={18}/> Novo Item de Venda Fixa</h2>
+              <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2 uppercase text-xs tracking-widest">
+                <BookOpen size={18}/> {novoProdCatalogo.id ? '✏️ Editando Item do Catálogo' : 'Novo Item de Venda Fixa'}
+              </h2>
+              
+              {novoProdCatalogo.id && (
+                <button onClick={() => setNovoProdCatalogo({ id: '', nome: '', precoVenda: '', urlImagem: '', categorias: [] })} className="text-[10px] bg-slate-100 text-slate-600 px-3 py-1.5 rounded-xl font-bold uppercase tracking-wide mb-4 active:scale-95 transition-all block">Cancelar Modo Edição ❌</button>
+              )}
+
               <div className="mb-4 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-3xl p-4 bg-slate-50 relative min-h-[140px] w-full">
                 {novoProdCatalogo.urlImagem ? (
                   <div className="relative w-full h-32 rounded-2xl overflow-hidden">
@@ -1498,19 +1610,49 @@ export default function App() {
               </div>
 
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome do Produto</label>
-              <input placeholder="Ex: Caneca Alça Coração" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none" value={novoProdCatalogo.nome} onChange={e => setNovoProdCatalogo({...novoProdCatalogo, nome: e.target.value})} />
+              <input placeholder="Ex: Caneca Alça Coração" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none font-medium text-sm border focus:border-purple-400" value={novoProdCatalogo.nome} onChange={e => setNovoProdCatalogo({...novoProdCatalogo, nome: e.target.value})} />
+              
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Preço Fixo de Venda (R$)</label>
-              <input type="number" placeholder="Ex: 35.00" className="w-full p-4 bg-slate-50 rounded-2xl mb-4 outline-none font-bold text-purple-700" value={novoProdCatalogo.precoVenda} onChange={e => setNovoProdCatalogo({...novoProdCatalogo, precoVenda: e.target.value})} />
+              <input type="number" placeholder="Ex: 35.00" className="w-full p-4 bg-slate-50 rounded-2xl mb-4 outline-none font-bold text-purple-700 border focus:border-purple-400" value={novoProdCatalogo.precoVenda} onChange={e => setNovoProdCatalogo({...novoProdCatalogo, precoVenda: e.target.value})} />
+
+              {/* SELETOR DE CATEGORIAS MÚLTIPLAS POR TAGS */}
+              <div className="mb-5 w-full">
+                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Categorias do Produto (Selecione Múltiplas)</label>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {categoriasProd.map(cat => {
+                    const marcado = novoProdCatalogo.categorias?.includes(cat.nome) || false;
+                    return (
+                      <button key={cat.id} type="button" onClick={() => toggleCategoriaNoProduto(cat.nome)} className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${marcado ? 'bg-purple-700 text-white border-purple-700 shadow-sm' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-purple-300'}`}>
+                        {cat.nome}
+                      </button>
+                    );
+                  })}
+                </div>
+                
+                {/* Criador Dinâmico de Categoria em Linha */}
+                {!mostrarInputNovaCatProd ? (
+                  <button type="button" onClick={() => setMostrarInputNovaCatProd(true)} className="text-[10px] text-purple-600 font-black uppercase mt-1 tracking-wider hover:underline">+ Criar Nova Categoria</button>
+                ) : (
+                  <div className="flex gap-2 items-center bg-slate-50 p-2.5 rounded-2xl border border-dashed border-purple-200 mt-2 animate-fadeIn">
+                    <input placeholder="Ex: 🎨 Brindes Luxo" className="flex-1 bg-white p-2.5 rounded-xl text-xs font-bold outline-none border" value={inputNovaCategoriaProd} onChange={e => setInputNovaCategoriaProd(e.target.value)} />
+                    <button type="button" onClick={async () => {
+                      if(!inputNovaCategoriaProd.trim()) return setMostrarInputNovaCatProd(false);
+                      await addDoc(collection(db, "categorias_produtos"), { nome: inputNovaCategoriaProd.trim(), userId: user.uid });
+                      setInputNovaCategoriaProd(''); setMostrarInputNovaCatProd(false);
+                    }} className="bg-purple-700 text-white text-xs font-black px-4 py-2.5 rounded-xl uppercase shadow-sm">OK</button>
+                  </div>
+                )}
+              </div>
 
               <button onClick={async () => {
                 if(!novoProdCatalogo.nome || !novoProdCatalogo.precoVenda) return alert("Preencha o nome e o preço!");
-                const d = { nome: novoProdCatalogo.nome, precoVenda: Number(novoProdCatalogo.precoVenda), urlImagem: novoProdCatalogo.urlImagem || '', userId: user.uid };
+                const d = { nome: novoProdCatalogo.nome, precoVenda: Number(novoProdCatalogo.precoVenda), urlImagem: novoProdCatalogo.urlImagem || '', categorias: novoProdCatalogo.categorias || [], userId: user.uid };
                 if (novoProdCatalogo.id) await updateDoc(doc(db, "produtos", novoProdCatalogo.id), d);
                 else await addDoc(collection(db, "produtos"), d);
-                setNovoProdCatalogo({ id: '', nome: '', precoVenda: '', urlImagem: '' });
+                setNovoProdCatalogo({ id: '', nome: '', precoVenda: '', urlImagem: '', categorias: [] });
                 alert("Produto salvo no catálogo!");
               }} className="w-full bg-purple-700 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md" disabled={subindoImagem}>
-                {novoProdCatalogo.id ? 'Atualizar Item' : 'Salvar no Catálogo 📖'}
+                {novoProdCatalogo.id ? 'Salvar Alterações 📝' : 'Salvar no Catálogo 📖'}
               </button>
             </div>
 
@@ -1524,10 +1666,19 @@ export default function App() {
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-slate-800 text-sm truncate">{p.nome}</p>
                     <p className="text-purple-700 font-black text-sm mt-0.5">R$ {Number(p.precoVenda).toFixed(2)}</p>
+                    {p.categorias && p.categorias.length > 0 && (
+                      <div className="flex gap-1 flex-wrap mt-1">
+                        {p.categorias.map((c: string, i: number) => (
+                          <span key={i} className="text-[8px] bg-slate-100 font-bold text-slate-500 px-1.5 py-0.5 rounded uppercase">{c.split(' ')[0]}</span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-1">
                     <button onClick={() => venderItemDiretoDoCatalogo(p)} className="bg-orange-500 text-white px-3 py-2 rounded-xl text-xs font-black uppercase shadow active:scale-95">Vender 🛍️</button>
-                    <button onClick={() => deleteDoc(doc(db, "produtos", p.id))} className="text-red-200 p-1.5"><Trash2 size={15}/></button>
+                    {/* Botão de Edição que joga as informações do produto de volta para a tela superior de cadastro */}
+                    <button onClick={() => setNovoProdCatalogo({ id: p.id, nome: p.nome, precoVenda: String(p.precoVenda), urlImagem: p.urlImagem || '', categorias: p.categorias || [] })} className="text-orange-400 hover:bg-orange-50 p-1.5 rounded-xl"><Edit2 size={15}/></button>
+                    <button onClick={() => confirmarExcluir('produto', p.id)} className="text-red-200 p-1.5"><Trash2 size={15}/></button>
                   </div>
                 </div>
               ))}
@@ -1537,6 +1688,124 @@ export default function App() {
 
         {/* ABA DA CALCULADORA COMPOSTA */}
         {activeTab === 'criar' && renderCalculadoraForm()}
+
+        {/* TELA NOVA: BIBLIOTECA DE FORNECEDORES (OPÇÃO A: TOTALMENTE INDEPENDENTE) */}
+        {activeTab === 'fornecedores' && (
+          <div className="space-y-4 pt-2 w-full animate-fadeIn">
+            <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
+              <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2 uppercase text-xs tracking-widest"><Globe size={20}/> Cadastrar Novo Fornecedor</h2>
+              
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome da Empresa / Distribuidora</label>
+              <input placeholder="Ex: Pampa Papéis" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm" value={novoFornecedor.nome} onChange={e => setNovoFornecedor({...novoFornecedor, nome: e.target.value})} />
+              
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Site Oficial (Link)</label>
+              <input placeholder="Ex: www.pampapapeis.com.br" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm" value={novoFornecedor.site} onChange={e => setNovoFornecedor({...novoFornecedor, site: e.target.value})} />
+              
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">WhatsApp com DDD</label>
+              <input placeholder="Ex: 11999999999" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm" value={novoFornecedor.whatsapp} onChange={e => setNovoFornecedor({...novoFornecedor, whatsapp: e.target.value})} />
+              
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Endereço Físico (Cidade/Estado)</label>
+              <textarea placeholder="Ex: Rua das Flores, 123 - Centro, São Paulo - SP" className="w-full p-4 bg-slate-50 rounded-2xl mb-4 outline-none border focus:border-purple-400 resize-none h-16 font-medium text-sm" value={novoFornecedor.endereco} onChange={e => setNovoFornecedor({...novoFornecedor, endereco: e.target.value})} />
+
+              {/* Tags de Categorias Independentes de Fornecedores */}
+              <div className="mb-6 w-full">
+                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Categorias do Fornecedor</label>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {categoriasForn.map(cat => {
+                    const marcado = novoFornecedor.categorias?.includes(cat.nome) || false;
+                    return (
+                      <button key={cat.id} type="button" onClick={() => toggleCategoriaNoFornecedor(cat.nome)} className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${marcado ? 'bg-purple-700 text-white border-purple-700 shadow-sm' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-purple-300'}`}>
+                        {cat.nome}
+                      </button>
+                    );
+                  })}
+                </div>
+                
+                {!mostrarInputNovaCatForn ? (
+                  <button type="button" onClick={() => setMostrarInputNovaCatForn(true)} className="text-[10px] text-purple-600 font-black uppercase mt-1 tracking-wider hover:underline">+ Criar Categoria de Compras</button>
+                ) : (
+                  <div className="flex gap-2 items-center bg-slate-50 p-2.5 rounded-2xl border border-dashed border-purple-200 mt-2 animate-fadeIn">
+                    <input placeholder="Ex: 🧵 Fitas e Cordões" className="flex-1 bg-white p-2.5 rounded-xl text-xs font-bold outline-none border" value={inputNovaCategoriaForn} onChange={e => setInputNovaCategoriaForn(e.target.value)} />
+                    <button type="button" onClick={async () => {
+                      if(!inputNovaCategoriaForn.trim()) return setMostrarInputNovaCatForn(false);
+                      await addDoc(collection(db, "categorias_fornecedores"), { nome: inputNovaCategoriaForn.trim(), userId: user.uid });
+                      setInputNovaCategoriaForn(''); setMostrarInputNovaCatForn(false);
+                    }} className="bg-purple-700 text-white text-xs font-black px-4 py-2.5 rounded-xl uppercase shadow-sm">OK</button>
+                  </div>
+                )}
+              </div>
+
+              <button onClick={async () => {
+                if(!novoFornecedor.nome) return alert("Digite o nome do fornecedor!");
+                const d = { nome: novoFornecedor.nome, site: novoFornecedor.site, whatsapp: novoFornecedor.whatsapp, endereco: novoFornecedor.endereco, categorias: novoFornecedor.categorias || [], userId: user.uid };
+                
+                if (novoFornecedor.id) await updateDoc(doc(db, "fornecedores", novoFornecedor.id), d);
+                else await addDoc(collection(db, "fornecedores"), d);
+                
+                setNovoFornecedor({ id: '', nome: '', site: '', whatsapp: '', endereco: '', categorias: [] });
+                alert("Fornecedor cadastrado com sucesso! 📦🎉");
+              }} className="w-full bg-orange-500 text-white p-5 rounded-2xl font-black uppercase text-xs shadow-md">
+                {novoFornecedor.id ? 'Atualizar Fornecedor' : 'Salvar Fornecedor'}
+              </button>
+            </div>
+
+            {/* Barra de Pesquisa e Filtro de Fornecedores */}
+            <div className="flex flex-col gap-2 w-full mt-4">
+              <div className="relative w-full">
+                <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input type="text" placeholder="Pesquisar por nome do fornecedor..." value={pesquisaFornecedores} onChange={e => setPesquisaFornecedores(e.target.value)} className="w-full p-4 pl-11 bg-white rounded-2xl border border-slate-200 outline-none text-sm font-medium focus:border-purple-500 transition-colors shadow-sm" />
+              </div>
+              <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-none w-full">
+                <button onClick={() => setFiltroFornSelecionado('Todos')} className={`px-3 py-1.5 text-xs font-bold shrink-0 rounded-xl border ${filtroFornSelecionado === 'Todos' ? 'bg-purple-700 text-white border-purple-700' : 'bg-white text-slate-500'}`}>🌍 Todos</button>
+                {categoriasForn.map(cat => (
+                  <button key={cat.id} onClick={() => setFiltroFornSelecionado(cat.nome)} className={`px-3 py-1.5 text-xs font-bold shrink-0 rounded-xl border ${filtroFornSelecionado === cat.nome ? 'bg-purple-700 text-white border-purple-700' : 'bg-white text-slate-500'}`}>{cat.nome}</button>
+                ))}
+              </div>
+            </div>
+
+            {/* Lista dos Fornecedores Cadastrados */}
+            <div className="grid grid-cols-1 gap-3 w-full">
+              {fornecedoresFiltrados.map(f => (
+                <div key={f.id} className="bg-white p-5 rounded-[30px] border shadow-sm flex flex-col gap-3 w-full">
+                  <div className="flex justify-between items-start w-full">
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-black text-slate-800 text-base truncate">{f.nome}</h4>
+                      {f.endereco && <p className="text-xs text-slate-500 mt-1 font-semibold flex items-center gap-1"><MapPin size={12}/> {f.endereco}</p>}
+                      {f.categorias && f.categorias.length > 0 && (
+                        <div className="flex gap-1 flex-wrap mt-2">
+                          {f.categorias.map((c: string, idx: number) => (
+                            <span key={idx} className="text-[9px] bg-purple-50 text-purple-600 px-2 py-0.5 rounded font-black uppercase">{c}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex gap-1 shrink-0">
+                      <button onClick={() => setNovoFornecedor({ id: f.id, nome: f.nome, site: f.site || '', whatsapp: f.whatsapp || '', endereco: f.endereco || '', categorias: f.categorias || [] })} className="text-orange-400 p-2 hover:bg-orange-50 rounded-xl"><Edit2 size={16}/></button>
+                      <button onClick={() => confirmarExcluir('fornecedor', f.id)} className="text-red-200 p-2 hover:bg-red-50 rounded-xl"><Trash2 size={16}/></button>
+                    </div>
+                  </div>
+                  
+                  {/* Botões de Ação Direta Integrados (Whats, Site, Maps) */}
+                  <div className="flex gap-2 border-t pt-3 w-full justify-end">
+                    {f.site && (
+                      <button onClick={() => window.open(f.site.startsWith('http') ? f.site : `https://${f.site}`, '_blank')} className="flex items-center gap-1 text-xs font-black uppercase bg-blue-50 text-blue-600 px-3 py-2 rounded-xl active:scale-95 transition-transform"><Globe size={13}/> Site</button>
+                    )}
+                    {f.whatsapp && (
+                      <button onClick={() => window.open(`https://wa.me/55${f.whatsapp.replace(/\D/g, '')}`, '_blank')} className="flex items-center gap-1 text-xs font-black uppercase bg-emerald-50 text-emerald-600 px-3 py-2 rounded-xl active:scale-95 transition-transform"><MessageCircle size={13}/> WhatsApp</button>
+                    )}
+                    {f.endereco && (
+                      <button onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(f.endereco)}`, '_blank')} className="flex items-center gap-1 text-xs font-black uppercase bg-slate-50 text-slate-600 px-3 py-2 rounded-xl active:scale-95 transition-transform"><MapPin size={13}/> Mapa</button>
+                    )}
+                  </div>
+                </div>
+              ))}
+              
+              {fornecedoresFiltrados.length === 0 && (
+                <p className="text-center font-bold text-xs text-slate-400 py-6 italic">Nenhum fornecedor cadastrado nesta seção. 📦</p>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* HISTÓRICO DE ORÇAMENTOS EXPANDIDO E SEPARADO POR STATUS */}
         {activeTab === 'pedidos' && (
