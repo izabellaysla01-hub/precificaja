@@ -113,7 +113,7 @@ export default function App() {
   const [mostrarInputNovaCatProd, setMostrarInputNovaCatProd] = useState(false);
 
   // Estados de Cadastro para Fornecedores
-  const [novoFornecedor, setNovoFornecedor] = useState<{id: string, nome: string, site: string, whatsapp: string, endereco: string, categorias: string[]}>({ id: '', nome: '', site: '', whatsapp: '', endereco: '', categorias: [] });
+  const [novoFornecedor, setNovoFornecedor] = useState<{id: string, nome: string, site: string, whatsapp: string, endereco: string, categorias: string[]}>({ id: '', nome: '', site: '', whatsapp: '', endereco: '', categories: [], categorias: [] });
   const [inputNovaCategoriaForn, setInputNovaCategoriaForn] = useState('');
   const [mostrarInputNovaCatForn, setMostrarInputNovaCatForn] = useState(false);
 
@@ -124,7 +124,25 @@ export default function App() {
   const [logoLojaPerfil, setLogoLojaPerfil] = useState('');
   const [subindoLogo, setSubindoLogo] = useState(false);
 
-  const [financasFixo, setFinancasFixo] = useState({ salario: '0', aluguel: '0', internet: '0', luz: '0', outros: '0', diasTrabalho: '20', horasDia: '8' });
+  // ESTADO FINANCEIRO ALTERADO: Lógica de lista de custos extras acoplada
+  const [financasFixo, setFinancasFixo] = useState<{
+    salario: string;
+    aluguel: string;
+    internet: string;
+    luz: string;
+    diasTrabalho: string;
+    horasDia: string;
+    custosExtras: Array<{ id: string; nome: string; valor: string }>;
+  }>({ 
+    salario: '0', 
+    aluguel: '0', 
+    internet: '0', 
+    luz: '0', 
+    diasTrabalho: '20', 
+    horasDia: '8',
+    custosExtras: [] 
+  });
+
   const [novoEquipamento, setNovoEquipamento] = useState({ id: '', nome: '', valorPago: '', durabilidadeAnos: '2' });
 
   const [carrinhoInterno, setCarrinhoInterno] = useState<{ [key: string]: number }>({});
@@ -231,13 +249,25 @@ export default function App() {
       getDoc(qConfigFin).then(snap => {
         if (snap.exists()) {
           const dadosFin = snap.data() as any;
-          setFinancasFixo(dadosFin);
+          
+          // Garante estrutura segura para os custos extras dinâmicos vindo do banco
+          setFinancasFixo({
+            salario: dadosFin.salario || '0',
+            aluguel: dadosFin.aluguel || '0',
+            internet: dadosFin.internet || '0',
+            luz: dadosFin.luz || '0',
+            diasTrabalho: dadosFin.diasTrabalho || '20',
+            horasDia: dadosFin.horasDia || '8',
+            custosExtras: dadosFin.custosExtras || []
+          });
           
           const dias = Number(dadosFin.diasTrabalho || 20);
           const horas = Number(dadosFin.horasDia || 8);
           const totalHorasMes = dias * horas || 160;
           const salario = Number(dadosFin.salario || 0);
-          const custosMes = Number(dadosFin.aluguel || 0) + Number(dadosFin.internet || 0) + Number(dadosFin.luz || 0) + Number(dadosFin.outros || 0);
+          
+          const somaExtras = (dadosFin.custosExtras || []).reduce((acc: number, item: any) => acc + Number(item.valor || 0), 0);
+          const custosMes = Number(dadosFin.aluguel || 0) + Number(dadosFin.internet || 0) + Number(dadosFin.luz || 0) + somaExtras;
           
           if (salario + custosMes > 0) {
             const fontHoraCalculada = (salario + custosMes) / totalHorasMes;
@@ -537,7 +567,7 @@ export default function App() {
       htmlLinhasTabela = arrayLinhasTexto.map(linhaTexto => {
         if(!linhaTexto.trim()) return '';
         let quantidadeItem = Number(p.qtdPed || 1);
-        let nomeItemLimpo = inlineTexto.trim();
+        let nomeItemLimpo = linhaTexto.trim();
         
         const matchCombo = linhaTexto.trim().match(/^(\d+)x\s+(.+)$/i);
         if(matchCombo) {
@@ -815,7 +845,6 @@ export default function App() {
     }
   };
 
-  // CORRIGIDO: Modificado de 'materials' para 'materiais' para evitar a quebra do app
   const materiaisFiltrados = useMemo(() => {
     return materiais.filter(m => 
       m.nome?.toLowerCase().includes(pesquisaMateriais.toLowerCase())
@@ -896,7 +925,7 @@ export default function App() {
                     <div className="flex items-center gap-2 mt-2">
                       <button onClick={() => setCarrinho({ ...carrinho, [p.id]: Math.max(0, qtdNoCarinho - 1) })} className="w-8 h-8 bg-slate-100 rounded-xl font-black text-slate-600">-</button>
                       <span className="font-bold text-sm w-6 text-center">{qtdNoCarinho}</span>
-                      <button onClick={() => setCarrinho({ ...carrinho, [p.id]: qtdNoCarinho + 1 })} className="w-8 h-8 bg-purple-100 rounded-xl font-black text-purple-700">+</button>
+                      <button onClick={() => setCarrinho({ ...carrinho, [p.id]: carrinho[p.id] + 1 })} className="w-8 h-8 bg-purple-100 rounded-xl font-black text-purple-700">+</button>
                     </div>
                   </div>
                 </div>
@@ -1092,14 +1121,14 @@ export default function App() {
         <div className="text-orange-500 font-black text-4xl tracking-tighter">R$ {resumenFinanceiro.final}</div>
         <div className="flex gap-2">
           <button onClick={async () => {
-             if(!nomeProd) return alert("Digite o nome do product!");
+             if(!nomeProd) return alert("Digite o nome do produto!");
              const dadosPedido = { nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed, vHora, tGasto, custos, lucro, desconto, userId: user.uid, precoManual: precoManual, obsPedido: obsPedido, equipamentosSelecionados, materiaisUsados: precoManual ? [] : matsNoPed.map(m => ({ id: m.id, nome: m.nome, qtdUsada: Number(m.qtdUsada || 1) })) };
              if (pedidoEditandoId) await updateDoc(doc(db, "pedidos", pedidoEditandoId), dadosPedido);
              else await addDoc(collection(db, "pedidos"), { ...dadosPedido, data: new Date().toLocaleDateString('pt-BR'), status: 'Pendente', userId: user.uid });
              limparCalculadora(); setActiveTab('pedidos'); alert("Salvo!");
           }} className="bg-orange-500 text-white px-5 py-4 rounded-[22px] font-black uppercase text-xs shadow-lg">Salvar</button>
           <button onClick={() => gerarPDF({nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed, obsPedido})} className="bg-orange-500 text-white p-4 rounded-[22px] shadow-lg"><Printer size={18}/></button>
-          <button onClick={() => enviarZap({nomeProd: p.nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed})} className="bg-emerald-500 text-white p-4 rounded-[22px] shadow-lg"><MessageCircle size={18}/></button>
+          <button onClick={() => enviarZap({nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed})} className="bg-emerald-500 text-white p-4 rounded-[22px] shadow-lg"><MessageCircle size={18}/></button>
         </div>
       </div>
     </div>
@@ -1243,6 +1272,24 @@ export default function App() {
                 <p className="text-2xl font-black mt-0.5">{dashboardMetrics.totalClientes}</p>
               </div>
             </div>
+
+            {/* NOVA ABA DE SUPORTE DIRETO NO DASHBOARD PRINCIPAL */}
+            <div className="bg-white p-6 rounded-[35px] border border-emerald-100 shadow-sm text-center space-y-3 w-full">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-500 mx-auto">
+                <MessageCircle size={24} />
+              </div>
+              <div>
+                <h3 className="text-slate-800 font-black text-base">Precisa de suporte nos cálculos? 💡</h3>
+                <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">Se surgir qualquer dúvida ao preencher custos ou configurar seu preço, clique abaixo e fale direto comigo!</p>
+              </div>
+              <a href="https://wa.me/5521983858055?text=Ol%C3%A1!%20Estou%20usando%20o%20PrecificaJ%C3%A1%20e%20fiquei%20com%20uma%20d%C3%BAvida.%20Pode%20me%20ajudar%3F" 
+                 target="_blank" 
+                 rel="noopener noreferrer"
+                 className="inline-flex items-center justify-center gap-2 w-full max-w-xs bg-[#25D366] hover:bg-[#128C7E] text-white p-3.5 rounded-2xl font-black uppercase text-xs tracking-wide shadow-md transition-all active:scale-95">
+                💬 Chamar no WhatsApp
+              </a>
+            </div>
+
           </div>
         )}
 
@@ -1287,13 +1334,13 @@ export default function App() {
                     nomeLoja: nomeLojaPerfil.trim(),
                     logoUrl: logoLojaPerfil
                   }, { merge: true });
-                  alert("Perfil da empresa atualizado com sucesso! 🚀");
+                  alert("Perfil da empresa updated com sucesso! 🚀");
                   setActiveTab('inicio');
                 } catch {
                   alert("Erro ao salvar as configurações da empresa.");
                 }
               }} className="w-full bg-purple-700 hover:bg-purple-800 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md transition-colors" disabled={subindoLogo}>
-                Salvar Configurações da Marca
+                Calibrar Configurações da Marca
               </button>
             </div>
           </div>
@@ -1365,40 +1412,89 @@ export default function App() {
           </div>
         )}
 
-        {/* TELA DE CONFIGURAÇÃO DE CUSTOS FIXOS */}
+        {/* TELA DE CONFIGURAÇÃO DE CUSTOS FIXOS ATUALIZADA (4 PADRÕES + DINÂMICA) */}
         {activeTab === 'financeiro' && (
           <div className="space-y-6 pt-2 w-full">
             <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
-              <h2 className="text-purple-700 font-bold mb-2 flex items-center gap-2 uppercase text-xs tracking-widest"><Calculator size={18}/> Estrutura de Custos Fixos (Opcional)</h2>
-              <p className="text-slate-400 text-[11px] mb-4">Insira ou edite seus valores aqui. Eles ficam salvos e você pode alterá-los quando quiser.</p>
+              <h2 className="text-purple-700 font-bold mb-2 flex items-center gap-2 uppercase text-xs tracking-widest"><Calculator size={18}/> Estrutura de Custos Fixos</h2>
+              <p className="text-slate-400 text-[11px] mb-4">Estes são seus gastos operacionais fixos mensais para manter a empresa aberta.</p>
 
-              <label className="text-[10px] font-bold text-purple-700 outline-none uppercase ml-1">Salário Mensal Pretendido</label>
+              {/* Os 4 Principais travados como base principal */}
+              <label className="text-[10px] font-bold text-purple-700 uppercase ml-1">1. Pró-labore (Seu Salário Mensal)</label>
               <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 font-bold text-purple-700 outline-none" value={financasFixo.salario} onChange={e => setFinancasFixo({...financasFixo, salario: e.target.value})} />
 
               <div className="grid grid-cols-2 gap-3 mb-3 w-full">
                 <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Aluguel / Ponto</label>
-                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={financasFixo.aluguel} onChange={e => setFinancasFixo({...financasFixo, aluguel: e.target.value})} />
+                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">2. Aluguel / Espaço</label>
+                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={financasFixo.aluguel} onChange={e => setFinancasFixo({...financasFixo, aluguel: e.target.value})} />
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Internet / Sistema</label>
-                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={financasFixo.internet} onChange={e => setFinancasFixo({...financasFixo, internet: e.target.value})} />
+                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">3. Internet / Sistemas</label>
+                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={financasFixo.internet} onChange={e => setFinancasFixo({...financasFixo, internet: e.target.value})} />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 mb-4 w-full">
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Conta de Luz Total</label>
-                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={financasFixo.luz} onChange={e => setFinancasFixo({...financasFixo, luz: e.target.value})} />
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Outros Gastos Fixos</label>
-                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={financasFixo.outros} onChange={e => setFinancasFixo({...financasFixo, outros: e.target.value})} />
-                </div>
+              <div className="mb-4 w-full">
+                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">4. Conta de Luz Base</label>
+                <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={financasFixo.luz} onChange={e => setFinancasFixo({...financasFixo, luz: e.target.value})} />
               </div>
 
-              <div className="w-full">
-                <h3 className="text-purple-700 font-bold text-xs uppercase tracking-wider mb-2 mt-4">Sua Carga Horária</h3>
+              {/* AREA DOS CUSTOS EXTRAS DINÂMICOS */}
+              <div className="border-t border-dashed border-slate-200 pt-3 mt-4 space-y-2.5 w-full">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1">💸 Custos Fixos Adicionais Personalizados</label>
+                
+                {financasFixo.custosExtras?.map((item, idx) => (
+                  <div key={item.id} className="flex gap-2 items-center animate-fadeIn w-full">
+                    <input 
+                      type="text" 
+                      placeholder="Ex: Contador, MEI, Água" 
+                      className="flex-2 p-3.5 bg-slate-50 border rounded-xl text-xs font-bold outline-none"
+                      value={item.nome}
+                      onChange={e => {
+                        const listaCopiada = [...financasFixo.custosExtras];
+                        listaCopiada[idx].nome = e.target.value;
+                        setFinancasFixo({...financasFixo, custosExtras: listaCopiada});
+                      }}
+                    />
+                    <input 
+                      type="number" 
+                      placeholder="R$ 0,00" 
+                      className="flex-1 p-3.5 bg-slate-50 border rounded-xl text-xs font-bold text-center outline-none"
+                      value={item.valor}
+                      onChange={e => {
+                        const listaCopiada = [...financasFixo.custosExtras];
+                        listaCopiada[idx].valor = e.target.value;
+                        setFinancasFixo({...financasFixo, custosExtras: listaCopiada});
+                      }}
+                    />
+                    <button 
+                      type="button" 
+                      onClick={() => {
+                        const filtrados = financasFixo.custosExtras.filter((_, i) => i !== idx);
+                        setFinancasFixo({...financasFixo, custosExtras: filtrados});
+                      }}
+                      className="text-red-500 p-2 hover:bg-red-50 rounded-lg">
+                      <X size={16}/>
+                    </button>
+                  </div>
+                ))}
+
+                <button 
+                  type="button" 
+                  onClick={() => {
+                    const novoItemExtra = { id: String(Date.now()), nome: '', valor: '0' };
+                    setFinancasFixo({
+                      ...financasFixo, 
+                      custosExtras: [...(financasFixo.custosExtras || []), novoItemExtra]
+                    });
+                  }}
+                  className="w-full text-left py-2 px-3 border border-dashed rounded-xl bg-purple-50/50 hover:bg-purple-50 text-purple-700 text-xs font-black uppercase tracking-wider transition-colors mt-2">
+                  + Adicionar outro custo fixo
+                </button>
+              </div>
+
+              <div className="w-full border-t mt-4 pt-2">
+                <h3 className="text-purple-700 font-bold text-xs uppercase tracking-wider mb-2 mt-2">Sua Carga Horária</h3>
                 <div className="grid grid-cols-2 gap-3 mb-5 w-full">
                   <div>
                     <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Dias de Trabalho no Mês</label>
@@ -1415,11 +1511,13 @@ export default function App() {
                 await setDoc(doc(db, "configuracoes_financeiras", user.uid), financasFixo);
                 
                 const totalHoras = Number(financasFixo.diasTrabalho || 20) * Number(financasFixo.horasDia || 8);
-                const intentCustos = Number(financasFixo.salario || 0) + Number(financasFixo.aluguel || 0) + Number(financasFixo.internet || 0) + Number(financasFixo.luz || 0) + Number(financasFixo.outros || 0);
-                if (intentCustos > 0) setVHora((intentCustos / totalHoras).toFixed(2));
+                const somaCustosExtrasDinâmicos = (financasFixo.custosExtras || []).reduce((acc, item) => acc + Number(item.valor || 0), 0);
                 
-                alert("Custos salvos com sucesso! O valor sugerido para a hora foi atualizado na calculadora. 🎉");
-              }} className="w-full bg-purple-700 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md">
+                const intentCustos = Number(financasFixo.salario || 0) + Number(financasFixo.aluguel || 0) + Number(financasFixo.internet || 0) + Number(financasFixo.luz || 0) + somaCustosExtrasDinâmicos;
+                if (totalHoras > 0 && intentCustos > 0) setVHora((intentCustos / totalHoras).toFixed(2));
+                
+                alert("Todos os custos estruturais foram salvos com sucesso no banco de dados! A calculadora já recalculou seu valor por hora. 🎉🚀");
+              }} className="w-full bg-purple-700 hover:bg-purple-800 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md transition-colors">
                 Salvar Configurações Fixas
               </button>
             </div>
@@ -1603,7 +1701,7 @@ export default function App() {
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Preço Fixo de Venda (R$)</label>
               <input type="number" placeholder="Ex: 35.00" className="w-full p-4 bg-slate-50 rounded-2xl mb-4 outline-none font-bold text-purple-700 border focus:border-purple-400" value={novoProdCatalogo.precoVenda} onChange={e => setNovoProdCatalogo({...novoProdCatalogo, precoVenda: e.target.value})} />
 
-              {/* SELETOR DE CATEGORIAS MÚLTIPLAS POR TAGS */}
+              {/* SELETOR DE CATEGORIAS MÚLTIPLAR POR TAGS */}
               <div className="mb-5 w-full">
                 <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Categorias do Produto (Selecione Múltiplas)</label>
                 <div className="flex flex-wrap gap-2 mb-2">
@@ -1688,7 +1786,7 @@ export default function App() {
               <input placeholder="Ex: www.pampapapeis.com.br" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm" value={novoFornecedor.site} onChange={e => setNovoFornecedor({...novoFornecedor, site: e.target.value})} />
               
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">WhatsApp com DDD</label>
-              <input placeholder="Ex: 11999999999" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm" value={novoFornecedor.whatsapp} onChange={e => setNovoFornecedor({...novoFornecedor, whatsapp: f.target.value})} />
+              <input placeholder="Ex: 11999999999" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm" value={novoFornecedor.whatsapp} onChange={e => setNovoFornecedor({...novoFornecedor, whatsapp: e.target.value})} />
               
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Endereço Físico (Cidade/Estado)</label>
               <textarea placeholder="Ex: Rua das Flores, 123 - Centro, São Paulo - SP" className="w-full p-4 bg-slate-50 rounded-2xl mb-4 outline-none border focus:border-purple-400 resize-none h-16 font-medium text-sm" value={novoFornecedor.endereco} onChange={e => setNovoFornecedor({...novoFornecedor, endereco: e.target.value})} />
@@ -1727,7 +1825,7 @@ export default function App() {
                 if (novoFornecedor.id) await updateDoc(doc(db, "fornecedores", novoFornecedor.id), d);
                 else await addDoc(collection(db, "fornecedores"), d);
                 
-                setNovoFornecedor({ id: '', nome: '', site: '', whatsapp: '', endereco: '', categorias: [] });
+                setNovoFornecedor({ id: '', nome: '', site: '', whatsapp: '', endereco: '', categories: [], categorias: [] });
                 alert("Fornecedor cadastrado com sucesso! 📦🎉");
               }} className="w-full bg-orange-500 text-white p-5 rounded-2xl font-black uppercase text-xs shadow-md">
                 {novoFornecedor.id ? 'Atualizar Fornecedor' : 'Salvar Fornecedor'}
@@ -1776,7 +1874,7 @@ export default function App() {
                       <button onClick={() => window.open(`https://wa.me/55${f.whatsapp.replace(/\D/g, '')}`, '_blank')} className="flex items-center gap-1 text-xs font-black uppercase bg-emerald-50 text-emerald-600 px-3 py-2 rounded-xl active:scale-95 transition-transform"><MessageCircle size={13}/> WhatsApp</button>
                     )}
                     {f.endereco && (
-                      <button onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(f.endereco)}`, '_blank')} className="flex items-center gap-1 text-xs font-black uppercase bg-slate-50 text-slate-600 px-3 py-2 rounded-xl active:scale-95 transition-transform"><MapPin size={13}/> Mapa</button>
+                      <button onClick={() => window.open(`https://maps.google.com/?q=${encodeURIComponent(f.endereco)}`, '_blank')} className="flex items-center gap-1 text-xs font-black uppercase bg-slate-50 text-slate-600 px-3 py-2 rounded-xl active:scale-95 transition-transform"><MapPin size={13}/> Mapa</button>
                     )}
                   </div>
                 </div>
