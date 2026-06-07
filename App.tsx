@@ -113,7 +113,7 @@ export default function App() {
   const [mostrarInputNovaCatProd, setMostrarInputNovaCatProd] = useState(false);
 
   // Estados de Cadastro para Fornecedores
-  const [novoFornecedor, setNovoFornecedor] = useState<{id: string, nome: string, site: string, whatsapp: string, endereco: string, categorias: string[]}>({ id: '', nome: '', site: '', whatsapp: '', endereco: '', categories: [], categorias: [] });
+  const [novoFornecedor, setNovoFornecedor] = useState<{id: string, nome: string, site: string, whatsapp: string, endereco: string, categorias: string[]}>({ id: '', nome: '', site: '', whatsapp: '', endereco: '', categorias: [] });
   const [inputNovaCategoriaForn, setInputNovaCategoriaForn] = useState('');
   const [mostrarInputNovaCatForn, setMostrarInputNovaCatForn] = useState(false);
 
@@ -124,7 +124,7 @@ export default function App() {
   const [logoLojaPerfil, setLogoLojaPerfil] = useState('');
   const [subindoLogo, setSubindoLogo] = useState(false);
 
-  // ESTADO FINANCEIRO ALTERADO: Lógica de lista de custos extras acoplada
+  // ESTRUTURA FINANCEIRA FIXA REVISADA
   const [financasFixo, setFinancasFixo] = useState<{
     salario: string;
     aluguel: string;
@@ -249,8 +249,6 @@ export default function App() {
       getDoc(qConfigFin).then(snap => {
         if (snap.exists()) {
           const dadosFin = snap.data() as any;
-          
-          // Garante estrutura segura para os custos extras dinâmicos vindo do banco
           setFinancasFixo({
             salario: dadosFin.salario || '0',
             aluguel: dadosFin.aluguel || '0',
@@ -265,7 +263,6 @@ export default function App() {
           const horas = Number(dadosFin.horasDia || 8);
           const totalHorasMes = dias * horas || 160;
           const salario = Number(dadosFin.salario || 0);
-          
           const somaExtras = (dadosFin.custosExtras || []).reduce((acc: number, item: any) => acc + Number(item.valor || 0), 0);
           const custosMes = Number(dadosFin.aluguel || 0) + Number(dadosFin.internet || 0) + Number(dadosFin.luz || 0) + somaExtras;
           
@@ -363,7 +360,7 @@ export default function App() {
         
         <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Identificação do Comprador</div>
         <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 25px; border: 1px solid #f1f5f9;">
-          <p style="margin: 0; font-size: 14px;"><strong>Cliente Final:</strong> ${nomeCliente}</p>
+          <p style="margin: 0; font-size: 14px;"><strong>Cliente Final:</strong> ${nomeComprador}</p>
         </div>
 
         <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Relação de Itens Escolhidos</div>
@@ -396,7 +393,7 @@ export default function App() {
       </div>
     `;
 
-    const opcoes = { margin: 10, filename: `Pedido_${nomeCliente.replace(/\s+/g, '_')}.pdf`, html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'a4', orientation: 'portrait' }, pagebreak: { mode: ['avoid-all', 'css'] } };
+    const opcoes = { margin: 10, filename: `Pedido_${nomeComprador.replace(/\s+/g, '_')}.pdf`, html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'a4', orientation: 'portrait' }, pagebreak: { mode: ['avoid-all', 'css'] } };
     if ((window as any).html2pdf) { (window as any).html2pdf().from(elemento).set(opcoes).save(); }
   };
 
@@ -1050,7 +1047,7 @@ export default function App() {
               <label className="text-[10px] font-bold text-purple-600 uppercase ml-1 block mb-1">🛠️ Equipamentos Ativos neste Orçamento</label>
               <div className="flex flex-wrap gap-2 w-full">
                 {equipamentos.map(eq => {
-                  const selecionado = equipamentosSelecionados.includes(eq.id);
+                  const selecionado = equipmentsSelecionados.includes(eq.id);
                   return (
                     <button key={eq.id} type="button" onClick={() => toggleEquipamento(eq.id)} className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${selecionado ? 'bg-purple-600 text-white border-purple-600 shadow-md' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-purple-300'}`}>
                       {eq.nome}
@@ -1137,7 +1134,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-50 pb-32 font-sans text-slate-700 w-full relative overflow-x-hidden">
       
-      {/* MENU HAMBÚRGUER LATERAL COMPLETO */}
+      {/* MENU HAMBÚRGUER LATERAL COMPLETO COM NOVA ABA DE SUPORTE */}
       <div className={`fixed inset-0 bg-black/40 z-50 transition-opacity duration-300 ${isMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`} onClick={() => setIsMenuOpen(false)}>
         <div className={`w-72 bg-white h-full shadow-2xl p-6 flex flex-col justify-between transition-transform duration-300 ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'}`} onClick={e => e.stopPropagation()}>
           <div className="space-y-6 overflow-y-auto max-h-[85vh] scrollbar-none">
@@ -1161,6 +1158,14 @@ export default function App() {
               
               <button onClick={() => setActiveTab('materiais')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'materiais' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Package size={16}/> Armário / Insumos</button>
               <button onClick={() => setActiveTab('clientes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'clientes' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><User size={16}/> Meus Clientes</button>
+
+              {/* ABA SUPORTE COM ICONE DO LUCIDE E DIRECIONANDO PARA O WHATSAPP */}
+              <a href="https://wa.me/5521983858055?text=Ol%C3%A1!%20Estou%20usando%20o%20PrecificaJ%C3%A1%20e%20fiquei%20com%20uma%20d%C3%BAvida.%20Pode%20me%20ajudar%3F" 
+                 target="_blank" 
+                 rel="noopener noreferrer" 
+                 className="w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs text-emerald-600 hover:bg-emerald-50">
+                <MessageCircle size={16}/> Suporte
+              </a>
             </nav>
           </div>
           <button onClick={() => signOut(auth)} className="w-full text-red-500 bg-red-50 p-4 rounded-xl text-xs font-black uppercase flex items-center justify-center gap-1.5"><LogOut size={16}/> Sair</button>
@@ -1227,7 +1232,7 @@ export default function App() {
               <div className="border-t border-slate-100 pt-3 space-y-2 w-full">
                 {anotacoesDoDiaSelecionado.map((item) => (
                   <div key={item.id} className="flex items-center gap-3 bg-slate-50/80 p-3 rounded-2xl border border-slate-100 animate-fadeIn">
-                    <button onClick={() => toggleStatusAnotacao(item.id, item.concluido)} className="text-purple-600 transition-transform active:scale-95 shrink-0">
+                    <button onClick={() => toggleStatusAnotacao(item.id, item.concluido)} className="text-purple-600 mt-0.5 shrink-0">
                       {item.concluido ? <CheckSquare size={19} /> : <Square size={19} className="text-slate-400" />}
                     </button>
                     <div className="flex-1 min-w-0">
@@ -1273,7 +1278,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* NOVA ABA DE SUPORTE DIRETO NO DASHBOARD PRINCIPAL */}
+            {/* SEÇÃO DE SUPORTE TAMBÉM NO INÍCIO */}
             <div className="bg-white p-6 rounded-[35px] border border-emerald-100 shadow-sm text-center space-y-3 w-full">
               <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-500 mx-auto">
                 <MessageCircle size={24} />
@@ -1334,13 +1339,13 @@ export default function App() {
                     nomeLoja: nomeLojaPerfil.trim(),
                     logoUrl: logoLojaPerfil
                   }, { merge: true });
-                  alert("Perfil da empresa updated com sucesso! 🚀");
+                  alert("Perfil da empresa atualizado com sucesso! 🚀");
                   setActiveTab('inicio');
                 } catch {
                   alert("Erro ao salvar as configurações da empresa.");
                 }
               }} className="w-full bg-purple-700 hover:bg-purple-800 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md transition-colors" disabled={subindoLogo}>
-                Calibrar Configurações da Marca
+                Salvar Configurações da Marca
               </button>
             </div>
           </div>
@@ -1412,14 +1417,13 @@ export default function App() {
           </div>
         )}
 
-        {/* TELA DE CONFIGURAÇÃO DE CUSTOS FIXOS ATUALIZADA (4 PADRÕES + DINÂMICA) */}
+        {/* TELA DE CONFIGURAÇÃO DE CUSTOS FIXOS CORRIGIDA PARA CELULAR */}
         {activeTab === 'financeiro' && (
           <div className="space-y-6 pt-2 w-full">
             <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
               <h2 className="text-purple-700 font-bold mb-2 flex items-center gap-2 uppercase text-xs tracking-widest"><Calculator size={18}/> Estrutura de Custos Fixos</h2>
               <p className="text-slate-400 text-[11px] mb-4">Estes são seus gastos operacionais fixos mensais para manter a empresa aberta.</p>
 
-              {/* Os 4 Principais travados como base principal */}
               <label className="text-[10px] font-bold text-purple-700 uppercase ml-1">1. Pró-labore (Seu Salário Mensal)</label>
               <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 font-bold text-purple-700 outline-none" value={financasFixo.salario} onChange={e => setFinancasFixo({...financasFixo, salario: e.target.value})} />
 
@@ -1439,16 +1443,17 @@ export default function App() {
                 <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={financasFixo.luz} onChange={e => setFinancasFixo({...financasFixo, luz: e.target.value})} />
               </div>
 
-              {/* AREA DOS CUSTOS EXTRAS DINÂMICOS */}
+              {/* AREA DOS CUSTOS EXTRAS DINÂMICOS - COMPACTADO COM GRID PARA NÃO QUEBRAR EM CELULAR */}
               <div className="border-t border-dashed border-slate-200 pt-3 mt-4 space-y-2.5 w-full">
                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1">💸 Custos Fixos Adicionais Personalizados</label>
                 
                 {financasFixo.custosExtras?.map((item, idx) => (
                   <div key={item.id} className="flex gap-2 items-center animate-fadeIn w-full">
+                    {/* Input do Nome ocupando cerca de 60% */}
                     <input 
                       type="text" 
-                      placeholder="Ex: Contador, MEI, Água" 
-                      className="flex-2 p-3.5 bg-slate-50 border rounded-xl text-xs font-bold outline-none"
+                      placeholder="Ex: Canva, MEI" 
+                      className="w-[60%] p-3.5 bg-slate-50 border rounded-2xl text-xs font-bold outline-none"
                       value={item.nome}
                       onChange={e => {
                         const listaCopiada = [...financasFixo.custosExtras];
@@ -1456,10 +1461,11 @@ export default function App() {
                         setFinancasFixo({...financasFixo, custosExtras: listaCopiada});
                       }}
                     />
+                    {/* Input do Valor ocupando cerca de 30% */}
                     <input 
                       type="number" 
-                      placeholder="R$ 0,00" 
-                      className="flex-1 p-3.5 bg-slate-50 border rounded-xl text-xs font-bold text-center outline-none"
+                      placeholder="0,00" 
+                      className="w-[30%] p-3.5 bg-slate-50 border rounded-2xl text-xs font-bold text-center outline-none"
                       value={item.valor}
                       onChange={e => {
                         const listaCopiada = [...financasFixo.custosExtras];
@@ -1467,13 +1473,14 @@ export default function App() {
                         setFinancasFixo({...financasFixo, custosExtras: listaCopiada});
                       }}
                     />
+                    {/* Botão de lixeira encaixado perfeitamente no final */}
                     <button 
                       type="button" 
                       onClick={() => {
                         const filtrados = financasFixo.custosExtras.filter((_, i) => i !== idx);
                         setFinancasFixo({...financasFixo, custosExtras: filtrados});
                       }}
-                      className="text-red-500 p-2 hover:bg-red-50 rounded-lg">
+                      className="text-red-500 p-2 hover:bg-red-50 rounded-lg shrink-0">
                       <X size={16}/>
                     </button>
                   </div>
@@ -1488,7 +1495,7 @@ export default function App() {
                       custosExtras: [...(financasFixo.custosExtras || []), novoItemExtra]
                     });
                   }}
-                  className="w-full text-left py-2 px-3 border border-dashed rounded-xl bg-purple-50/50 hover:bg-purple-50 text-purple-700 text-xs font-black uppercase tracking-wider transition-colors mt-2">
+                  className="w-full text-center py-4 px-3 border border-dashed rounded-2xl bg-purple-50/50 hover:bg-purple-50 text-purple-700 text-xs font-black uppercase tracking-wider transition-colors mt-2">
                   + Adicionar outro custo fixo
                 </button>
               </div>
@@ -1511,9 +1518,9 @@ export default function App() {
                 await setDoc(doc(db, "configuracoes_financeiras", user.uid), financasFixo);
                 
                 const totalHoras = Number(financasFixo.diasTrabalho || 20) * Number(financasFixo.horasDia || 8);
-                const somaCustosExtrasDinâmicos = (financasFixo.custosExtras || []).reduce((acc, item) => acc + Number(item.valor || 0), 0);
+                const somaCustosExtrasDinamicos = (financasFixo.custosExtras || []).reduce((acc, item) => acc + Number(item.valor || 0), 0);
                 
-                const intentCustos = Number(financasFixo.salario || 0) + Number(financasFixo.aluguel || 0) + Number(financasFixo.internet || 0) + Number(financasFixo.luz || 0) + somaCustosExtrasDinâmicos;
+                const intentCustos = Number(financasFixo.salario || 0) + Number(financasFixo.aluguel || 0) + Number(financasFixo.internet || 0) + Number(financasFixo.luz || 0) + somaCustosExtrasDinamicos;
                 if (totalHoras > 0 && intentCustos > 0) setVHora((intentCustos / totalHoras).toFixed(2));
                 
                 alert("Todos os custos estruturais foram salvos com sucesso no banco de dados! A calculadora já recalculou seu valor por hora. 🎉🚀");
@@ -1701,7 +1708,7 @@ export default function App() {
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Preço Fixo de Venda (R$)</label>
               <input type="number" placeholder="Ex: 35.00" className="w-full p-4 bg-slate-50 rounded-2xl mb-4 outline-none font-bold text-purple-700 border focus:border-purple-400" value={novoProdCatalogo.precoVenda} onChange={e => setNovoProdCatalogo({...novoProdCatalogo, precoVenda: e.target.value})} />
 
-              {/* SELETOR DE CATEGORIAS MÚLTIPLAR POR TAGS */}
+              {/* SELETOR DE CATEGORIAS MÚLTIPLAS POR TAGS */}
               <div className="mb-5 w-full">
                 <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Categorias do Produto (Selecione Múltiplas)</label>
                 <div className="flex flex-wrap gap-2 mb-2">
@@ -1808,7 +1815,7 @@ export default function App() {
                   <button type="button" onClick={() => setMostrarInputNovaCatForn(true)} className="text-[10px] text-purple-600 font-black uppercase mt-1 tracking-wider hover:underline">+ Criar Categoria de Compras</button>
                 ) : (
                   <div className="flex gap-2 items-center bg-slate-50 p-2.5 rounded-2xl border border-dashed border-purple-200 mt-2 animate-fadeIn">
-                    <input placeholder="Ex: 🧵 Fitas e Cordões" className="flex-1 bg-white p-2.5 rounded-xl text-xs font-bold outline-none border" value={inputNovaCategoriaForn} onChange={e => setInputNovaCategoriaForn(e.target.value)} />
+                    <input placeholder="Ex: 🧵 Fitas e Cordões" className="flex-1 bg-white p-2.5 rounded-xl text-xs font-bold outline-none border" value={inputNovaCategoriaForn} onChange={e => inputNovaCategoriaForn(e.target.value)} />
                     <button type="button" onClick={async () => {
                       if(!inputNovaCategoriaForn.trim()) return setMostrarInputNovaCatForn(false);
                       await addDoc(collection(db, "categorias_fornecedores"), { nome: inputNovaCategoriaForn.trim(), userId: user.uid });
@@ -1825,7 +1832,7 @@ export default function App() {
                 if (novoFornecedor.id) await updateDoc(doc(db, "fornecedores", novoFornecedor.id), d);
                 else await addDoc(collection(db, "fornecedores"), d);
                 
-                setNovoFornecedor({ id: '', nome: '', site: '', whatsapp: '', endereco: '', categories: [], categorias: [] });
+                setNovoFornecedor({ id: '', nome: '', site: '', whatsapp: '', endereco: '', categorias: [] });
                 alert("Fornecedor cadastrado com sucesso! 📦🎉");
               }} className="w-full bg-orange-500 text-white p-5 rounded-2xl font-black uppercase text-xs shadow-md">
                 {novoFornecedor.id ? 'Atualizar Fornecedor' : 'Salvar Fornecedor'}
