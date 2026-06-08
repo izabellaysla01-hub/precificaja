@@ -36,7 +36,7 @@ const Login = ({ isRegistering, setIsRegistering, email, setEmail, password, set
         <p className="text-slate-400 text-xs mb-8 uppercase font-bold tracking-widest">Sua empresa lucrando mais</p>
         <input type="email" placeholder="Seu e-mail" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none focus:ring-2 focus:ring-purple-600" value={email} onChange={e => setEmail(e.target.value)} />
         <input type="password" placeholder="Senha" className="w-full p-4 bg-slate-50 rounded-2xl mb-2 outline-none focus:ring-2 focus:ring-purple-600" value={password} onChange={e => setPassword(e.target.value)} />
-        <button onClick={recuperarSenha} className="text-[10px] text-purple-400 font-bold uppercase mb-6 hover:text-purple-600 block w-full text-right pr-2">Esqueci minha senha</button>
+        <button onClick={recurarSenha} className="text-[10px] text-purple-400 font-bold uppercase mb-6 hover:text-purple-600 block w-full text-right pr-2">Esqueci minha senha</button>
         <button onClick={handleAuth} className="w-full bg-orange-500 text-white font-bold py-4 rounded-2xl shadow-lg hover:bg-orange-600 transition-all uppercase">{isRegistering ? 'Criar Conta Grátis' : 'Entrar no App'}</button>
         <button onClick={() => setIsRegistering(!isRegistering)} className="mt-4 text-sm text-purple-600 underline block w-full font-medium">{isRegistering ? 'Já tenho login' : 'Cadastrar novo usuário'}</button>
       </div>
@@ -320,7 +320,7 @@ export default function App() {
 
     elemento.innerHTML = `
       <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto;">
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px;">
+        <div style="padding-bottom: 20px; margin-bottom: 25px;">
           <div>
             <h1 style="color: #7c3aed; margin: 0; font-size: 32px; font-weight: 900;">Comprovante de Pedido 🚀</h1>
             <p style="color: #94a3b8; font-size: 11px; text-transform: uppercase; margin: 4px 0 0 0; font-weight: bold;">Catálogo de Vendas Online</p>
@@ -537,7 +537,7 @@ export default function App() {
       htmlLinhasTabela = arrayLinhasTexto.map(linhaTexto => {
         if(!linhaTexto.trim()) return '';
         let quantidadeItem = Number(p.qtdPed || 1);
-        let nomeItemLimpo = inlineTexto.trim();
+        let nomeItemLimpo = linhaTexto.trim(); // CORRIGIDO: mudado de inlineTexto para linhaTexto
         
         const matchCombo = linhaTexto.trim().match(/^(\d+)x\s+(.+)$/i);
         if(matchCombo) {
@@ -565,7 +565,7 @@ export default function App() {
     const elemento = document.createElement('div');
     elemento.innerHTML = `
       <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto;">
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px;">
+        <div style="padding-bottom: 20px; margin-bottom: 25px;">
           <div>
             ${cabecalhoLogoHtml}
             <h1 style="color: #7c3aed; margin: 0; font-size: 28px; font-weight: 900;">${cabecalhoNomeHtml}</h1>
@@ -815,7 +815,6 @@ export default function App() {
     }
   };
 
-  // CORRIGIDO: Modificado de 'materials' para 'materiais' para evitar a quebra do app
   const materiaisFiltrados = useMemo(() => {
     return materiais.filter(m => 
       m.nome?.toLowerCase().includes(pesquisaMateriais.toLowerCase())
@@ -845,6 +844,17 @@ export default function App() {
   }, [pedidos, filtroStatusPedido]);
 
   if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando o PrecificaJá... 🚀</div>;
+
+  // TRAVA DE SEGURANÇA CORRIGIDA: Se não for vitrine pública e não tiver usuário, vai pro Login obrigatoriamente
+  if (!user && !idLojaPublica) {
+    return (
+      <Login 
+        isRegistering={isRegistering} setIsRegistering={setIsRegistering}
+        email={email} setEmail={setEmail} password={password} setPassword={setPassword}
+        handleAuth={handleAuth}
+      />
+    );
+  }
 
   if (idLojaPublica) {
     if (carregandoPublico) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando Vitrine... 🛍️</div>;
@@ -1092,14 +1102,14 @@ export default function App() {
         <div className="text-orange-500 font-black text-4xl tracking-tighter">R$ {resumenFinanceiro.final}</div>
         <div className="flex gap-2">
           <button onClick={async () => {
-             if(!nomeProd) return alert("Digite o nome do product!");
+             if(!nomeProd) return alert("Digite o nome do produto!");
              const dadosPedido = { nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed, vHora, tGasto, custos, lucro, desconto, userId: user.uid, precoManual: precoManual, obsPedido: obsPedido, equipamentosSelecionados, materiaisUsados: precoManual ? [] : matsNoPed.map(m => ({ id: m.id, nome: m.nome, qtdUsada: Number(m.qtdUsada || 1) })) };
              if (pedidoEditandoId) await updateDoc(doc(db, "pedidos", pedidoEditandoId), dadosPedido);
              else await addDoc(collection(db, "pedidos"), { ...dadosPedido, data: new Date().toLocaleDateString('pt-BR'), status: 'Pendente', userId: user.uid });
              limparCalculadora(); setActiveTab('pedidos'); alert("Salvo!");
           }} className="bg-orange-500 text-white px-5 py-4 rounded-[22px] font-black uppercase text-xs shadow-lg">Salvar</button>
           <button onClick={() => gerarPDF({nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed, obsPedido})} className="bg-orange-500 text-white p-4 rounded-[22px] shadow-lg"><Printer size={18}/></button>
-          <button onClick={() => enviarZap({nomeProd: p.nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed})} className="bg-emerald-500 text-white p-4 rounded-[22px] shadow-lg"><MessageCircle size={18}/></button>
+          <button onClick={() => enviarZap({nomeProd: nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed})} className="bg-emerald-500 text-white p-4 rounded-[22px] shadow-lg"><MessageCircle size={18}/></button>
         </div>
       </div>
     </div>
@@ -1287,7 +1297,7 @@ export default function App() {
                     nomeLoja: nomeLojaPerfil.trim(),
                     logoUrl: logoLojaPerfil
                   }, { merge: true });
-                  alert("Perfil da empresa atualizado com sucesso! 🚀");
+                  alert("Perfil da empresa updated com sucesso! 🚀");
                   setActiveTab('inicio');
                 } catch {
                   alert("Erro ao salvar as configurações da empresa.");
@@ -1315,7 +1325,7 @@ export default function App() {
               </div>
 
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Detalhes Adicionais (Opcional)</label>
-              <textarea placeholder="Escreva informações extras ou observações aqui..." className="w-full p-4 bg-slate-50 rounded-2xl mb-6 outline-none border focus:border-purple-400 resize-none h-20 text-sm font-semibold" value={novaAnotacao.conteudo} onChange={e => setNovaAnotacao({...novaAnotacao, conteudo: e.target.value})} />
+              <textarea placeholder="Escreva informações extras ou observações aqui..." className="w-full p-4 bg-slate-50 rounded-2xl mb-6 outline-none border focus:border-purple-400 resize-none h-16 text-sm font-semibold" value={novaAnotacao.conteudo} onChange={e => setNovaAnotacao({...novaAnotacao, conteudo: e.target.value})} />
               
               <button onClick={async () => {
                 if(!novaAnotacao.titulo) return alert("Sua tarefa precisa de uma descrição básica!");
@@ -1688,7 +1698,7 @@ export default function App() {
               <input placeholder="Ex: www.pampapapeis.com.br" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm" value={novoFornecedor.site} onChange={e => setNovoFornecedor({...novoFornecedor, site: e.target.value})} />
               
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">WhatsApp com DDD</label>
-              <input placeholder="Ex: 11999999999" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm" value={novoFornecedor.whatsapp} onChange={e => setNovoFornecedor({...novoFornecedor, whatsapp: f.target.value})} />
+              <input placeholder="Ex: 11999999999" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm" value={novoFornecedor.whatsapp} onChange={e => setNovoFornecedor({...novoFornecedor, whatsapp: e.target.value})} /> {/* CORRIGIDO: mudado f.target para e.target */}
               
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Endereço Físico (Cidade/Estado)</label>
               <textarea placeholder="Ex: Rua das Flores, 123 - Centro, São Paulo - SP" className="w-full p-4 bg-slate-50 rounded-2xl mb-4 outline-none border focus:border-purple-400 resize-none h-16 font-medium text-sm" value={novoFornecedor.endereco} onChange={e => setNovoFornecedor({...novoFornecedor, endereco: e.target.value})} />
@@ -1776,7 +1786,7 @@ export default function App() {
                       <button onClick={() => window.open(`https://wa.me/55${f.whatsapp.replace(/\D/g, '')}`, '_blank')} className="flex items-center gap-1 text-xs font-black uppercase bg-emerald-50 text-emerald-600 px-3 py-2 rounded-xl active:scale-95 transition-transform"><MessageCircle size={13}/> WhatsApp</button>
                     )}
                     {f.endereco && (
-                      <button onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(f.endereco)}`, '_blank')} className="flex items-center gap-1 text-xs font-black uppercase bg-slate-50 text-slate-600 px-3 py-2 rounded-xl active:scale-95 transition-transform"><MapPin size={13}/> Mapa</button>
+                      <button onClick={() => window.open(`http://maps.google.com/?q=${encodeURIComponent(f.endereco)}`, '_blank')} className="flex items-center gap-1 text-xs font-black uppercase bg-slate-50 text-slate-600 px-3 py-2 rounded-xl active:scale-95 transition-transform"><MapPin size={13}/> Mapa</button>
                     )}
                   </div>
                 </div>
@@ -2001,7 +2011,7 @@ export default function App() {
         )}
       </div>
 
-      {/* MENU INFERIOR FIXO ENXUTO */}
+      {/* MENU INFERIOR FIXO */}
       <div className="fixed bottom-0 left-0 right-0 flex justify-center p-4 z-30 bg-transparent pointer-events-none">
         <div className="bg-white shadow-[0_-10px_30px_rgba(0,0,0,0.06)] rounded-[28px] flex justify-around items-center px-4 h-16 w-full max-w-xl pointer-events-auto border">
           <button onClick={() => setActiveTab('inicio')} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'inicio' ? 'text-orange-500' : 'text-slate-300'}`}>
