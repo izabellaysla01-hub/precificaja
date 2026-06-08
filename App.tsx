@@ -490,7 +490,7 @@ export default function App() {
     const tempoEmHoras = Number(tGasto || 0) / 60;
 
     equipamentosSelecionados.forEach(idEquip => {
-      const eq = equipments.find(e => e.id === idEquip);
+      const eq = equipmentos.find(e => e.id === idEquip);
       if (eq) {
         const valorEquip = Number(eq.valorPago || 0);
         const mesesVida = Number(eq.durabilidadeAnos || 2) * 12;
