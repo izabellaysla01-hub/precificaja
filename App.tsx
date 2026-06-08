@@ -1,3 +1,49 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { initializeApp } from "firebase/app";
+import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
+import { getFirestore, collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc, getDocs, setDoc, getDoc } from "firebase/firestore";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2, Menu, Search, Settings } from 'lucide-react';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyD0BWsNm9DbGGDqiHzkdDmNdxIGdJ9tWe8",
+  authDomain: "precificaja-968cd.firebaseapp.com",
+  projectId: "precificaja-968cd",
+  storageBucket: "precificaja-968cd.firebasestorage.app",
+  messagingSenderId: "646149720985",
+  appId: "1:646149720985:web:9c04001f2c6344979a2108"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const storage = getStorage(app);
+
+// --- TELA DE LOGIN ---
+const Login = ({ isRegistering, setIsRegistering, email, setEmail, password, setPassword, handleAuth }: any) => {
+  const recuperarSenha = async () => {
+    if (!email) return alert("Digite seu e-mail primeiro para eu te mandar o link!");
+    try {
+      await sendPasswordResetEmail(auth, email);
+      alert("Enviamos um link para o seu e-mail!");
+    } catch (e) { alert("E-mail não encontrado ou inválido."); }
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+      <div className="bg-white p-8 rounded-[40px] shadow-xl w-full max-w-md text-center border border-slate-100">
+        <h1 className="text-3xl font-black text-purple-700 mb-2 font-sans">PrecificaJá 🚀</h1>
+        <p className="text-slate-400 text-xs mb-8 uppercase font-bold tracking-widest">Sua empresa lucrando mais</p>
+        <input type="email" placeholder="Seu e-mail" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none focus:ring-2 focus:ring-purple-600" value={email} onChange={e => setEmail(e.target.value)} />
+        <input type="password" placeholder="Senha" className="w-full p-4 bg-slate-50 rounded-2xl mb-2 outline-none focus:ring-2 focus:ring-purple-600" value={password} onChange={e => setPassword(e.target.value)} />
+        <button onClick={recuperarSenha} className="text-[10px] text-purple-400 font-bold uppercase mb-6 hover:text-purple-600 block w-full text-right pr-2">Esqueci minha senha</button>
+        <button onClick={handleAuth} className="w-full bg-orange-500 text-white font-bold py-4 rounded-2xl shadow-lg hover:bg-orange-600 transition-all uppercase">{isRegistering ? 'Criar Conta Grátis' : 'Entrar no App'}</button>
+        <button onClick={() => setIsRegistering(!isRegistering)} className="mt-4 text-sm text-purple-600 underline block w-full font-medium">{isRegistering ? 'Já tenho login' : 'Cadastrar novo usuário'}</button>
+      </div>
+    </div>
+  );
+};
+
 export default function App() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -10,34 +56,21 @@ export default function App() {
   const [nomeComprador, setNomeComprador] = useState('');
   const [zapDaLojaPublica, setZapDaLojaPublica] = useState('');
 
-  // Estados para Filtro na Vitrine Pública do Cliente
-  const [filtroVitrineSelecionado, setFiltroVitrineSelecionado] = useState('Todos');
-  const [isMenuFiltroVitrineOpen, setIsMenuFiltroVitrineOpen] = useState(false);
-
-  const [activeTab, useStateActiveTab] = useState<'inicio' | 'materiais' | 'criar' | 'pedidos' | 'clientes' | 'catalogo' | 'balcao' | 'financeiro' | 'perfil' | 'anotacoes' | 'fornecedores'>('inicio');
+  const [activeTab, useStateActiveTab] = useState<'inicio' | 'materiais' | 'criar' | 'pedidos' | 'clientes' | 'catalogo' | 'balcao' | 'financeiro' | 'perfil' | 'anotacoes'>('inicio');
   const [materiais, setMaterials] = useState<any[]>([]);
   const [pedidos, setPedidos] = useState<any[]>([]);
   const [clientes, setClientes] = useState<any[]>([]);
   const [produtos, setProdutos] = useState<any[]>([]);
   const [equipamentos, setEquipamentos] = useState<any[]>([]);
   const [anotacoes, setAnotacoes] = useState<any[]>([]);
-  
-  // Estados Novos para Categorias Dinâmicas e Fornecedores
-  const [categoriasProd, setCategoriasProd] = useState<any[]>([]);
-  const [categoriasForn, setCategoriasForn] = useState<any[]>([]);
-  const [fornecedores, setFornecedores] = useState<any[]>([]);
 
   const [pesquisaMateriais, setPesquisaMateriais] = useState('');
-  const [pesquisaFornecedores, setPesquisaFornecedores] = useState('');
-  const [filtroFornSelecionado, setFiltroFornSelecionado] = useState('Todos');
 
   const [pedidoEditandoId, setPedidoEditandoId] = useState<string | null>(null);
   const [mostrarSeletorCatalogo, setMostrarSeletorCatalogo] = useState(false);
 
   const [filtroStatusPedido, setFiltroStatusPedido] = useState<'Pendente' | 'Vendido' | 'Cancelado'>('Pendente');
   const [isDuplicando, setIsDuplicando] = useState(false);
-
-  const [diaSelecionadoAgenda, setDiaSelecionadoAgenda] = useState<string>(new Date().toISOString().split('T')[0]);
 
   const [nomeProd, setNomeProd] = useState('');
   const [qtdPed, setQtdPed] = useState('1');
@@ -59,18 +92,9 @@ export default function App() {
   const [novoMat, setNovoMat] = useState({ id: '', nome: '', valor: '', qtd: '1', unidade: 'un', qtdAtual: '0', qtdMinima: '0' });
     
   const [novoCli, setNovoCli] = useState({ id: '', nome: '', zap: '', email: '', endereco: '' });
-  const [novaAnotacao, setNovaAnotacao] = useState({ id: '', titulo: '', conteudo: '', dataPrazo: new Date().toISOString().split('T')[0] });
+  const [novaAnotacao, setNovaAnotacao] = useState({ id: '', titulo: '', conteudo: '' });
   
-  // Estados de Cadastro Atualizados com Categorias
-  const [novoProdCatalogo, setNovoProdCatalogo] = useState<{id: string, nome: string, precoVenda: string, urlImagem: string, categorias: string[]}>({ id: '', nome: '', precoVenda: '', urlImagem: '', categorias: [] });
-  const [inputNovaCategoriaProd, setInputNovaCategoriaProd] = useState('');
-  const [mostrarInputNovaCatProd, setMostrarInputNovaCatProd] = useState(false);
-
-  // Estados de Cadastro para Fornecedores
-  const [novoFornecedor, setNovoFornecedor] = useState<{id: string, nome: string, site: string, whatsapp: string, endereco: string, categorias: string[]}>({ id: '', nome: '', site: '', whatsapp: '', endereco: '', categorias: [] });
-  const [inputNovaCategoriaForn, setInputNovaCategoriaForn] = useState('');
-  const [mostrarInputNovaCatForn, setMostrarInputNovaCatForn] = useState(false);
-
+  const [novoProdCatalogo, setNovoProdCatalogo] = useState({ id: '', nome: '', precoVenda: '', urlImagem: '' });
   const [zapDonaConta, setZapDonaConta] = useState('');
   const [subindoImagem, setSubindoImagem] = useState(false);
 
@@ -102,11 +126,6 @@ export default function App() {
         if(docSnap.exists()) {
           setZapDaLojaPublica(docSnap.data().whatsapp || '');
         }
-      });
-
-      const qCats = query(collection(db, "categorias_produtos"), where("userId", "==", lojaId));
-      getDocs(qCats).then(snapshot => {
-        setCategoriasProd(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
       });
 
       const q = query(collection(db, "produtos"), where("userId", "==", lojaId));
@@ -156,31 +175,6 @@ export default function App() {
       const qAnotacoes = query(collection(db, "anotacoes"), where("userId", "==", user.uid));
       const unsubAnotacoes = onSnapshot(qAnotacoes, s => setAnotacoes(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
-      const qCatsProd = query(collection(db, "categorias_produtos"), where("userId", "==", user.uid));
-      const unsubCatsProd = onSnapshot(qCatsProd, s => {
-        if(s.docs.length === 0 && categoriasProd.length === 0) {
-          const padroes = ["🖨️ Sublimação", "✂️ Papelaria Personalizada", "🎁 Personalizados", "💕 Datas Comemorativas"];
-          padroes.forEach(async (cat) => {
-            await addDoc(collection(db, "categorias_produtos"), { nome: cat, userId: user.uid });
-          });
-        }
-        setCategoriasProd(s.docs.map(d => ({ id: d.id, ...d.data() })));
-      });
-
-      const qCatsForn = query(collection(db, "categorias_fornecedores"), where("userId", "==", user.uid));
-      const unsubCatsForn = onSnapshot(qCatsForn, s => {
-        if(s.docs.length === 0 && categoriasForn.length === 0) {
-          const padroesForn = ["🖨️ Insumos de Sublimação", "✂️ Papelaria e Papéis", "📦 Embalagens e Caixas", "🎁 Brindes e Acrílicos"];
-          padroesForn.forEach(async (cat) => {
-            await addDoc(collection(db, "categorias_fornecedores"), { nome: cat, userId: user.uid });
-          });
-        }
-        setCategoriasForn(s.docs.map(d => ({ id: d.id, ...d.data() })));
-      });
-
-      const qFornecedores = query(collection(db, "fornecedores"), where("userId", "==", user.uid));
-      const unsubFornecedores = onSnapshot(qFornecedores, s => setFornecedores(s.docs.map(d => ({ id: d.id, ...d.data() }))));
-
       const qConfigFin = doc(db, "configuracoes_financeiras", user.uid);
       getDoc(qConfigFin).then(snap => {
         if (snap.exists()) {
@@ -210,9 +204,6 @@ export default function App() {
         unsubProdutos();
         unsubEquipamentos();
         unsubAnotacoes();
-        unsubCatsProd();
-        unsubCatsForn();
-        unsubFornecedores();
       };
     }
   }, [user, idLojaPublica]);
@@ -225,38 +216,6 @@ export default function App() {
   const copiarLinkCatalogo = () => {
     navigator.clipboard.writeText(linkDoCatalogoDestaCliente);
     alert("Link do seu catálogo copiado! 🔗🚀");
-  };
-
-  const proximosSeteDias = useMemo(() => {
-    const dias = [];
-    const nomesDias = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
-    const nomesMeses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-    
-    for (let i = 0; i < 7; i++) {
-      const d = new Date();
-      d.setDate(d.getDate() + i);
-      
-      const ano = d.getFullYear();
-      const mes = String(d.getMonth() + 1).padStart(2, '0');
-      const diaNum = String(d.getDate()).padStart(2, '0');
-      const stringData = `${ano}-${mes}-${diaNum}`;
-      
-      dias.push({
-        stringData,
-        diaNumero: d.getDate(),
-        diaSemanaTexto: nomesDias[d.getDay()],
-        mesTexto: nomesMeses[d.getMonth()]
-      });
-    }
-    return dias;
-  }, []);
-
-  const anotacoesDoDiaSelecionado = useMemo(() => {
-    return anotacoes.filter(a => a.dataPrazo === diaSelecionadoAgenda && !a.concluido);
-  }, [anotacoes, diaSelecionadoAgenda]);
-
-  const toggleStatusAnotacao = async (id: string, valorAtual: boolean) => {
-    await updateDoc(doc(db, "anotacoes", id), { concluido: !valorAtual });
   };
 
   const dispararPdfAutomaticoCliente = (nomeCliente: string, itens: any[], total: number) => {
@@ -274,7 +233,7 @@ export default function App() {
 
     elemento.innerHTML = `
       <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto;">
-        <div style="padding-bottom: 20px; margin-bottom: 25px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px;">
           <div>
             <h1 style="color: #7c3aed; margin: 0; font-size: 32px; font-weight: 900;">Comprovante de Pedido 🚀</h1>
             <p style="color: #94a3b8; font-size: 11px; text-transform: uppercase; margin: 4px 0 0 0; font-weight: bold;">Catálogo de Vendas Online</p>
@@ -326,7 +285,7 @@ export default function App() {
 
   const finalizarPedidoPublicoWhatsapp = () => {
     if (!nomeComprador.trim()) return alert("Por favor, digite seu nome antes de enviar!");
-    const itensSelecionados = produtosPublicosFiltrados.filter(p => carrinho[p.id] > 0);
+    const itensSelecionados = produtosPublicos.filter(p => carrinho[p.id] > 0);
     if (itensSelecionados.length === 0) return alert("Seu carrinho está vazio!");
 
     let textoPedido = `*NOVO PEDIDO VIA CATÁLOGO DE VENDAS*%0A`;
@@ -472,35 +431,27 @@ export default function App() {
     let htmlLinhasTabela = '';
 
     if (p.itensCombo && Array.isArray(p.itensCombo) && p.itensCombo.length > 0) {
-      htmlLinhasTabela = p.itensCombo.map((item: any) => {
-        const qtd = Number(item.qtd || 1);
-        const precoVenda = Number(item.precoVenda || 0);
-        const subtotal = qtd * precoVenda;
-        
-        return `
-          <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px; page-break-inside: avoid; break-inside: avoid;">
-            <td style="padding: 15px 5px; font-weight: bold; color: #1e293b; text-align: left;">${item.nome}</td>
-            <td style="padding: 15px 5px; text-align: center; color: #475569;">${qtd}</td>
-            <td style="padding: 15px 5px; text-align: right; color: #475569;">R$ ${precoVenda.toFixed(2)}</td>
-            <td style="padding: 15px 5px; text-align: right; font-weight: bold; color: #1e293b;">R$ ${subtotal.toFixed(2)}</td>
-          </tr>
-        `;
-      }).join('');
+      htmlLinhasTabela = p.itensCombo.map((item: any) => `
+        <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px; page-break-inside: avoid; break-inside: avoid;">
+          <td style="padding: 15px 5px; font-weight: bold; color: #1e293b; text-align: left;">${item.nome}</td>
+          <td style="padding: 15px 5px; text-align: center; color: #475569;">${item.qtd}</td>
+          <td style="padding: 15px 5px; text-align: right; color: #475569;">R$ ${Number(item.precoVenda).toFixed(2)}</td>
+          <td style="padding: 15px 5px; text-align: right; font-weight: bold; color: #1e293b;">R$ ${(Number(item.qtd) * Number(item.precoVenda)).toFixed(2)}</td>
+        </tr>
+      `).join('');
     } else {
       const arrayLinhasTexto = String(p.nomeProd || '').split('\n');
       htmlLinhasTabela = arrayLinhasTexto.map(linhaTexto => {
         if(!linhaTexto.trim()) return '';
         let quantidadeItem = Number(p.qtdPed || 1);
-        let nomeItemLimpo = linhaTexto.trim();
+        let nomeItemLimpo = inlineTexto.trim();
         
         const matchCombo = linhaTexto.trim().match(/^(\d+)x\s+(.+)$/i);
         if(matchCombo) {
           quantidadeItem = Number(matchCombo[1]);
           nomeItemLimpo = matchCombo[2].trim();
         }
-        
-        const qtdSegura = quantidadeItem > 0 ? quantidadeItem : 1;
-        const unitario = (totalNum / qtdSegura).toFixed(2);
+        const unitario = (totalNum / quantidadeItem).toFixed(2);
 
         return `
           <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px; page-break-inside: avoid; break-inside: avoid;">
@@ -519,7 +470,7 @@ export default function App() {
     const elemento = document.createElement('div');
     elemento.innerHTML = `
       <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto;">
-        <div style="padding-bottom: 20px; margin-bottom: 25px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px;">
           <div>
             ${cabecalhoLogoHtml}
             <h1 style="color: #7c3aed; margin: 0; font-size: 28px; font-weight: 900;">${cabecalhoNomeHtml}</h1>
@@ -532,13 +483,13 @@ export default function App() {
         </div>
         
         <div style="background-color: #f8fafc; padding: 12px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #e2e8f0; font-size: 14px; font-weight: bold; color: #7c3aed;">
-          Referência do Pedido: ${p.nomeProd.replace(/\n/g, ' + ')}
+          Referência do Pedido: ${p.nomeProd}
         </div>
 
         <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Dados do Cliente</div>
         <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 25px; border: 1px solid #f1f5f9;">
-          <p style="margin: 0; font-size: 14px;"><strong>Cliente:</strong> ${cli?.nome || 'Cliente não informado'}</p>
-          <p style="margin: 6px 0 0 0; font-size: 13px; color: #64748b;"><strong>WhatsApp:</strong> ${cli?.zap || 'Não informado'}</p>
+          <p style="margin: 0 0 6px 0; font-size: 14px;"><strong>Cliente:</strong> ${cli?.nome || 'Cliente não informado'}</p>
+          <p style="margin: 0; font-size: 13px; color: #64748b;"><strong>WhatsApp:</strong> ${cli?.zap || 'Não informado'}</p>
         </div>
 
         <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Informações Básicas e Prazos</div>
@@ -571,7 +522,7 @@ export default function App() {
           </div>
         </div>
 
-        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px; page-break-inside: avoid; break-inside: avoid;">Formas de Pagamento Aceitas</div>
+        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px; page-break-inside: avoid; break-inside: avoid;">Forma de Pagamento Aceitas</div>
         <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; border: 1px solid #f1f5f9; font-size: 13px; display: flex; justify-content: space-between; margin-bottom: 15px; page-break-inside: avoid; break-inside: avoid;">
           <div><strong>Meios disponíveis:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">PIX / CARTÃO DE CRÉDITO</div></div>
           <div><strong>Condições comerciais:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">A combinar direto no WhatsApp da Loja</div></div>
@@ -609,7 +560,6 @@ export default function App() {
       else if (tipo === 'equipamento') colecao = "equipamentos";
       else if (tipo === 'material') colecao = "materiais";
       else if (tipo === 'anotacao') colecao = "anotacoes";
-      else if (tipo === 'fornecedor') colecao = "fornecedores";
 
       await deleteDoc(doc(db, colecao, id));
     }
@@ -751,42 +701,11 @@ export default function App() {
     }
   };
 
-  const toggleCategoriaNoProduto = (catNome: string) => {
-    const jaTem = novoProdCatalogo.categorias?.includes(catNome) || false;
-    if(jaTem) {
-      setNovoProdCatalogo({...novoProdCatalogo, categorias: novoProdCatalogo.categorias.filter(c => c !== catNome)});
-    } else {
-      setNovoProdCatalogo({...novoProdCatalogo, categorias: [...(novoProdCatalogo.categorias || []), catNome]});
-    }
-  };
-
-  const toggleCategoriaNoFornecedor = (catNome: string) => {
-    const jaTem = novoFornecedor.categorias?.includes(catNome) || false;
-    if(jaTem) {
-      setNovoFornecedor({...novoFornecedor, categorias: novoFornecedor.categorias.filter(c => c !== catNome)});
-    } else {
-      setNovoFornecedor({...novoFornecedor, categorias: [...(novoFornecedor.categorias || []), catNome]});
-    }
-  };
-
   const materiaisFiltrados = useMemo(() => {
     return materiais.filter(m => 
       m.nome?.toLowerCase().includes(pesquisaMateriais.toLowerCase())
     );
   }, [materiais, pesquisaMateriais]);
-
-  const produtosPublicosFiltrados = useMemo(() => {
-    if (filtroVitrineSelecionado === 'Todos') return produtosPublicos;
-    return produtosPublicos.filter(p => p.categorias && p.categorias.includes(filtroVitrineSelecionado));
-  }, [produtosPublicos, filtroVitrineSelecionado]);
-
-  const fornecedoresFiltrados = useMemo(() => {
-    return fornecedores.filter(f => {
-      const matchNome = f.nome?.toLowerCase().includes(pesquisaFornecedores.toLowerCase());
-      const matchCat = filtroFornSelecionado === 'Todos' ? true : (f.categorias && f.categorias.includes(filtroFornSelecionado));
-      return matchNome && matchCat;
-    });
-  }, [fornecedores, pesquisaFornecedores, filtroFornSelecionado]);
 
   const pedidosFiltradosPorStatus = useMemo(() => {
     return pedidos.filter(p => {
@@ -799,19 +718,6 @@ export default function App() {
 
   if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando o PrecificaJá... 🚀</div>;
 
-  // ==========================================
-  // 🔒 TRAVA DE SEGURANÇA CONTRA TELA BRANCA 🔒
-  // ==========================================
-  if (!user && !idLojaPublica) {
-    return (
-      <Login 
-        isRegistering={isRegistering} setIsRegistering={setIsRegistering}
-        email={email} setEmail={setEmail} password={password} setPassword={setPassword}
-        handleAuth={handleAuth}
-      />
-    );
-  }
-
   if (idLojaPublica) {
     if (carregandoPublico) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando Vitrine... 🛍️</div>;
     const totalCarrinho = Object.keys(carrinho).reduce((acc, id) => {
@@ -820,26 +726,10 @@ export default function App() {
     }, 0);
 
     return (
-      <div className="min-h-screen bg-slate-50 pb-40 font-sans text-slate-700 w-full relative">
-        <header className="bg-white p-4 flex justify-between items-center shadow-sm border-b sticky top-0 z-50">
-          <div className="relative">
-            <button onClick={() => setIsMenuFiltroVitrineOpen(!isMenuFiltroVitrineOpen)} className="p-2 text-slate-700 hover:text-purple-700 transition-colors flex items-center gap-1 bg-slate-100 rounded-xl text-xs font-bold">
-              <Menu size={18} /> Filtrar
-            </button>
-            {isMenuFiltroVitrineOpen && (
-              <div className="absolute left-0 mt-2 w-56 bg-white border border-slate-100 rounded-2xl shadow-xl py-2 z-50 animate-fadeIn">
-                <button onClick={() => { setFiltroVitrineSelecionado('Todos'); setIsMenuFiltroVitrineOpen(false); }} className={`w-full text-left px-4 py-2 text-xs font-bold ${filtroVitrineSelecionado === 'Todos' ? 'bg-purple-50 text-purple-700' : 'text-slate-600'}`}>✨ Todos os Produtos</button>
-                {categoriasProd.map(cat => (
-                  <button key={cat.id} onClick={() => { setFiltroVitrineSelecionado(cat.nome); setIsMenuFiltroVitrineOpen(false); }} className={`w-full text-left px-4 py-2 text-xs font-bold ${filtroVitrineSelecionado === cat.nome ? 'bg-purple-50 text-purple-700' : 'text-slate-600'}`}>{cat.nome}</button>
-                ))}
-              </div>
-            )}
-          </div>
-          <div className="text-center">
-            <h1 className="text-base font-black text-purple-700">Vitrine de Destaques 🎉</h1>
-            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Filtro: {filtroVitrineSelecionado}</p>
-          </div>
-          <div className="w-14"></div>
+      <div className="min-h-screen bg-slate-50 pb-40 font-sans text-slate-700">
+        <header className="bg-white p-4 text-center shadow-sm border-b sticky top-0 z-50">
+          <h1 className="text-xl font-black text-purple-700">Vitrine de Destaques 🎉</h1>
+          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">Faça suas escolhas e envie no WhatsApp</p>
         </header>
 
         <main className="p-4 max-w-xl mx-auto space-y-6">
@@ -849,7 +739,7 @@ export default function App() {
           </div>
 
           <div className="grid grid-cols-1 gap-4">
-            {produtosPublicosFiltrados.map(p => {
+            {produtosPublicos.map(p => {
               const qtdNoCarinho = carrinho[p.id] || 0;
               return (
                 <div key={p.id} className="bg-white p-4 rounded-[35px] border shadow-sm flex gap-4 items-center">
@@ -868,10 +758,6 @@ export default function App() {
                 </div>
               );
             })}
-            
-            {produtosPublicosFiltrados.length === 0 && (
-              <p className="text-center font-bold text-xs text-slate-400 py-12">Nenhum produto em destaque nesta categoria no momento. 🙌</p>
-            )}
           </div>
         </main>
 
@@ -888,6 +774,10 @@ export default function App() {
         )}
       </div>
     );
+  }
+
+  if (!user) {
+    return ( <Login isRegistering={isRegistering} setIsRegistering={setIsRegistering} email={email} setEmail={setEmail} password={password} setPassword={setPassword} handleAuth={handleAuth} /> );
   }
 
   const renderCalculadoraForm = () => (
@@ -1065,7 +955,7 @@ export default function App() {
              limparCalculadora(); setActiveTab('pedidos'); alert("Salvo!");
           }} className="bg-orange-500 text-white px-5 py-4 rounded-[22px] font-black uppercase text-xs shadow-lg">Salvar</button>
           <button onClick={() => gerarPDF({nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed, obsPedido})} className="bg-orange-500 text-white p-4 rounded-[22px] shadow-lg"><Printer size={18}/></button>
-          <button onClick={() => enviarZap({nomeProd: nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed})} className="bg-emerald-500 text-white p-4 rounded-[22px] shadow-lg"><MessageCircle size={18}/></button>
+          <button onClick={() => enviarZap({nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed})} className="bg-emerald-500 text-white p-4 rounded-[22px] shadow-lg"><MessageCircle size={18}/></button>
         </div>
       </div>
     </div>
@@ -1077,7 +967,7 @@ export default function App() {
       {/* MENU HAMBÚRGUER LATERAL COMPLETO */}
       <div className={`fixed inset-0 bg-black/40 z-50 transition-opacity duration-300 ${isMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`} onClick={() => setIsMenuOpen(false)}>
         <div className={`w-72 bg-white h-full shadow-2xl p-6 flex flex-col justify-between transition-transform duration-300 ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'}`} onClick={e => e.stopPropagation()}>
-          <div className="space-y-6 overflow-y-auto max-h-[85vh] scrollbar-none">
+          <div className="space-y-6">
             <div className="flex justify-between items-center border-b pb-4">
               <div className="font-black text-purple-700 text-lg flex items-center gap-2"><Calculator size={22}/> Menu PrecificaJá</div>
               <button onClick={() => setIsMenuOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={22}/></button>
@@ -1087,15 +977,12 @@ export default function App() {
               <button onClick={() => setActiveTab('criar')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'criar' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Plus size={16}/> Orçar</button>
               
               <button onClick={() => setActiveTab('perfil')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'perfil' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Settings size={16}/> Perfil da Loja</button>
-              <button onClick={() => setActiveTab('anotacoes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'anotacoes' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Calendar size={16}/> Agenda / Tarefas </button>
+              <button onClick={() => setActiveTab('anotacoes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'anotacoes' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><BookOpen size={16}/> Minhas Anotações 📝</button>
 
               <button onClick={() => setActiveTab('financeiro')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'financeiro' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Calculator size={16}/> Configurações de Custos</button>
               <button onClick={() => setActiveTab('pedidos')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'pedidos' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><History size={16}/> Histórico de Orçamentos</button>
               <button onClick={() => setActiveTab('balcao')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'balcao' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><ShoppingCart size={16}/> Balcão de Vendas Rápido</button>
               <button onClick={() => setActiveTab('catalogo')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'catalogo' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><BookOpen size={16}/> Meu Catálogo Visual</button>
-              
-              <button onClick={() => setActiveTab('fornecedores')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'fornecedores' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Globe size={16}/> Biblioteca Fornecedores </button>
-              
               <button onClick={() => setActiveTab('materiais')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'materiais' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Package size={16}/> Armário / Insumos</button>
               <button onClick={() => setActiveTab('clientes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'clientes' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><User size={16}/> Meus Clientes</button>
             </nav>
@@ -1114,6 +1001,7 @@ export default function App() {
       </header>
 
       <div className="p-4 max-w-xl mx-auto w-full">
+        {/* TELA INICIAL */}
         {activeTab === 'inicio' && (
           <div className="space-y-5 pt-2 w-full">
             <div className="bg-gradient-to-tr from-purple-700 to-indigo-600 p-6 rounded-[35px] shadow-lg text-white w-full">
@@ -1130,55 +1018,6 @@ export default function App() {
               </div>
               <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center text-white">
                 <Calculator size={24}/>
-              </div>
-            </div>
-
-            <div className="bg-white p-5 rounded-[35px] border shadow-sm w-full space-y-4">
-              <div className="flex justify-between items-center px-1">
-                <h3 className="text-purple-700 font-black uppercase text-xs tracking-wider flex items-center gap-1.5">
-                  <Calendar size={16}/> Agenda da Semana
-                </h3>
-                <span className="text-[10px] bg-purple-50 text-purple-600 px-2 py-1 rounded-md font-bold uppercase">Mês Atual</span>
-              </div>
-              
-              <div className="flex justify-between gap-1 overflow-x-auto pb-1 scrollbar-none w-full">
-                {proximosSeteDias.map((dia) => {
-                  const isActive = diaSelecionadoAgenda === dia.stringData;
-                  return (
-                    <div 
-                      key={dia.stringData} 
-                      onClick={() => setDiaSelecionadoAgenda(dia.stringData)}
-                      className="flex flex-col items-center gap-1 cursor-pointer min-w-[46px] select-none"
-                    >
-                      <span className={`text-[10px] font-bold ${isActive ? 'text-orange-500 font-extrabold' : 'text-slate-400'}`}>
-                        {dia.diaSemanaTexto}
-                      </span>
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-black transition-all border ${isActive ? 'bg-orange-500 text-white border-orange-500 shadow-md scale-105' : 'bg-slate-50 text-slate-700 border-slate-100'}`}>
-                        {dia.diaNumero}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="border-t border-slate-100 pt-3 space-y-2 w-full">
-                {anotacoesDoDiaSelecionado.map((item) => (
-                  <div key={item.id} className="flex items-center gap-3 bg-slate-50/80 p-3 rounded-2xl border border-slate-100 animate-fadeIn">
-                    <button onClick={() => toggleStatusAnotacao(item.id, item.concluido)} className="text-purple-600 transition-transform active:scale-95 shrink-0">
-                      {item.concluido ? <CheckSquare size={19} /> : <Square size={19} className="text-slate-400" />}
-                    </button>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-bold text-slate-800 text-sm truncate">{item.titulo}</p>
-                      {item.conteudo && <p className="text-xs text-slate-500 truncate">{item.conteudo}</p>}
-                    </div>
-                  </div>
-                ))}
-
-                {anotacoesDoDiaSelecionado.length === 0 && (
-                  <p className="text-center text-xs font-bold text-slate-400 py-4 italic">
-                    ✨ Nenhuma pendência agendada para este dia!
-                  </p>
-                )}
               </div>
             </div>
 
@@ -1265,68 +1104,49 @@ export default function App() {
           </div>
         )}
 
-        {/* TELA DE AGENDA / COMPROMISSOS COM PRAZOS */}
+        {/* TELA DE ANOTAÇÕES GERAIS */}
         {activeTab === 'anotacoes' && (
           <div className="space-y-4 pt-2 w-full">
             <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
-              <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2"><Calendar size={20}/> Criar Nova Tarefa / Lembrete</h2>
-              <p className="text-slate-400 text-[11px] mb-4">Gerencie as pendências e compras do seu negócio por data. O que você colocar aqui alimenta o painel da sua Tela Inicial.</p>
+              <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2"><BookOpen size={20}/> Minhas Anotações Internas</h2>
+              <p className="text-slate-400 text-[11px] mb-4">Use este espaço como seu bloco de notas geral da empresa. Seus clientes não têm acesso a essas notas.</p>
               
-              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">O que precisa fazer?</label>
-              <input placeholder="Ex: Comprar papel fotográfico A4 / Entregar caneca do cliente" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-bold text-sm" value={novaAnotacao.titulo} onChange={e => setNovaAnotacao({...novaAnotacao, titulo: e.target.value})} />
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Título da Nota</label>
+              <input placeholder="Ex: Lembrar de comprar fitas / Ideia Dia dos Pais" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-bold text-sm" value={novaAnotacao.titulo} onChange={e => setNovaAnotacao({...novaAnotacao, titulo: e.target.value})} />
               
-              <div className="mb-4 w-full">
-                <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Data Limite / Prazo</label>
-                <input type="date" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm block mt-1" value={novaAnotacao.dataPrazo} onChange={e => setNovaAnotacao({...novaAnotacao, dataPrazo: e.target.value})} />
-              </div>
-
-              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Detalhes Adicionais (Opcional)</label>
-              <textarea placeholder="Escreva informações extras ou observações aqui..." className="w-full p-4 bg-slate-50 rounded-2xl mb-6 outline-none border focus:border-purple-400 resize-none h-16 text-sm font-semibold" value={novaAnotacao.conteudo} onChange={e => setNovaAnotacao({...novaAnotacao, conteudo: e.target.value})} />
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Conteúdo da Anotação</label>
+              <textarea placeholder="Escreva seus lembretes aqui..." className="w-full p-4 bg-slate-50 rounded-2xl mb-6 outline-none border focus:border-purple-400 resize-none h-28 text-sm font-semibold" value={novaAnotacao.conteudo} onChange={e => setNovaAnotacao({...novaAnotacao, conteudo: e.target.value})} />
               
               <button onClick={async () => {
-                if(!novaAnotacao.titulo) return alert("Sua tarefa precisa de uma descrição básica!");
-                const dadosNota = { titulo: novaAnotacao.titulo, conteudo: novaAnotacao.conteudo || '', dataPrazo: novaAnotacao.dataPrazo, concluido: false, userId: user.uid, dataCriacao: new Date().toLocaleDateString('pt-BR') };
+                if(!novaAnotacao.titulo) return alert("Sua anotação precisa de um título!");
+                const dadosNota = { titulo: novaAnotacao.titulo, conteudo: novaAnotacao.conteudo || '', userId: user.uid, dataCriacao: new Date().toLocaleDateString('pt-BR') };
                 
                 if (novaAnotacao.id) await updateDoc(doc(db, "anotacoes", novaAnotacao.id), dadosNota);
                 else await addDoc(collection(db, "anotacoes"), dadosNota);
                 
-                setNovaAnotacao({ id: '', titulo: '', conteudo: '', dataPrazo: new Date().toISOString().split('T')[0] });
-                alert("Agendado com sucesso! 📅✨");
+                setNovaAnotacao({ id: '', titulo: '', conteudo: '' });
+                alert("Nota guardada com sucesso! 📝✨");
               }} className="w-full bg-orange-500 text-white p-5 rounded-2xl font-black uppercase text-xs shadow-md">
-                {novaAnotacao.id ? 'Atualizar Compromisso' : 'Agendar Tarefa'}
+                {novaAnotacao.id ? 'Atualizar Nota' : 'Guardar no Caderno'}
               </button>
             </div>
 
-            <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider ml-2 mt-4">Lista Geral de Pendências</h3>
             <div className="grid grid-cols-1 gap-3 w-full">
-              {anotacoes.map(item => {
-                const dataFormatada = item.dataPrazo ? item.dataPrazo.split('-').reverse().slice(0, 2).join('/') : '';
-                return (
-                  <div key={item.id} className={`bg-white p-5 rounded-3xl border shadow-sm w-full flex flex-col gap-2 relative ${item.concluido ? 'opacity-50' : ''}`}>
-                    <div className="flex justify-between items-start anonymity-wrapper w-full">
-                      <div className="flex items-start gap-3 flex-1 min-w-0">
-                        <button onClick={() => toggleStatusAnotacao(item.id, item.concluido)} className="text-purple-600 mt-0.5 shrink-0">
-                          {item.concluido ? <CheckSquare size={20} /> : <Square size={20} className="text-slate-400" />}
-                        </button>
-                        <div className="min-w-0 flex-1">
-                          <h4 className={`font-black text-slate-800 text-base break-words ${item.concluido ? 'line-through text-slate-400' : ''}`}>
-                            {item.titulo}
-                          </h4>
-                          <div className="flex gap-2 mt-1 flex-wrap">
-                            <span className="text-[9px] bg-purple-50 text-purple-600 px-2 py-0.5 rounded font-black uppercase">🗓️ Prazo: {dataFormatada}</span>
-                            {item.concluido && <span className="text-[9px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded font-black uppercase">Concluído</span>}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex gap-1 shrink-0 ml-2">
-                        <button onClick={() => setNovaAnotacao({ id: item.id, titulo: item.titulo, conteudo: item.conteudo, dataPrazo: item.dataPrazo || new Date().toISOString().split('T')[0] })} className="text-orange-400 p-2 hover:bg-orange-50 rounded-xl"><Edit2 size={16}/></button>
-                        <button onClick={() => confirmarExcluir('anotacao', item.id)} className="text-red-200 p-2 hover:bg-red-50 rounded-xl"><Trash2 size={16}/></button>
-                      </div>
+              {anotacoes.map(item => (
+                <div key={item.id} className="bg-white p-5 rounded-3xl border shadow-sm w-full flex flex-col gap-2 relative">
+                  <div className="flex justify-between items-start w-full">
+                    <div>
+                      <h4 className="font-black text-slate-800 text-base">{item.titulo}</h4>
+                      <p className="text-[10px] text-purple-500 font-bold uppercase mt-0.5">Criado em: {item.dataCriacao}</p>
                     </div>
-                    {item.conteudo && <p className="text-slate-600 text-xs font-semibold bg-slate-50 p-3 rounded-2xl border whitespace-pre-line leading-relaxed">{item.conteudo}</p>}
+                    <div className="flex gap-1 shrink-0">
+                      <button onClick={() => setNovaAnotacao({ id: item.id, titulo: item.titulo, conteudo: item.conteudo })} className="text-orange-400 p-2 hover:bg-orange-50 rounded-xl"><Edit2 size={16}/></button>
+                      <button onClick={() => confirmarExcluir('anotacao', item.id)} className="text-red-200 p-2 hover:bg-red-50 rounded-xl"><Trash2 size={16}/></button>
+                    </div>
                   </div>
-                );
-              })}
+                  {item.conteudo && <p className="text-slate-600 text-xs font-semibold bg-slate-50 p-3 rounded-2xl border whitespace-pre-line leading-relaxed">{item.conteudo}</p>}
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -1338,7 +1158,7 @@ export default function App() {
               <h2 className="text-purple-700 font-bold mb-2 flex items-center gap-2 uppercase text-xs tracking-widest"><Calculator size={18}/> Estrutura de Custos Fixos (Opcional)</h2>
               <p className="text-slate-400 text-[11px] mb-4">Insira ou edite seus valores aqui. Eles ficam salvos e você pode alterá-los quando quiser.</p>
 
-              <label className="text-[10px] font-bold text-purple-700 outline-none uppercase ml-1">Salário Mensal Pretendido</label>
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Salário Mensal Pretendido</label>
               <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 font-bold text-purple-700 outline-none" value={financasFixo.salario} onChange={e => setFinancasFixo({...financasFixo, salario: e.target.value})} />
 
               <div className="grid grid-cols-2 gap-3 mb-3 w-full">
@@ -1390,6 +1210,7 @@ export default function App() {
               </button>
             </div>
 
+            {/* SEÇÃO DE FERRAMENTAS */}
             <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
               <h2 className="text-purple-700 font-bold mb-2 flex items-center gap-2 uppercase text-xs tracking-widest"><Package size={18}/> Minhas Ferramentas de Trabalho (Depreciação)</h2>
               <p className="text-slate-400 text-[11px] mb-4">Adicione ferramentas (secador, prensa) para incluir o desgaste financeiro automaticamente no resumo de custos.</p>
@@ -1536,14 +1357,7 @@ export default function App() {
         {activeTab === 'catalogo' && (
           <div className="space-y-4 pt-2 w-full">
             <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
-              <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2 uppercase text-xs tracking-widest">
-                <BookOpen size={18}/> {novoProdCatalogo.id ? '✏️ Editando Item do Catálogo' : 'Novo Item de Venda Fixa'}
-              </h2>
-              
-              {novoProdCatalogo.id && (
-                <button onClick={() => setNovoProdCatalogo({ id: '', nome: '', precoVenda: '', urlImagem: '', categorias: [] })} className="text-[10px] bg-slate-100 text-slate-600 px-3 py-1.5 rounded-xl font-bold uppercase tracking-wide mb-4 active:scale-95 transition-all block">Cancelar Modo Edição ❌</button>
-              )}
-
+              <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2 uppercase text-xs tracking-widest"><BookOpen size={18}/> Novo Item de Venda Fixa</h2>
               <div className="mb-4 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-3xl p-4 bg-slate-50 relative min-h-[140px] w-full">
                 {novoProdCatalogo.urlImagem ? (
                   <div className="relative w-full h-32 rounded-2xl overflow-hidden">
@@ -1564,48 +1378,19 @@ export default function App() {
               </div>
 
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome do Produto</label>
-              <input placeholder="Ex: Caneca Alça Coração" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none font-medium text-sm border focus:border-purple-400" value={novoProdCatalogo.nome} onChange={e => setNovoProdCatalogo({...novoProdCatalogo, nome: e.target.value})} />
-              
+              <input placeholder="Ex: Caneca Alça Coração" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none" value={novoProdCatalogo.nome} onChange={e => setNovoProdCatalogo({...novoProdCatalogo, nome: e.target.value})} />
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Preço Fixo de Venda (R$)</label>
-              <input type="number" placeholder="Ex: 35.00" className="w-full p-4 bg-slate-50 rounded-2xl mb-4 outline-none font-bold text-purple-700 border focus:border-purple-400" value={novoProdCatalogo.precoVenda} onChange={e => setNovoProdCatalogo({...novoProdCatalogo, precoVenda: e.target.value})} />
-
-              {/* SELETOR DE CATEGORIAS MÚLTIPLAS POR TAGS */}
-              <div className="mb-5 w-full">
-                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Categorias do Produto (Selecione Múltiplas)</label>
-                <div className="flex flex-wrap gap-2 mb-2">
-                  {categoriasProd.map(cat => {
-                    const marcado = novoProdCatalogo.categorias?.includes(cat.nome) || false;
-                    return (
-                      <button key={cat.id} type="button" onClick={() => toggleCategoriaNoProduto(cat.nome)} className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${marcado ? 'bg-purple-700 text-white border-purple-700 shadow-sm' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-purple-300'}`}>
-                        {cat.nome}
-                      </button>
-                    );
-                  })}
-                </div>
-                
-                {!mostrarInputNovaCatProd ? (
-                  <button type="button" onClick={() => setMostrarInputNovaCatProd(true)} className="text-[10px] text-purple-600 font-black uppercase mt-1 tracking-wider hover:underline">+ Criar Nova Categoria</button>
-                ) : (
-                  <div className="flex gap-2 items-center bg-slate-50 p-2.5 rounded-2xl border border-dashed border-purple-200 mt-2 animate-fadeIn">
-                    <input placeholder="Ex: 🎨 Brindes Luxo" className="flex-1 bg-white p-2.5 rounded-xl text-xs font-bold outline-none border" value={inputNovaCategoriaProd} onChange={e => setInputNovaCategoriaProd(e.target.value)} />
-                    <button type="button" onClick={async () => {
-                      if(!inputNovaCategoriaProd.trim()) return setMostrarInputNovaCatProd(false);
-                      await addDoc(collection(db, "categorias_produtos"), { nome: inputNovaCategoriaProd.trim(), userId: user.uid });
-                      setInputNovaCategoriaProd(''); setMostrarInputNovaCatProd(false);
-                    }} className="bg-purple-700 text-white text-xs font-black px-4 py-2.5 rounded-xl uppercase shadow-sm">OK</button>
-                  </div>
-                )}
-              </div>
+              <input type="number" placeholder="Ex: 35.00" className="w-full p-4 bg-slate-50 rounded-2xl mb-4 outline-none font-bold text-purple-700" value={novoProdCatalogo.precoVenda} onChange={e => setNovoProdCatalogo({...novoProdCatalogo, precoVenda: e.target.value})} />
 
               <button onClick={async () => {
                 if(!novoProdCatalogo.nome || !novoProdCatalogo.precoVenda) return alert("Preencha o nome e o preço!");
-                const d = { nome: novoProdCatalogo.nome, precoVenda: Number(novoProdCatalogo.precoVenda), urlImagem: novoProdCatalogo.urlImagem || '', categorias: novoProdCatalogo.categorias || [], userId: user.uid };
+                const d = { nome: novoProdCatalogo.nome, precoVenda: Number(novoProdCatalogo.precoVenda), urlImagem: novoProdCatalogo.urlImagem || '', userId: user.uid };
                 if (novoProdCatalogo.id) await updateDoc(doc(db, "produtos", novoProdCatalogo.id), d);
                 else await addDoc(collection(db, "produtos"), d);
-                setNovoProdCatalogo({ id: '', nome: '', precoVenda: '', urlImagem: '', categorias: [] });
+                setNovoProdCatalogo({ id: '', nome: '', precoVenda: '', urlImagem: '' });
                 alert("Produto salvo no catálogo!");
               }} className="w-full bg-purple-700 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md" disabled={subindoImagem}>
-                {novoProdCatalogo.id ? 'Salvar Alterações 📝' : 'Salvar no Catálogo 📖'}
+                {novoProdCatalogo.id ? 'Atualizar Item' : 'Salvar no Catálogo 📖'}
               </button>
             </div>
 
@@ -1619,18 +1404,10 @@ export default function App() {
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-slate-800 text-sm truncate">{p.nome}</p>
                     <p className="text-purple-700 font-black text-sm mt-0.5">R$ {Number(p.precoVenda).toFixed(2)}</p>
-                    {p.categorias && p.categorias.length > 0 && (
-                      <div className="flex gap-1 flex-wrap mt-1">
-                        {p.categorias.map((c: string, i: number) => (
-                          <span key={i} className="text-[8px] bg-slate-100 font-bold text-slate-500 px-1.5 py-0.5 rounded uppercase">{c.split(' ')[0]}</span>
-                        ))}
-                      </div>
-                    )}
                   </div>
                   <div className="flex items-center gap-1">
                     <button onClick={() => venderItemDiretoDoCatalogo(p)} className="bg-orange-500 text-white px-3 py-2 rounded-xl text-xs font-black uppercase shadow active:scale-95">Vender 🛍️</button>
-                    <button onClick={() => setNovoProdCatalogo({ id: p.id, nome: p.nome, precoVenda: String(p.precoVenda), urlImagem: p.urlImagem || '', categorias: p.categorias || [] })} className="text-orange-400 hover:bg-orange-50 p-1.5 rounded-xl"><Edit2 size={15}/></button>
-                    <button onClick={() => confirmarExcluir('produto', p.id)} className="text-red-200 p-1.5"><Trash2 size={15}/></button>
+                    <button onClick={() => deleteDoc(doc(db, "produtos", p.id))} className="text-red-200 p-1.5"><Trash2 size={15}/></button>
                   </div>
                 </div>
               ))}
@@ -1640,120 +1417,6 @@ export default function App() {
 
         {/* ABA DA CALCULADORA COMPOSTA */}
         {activeTab === 'criar' && renderCalculadoraForm()}
-
-        {/* BIBLIOTECA DE FORNECEDORES COMPLETA */}
-        {activeTab === 'fornecedores' && (
-          <div className="space-y-4 pt-2 w-full animate-fadeIn">
-            <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
-              <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2 uppercase text-xs tracking-widest"><Globe size={20}/> Cadastrar Novo Fornecedor</h2>
-              
-              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome da Empresa / Distribuidora</label>
-              <input placeholder="Ex: Pampa Papéis" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm" value={novoFornecedor.nome} onChange={e => setNovoFornecedor({...novoFornecedor, nome: e.target.value})} />
-              
-              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Site Oficial (Link)</label>
-              <input placeholder="Ex: www.pampapapeis.com.br" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm" value={novoFornecedor.site} onChange={e => setNovoFornecedor({...novoFornecedor, site: e.target.value})} />
-              
-              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">WhatsApp com DDD</label>
-              <input placeholder="Ex: 11999999999" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm" value={novoFornecedor.whatsapp} onChange={e => setNovoFornecedor({...novoFornecedor, whatsapp: e.target.value})} />
-              
-              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Endereço Físico (Cidade/Estado)</label>
-              <textarea placeholder="Ex: Rua das Flores, 123 - Centro, São Paulo - SP" className="w-full p-4 bg-slate-50 rounded-2xl mb-4 outline-none border focus:border-purple-400 resize-none h-16 font-medium text-sm" value={novoFornecedor.endereco} onChange={e => setNovoFornecedor({...novoFornecedor, endereco: e.target.value})} />
-
-              <div className="mb-6 w-full">
-                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Categorias do Fornecedor</label>
-                <div className="flex flex-wrap gap-2 mb-2">
-                  {categoriasForn.map(cat => {
-                    const marcado = novoFornecedor.categorias?.includes(cat.nome) || false;
-                    return (
-                      <button key={cat.id} type="button" onClick={() => toggleCategoriaNoFornecedor(cat.nome)} className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${marcado ? 'bg-purple-700 text-white border-purple-700 shadow-sm' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-purple-300'}`}>
-                        {cat.nome}
-                      </button>
-                    );
-                  })}
-                </div>
-                
-                {!mostrarInputNovaCatForn ? (
-                  <button type="button" onClick={() => setMostrarInputNovaCatForn(true)} className="text-[10px] text-purple-600 font-black uppercase mt-1 tracking-wider hover:underline">+ Criar Categoria de Compras</button>
-                ) : (
-                  <div className="flex gap-2 items-center bg-slate-50 p-2.5 rounded-2xl border border-dashed border-purple-200 mt-2 animate-fadeIn">
-                    <input placeholder="Ex: 🧵 Fitas e Cordões" className="flex-1 bg-white p-2.5 rounded-xl text-xs font-bold outline-none border" value={inputNovaCategoriaForn} onChange={e => setInputNovaCategoriaForn(e.target.value)} />
-                    <button type="button" onClick={async () => {
-                      if(!inputNovaCategoriaForn.trim()) return setMostrarInputNovaCatForn(false);
-                      await addDoc(collection(db, "categorias_fornecedores"), { nome: inputNovaCategoriaForn.trim(), userId: user.uid });
-                      setInputNovaCategoriaForn(''); setMostrarInputNovaCatForn(false);
-                    }} className="bg-purple-700 text-white text-xs font-black px-4 py-2.5 rounded-xl uppercase shadow-sm">OK</button>
-                  </div>
-                )}
-              </div>
-
-              <button onClick={async () => {
-                if(!novoFornecedor.nome) return alert("Digite o nome do fornecedor!");
-                const d = { nome: novoFornecedor.nome, site: novoFornecedor.site, whatsapp: novoFornecedor.whatsapp, endereco: novoFornecedor.endereco, categorias: novoFornecedor.categorias || [], userId: user.uid };
-                
-                if (novoFornecedor.id) await updateDoc(doc(db, "fornecedores", novoFornecedor.id), d);
-                else await addDoc(collection(db, "fornecedores"), d);
-                
-                setNovoFornecedor({ id: '', nome: '', site: '', whatsapp: '', endereco: '', categorias: [] });
-                alert("Fornecedor cadastrado com sucesso! 📦🎉");
-              }} className="w-full bg-orange-500 text-white p-5 rounded-2xl font-black uppercase text-xs shadow-md">
-                {novoFornecedor.id ? 'Atualizar Fornecedor' : 'Salvar Fornecedor'}
-              </button>
-            </div>
-
-            <div className="flex flex-col gap-2 w-full mt-4">
-              <div className="relative w-full">
-                <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input type="text" placeholder="Pesquisar por nome do fornecedor..." value={pesquisaFornecedores} onChange={e => setPesquisaFornecedores(e.target.value)} className="w-full p-4 pl-11 bg-white rounded-2xl border border-slate-200 outline-none text-sm font-medium focus:border-purple-500 transition-colors shadow-sm" />
-              </div>
-              <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-none w-full">
-                <button onClick={() => setFiltroFornSelecionado('Todos')} className={`px-3 py-1.5 text-xs font-bold shrink-0 rounded-xl border ${filtroFornSelecionado === 'Todos' ? 'bg-purple-700 text-white border-purple-700' : 'bg-white text-slate-500'}`}>🌍 Todos</button>
-                {categoriasForn.map(cat => (
-                  <button key={cat.id} onClick={() => setFiltroFornSelecionado(cat.nome)} className={`px-3 py-1.5 text-xs font-bold shrink-0 rounded-xl border ${filtroFornSelecionado === cat.nome ? 'bg-purple-700 text-white border-purple-700' : 'bg-white text-slate-500'}`}>{cat.nome}</button>
-                ))}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-3 w-full">
-              {fornecedoresFiltrados.map(f => (
-                <div key={f.id} className="bg-white p-5 rounded-[30px] border shadow-sm flex flex-col gap-3 w-full">
-                  <div className="flex justify-between items-start w-full">
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-black text-slate-800 text-base truncate">{f.nome}</h4>
-                      {f.endereco && <p className="text-xs text-slate-500 mt-1 font-semibold flex items-center gap-1"><MapPin size={12}/> {f.endereco}</p>}
-                      {f.categorias && f.categorias.length > 0 && (
-                        <div className="flex gap-1 flex-wrap mt-2">
-                          {f.categorias.map((c: string, idx: number) => (
-                            <span key={idx} className="text-[9px] bg-purple-50 text-purple-600 px-2 py-0.5 rounded font-black uppercase">{c}</span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex gap-1 shrink-0">
-                      <button onClick={() => setNovoFornecedor({ id: f.id, nome: f.nome, site: f.site || '', whatsapp: f.whatsapp || '', endereco: f.endereco || '', categorias: f.categorias || [] })} className="text-orange-400 p-2 hover:bg-orange-50 rounded-xl"><Edit2 size={16}/></button>
-                      <button onClick={() => confirmarExcluir('fornecedor', f.id)} className="text-red-200 p-2 hover:bg-red-50 rounded-xl"><Trash2 size={16}/></button>
-                    </div>
-                  </div>
-                  
-                  <div className="flex gap-2 border-t pt-3 w-full justify-end">
-                    {f.site && (
-                      <button onClick={() => window.open(f.site.startsWith('http') ? f.site : `https://${f.site}`, '_blank')} className="flex items-center gap-1 text-xs font-black uppercase bg-blue-50 text-blue-600 px-3 py-2 rounded-xl active:scale-95 transition-transform"><Globe size={13}/> Site</button>
-                    )}
-                    {f.whatsapp && (
-                      <button onClick={() => window.open(`https://wa.me/55${f.whatsapp.replace(/\D/g, '')}`, '_blank')} className="flex items-center gap-1 text-xs font-black uppercase bg-emerald-50 text-emerald-600 px-3 py-2 rounded-xl active:scale-95 transition-transform"><MessageCircle size={13}/> WhatsApp</button>
-                    )}
-                    {f.endereco && (
-                      <button onClick={() => window.open(`http://googleusercontent.com/maps.google.com/2{encodeURIComponent(f.endereco)}`, '_blank')} className="flex items-center gap-1 text-xs font-black uppercase bg-slate-50 text-slate-600 px-3 py-2 rounded-xl active:scale-95 transition-transform"><MapPin size={13}/> Mapa</button>
-                    )}
-                  </div>
-                </div>
-              ))}
-              
-              {fornecedoresFiltrados.length === 0 && (
-                <p className="text-center font-bold text-xs text-slate-400 py-6 italic">Nenhum fornecedor cadastrado nesta seção. 📦</p>
-              )}
-            </div>
-          </div>
-        )}
 
         {/* HISTÓRICO DE ORÇAMENTOS EXPANDIDO E SEPARADO POR STATUS */}
         {activeTab === 'pedidos' && (
@@ -1827,25 +1490,25 @@ export default function App() {
             <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
               <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2"><Package size={20}/> Gerenciar Armário</h2>
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome do Insumo</label>
-              <input placeholder="Ex: Caneca Cerâmica" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none font-medium text-sm border focus:border-purple-400" value={novoMat.nome} onChange={e => setNovoMat({...novoMat, nome: e.target.value})} />
+              <input placeholder="Ex: Caneca Cerâmica" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none" value={novoMat.nome} onChange={e => setNovoMat({...novoMat, nome: e.target.value})} />
               <div className="grid grid-cols-3 gap-3 mb-3 w-full">
                 <div className="col-span-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Preço Unidade/Caixa/Rolo</label>
-                  <input type="number" placeholder="R$ 0,00" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-medium text-sm border focus:border-purple-400" value={novoMat.valor} onChange={e => setNovoMat({...novoMat, valor: e.target.value})} />
+                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Preço Caixa/Rolo</label>
+                  <input type="number" placeholder="R$ 0,00" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={novoMat.valor} onChange={e => setNovoMat({...novoMat, valor: e.target.value})} />
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-slate-400 uppercase block text-center">Rende Quantos?</label>
-                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-center font-medium text-sm border focus:border-purple-400" value={novoMat.qtd} onChange={e => setNovoMat({...novoMat, qtd: e.target.value})} />
+                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-center" value={novoMat.qtd} onChange={e => setNovoMat({...novoMat, qtd: e.target.value})} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3 mb-4 w-full">
                 <div>
                   <label className="text-[10px] font-bold text-purple-600 uppercase ml-1">Estoque Atual</label>
-                  <input type="number" className="w-full p-4 bg-purple-50 rounded-2xl outline-none text-center font-bold text-purple-700 border focus:border-purple-400" value={novoMat.qtdAtual} onChange={e => setNovoMat({...novoMat, qtdAtual: e.target.value})} />
+                  <input type="number" className="w-full p-4 bg-purple-50 rounded-2xl outline-none text-center font-bold text-purple-700" value={novoMat.qtdAtual} onChange={e => setNovoMat({...novoMat, qtdAtual: e.target.value})} />
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-red-500 uppercase ml-1">Mínimo Alerta</label>
-                  <input type="number" className="w-full p-4 bg-red-50 rounded-2xl outline-none text-center font-bold text-red-700 border focus:border-purple-400" value={novoMat.qtdMinima} onChange={e => setNovoMat({...novoMat, qtdMinima: e.target.value})} />
+                  <input type="number" className="w-full p-4 bg-red-50 rounded-2xl outline-none text-center font-bold text-red-700" value={novoMat.qtdMinima} onChange={e => setNovoMat({...novoMat, qtdMinima: e.target.value})} />
                 </div>
               </div>
               <div className="mb-6 w-full">
@@ -1911,7 +1574,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ABA DE CLIENTES */}
+        {/* ABA DE CLIENTES - TOTALMENTE EXPANDIDA */}
         {activeTab === 'clientes' && (
            <div className="space-y-4 pt-2 w-full">
             <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
@@ -1967,7 +1630,7 @@ export default function App() {
         )}
       </div>
 
-      {/* MENU INFERIOR FIXO */}
+      {/* MENU INFERIOR FIXO ENXUTO */}
       <div className="fixed bottom-0 left-0 right-0 flex justify-center p-4 z-30 bg-transparent pointer-events-none">
         <div className="bg-white shadow-[0_-10px_30px_rgba(0,0,0,0.06)] rounded-[28px] flex justify-around items-center px-4 h-16 w-full max-w-xl pointer-events-auto border">
           <button onClick={() => setActiveTab('inicio')} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'inicio' ? 'text-orange-500' : 'text-slate-300'}`}>
@@ -1975,7 +1638,7 @@ export default function App() {
             <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Início</span>
           </button>
           <button onClick={() => setActiveTab('criar')} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'criar' ? 'text-orange-500' : 'text-slate-300'}`}>
-            <Plus size={22} className={activeTab === 'criar' ? 'text-orange-500' : 'text-slate-300'} />
+            <Plus size={22} className={activeTab === 'criar' ? 'stroke-[3]' : 'stroke-[2]'} />
             <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Orçar</span>
           </button>
           <button onClick={() => setActiveTab('pedidos')} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'pedidos' ? 'text-orange-500' : 'text-slate-300'}`}>
