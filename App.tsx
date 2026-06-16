@@ -173,7 +173,6 @@ export default function App() {
           }
         });
       } else {
-        // Ao deslogar limpa os estados para não misturar dados
         setMaterials([]);
         setPedidos([]);
         setClientes([]);
@@ -545,7 +544,7 @@ export default function App() {
       htmlLinhasTabela = arrayLinhasTexto.map(linhaTexto => {
         if(!linhaTexto.trim()) return '';
         let quantidadeItem = Number(p.qtdPed || 1);
-        let nomeItemLimpo = linhaTexto.trim();
+        let nomeItemLimpo = inlineTexto.trim();
         
         const matchCombo = linhaTexto.trim().match(/^(\d+)x\s+(.+)$/i);
         if(matchCombo) {
@@ -756,8 +755,8 @@ export default function App() {
     setPrecoManual(p.precoManual || null); setDocObsPedido(p.obsPedido || '');
     setEquipamentosSelecionados(p.equipamentosSelecionados || []);
 
-    if (p.materialsUsados && p.materialsUsados.length > 0) {
-      const listaReconstruida = p.materialsUsados.map((mSalvo: any) => {
+    if (p.materiaisUsados && p.materiaisUsados.length > 0) {
+      const listaReconstruida = p.materiaisUsados.map((mSalvo: any) => {
         const matDoArmario = materiais.find(item => item.id === mSalvo.id);
         return { id: mSalvo.id, nome: matDoArmario ? matDoArmario.nome : mSalvo.nome, qtdUsada: Number(mSalvo.qtdUsada || 1), valor: matDoArmario ? Number(matDoArmario.valor) : Number(mSalvo.valor || 0), qtd: matDoArmario ? Number(matDoArmario.qtd) : Number(mSalvo.qtd || 1), unidade: matDoArmario ? matDoArmario.unidade : (mSalvo.unidade || 'un') };
       });
@@ -782,8 +781,8 @@ export default function App() {
     setDocObsPedido(p.obsPedido || '');
     setEquipamentosSelecionados(p.equipamentosSelecionados || []);
 
-    if (p.materialsUsados && p.materialsUsados.length > 0) {
-      const listaReconstruida = p.materialsUsados.map((mSalvo: any) => {
+    if (p.materiaisUsados && p.materiaisUsados.length > 0) {
+      const listaReconstruida = p.materiaisUsados.map((mSalvo: any) => {
         const matDoArmario = materiais.find(item => item.id === mSalvo.id);
         return { id: mSalvo.id, nome: matDoArmario ? matDoArmario.nome : mSalvo.nome, qtdUsada: Number(mSalvo.qtdUsada || 1), valor: matDoArmario ? Number(matDoArmario.valor) : Number(mSalvo.valor || 0), qtd: matDoArmario ? Number(matDoArmario.qtd) : Number(mSalvo.qtd || 1), unidade: matDoArmario ? matDoArmario.unidade : (mSalvo.unidade || 'un') };
       });
@@ -853,9 +852,6 @@ export default function App() {
 
   if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando o PrecificaJá... 🚀</div>;
 
-  // ==========================================
-  // 🔒 TRAVA DE SEGURANÇA CONTRA TELA BRANCA 🔒
-  // ==========================================
   if (!user && !idLojaPublica) {
     return (
       <Login 
@@ -1307,7 +1303,7 @@ export default function App() {
                     nomeLoja: nomeLojaPerfil.trim(),
                     logoUrl: logoLojaPerfil
                   }, { merge: true });
-                  alert("Perfil da empresa atualizado com sucesso! 🚀");
+                  alert("Perfil da empresa updated com sucesso! 🚀");
                   setActiveTab('inicio');
                 } catch {
                   alert("Erro ao salvar as configurações da empresa.");
@@ -1489,7 +1485,7 @@ export default function App() {
                   <div key={eq.id} className="bg-white p-4 rounded-3xl flex justify-between items-center border shadow-sm w-full">
                     <div>
                       <p className="font-bold text-slate-800">{eq.nome}</p>
-                      <p className="text-xs text-slate-400 mt-0.5">Desgaste: <span className="font-bold text-purple-700">R$ {isNaN(descHora) ? "0.00" : descHora.toFixed(2)} por hora de uso</span></p>
+                      <p className="text-xs text-slate-400 mt-1">Desgaste: <span className="font-bold text-purple-700">R$ {isNaN(descHora) ? "0.00" : descHora.toFixed(2)} por hora de uso</span></p>
                     </div>
                     <button onClick={() => confirmarExcluir('equipamento', eq.id)} className="text-red-200 p-2"><Trash2 size={16}/></button>
                   </div>
@@ -1519,7 +1515,7 @@ export default function App() {
                   <input placeholder="Ex: 21983858055" className="flex-1 p-2.5 bg-black/20 text-white rounded-xl text-xs font-bold border border-purple-500/30 outline-none" value={zapDonaConta} onChange={e => setZapDonaConta(e.target.value)} />
                   <button onClick={async () => {
                     if(!zapDonaConta.trim()) return alert("Digite o número!");
-                    try { await setDoc(doc(db, "configuracoes_loja", user.uid), { whatsapp: zapDonaConta.trim() }, { merge: true }); alert("WhatsApp salvo!"); } 
+                    try { await setDoc(doc(db, "configuracoes_loja", user.uid), { whatsapp: zapDonaConta.trim() }, { merge: true }); alert("WhatsApp saved!"); } 
                     catch { alert("Erro ao salvar."); }
                   }} className="bg-orange-500 text-white text-xs font-black uppercase px-4 rounded-xl shadow">Salvar</button>
                 </div>
@@ -1796,7 +1792,7 @@ export default function App() {
                       <button onClick={() => window.open(`https://wa.me/55${f.whatsapp.replace(/\D/g, '')}`, '_blank')} className="flex items-center gap-1 text-xs font-black uppercase bg-emerald-50 text-emerald-600 px-3 py-2 rounded-xl active:scale-95 transition-transform"><MessageCircle size={13}/> WhatsApp</button>
                     )}
                     {f.endereco && (
-                      <button onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(f.endereco)}`, '_blank')} className="flex items-center gap-1 text-xs font-black uppercase bg-slate-50 text-slate-600 px-3 py-2 rounded-xl active:scale-95 transition-transform"><MapPin size={13}/> Mapa</button>
+                      <button onClick={() => window.open(`http://maps.google.com/?q=$${encodeURIComponent(f.endereco)}`, '_blank')} className="flex items-center gap-1 text-xs font-black uppercase bg-slate-50 text-slate-600 px-3 py-2 rounded-xl active:scale-95 transition-transform"><MapPin size={13}/> Mapa</button>
                     )}
                   </div>
                 </div>
@@ -2021,7 +2017,7 @@ export default function App() {
         )}
       </div>
 
-      {/* MENU INFERIOR FIXO ENXUTO */}
+      {/* MENU INFERIOR FIXO */}
       <div className="fixed bottom-0 left-0 right-0 flex justify-center p-4 z-30 bg-transparent pointer-events-none">
         <div className="bg-white shadow-[0_-10px_30px_rgba(0,0,0,0.06)] rounded-[28px] flex justify-around items-center px-4 h-16 w-full max-w-xl pointer-events-auto border">
           <button onClick={() => setActiveTab('inicio')} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'inicio' ? 'text-orange-500' : 'text-slate-300'}`}>
