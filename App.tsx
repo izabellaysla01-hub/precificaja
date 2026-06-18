@@ -514,8 +514,11 @@ export default function App() {
     window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
   };
 
-      const gerarPDF = (p: any) => {
-    const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
+        const gerarPDF = (p: any) => {
+    // Busca o cliente independente se foi salvo como clienteId (balcão) ou clienteSel (manual)
+    const idDoCliente = p.clienteId || p.clienteSel || '';
+    const cli = clientes.find(c => c.id === idDoCliente);
+    
     const dataEmissao = p.data || new Date().toLocaleDateString('pt-BR');
     const hoje = new Date(); hoje.setDate(hoje.getDate() + 7);
     const dataValidade = hoje.toLocaleDateString('pt-BR');
@@ -524,7 +527,7 @@ export default function App() {
 
     let htmlLinhasTabela = '';
 
-    // 1. SE FOR VENDA DO BALCÃO (COM ARRAY DE ITENSCOBO)
+    // 1. SE FOR VENDA DO BALCÃO (COM ARRAY DE ITENSCOMBO)
     if (p.itensCombo && Array.isArray(p.itensCombo) && p.itensCombo.length > 0) {
       htmlLinhasTabela = p.itensCombo.map((item: any) => {
         const qtd = Number(item.qtd || 1);
@@ -541,7 +544,7 @@ export default function App() {
         `;
       }).join('');
     } 
-    // 2. SE FOR VENDA MANUAL (OU SE RECAIR NO TEXTO DO NOMEPROD)
+    // 2. SE FOR VENDA MANUAL
     else {
       const textoProduto = String(p.nomeProd || 'Produto Não Informado');
       const arrayLinhasTexto = textoProduto.split('\n');
@@ -552,7 +555,6 @@ export default function App() {
         let quantidadeItem = Number(p.qtdPed || 1);
         let nomeItemLimpo = linhaTexto.trim();
         
-        // Tenta identificar se tem um padrão "2x Nome do Produto" no texto
         const matchCombo = linhaTexto.trim().match(/^(\d+)x\s+(.+)$/i);
         if(matchCombo) {
           quantidadeItem = Number(matchCombo[1]);
@@ -560,7 +562,6 @@ export default function App() {
         }
         
         const qtdSegura = quantidadeItem > 0 ? quantidadeItem : 1;
-        // Evita quebra se o cálculo unitário for baseado em lote manual
         const unitario = p.precoManual ? Number(p.precoManual) : (totalNum / qtdSegura);
 
         return `
@@ -574,14 +575,14 @@ export default function App() {
       }).join('');
     }
 
-    const cabecalhoNomeHtml = nomeLojaPerfil ? nomeLojaPerfil : "PrecificaJá 🚀";
+    const cabecalhoNomeHtml = nomeLojaPerfil ? nomeLojaPerfil : "PrecificaJá";
     const cabecalhoLogoHtml = logoLojaPerfil ? `<div style="margin-right: 15px;"><img src="${logoLojaPerfil}" style="max-height: 50px; max-width: 120px; object-fit: contain; border-radius: 8px;"/></div>` : '';
 
     const elemento = document.createElement('div');
     elemento.innerHTML = `
       <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto;">
         
-        <!-- CABEÇALHO LADO A LADO AJUSTADO -->
+        <!-- CABEÇALHO ALINHADO SEM QUEBRA -->
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px;">
           <div style="display: flex; align-items: center;">
             ${cabecalhoLogoHtml}
@@ -654,9 +655,12 @@ export default function App() {
         </div>
       </div>
     `;
-    const opcoes = { margin: 10, filename: `Orcamento.pdf`, html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'a4', orientation: 'portrait' }, pagebreak: { mode: ['avoid-all', 'css'] } };
+    
+    // Configurações do html2canvas ajustadas para evitar margens gigantes fantasmas
+    const opcoes = { margin: [10, 10, 10, 10], filename: `Pedido_${p.id || 'Venda'}.pdf`, html2canvas: { scale: 2, useCORS: true, scrollY: 0 }, jsPDF: { format: 'a4', orientation: 'portrait' }, pagebreak: { mode: ['avoid-all', 'css'] } };
     (window as any).html2pdf().from(elemento).set(opcoes).save();
   };
+
 
 
   const handleAuth = async () => {
