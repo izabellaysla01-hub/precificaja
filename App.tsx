@@ -514,7 +514,7 @@ export default function App() {
     window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
   };
 
-  const gerarPDF = (p: any) => {
+    const gerarPDF = (p: any) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
     const dataEmissao = p.data || new Date().toLocaleDateString('pt-BR');
     const hoje = new Date(); hoje.setDate(hoje.getDate() + 7);
@@ -544,7 +544,7 @@ export default function App() {
       htmlLinhasTabela = arrayLinhasTexto.map(linhaTexto => {
         if(!linhaTexto.trim()) return '';
         let quantidadeItem = Number(p.qtdPed || 1);
-        let nomeItemLimpo = linhaTexto.trim();
+        let nomeItemLimpo = inlineTexto.trim();
         
         const matchCombo = linhaTexto.trim().match(/^(\d+)x\s+(.+)$/i);
         if(matchCombo) {
@@ -567,20 +567,23 @@ export default function App() {
     }
 
     const cabecalhoNomeHtml = nomeLojaPerfil ? nomeLojaPerfil : "PrecificaJá 🚀";
-    const cabecalhoLogoHtml = logoLojaPerfil ? `<div style="margin-bottom: 10px;"><img src="${logoLojaPerfil}" style="max-height: 55px; max-width: 140px; object-fit: contain; border-radius: 8px;"/></div>` : '';
+    const cabecalhoLogoHtml = logoLojaPerfil ? `<div style="margin-right: 15px;"><img src="${logoLojaPerfil}" style="max-height: 50px; max-width: 120px; object-fit: contain; border-radius: 8px;"/></div>` : '';
 
     const elemento = document.createElement('div');
     elemento.innerHTML = `
       <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto;">
-        <div style="padding-bottom: 20px; margin-bottom: 25px;">
-          <div>
+        
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px;">
+          <div style="display: flex; align-items: center;">
             ${cabecalhoLogoHtml}
-            <h1 style="color: #7c3aed; margin: 0; font-size: 28px; font-weight: 900;">${cabecalhoNomeHtml}</h1>
-            <p style="color: #94a3b8; font-size: 11px; text-transform: uppercase; margin: 4px 0 0 0; font-weight: bold;">Documento de Orçamento Comercial</p>
+            <div>
+              <h1 style="color: #7c3aed; margin: 0; font-size: 26px; font-weight: 900; line-height: 1.1;">${cabecalhoNomeHtml}</h1>
+              <p style="color: #94a3b8; font-size: 11px; text-transform: uppercase; margin: 4px 0 0 0; font-weight: bold;">Documento de Orçamento Comercial</p>
+            </div>
           </div>
-          <div style="text-align: right; background-color: #f8fafc; padding: 12px 20px; border-radius: 16px; border: 1px solid #e2e8f0;">
-            <span style="font-size: 10px; font-weight: bold; color: #a78bfa; text-transform: uppercase; display: block;">Código Ref</span>
-            <span style="font-size: 14px; font-weight: bold; color: #475569; display: block; margin-top: 2px;">ORC-${Math.floor(1000 + Math.random() * 9000)}</span>
+          <div style="text-align: right; background-color: #f8fafc; padding: 8px 14px; border-radius: 12px; border: 1px solid #e2e8f0; shrink-0;">
+            <span style="font-size: 9px; font-weight: bold; color: #a78bfa; text-transform: uppercase; display: block;">Código Ref</span>
+            <span style="font-size: 12px; font-weight: bold; color: #475569; display: block; margin-top: 1px;">ORC-${Math.floor(1000 + Math.random() * 9000)}</span>
           </div>
         </div>
         
@@ -644,7 +647,8 @@ export default function App() {
     `;
     const opcoes = { margin: 10, filename: `Orcamento.pdf`, html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'a4', orientation: 'portrait' }, pagebreak: { mode: ['avoid-all', 'css'] } };
     (window as any).html2pdf().from(elemento).set(opcoes).save();
-  }; 
+  };
+
 
   const handleAuth = async () => {
     try {
