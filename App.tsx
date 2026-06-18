@@ -644,7 +644,7 @@ export default function App() {
     `;
     const opcoes = { margin: 10, filename: `Orcamento.pdf`, html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'a4', orientation: 'portrait' }, pagebreak: { mode: ['avoid-all', 'css'] } };
     (window as any).html2pdf().from(elemento).set(opcoes).save();
-  };
+  }; 
 
   const handleAuth = async () => {
     try {
