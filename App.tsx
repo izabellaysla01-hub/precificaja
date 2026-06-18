@@ -514,7 +514,7 @@ export default function App() {
     window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
   };
 
-  const gerarPDF = (p: any) => {
+    const gerarPDF = (p) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
     const dataEmissao = p.data || new Date().toLocaleDateString('pt-BR');
     const hoje = new Date(); hoje.setDate(hoje.getDate() + 7);
@@ -522,49 +522,29 @@ export default function App() {
     const dataPrazo = p.prazo ? new Date(p.prazo + 'T00:00:00').toLocaleDateString('pt-BR') : 'A combinar';
     const totalNum = Number(p.preco || 0);
 
-    let htmlLinhasTabela = '';
+    // Lógica robusta para evitar tabelas vazias
+    const itensParaRenderizar = (p.itensCombo && Array.isArray(p.itensCombo) && p.itensCombo.length > 0) 
+      ? p.itensCombo 
+      : [{ 
+          nome: p.nomeProd || "Produto sem descrição", 
+          qtd: p.qtdPed || 1, 
+          precoVenda: (Number(p.preco || 0) / Number(p.qtdPed || 1)) 
+        }];
 
-    if (p.itensCombo && Array.isArray(p.itensCombo) && p.itensCombo.length > 0) {
-      htmlLinhasTabela = p.itensCombo.map((item: any) => {
-        const qtd = Number(item.qtd || 1);
-        const precoVenda = Number(item.precoVenda || 0);
-        const subtotal = qtd * precoVenda;
-        
-        return `
-          <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px; page-break-inside: avoid; break-inside: avoid;">
-            <td style="padding: 15px 5px; font-weight: bold; color: #1e293b; text-align: left;">${item.nome}</td>
-            <td style="padding: 15px 5px; text-align: center; color: #475569;">${qtd}</td>
-            <td style="padding: 15px 5px; text-align: right; color: #475569;">R$ ${precoVenda.toFixed(2)}</td>
-            <td style="padding: 15px 5px; text-align: right; font-weight: bold; color: #1e293b;">R$ ${subtotal.toFixed(2)}</td>
-          </tr>
-        `;
-      }).join('');
-    } else {
-      const arrayLinhasTexto = String(p.nomeProd || '').split('\n');
-      htmlLinhasTabela = arrayLinhasTexto.map(linhaTexto => {
-        if(!linhaTexto.trim()) return '';
-        let quantidadeItem = Number(p.qtdPed || 1);
-        let nomeItemLimpo = linhaTexto.trim();
-        
-        const matchCombo = linhaTexto.trim().match(/^(\d+)x\s+(.+)$/i);
-        if(matchCombo) {
-          quantidadeItem = Number(matchCombo[1]);
-          nomeItemLimpo = matchCombo[2].trim();
-        }
-        
-        const qtdSegura = quantidadeItem > 0 ? quantidadeItem : 1;
-        const unitario = (totalNum / qtdSegura).toFixed(2);
-
-        return `
-          <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px; page-break-inside: avoid; break-inside: avoid;">
-            <td style="padding: 15px 5px; font-weight: bold; color: #1e293b; text-align: left;">${nomeItemLimpo}</td>
-            <td style="padding: 15px 5px; text-align: center; color: #475569;">${quantidadeItem}</td>
-            <td style="padding: 15px 5px; text-align: right; color: #475569;">R$ ${unitario}</td>
-            <td style="padding: 15px 5px; text-align: right; font-weight: bold; color: #1e293b;">R$ ${(quantidadeItem * Number(unitario)).toFixed(2)}</td>
-          </tr>
-        `;
-      }).join('');
-    }
+    const htmlLinhasTabela = itensParaRenderizar.map(item => {
+      const qtd = Number(item.qtd || 1);
+      const precoVenda = Number(item.precoVenda || 0);
+      const subtotal = qtd * precoVenda;
+      
+      return `
+        <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px; page-break-inside: avoid; break-inside: avoid;">
+          <td style="padding: 15px 5px; font-weight: bold; color: #1e293b; text-align: left;">${item.nome}</td>
+          <td style="padding: 15px 5px; text-align: center; color: #475569;">${qtd}</td>
+          <td style="padding: 15px 5px; text-align: right; color: #475569;">R$ ${precoVenda.toFixed(2)}</td>
+          <td style="padding: 15px 5px; text-align: right; font-weight: bold; color: #1e293b;">R$ ${subtotal.toFixed(2)}</td>
+        </tr>
+      `;
+    }).join('');
 
     const cabecalhoNomeHtml = nomeLojaPerfil ? nomeLojaPerfil : "PrecificaJá 🚀";
     const cabecalhoLogoHtml = logoLojaPerfil ? `<div style="margin-bottom: 10px;"><img src="${logoLojaPerfil}" style="max-height: 55px; max-width: 140px; object-fit: contain; border-radius: 8px;"/></div>` : '';
@@ -573,39 +553,20 @@ export default function App() {
     elemento.innerHTML = `
       <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto;">
         <div style="padding-bottom: 20px; margin-bottom: 25px;">
-          <div>
-            ${cabecalhoLogoHtml}
-            <h1 style="color: #7c3aed; margin: 0; font-size: 28px; font-weight: 900;">${cabecalhoNomeHtml}</h1>
-            <p style="color: #94a3b8; font-size: 11px; text-transform: uppercase; margin: 4px 0 0 0; font-weight: bold;">Documento de Orçamento Comercial</p>
-          </div>
-          <div style="text-align: right; background-color: #f8fafc; padding: 12px 20px; border-radius: 16px; border: 1px solid #e2e8f0;">
+          ${cabecalhoLogoHtml}
+          <h1 style="color: #7c3aed; margin: 0; font-size: 28px; font-weight: 900;">${cabecalhoNomeHtml}</h1>
+          <p style="color: #94a3b8; font-size: 11px; text-transform: uppercase; margin: 4px 0 0 0; font-weight: bold;">Documento de Orçamento Comercial</p>
+          <div style="text-align: right; background-color: #f8fafc; padding: 12px 20px; border-radius: 16px; border: 1px solid #e2e8f0; margin-top: -40px;">
             <span style="font-size: 10px; font-weight: bold; color: #a78bfa; text-transform: uppercase; display: block;">Código Ref</span>
             <span style="font-size: 14px; font-weight: bold; color: #475569; display: block; margin-top: 2px;">ORC-${Math.floor(1000 + Math.random() * 9000)}</span>
           </div>
         </div>
         
-        <div style="background-color: #f8fafc; padding: 12px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #e2e8f0; font-size: 14px; font-weight: bold; color: #7c3aed;">
-          Referência do Pedido: ${p.nomeProd.replace(/\n/g, ' + ')}
-        </div>
-
-        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Dados do Cliente</div>
-        <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 25px; border: 1px solid #f1f5f9;">
-          <p style="margin: 0; font-size: 14px;"><strong>Cliente:</strong> ${cli?.nome || 'Cliente não informado'}</p>
-          <p style="margin: 6px 0 0 0; font-size: 13px; color: #64748b;"><strong>WhatsApp:</strong> ${cli?.zap || 'Não informado'}</p>
-        </div>
-
-        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Informações Básicas e Prazos</div>
-        <div style="display: flex; justify-content: space-between; background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 25px; border: 1px solid #f1f5f9; font-size: 13px;">
-          <div><strong>Data de Emissão:</strong><div style="margin-top: 4px; color: #64748b; font-weight: bold;">${dataEmissao}</div></div>
-          <div><strong>Validade do Orçamento:</strong><div style="margin-top: 4px; color: #ef4444; font-weight: bold;">${dataValidade} (7 dias)</div></div>
-          <div><strong>Prazo de Entrega:</strong><div style="margin-top: 4px; color: #7c3aed; font-weight: bold;">${dataPrazo}</div></div>
-        </div>
-
         <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Produtos / Serviços Selecionados</div>
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
           <thead>
             <tr style="border-bottom: 2px solid #e2e8f0; text-align: left; font-size: 11px; text-transform: uppercase; color: #94a3b8;">
-              <th style="padding: 10px 5px; text-align: left;">Descrição do Item</th>
+              <th style="padding: 10px 5px; text-align: left;">Descrição</th>
               <th style="padding: 10px 5px; text-align: center;">Qtd</th>
               <th style="padding: 10px 5px; text-align: right;">Preço Unit.</th>
               <th style="padding: 10px 5px; text-align: right;">Subtotal</th>
@@ -616,35 +577,17 @@ export default function App() {
           </tbody>
         </table>
 
-        <div style="display: flex; flex-direction: column; align-items: flex-end; margin-bottom: 35px; padding-right: 5px; page-break-inside: avoid; break-inside: avoid;">
-          <div style="font-size: 13px; color: #64748b; margin-bottom: 5px;">Subtotal Geral: <strong>R$ ${totalNum.toFixed(2)}</strong></div>
-          <div style="background-color: #7c3aed; color: white; padding: 12px 25px; border-radius: 12px; font-size: 18px; font-weight: 900; text-align: right; min-width: 180px;">
-            <span style="font-size: 10px; font-weight: bold; text-transform: uppercase; display: block; opacity: 0.8; margin-bottom: 2px;">Total do Pedido</span>
-            R$ ${totalNum.toFixed(2)}
+        <div style="display: flex; flex-direction: column; align-items: flex-end; margin-bottom: 35px; padding-right: 5px;">
+          <div style="background-color: #7c3aed; color: white; padding: 12px 25px; border-radius: 12px; font-size: 18px; font-weight: 900; text-align: right;">
+            Total: R$ ${totalNum.toFixed(2)}
           </div>
-        </div>
-
-        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px; page-break-inside: avoid; break-inside: avoid;">Formas de Pagamento Aceitas</div>
-        <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; border: 1px solid #f1f5f9; font-size: 13px; display: flex; justify-content: space-between; margin-bottom: 15px; page-break-inside: avoid; break-inside: avoid;">
-          <div><strong>Meios disponíveis:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">PIX / CARTÃO DE CRÉDITO</div></div>
-          <div><strong>Condições comerciais:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">A combinar direto no WhatsApp da Loja</div></div>
-        </div>
-
-        ${p.obsPedido ? `
-        <div style="background-color: #f3e8ff; border: 1px solid #e9d5ff; padding: 15px; border-radius: 16px; font-size: 13px; color: #6b21a8; margin-bottom: 15px; page-break-inside: avoid; break-inside: avoid;">
-          <strong style="text-transform: uppercase; font-size: 10px; display: block; color: #a855f7; margin-bottom: 4px;">Observações Importantes:</strong>
-          ${p.obsPedido.replace(/\n/g, '<br>')}
-        </div>
-        ` : ''}
-
-        <div style="text-align: center; font-size: 11px; color: #94a3b8; margin-top: 40px; border-top: 1px dashed #e2e8f0; padding-top: 15px; page-break-inside: avoid; break-inside: avoid;">
-          Obrigado pela preferência! Caso tenha dúvidas, entre em contato pelo nosso WhatsApp.
         </div>
       </div>
     `;
     const opcoes = { margin: 10, filename: `Orcamento.pdf`, html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'a4', orientation: 'portrait' }, pagebreak: { mode: ['avoid-all', 'css'] } };
     (window as any).html2pdf().from(elemento).set(opcoes).save();
   };
+
 
   const handleAuth = async () => {
     try {
