@@ -514,7 +514,7 @@ export default function App() {
     window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
   };
 
-    const gerarPDF = (p: any) => {
+      const gerarPDF = (p: any) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
     const dataEmissao = p.data || new Date().toLocaleDateString('pt-BR');
     const hoje = new Date(); hoje.setDate(hoje.getDate() + 7);
@@ -524,6 +524,7 @@ export default function App() {
 
     let htmlLinhasTabela = '';
 
+    // 1. SE FOR VENDA DO BALCÃO (COM ARRAY DE ITENSCOBO)
     if (p.itensCombo && Array.isArray(p.itensCombo) && p.itensCombo.length > 0) {
       htmlLinhasTabela = p.itensCombo.map((item: any) => {
         const qtd = Number(item.qtd || 1);
@@ -539,13 +540,19 @@ export default function App() {
           </tr>
         `;
       }).join('');
-    } else {
-      const arrayLinhasTexto = String(p.nomeProd || '').split('\n');
+    } 
+    // 2. SE FOR VENDA MANUAL (OU SE RECAIR NO TEXTO DO NOMEPROD)
+    else {
+      const textoProduto = String(p.nomeProd || 'Produto Não Informado');
+      const arrayLinhasTexto = textoProduto.split('\n');
+      
       htmlLinhasTabela = arrayLinhasTexto.map(linhaTexto => {
         if(!linhaTexto.trim()) return '';
-        let quantidadeItem = Number(p.qtdPed || 1);
-        let nomeItemLimpo = inlineTexto.trim();
         
+        let quantidadeItem = Number(p.qtdPed || 1);
+        let nomeItemLimpo = linhaTexto.trim();
+        
+        // Tenta identificar se tem um padrão "2x Nome do Produto" no texto
         const matchCombo = linhaTexto.trim().match(/^(\d+)x\s+(.+)$/i);
         if(matchCombo) {
           quantidadeItem = Number(matchCombo[1]);
@@ -553,14 +560,15 @@ export default function App() {
         }
         
         const qtdSegura = quantidadeItem > 0 ? quantidadeItem : 1;
-        const unitario = (totalNum / qtdSegura).toFixed(2);
+        // Evita quebra se o cálculo unitário for baseado em lote manual
+        const unitario = p.precoManual ? Number(p.precoManual) : (totalNum / qtdSegura);
 
         return `
           <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px; page-break-inside: avoid; break-inside: avoid;">
             <td style="padding: 15px 5px; font-weight: bold; color: #1e293b; text-align: left;">${nomeItemLimpo}</td>
             <td style="padding: 15px 5px; text-align: center; color: #475569;">${quantidadeItem}</td>
-            <td style="padding: 15px 5px; text-align: right; color: #475569;">R$ ${unitario}</td>
-            <td style="padding: 15px 5px; text-align: right; font-weight: bold; color: #1e293b;">R$ ${(quantidadeItem * Number(unitario)).toFixed(2)}</td>
+            <td style="padding: 15px 5px; text-align: right; color: #475569;">R$ ${unitario.toFixed(2)}</td>
+            <td style="padding: 15px 5px; text-align: right; font-weight: bold; color: #1e293b;">R$ ${(quantidadeItem * unitario).toFixed(2)}</td>
           </tr>
         `;
       }).join('');
@@ -573,6 +581,7 @@ export default function App() {
     elemento.innerHTML = `
       <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto;">
         
+        <!-- CABEÇALHO LADO A LADO AJUSTADO -->
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px;">
           <div style="display: flex; align-items: center;">
             ${cabecalhoLogoHtml}
@@ -588,7 +597,7 @@ export default function App() {
         </div>
         
         <div style="background-color: #f8fafc; padding: 12px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #e2e8f0; font-size: 14px; font-weight: bold; color: #7c3aed;">
-          Referência do Pedido: ${p.nomeProd.replace(/\n/g, ' + ')}
+          Referência do Pedido: ${String(p.nomeProd || 'Personalizados').replace(/\n/g, ' + ')}
         </div>
 
         <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Dados do Cliente</div>
