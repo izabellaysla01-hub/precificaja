@@ -61,6 +61,10 @@ export default function App() {
   const [isMenuFiltroVitrineOpen, setIsMenuFiltroVitrineOpen] = useState(false);
 
   const [activeTab, useStateActiveTab] = useState<'inicio' | 'materiais' | 'criar' | 'pedidos' | 'clientes' | 'catalogo' | 'balcao' | 'financeiro' | 'perfil' | 'anotacoes' | 'fornecedores'>('inicio');
+  
+  // Sub-aba interna para a seção financeira
+  const [subAbaFinanceiro, setSubAbaFinanceiro] = useState<'geral' | 'impressao' | 'equipamentos'>('geral');
+
   const [materiais, setMaterials] = useState<any[]>([]);
   const [pedidos, setPedidos] = useState<any[]>([]);
   const [clientes, setClientes] = useState<any[]>([]);
@@ -108,7 +112,7 @@ export default function App() {
   const [novaAnotacao, setNovaAnotacao] = useState({ id: '', titulo: '', conteudo: '', dataPrazo: new Date().toISOString().split('T')[0] });
   
   // Estados de Cadastro Atualizados com Categorias
-  const [novoProdCatalogo, setNovoProdCatalogo] = useState<{id: string, nome: string, precoVenda: string, urlImagem: string, categorias: string[]}>({ id: '', nome: '', precoVenda: '', urlImagem: '', categorias: [] });
+  const [novoProdCatalogo, setNovoProdCatalogo] = useState<{id: string, nome: string, precoVenda: string, urlImagem: string, categories: string[]}>({ id: '', nome: '', precoVenda: '', urlImagem: '', categorias: [] });
   const [inputNovaCategoriaProd, setInputNovaCategoriaProd] = useState('');
   const [mostrarInputNovaCatProd, setMostrarInputNovaCatProd] = useState(false);
 
@@ -127,6 +131,12 @@ export default function App() {
   const [financasFixo, setFinancasFixo] = useState({ salario: '0', aluguel: '0', internet: '0', luz: '0', outros: '0', diasTrabalho: '20', horasDia: '8' });
   const [novoEquipamento, setNovoEquipamento] = useState({ id: '', nome: '', valorPago: '', durabilidadeAnos: '2' });
 
+  // --- NOVOS ESTADOS PARA A CALCULADORA DE IMPRESSÃO ---
+  const [precoTinta, setPrecoTinta] = useState('62');
+  const [unidadeTinta, setUnidadeTinta] = useState('Garrafinha');
+  const [qtdCores, setQtdCores] = useState('4');
+  const [paginasConjunto, setPaginasConjunto] = useState('1500');
+
   const [carrinhoInterno, setCarrinhoInterno] = useState<{ [key: string]: number }>({});
   const [clienteBalcao, setClienteBalcao] = useState('');
   const [nomeKitBalcao, setNomeKitBalcao] = useState('');
@@ -135,6 +145,18 @@ export default function App() {
   const setActiveTab = (tab: any) => {
     useStateActiveTab(tab);
     setIsMenuOpen(false);
+  };
+
+  // Cálculo Dinâmico do valor de impressão por folha
+  const custoPorPaginaCalculado = useMemo(() => {
+    const preco = Number(precoTinta) || 0;
+    const cores = Number(qtdCores) || 0;
+    const paginas = Number(paginasConjunto) || 1;
+    return paginas > 0 ? (cores * preco) / paginas : 0;
+  }, [precoTinta, qtdCores, paginasConjunto]);
+
+  const formatarMoedaLocal = (valor: number) => {
+    return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   };
 
   useEffect(() => {
@@ -240,6 +262,12 @@ export default function App() {
           const dadosFin = snap.data() as any;
           setFinancasFixo(dadosFin);
           
+          // Recupera os valores salvos da calculadora de impressão caso existam
+          if(dadosFin.precoTinta) setPrecoTinta(dadosFin.precoTinta);
+          if(dadosFin.unidadeTinta) setUnidadeTinta(dadosFin.unidadeTinta);
+          if(dadosFin.qtdCores) setQtdCores(dadosFin.qtdCores);
+          if(dadosFin.paginasConjunto) setPaginasConjunto(dadosFin.paginasConjunto);
+
           const dias = Number(dadosFin.diasTrabalho || 20);
           const horas = Number(dadosFin.horasDia || 8);
           const totalHorasMes = dias * horas || 160;
@@ -514,8 +542,7 @@ export default function App() {
     window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
   };
 
-        const gerarPDF = (p: any) => {
-    // Busca o cliente independente se foi salvo como clienteId (balcão) ou clienteSel (manual)
+  const gerarPDF = (p: any) => {
     const idDoCliente = p.clienteId || p.clienteSel || '';
     const cli = clientes.find(c => c.id === idDoCliente);
     
@@ -527,7 +554,6 @@ export default function App() {
 
     let htmlLinhasTabela = '';
 
-    // 1. SE FOR VENDA DO BALCÃO (COM ARRAY DE ITENSCOMBO)
     if (p.itensCombo && Array.isArray(p.itensCombo) && p.itensCombo.length > 0) {
       htmlLinhasTabela = p.itensCombo.map((item: any) => {
         const qtd = Number(item.qtd || 1);
@@ -544,7 +570,6 @@ export default function App() {
         `;
       }).join('');
     } 
-    // 2. SE FOR VENDA MANUAL
     else {
       const textoProduto = String(p.nomeProd || 'Produto Não Informado');
       const arrayLinhasTexto = textoProduto.split('\n');
@@ -581,8 +606,6 @@ export default function App() {
     const elemento = document.createElement('div');
     elemento.innerHTML = `
       <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto;">
-        
-        <!-- CABEÇALHO ALINHADO SEM QUEBRA -->
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px;">
           <div style="display: flex; align-items: center;">
             ${cabecalhoLogoHtml}
@@ -656,12 +679,9 @@ export default function App() {
       </div>
     `;
     
-    // Configurações do html2canvas ajustadas para evitar margens gigantes fantasmas
     const opcoes = { margin: [10, 10, 10, 10], filename: `Pedido_${p.id || 'Venda'}.pdf`, html2canvas: { scale: 2, useCORS: true, scrollY: 0 }, jsPDF: { format: 'a4', orientation: 'portrait' }, pagebreak: { mode: ['avoid-all', 'css'] } };
     (window as any).html2pdf().from(elemento).set(opcoes).save();
   };
-
-
 
   const handleAuth = async () => {
     try {
@@ -757,7 +777,7 @@ export default function App() {
 
   const limparCalculadora = () => {
     setNomeProd(''); setQtdPed('1'); setMatsNoPed([]); setVHora('9'); setTGasto('60');
-    setCustos({ embalagem: '0', impressao: '0', energia: '0', outros: '0' });
+    setCustos({ embalagem: '0', impressao: custoPorPaginaCalculado.toFixed(2), energia: '0', outros: '0' });
     setEquipamentosSelecionados([]);
     setLucro('100'); setDesconto('0'); setPrazo(''); setClienteSel('');
     setPedidoEditandoId(null); setPrecoManual(null); setDocObsPedido('');
@@ -850,7 +870,7 @@ export default function App() {
     return produtosPublicos.filter(p => p.categorias && p.categorias.includes(filtroVitrineSelecionado));
   }, [produtosPublicos, filtroVitrineSelecionado]);
 
-  const fornecedoresFiltrados = useMemo(() => {
+  const proveedoresFiltrados = useMemo(() => {
     return fornecedores.filter(f => {
       const matchNome = f.nome?.toLowerCase().includes(pesquisaFornecedores.toLowerCase());
       const matchCat = filtroFornSelecionado === 'Todos' ? true : (f.categorias && f.categorias.includes(filtroFornSelecionado));
@@ -1068,10 +1088,10 @@ export default function App() {
           <div className="mb-4 w-full">
             <label className="text-[10px] font-bold text-purple-600 uppercase ml-1 block mb-1">📦 Custos Extras por Unidade - Opcional (R$)</label>
             <div className="grid grid-cols-4 gap-2 w-full">
-              {[{id:'embalagem',label:'EMBAL.'},{id:'impressao',label:'TINTA'},{id:'energia',label:'LUZ'},{id:'outros',label:'OUTROS'}].map(c=>(
+              {[{id:'embalagem',label:'EMBAL.'},{id:'impressao',label:'IMPRES.'},{id:'energia',label:'LUZ'},{id:'outros',label:'OUTROS'}].map(c=>(
                 <div key={c.id} className="flex flex-col items-center bg-slate-50 p-2 rounded-xl w-full border">
                   <span className="text-[8px] font-black text-slate-400 mb-1">{c.label}</span>
-                  <input type="number" className="w-full bg-transparent text-center text-xs outline-none font-bold text-slate-700" value={(custos as any)[c.id]} onChange={e => setCustos({...custos, [c.id]: e.target.value})} />
+                  <input type="number" step="0.01" className="w-full bg-transparent text-center text-xs outline-none font-bold text-slate-700" value={(custos as any)[c.id]} onChange={e => setCustos({...custos, [c.id]: e.target.value})} />
                 </div>
               ))}
             </div>
@@ -1156,7 +1176,7 @@ export default function App() {
               <button onClick={() => setActiveTab('perfil')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'perfil' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Settings size={16}/> Perfil da Loja</button>
               <button onClick={() => setActiveTab('anotacoes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'anotacoes' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Calendar size={16}/> Agenda / Tarefas </button>
 
-              <button onClick={() => setActiveTab('financeiro')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'financeiro' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Calculator size={16}/> Configurações de Custos</button>
+              <button onClick={() => { setActiveTab('financeiro'); setSubAbaFinanceiro('geral'); }} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'financeiro' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Calculator size={16}/> Configurações de Custos</button>
               <button onClick={() => setActiveTab('pedidos')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'pedidos' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><History size={16}/> Histórico de Orçamentos</button>
               <button onClick={() => setActiveTab('balcao')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'balcao' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><ShoppingCart size={16}/> Balcão de Vendas Rápido</button>
               <button onClick={() => setActiveTab('catalogo')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'catalogo' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><BookOpen size={16}/> Meu Catálogo Visual</button>
@@ -1320,7 +1340,7 @@ export default function App() {
                     nomeLoja: nomeLojaPerfil.trim(),
                     logoUrl: logoLojaPerfil
                   }, { merge: true });
-                  alert("Perfil da empresa updated com sucesso! 🚀");
+                  alert("Perfil da empresa atualizado com sucesso! 🚀");
                   setActiveTab('inicio');
                 } catch {
                   alert("Erro ao salvar as configurações da empresa.");
@@ -1398,117 +1418,227 @@ export default function App() {
           </div>
         )}
 
-        {/* TELA DE CONFIGURAÇÃO DE CUSTOS FIXOS */}
+        {/* TELA DE CONFIGURAÇÃO DE CUSTOS FIXOS + CALCULADORA DE IMPRESSÃO INTEGRADA */}
         {activeTab === 'financeiro' && (
           <div className="space-y-6 pt-2 w-full">
-            <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
-              <h2 className="text-purple-700 font-bold mb-2 flex items-center gap-2 uppercase text-xs tracking-widest"><Calculator size={18}/> Estrutura de Custos Fixos (Opcional)</h2>
-              <p className="text-slate-400 text-[11px] mb-4">Insira ou edite seus valores aqui. Eles ficam salvos e você pode alterá-los quando quiser.</p>
-
-              <label className="text-[10px] font-bold text-purple-700 outline-none uppercase ml-1">Salário Mensal Pretendido</label>
-              <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 font-bold text-purple-700 outline-none" value={financasFixo.salario} onChange={e => setFinancasFixo({...financasFixo, salario: e.target.value})} />
-
-              <div className="grid grid-cols-2 gap-3 mb-3 w-full">
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Aluguel / Ponto</label>
-                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={financasFixo.aluguel} onChange={e => setFinancasFixo({...financasFixo, aluguel: e.target.value})} />
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Internet / Sistema</label>
-                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={financasFixo.internet} onChange={e => setFinancasFixo({...financasFixo, internet: e.target.value})} />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 mb-4 w-full">
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Conta de Luz Total</label>
-                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={financasFixo.luz} onChange={e => setFinancasFixo({...financasFixo, luz: e.target.value})} />
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Outros Gastos Fixos</label>
-                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={financasFixo.outros} onChange={e => setFinancasFixo({...financasFixo, outros: e.target.value})} />
-                </div>
-              </div>
-
-              <div className="w-full">
-                <h3 className="text-purple-700 font-bold text-xs uppercase tracking-wider mb-2 mt-4">Sua Carga Horária</h3>
-                <div className="grid grid-cols-2 gap-3 mb-5 w-full">
-                  <div>
-                    <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Dias de Trabalho no Mês</label>
-                    <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={financasFixo.diasTrabalho} onChange={e => setFinancasFixo({...financasFixo, diasTrabalho: e.target.value})} />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Horas de Trabalho por Dia</label>
-                    <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={financasFixo.horasDia} onChange={e => setFinancasFixo({...financasFixo, horasDia: e.target.value})} />
-                  </div>
-                </div>
-              </div>
-
-              <button onClick={async () => {
-                await setDoc(doc(db, "configuracoes_financeiras", user.uid), financasFixo);
-                
-                const totalHoras = Number(financasFixo.diasTrabalho || 20) * Number(financasFixo.horasDia || 8);
-                const intentCustos = Number(financasFixo.salario || 0) + Number(financasFixo.aluguel || 0) + Number(financasFixo.internet || 0) + Number(financasFixo.luz || 0) + Number(financasFixo.outros || 0);
-                if (intentCustos > 0) setVHora((intentCustos / totalHoras).toFixed(2));
-                
-                alert("Custos salvos com sucesso! O valor sugerido para a hora foi atualizado na calculadora. 🎉");
-              }} className="w-full bg-purple-700 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md">
-                Salvar Configurações Fixas
-              </button>
+            {/* SUB-MENU DE ABAS INTERNAS FINANCEIRAS */}
+            <div className="flex bg-slate-100 p-1.5 rounded-2xl gap-1 w-full border">
+              <button onClick={() => setSubAbaFinanceiro('geral')} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${subAbaFinanceiro === 'geral' ? 'bg-white text-purple-700 shadow-sm' : 'text-slate-400'}`}>Geral</button>
+              <button onClick={() => setSubAbaFinanceiro('impressao')} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${subAbaFinanceiro === 'impressao' ? 'bg-white text-purple-700 shadow-sm' : 'text-slate-400'}`}>Custo de Impressão 🖨️</button>
+              <button onClick={() => setSubAbaFinanceiro('equipamentos')} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${subAbaFinanceiro === 'equipamentos' ? 'bg-white text-purple-700 shadow-sm' : 'text-slate-400'}`}>Fixos / Máquinas</button>
             </div>
 
-            <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
-              <h2 className="text-purple-700 font-bold mb-2 flex items-center gap-2 uppercase text-xs tracking-widest"><Package size={18}/> Minhas Ferramentas de Trabalho (Depreciação)</h2>
-              <p className="text-slate-400 text-[11px] mb-4">Adicione ferramentas (secador, prensa) para incluir o desgaste financeiro automaticamente no resumo de custos.</p>
+            {subAbaFinanceiro === 'geral' && (
+              <div className="bg-white p-6 rounded-[35px] shadow-md border w-full animate-fadeIn">
+                <h2 className="text-purple-700 font-bold mb-2 flex items-center gap-2 uppercase text-xs tracking-widest"><Calculator size={18}/> Estrutura de Custos Fixos (Opcional)</h2>
+                <p className="text-slate-400 text-[11px] mb-4">Insira ou edite seus valores aqui. Eles ficam salvos e você pode alterá-los quando quiser.</p>
 
-              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome do Equipamento</label>
-              <input placeholder="Ex: Secador Profissional" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none" value={novoEquipamento.nome} onChange={e => setNovoEquipamento({...novoEquipamento, nome: e.target.value})} />
+                <label className="text-[10px] font-bold text-purple-700 outline-none uppercase ml-1">Salário Mensal Pretendido</label>
+                <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 font-bold text-purple-700 outline-none" value={financasFixo.salario} onChange={e => setFinancasFixo({...financasFixo, salario: e.target.value})} />
 
-              <div className="grid grid-cols-2 gap-3 mb-4 w-full">
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Valor Pago</label>
-                  <input type="number" placeholder="R$ 0,00" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={novoEquipamento.valorPago} onChange={e => setNovoEquipamento({...novoEquipamento, valorPago: e.target.value})} />
+                <div className="grid grid-cols-2 gap-3 mb-3 w-full">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Aluguel / Ponto</label>
+                    <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={financasFixo.aluguel} onChange={e => setFinancasFixo({...financasFixo, aluguel: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Internet / Sistema</label>
+                    <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={financasFixo.internet} onChange={e => setFinancasFixo({...financasFixo, internet: e.target.value})} />
+                  </div>
                 </div>
+
+                <div className="grid grid-cols-2 gap-3 mb-4 w-full">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Conta de Luz Total</label>
+                    <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={financasFixo.luz} onChange={e => setFinancasFixo({...financasFixo, luz: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Outros Gastos Fixos</label>
+                    <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none" value={financasFixo.outros} onChange={e => setFinancasFixo({...financasFixo, outros: e.target.value})} />
+                  </div>
+                </div>
+
+                <div className="w-full">
+                  <h3 className="text-purple-700 font-bold text-xs uppercase tracking-wider mb-2 mt-4">Sua Carga Horária</h3>
+                  <div className="grid grid-cols-2 gap-3 mb-5 w-full">
+                    <div>
+                      <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Dias de Trabalho no Mês</label>
+                      <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={financasFixo.diasTrabalho} onChange={e => setFinancasFixo({...financasFixo, diasTrabalho: e.target.value})} />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Horas de Trabalho por Dia</label>
+                      <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={financasFixo.horasDia} onChange={e => setFinancasFixo({...financasFixo, horasDia: e.target.value})} />
+                    </div>
+                  </div>
+                </div>
+
+                <button onClick={async () => {
+                  await setDoc(doc(db, "configuracoes_financeiras", user.uid), financasFixo, { merge: true });
+                  
+                  const totalHoras = Number(financasFixo.diasTrabalho || 20) * Number(financasFixo.horasDia || 8);
+                  const intentCustos = Number(financasFixo.salario || 0) + Number(financasFixo.aluguel || 0) + Number(financasFixo.internet || 0) + Number(financasFixo.luz || 0) + Number(financasFixo.outros || 0);
+                  if (intentCustos > 0) setVHora((intentCustos / totalHoras).toFixed(2));
+                  
+                  alert("Custos salvos com sucesso! O valor sugerido para a hora foi atualizado na calculadora. 🎉");
+                }} className="w-full bg-purple-700 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md">
+                  Salvar Configurações Fixas
+                </button>
+              </div>
+            )}
+
+            {/* SUBCATEGORIA NOVA: INTERFACE FIEL DA CALCULADORA DE IMPRESSÃO */}
+            {subAbaFinanceiro === 'impressao' && (
+              <div className="bg-white p-6 rounded-[35px] shadow-md border w-full animate-fadeIn space-y-4">
                 <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Tempo de Vida (Anos)</label>
-                  <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={novoEquipamento.durabilidadeAnos} onChange={e => setNovoEquipamento({...novoEquipamento, durabilidadeAnos: e.target.value})}>
-                    <option value="1">1 Ano</option>
-                    <option value="2">2 Anos</option>
-                    <option value="3">3 Anos</option>
-                    <option value="5">5 Anos</option>
+                  <h2 className="text-purple-700 font-bold flex items-center gap-2 uppercase text-xs tracking-widest"><Printer size={18}/> Calculadora de Impressão</h2>
+                  <p className="text-slate-400 text-[11px] mt-1">Configure o gasto real por página para aplicar automaticamente em seus novos orçamentos.</p>
+                </div>
+
+                <div className="form-group flex flex-col">
+                  <label className="text-[11px] font-bold text-slate-500 mb-1">Preço da tinta (R$)</label>
+                  <input type="number" className="w-full p-3.5 bg-slate-50 rounded-2xl outline-none text-sm font-bold" value={precoTinta} onChange={e => setPrecoTinta(e.target.value)} />
+                </div>
+
+                <div className="form-group flex flex-col">
+                  <label className="text-[11px] font-bold text-slate-500 mb-1">Unidade da tinta</label>
+                  <select className="w-full p-3.5 bg-slate-50 rounded-2xl outline-none text-xs font-bold" value={unidadeTinta} onChange={e => setUnidadeTinta(e.target.value)}>
+                    <option value="Garrafinha">Garrafinha</option>
+                    <option value="Cartucho">Cartucho</option>
+                    <option value="Litro">Litro</option>
                   </select>
                 </div>
-              </div>
 
-              <button onClick={async () => {
-                if(!novoEquipamento.nome || !novoEquipamento.valorPago) return alert("Preencha o nome e o preço do equipamento!");
-                const d = { nome: novoEquipamento.nome, valorPago: Number(novoEquipamento.valorPago), durabilidadeAnos: Number(novoEquipamento.durabilidadeAnos), userId: user.uid };
-                if (novoEquipamento.id) await updateDoc(doc(db, "equipamentos", novoEquipamento.id), d);
-                else await addDoc(collection(db, "equipamentos"), d);
-                setNovoEquipamento({ id: '', nome: '', valorPago: '', durabilidadeAnos: '2' });
-                alert("Equipamento salvo!");
-              }} className="w-full bg-orange-500 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md">
-                Salvar Equipamento
-              </button>
-            </div>
+                <div className="form-group flex flex-col">
+                  <label className="text-[11px] font-bold text-slate-500 mb-1">Quantidade de cores</label>
+                  <input type="number" className="w-full p-3.5 bg-slate-50 rounded-2xl outline-none text-sm font-bold" value={qtdCores} onChange={e => setQtdCores(e.target.value)} />
+                  <span className="text-[10px] text-slate-400 mt-1">Exemplo: 4 cores (preto, ciano, magenta, amarelo)</span>
+                </div>
 
-            <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider ml-2">Equipamentos Cadastrados</h3>
-            <div className="space-y-2 w-full">
-              {equipamentos.map(eq => {
-                const meses = Number(eq.durabilidadeAnos || 2) * 12;
-                const totalHoras = Number(financasFixo.diasTrabalho || 20) * Number(financasFixo.horasDia || 8);
-                const descHora = (Number(eq.valorPago || 0) / meses) / totalHoras;
-                return (
-                  <div key={eq.id} className="bg-white p-4 rounded-3xl flex justify-between items-center border shadow-sm w-full">
-                    <div>
-                      <p className="font-bold text-slate-800">{eq.nome}</p>
-                      <p className="text-xs text-slate-400 mt-1">Desgaste: <span className="font-bold text-purple-700">R$ {isNaN(descHora) ? "0.00" : descHora.toFixed(2)} por hora de uso</span></p>
-                    </div>
-                    <button onClick={() => confirmarExcluir('equipamento', eq.id)} className="text-red-200 p-2"><Trash2 size={16}/></button>
+                <div className="form-group flex flex-col">
+                  <label className="text-[11px] font-bold text-slate-500 mb-1">Páginas por conjunto completo</label>
+                  <input type="number" className="w-full p-3.5 bg-slate-50 rounded-2xl outline-none text-sm font-bold" value={paginasConjunto} onChange={e => setPaginasConjunto(e.target.value)} />
+                  <span className="text-[10px] text-slate-400 mt-1">Quantas páginas consegue imprimir com todas as cores cheias</span>
+                </div>
+
+                {/* Card Amarelo do Layout Original */}
+                <div className="bg-[#fdfcf0] rounded-2xl p-4 flex justify-between items-center border border-yellow-100/60">
+                  <div>
+                    <h3 className="text-[11px] font-black text-[#8c8646] tracking-wider uppercase">CUSTO TOTAL DAS TINTAS</h3>
+                    <p className="text-xs text-slate-600 mt-0.5">{qtdCores} cores × {formatarMoedaLocal(Number(precoTinta) || 0)}</p>
                   </div>
-                );
-              })}
-            </div>
+                  <div className="text-xl font-black text-[#ebd670]">
+                    {formatarMoedaLocal((Number(qtdCores) || 0) * (Number(precoTinta) || 0))}
+                  </div>
+                </div>
+
+                {/* Card Rosa do Layout Original */}
+                <div className="bg-[#fff5f8] rounded-2xl p-5 text-center border border-pink-100/60">
+                  <h3 className="text-[11px] font-black text-[#a36b7a] tracking-wider uppercase">CUSTO POR IMPRESSÃO</h3>
+                  <div className="text-3xl font-black text-[#e07693] my-1">
+                    {formatarMoedaLocal(custoPorPaginaCalculado)}
+                  </div>
+                  <p className="text-[10px] text-[#a36b7a] font-medium">Por página impressa</p>
+                </div>
+
+                {/* Seção de Exemplos de Quantidade */}
+                <h3 className="text-xs font-black text-slate-700 tracking-wider">Exemplos de quantidade:</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-slate-50/80 border border-slate-100 p-3 rounded-xl">
+                    <div className="text-xs font-bold text-slate-800">10 páginas</div>
+                    <div className="text-xs text-slate-500 mt-0.5">{formatarMoedaLocal(custoPorPaginaCalculado * 10)}</div>
+                  </div>
+                  <div className="bg-slate-50/80 border border-slate-100 p-3 rounded-xl">
+                    <div className="text-xs font-bold text-slate-800">50 páginas</div>
+                    <div className="text-xs text-slate-500 mt-0.5">{formatarMoedaLocal(custoPorPaginaCalculado * 50)}</div>
+                  </div>
+                  <div className="bg-slate-50/80 border border-slate-100 p-3 rounded-xl">
+                    <div className="text-xs font-bold text-slate-800">100 páginas</div>
+                    <div className="text-xs text-slate-500 mt-0.5">{formatarMoedaLocal(custoPorPaginaCalculado * 100)}</div>
+                  </div>
+                  <div className="bg-slate-50/80 border border-slate-100 p-3 rounded-xl">
+                    <div className="text-xs font-bold text-slate-800">500 páginas</div>
+                    <div className="text-xs text-slate-500 mt-0.5">{formatarMoedaLocal(custoPorPaginaCalculado * 500)}</div>
+                  </div>
+                </div>
+
+                <button onClick={async () => {
+                  try {
+                    await setDoc(doc(db, "configuracoes_financeiras", user.uid), {
+                      precoTinta,
+                      unidadeTinta,
+                      qtdCores,
+                      paginasConjunto,
+                      custoPorPaginaCalculado: custoPorPaginaCalculado.toFixed(4)
+                    }, { merge: true });
+                    
+                    // Alimenta diretamente o custo padrão de impressão nos orçamentos
+                    setCustos(prev => ({ ...prev, impressao: custoPorPaginaCalculado.toFixed(2) }));
+                    alert("Subcategoria de Impressão gravada! Taxa injetada na calculadora de orçamento. 🚀");
+                  } catch {
+                    alert("Erro ao salvar dados de impressão.");
+                  }
+                }} className="w-full bg-[#e07693] hover:bg-[#d06280] text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md mt-4 transition-colors">
+                  Salvar Subcategoria de Custo
+                </button>
+              </div>
+            )}
+
+            {subAbaFinanceiro === 'equipamentos' && (
+              <div className="space-y-6 animate-fadeIn w-full">
+                <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
+                  <h2 className="text-purple-700 font-bold mb-2 flex items-center gap-2 uppercase text-xs tracking-widest"><Package size={18}/> Minhas Ferramentas de Trabalho (Depreciação)</h2>
+                  <p className="text-slate-400 text-[11px] mb-4">Adicione ferramentas (secador, prensa) para incluir o desgaste financeiro automaticamente no resumo de custos.</p>
+
+                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome do Equipamento</label>
+                  <input placeholder="Ex: Secador Profissional" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none" value={novoEquipamento.nome} onChange={e => setNovoEquipamento({...novoEquipamento, nome: e.target.value})} />
+
+                  <div className="grid grid-cols-2 gap-3 mb-4 w-full">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Valor Pago</label>
+                      <input type="number" placeholder="R$ 0,00" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={novoEquipamento.valorPago} onChange={e => setNovoEquipamento({...novoEquipamento, valorPago: e.target.value})} />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Tempo de Vida (Anos)</label>
+                      <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={novoEquipamento.durabilidadeAnos} onChange={e => setNovoEquipamento({...novoEquipamento, durabilidadeAnos: e.target.value})}>
+                        <option value="1">1 Ano</option>
+                        <option value="2">2 Anos</option>
+                        <option value="3">3 Anos</option>
+                        <option value="5">5 Anos</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <button onClick={async () => {
+                    if(!novoEquipamento.nome || !novoEquipamento.valorPago) return alert("Preencha o nome e o preço do equipamento!");
+                    const d = { nome: novoEquipamento.nome, valorPago: Number(novoEquipamento.valorPago), durabilidadeAnos: Number(novoEquipamento.durabilidadeAnos), userId: user.uid };
+                    if (novoEquipamento.id) await updateDoc(doc(db, "equipamentos", novoEquipamento.id), d);
+                    else await addDoc(collection(db, "equipamentos"), d);
+                    setNovoEquipamento({ id: '', nome: '', valorPago: '', durabilidadeAnos: '2' });
+                    alert("Equipamento salvo!");
+                  }} className="w-full bg-orange-500 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md">
+                    Salvar Equipamento
+                  </button>
+                </div>
+
+                <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider ml-2">Equipamentos Cadastrados</h3>
+                <div className="space-y-2 w-full">
+                  {equipamentos.map(eq => {
+                    const meses = Number(eq.durabilidadeAnos || 2) * 12;
+                    const totalHoras = Number(financasFixo.diasTrabalho || 20) * Number(financasFixo.horasDia || 8);
+                    const descHora = (Number(eq.valorPago || 0) / meses) / totalHoras;
+                    return (
+                      <div key={eq.id} className="bg-white p-4 rounded-3xl flex justify-between items-center border shadow-sm w-full">
+                        <div>
+                          <p className="font-bold text-slate-800">{eq.nome}</p>
+                          <p className="text-xs text-slate-400 mt-1">Desgaste: <span className="font-bold text-purple-700">R$ {isNaN(descHora) ? "0.00" : descHora.toFixed(2)} por hora de uso</span></p>
+                        </div>
+                        <button onClick={() => confirmarExcluir('equipamento', eq.id)} className="text-red-200 p-2"><Trash2 size={16}/></button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -1599,7 +1729,7 @@ export default function App() {
           </div>
         )}
 
-        {/* MEU CATÁLOGO VISUAL MUDADO COM MODO EDIÇÃO E SELETOR DE CATEGORIAS (TAGS) */}
+        {/* MEU CATÁLOGO VISUAL */}
         {activeTab === 'catalogo' && (
           <div className="space-y-4 pt-2 w-full">
             <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
@@ -1636,7 +1766,6 @@ export default function App() {
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Preço Fixo de Venda (R$)</label>
               <input type="number" placeholder="Ex: 35.00" className="w-full p-4 bg-slate-50 rounded-2xl mb-4 outline-none font-bold text-purple-700 border focus:border-purple-400" value={novoProdCatalogo.precoVenda} onChange={e => setNovoProdCatalogo({...novoProdCatalogo, precoVenda: e.target.value})} />
 
-              {/* SELETOR DE CATEGORIAS MÚLTIPLAR POR TAGS */}
               <div className="mb-5 w-full">
                 <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Categorias do Produto (Selecione Múltiplas)</label>
                 <div className="flex flex-wrap gap-2 mb-2">
@@ -1781,7 +1910,7 @@ export default function App() {
             </div>
 
             <div className="grid grid-cols-1 gap-3 w-full">
-              {fornecedoresFiltrados.map(f => (
+              {proveedoresFiltrados.map(f => (
                 <div key={f.id} className="bg-white p-5 rounded-[30px] border shadow-sm flex flex-col gap-3 w-full">
                   <div className="flex justify-between items-start w-full">
                     <div className="flex-1 min-w-0">
@@ -1809,20 +1938,20 @@ export default function App() {
                       <button onClick={() => window.open(`https://wa.me/55${f.whatsapp.replace(/\D/g, '')}`, '_blank')} className="flex items-center gap-1 text-xs font-black uppercase bg-emerald-50 text-emerald-600 px-3 py-2 rounded-xl active:scale-95 transition-transform"><MessageCircle size={13}/> WhatsApp</button>
                     )}
                     {f.endereco && (
-                      <button onClick={() => window.open(`http://maps.google.com/?q=$${encodeURIComponent(f.endereco)}`, '_blank')} className="flex items-center gap-1 text-xs font-black uppercase bg-slate-50 text-slate-600 px-3 py-2 rounded-xl active:scale-95 transition-transform"><MapPin size={13}/> Mapa</button>
+                      <button onClick={() => window.open(`http://maps.google.com/?q=${encodeURIComponent(f.endereco)}`, '_blank')} className="flex items-center gap-1 text-xs font-black uppercase bg-slate-50 text-slate-600 px-3 py-2 rounded-xl active:scale-95 transition-transform"><MapPin size={13}/> Mapa</button>
                     )}
                   </div>
                 </div>
               ))}
               
-              {fornecedoresFiltrados.length === 0 && (
+              {proveedoresFiltrados.length === 0 && (
                 <p className="text-center font-bold text-xs text-slate-400 py-6 italic">Nenhum fornecedor cadastrado nesta seção. 📦</p>
               )}
             </div>
           </div>
         )}
 
-        {/* HISTÓRICO DE ORÇAMENTOS EXPANDIDO E SEPARADO POR STATUS */}
+        {/* HISTÓRICO DE ORÇAMENTOS EXPANDIDO */}
         {activeTab === 'pedidos' && (
           <div className="space-y-3 pt-2 w-full">
             <div className="flex justify-between items-center mb-1 w-full">
