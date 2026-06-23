@@ -112,7 +112,7 @@ export default function App() {
   const [novaAnotacao, setNovaAnotacao] = useState({ id: '', titulo: '', conteudo: '', dataPrazo: new Date().toISOString().split('T')[0] });
   
   // Estados de Cadastro Atualizados com Categorias
-  const [novoProdCatalogo, setNovoProdCatalogo] = useState<{id: string, nome: string, precoVenda: string, urlImagem: string, categories: string[]}>({ id: '', nome: '', precoVenda: '', urlImagem: '', categorias: [] });
+  const [novoProdCatalogo, setNovoProdCatalogo] = useState<{id: string, nome: string, precoVenda: string, urlImagem: string, categorias: string[]}>({ id: '', nome: '', precoVenda: '', urlImagem: '', categorias: [] });
   const [inputNovaCategoriaProd, setInputNovaCategoriaProd] = useState('');
   const [mostrarInputNovaCatProd, setMostrarInputNovaCatProd] = useState(false);
 
@@ -131,7 +131,7 @@ export default function App() {
   const [financasFixo, setFinancasFixo] = useState({ salario: '0', aluguel: '0', internet: '0', luz: '0', outros: '0', diasTrabalho: '20', horasDia: '8' });
   const [novoEquipamento, setNovoEquipamento] = useState({ id: '', nome: '', valorPago: '', durabilidadeAnos: '2' });
 
-  // --- NOVOS ESTADOS PARA A CALCULADORA DE IMPRESSÃO ---
+  // --- ESTADOS PARA A CALCULADORA DE IMPRESSÃO ---
   const [precoTinta, setPrecoTinta] = useState('62');
   const [unidadeTinta, setUnidadeTinta] = useState('Garrafinha');
   const [qtdCores, setQtdCores] = useState('4');
@@ -262,7 +262,6 @@ export default function App() {
           const dadosFin = snap.data() as any;
           setFinancasFixo(dadosFin);
           
-          // Recupera os valores salvos da calculadora de impressão caso existam
           if(dadosFin.precoTinta) setPrecoTinta(dadosFin.precoTinta);
           if(dadosFin.unidadeTinta) setUnidadeTinta(dadosFin.unidadeTinta);
           if(dadosFin.qtdCores) setQtdCores(dadosFin.qtdCores);
@@ -410,10 +409,10 @@ export default function App() {
     const itensSelecionados = produtosPublicosFiltrados.filter(p => carrinho[p.id] > 0);
     if (itensSelecionados.length === 0) return alert("Seu carrinho está vazio!");
 
-    let textoPedido = `*NOVO PEDIDO VIA CATÁLOGO DE VENDAS*%0A`;
-    textoPedido += `---%0A`;
-    textoPedido += `*Cliente:* ${nomeComprador.trim()}%0A%0A`;
-    textoPedido += `*Itens do Pedido:*%0A`;
+    let textPedido = `*NOVO PEDIDO VIA CATÁLOGO DE VENDAS*%0A`;
+    textPedido += `---%0A`;
+    textPedido += `*Cliente:* ${nomeComprador.trim()}%0A%0A`;
+    textPedido += `*Itens do Pedido:*%0A`;
     
     let totalGeral = 0;
     const listaParaPdf: any[] = [];
@@ -422,20 +421,20 @@ export default function App() {
       const qtd = carrinho[p.id];
       const sub = Number(p.precoVenda) * qtd;
       totalGeral += sub;
-      textoPedido += `• ${qtd}x _${p.nome}_ — R$ ${sub.toFixed(2)}%0A`;
+      textPedido += `• ${qtd}x _${p.nome}_ — R$ ${sub.toFixed(2)}%0A`;
       listaParaPdf.push({ nome: p.nome, qtd: qtd, precoVenda: p.precoVenda });
     });
 
-    textoPedido += `---%0A`;
-    textoPedido += `*VALOR TOTAL:* R$ ${totalGeral.toFixed(2)}%0A`;
-    textoPedido += `---%0A`;
-    textoPedido += `Aguardo a conversa para acertar os detalhes! 🙌`;
+    textPedido += `---%0A`;
+    textPedido += `*VALOR TOTAL:* R$ ${totalGeral.toFixed(2)}%0A`;
+    textPedido += `---%0A`;
+    textPedido += `Aguardo a conversa para acertar os detalhes! 🙌`;
 
     dispararPdfAutomaticoCliente(nomeComprador.trim(), listaParaPdf, totalGeral);
 
     const numeroLimpo = zapDaLojaPublica.replace(/\D/g, '');
-    if (numeroLimpo) { window.open(`https://wa.me/55${numeroLimpo}?text=${textoPedido}`, '_blank'); } 
-    else { window.open(`https://wa.me/?text=${textoPedido}`, '_blank'); }
+    if (numeroLimpo) { window.open(`https://wa.me/55${numeroLimpo}?text=${textPedido}`, '_blank'); } 
+    else { window.open(`https://wa.me/?text=${textPedido}`, '_blank'); }
   };
 
   const lancarVendaBalcaoInterno = async () => {
@@ -1304,7 +1303,7 @@ export default function App() {
           <div className="space-y-6 pt-2 w-full">
             <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
               <h2 className="text-purple-700 font-bold mb-2 flex items-center gap-2 uppercase text-xs tracking-widest"><Settings size={18}/> Perfil da Minha Loja</h2>
-              <p className="text-slate-400 text-[11px] mb-6">Personalize o aplicativo com a sua marca. O logo e o nome definidos aqui aparecerão no topo de todos os seus orçamentos em PDF!</p>
+              <p className="text-slate-400 text-[11px] mb-6">Personalize o aplicativo com a sua marca. O logo e o nome definidos aqui aparecerão no topo de todos os seus orçamentos in PDF!</p>
 
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Logo Oficial da Empresa</label>
               <div className="mb-5 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-3xl p-4 bg-slate-50 relative min-h-[140px] w-full">
@@ -1479,14 +1478,14 @@ export default function App() {
                   const intentCustos = Number(financasFixo.salario || 0) + Number(financasFixo.aluguel || 0) + Number(financasFixo.internet || 0) + Number(financasFixo.luz || 0) + Number(financasFixo.outros || 0);
                   if (intentCustos > 0) setVHora((intentCustos / totalHoras).toFixed(2));
                   
-                  alert("Custos salvos com sucesso! O valor sugerido para a hora foi atualizado na calculadora. 🎉");
+                  alert("Custos salvos com sucesso! O valor sugerido para a hora foi updated na calculadora. 🎉");
                 }} className="w-full bg-purple-700 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md">
                   Salvar Configurações Fixas
                 </button>
               </div>
             )}
 
-            {/* SUBCATEGORIA NOVA: INTERFACE FIEL DA CALCULADORA DE IMPRESSÃO */}
+            {/* INTERFACE INTEGRADA DA CALCULADORA DE IMPRESSÃO (CORES DA MARCA: ROXO E LARANJA) */}
             {subAbaFinanceiro === 'impressao' && (
               <div className="bg-white p-6 rounded-[35px] shadow-md border w-full animate-fadeIn space-y-4">
                 <div>
@@ -1496,12 +1495,12 @@ export default function App() {
 
                 <div className="form-group flex flex-col">
                   <label className="text-[11px] font-bold text-slate-500 mb-1">Preço da tinta (R$)</label>
-                  <input type="number" className="w-full p-3.5 bg-slate-50 rounded-2xl outline-none text-sm font-bold" value={precoTinta} onChange={e => setPrecoTinta(e.target.value)} />
+                  <input type="number" className="w-full p-3.5 bg-slate-50 rounded-2xl outline-none text-sm font-bold border focus:border-purple-500" value={precoTinta} onChange={e => setPrecoTinta(e.target.value)} />
                 </div>
 
                 <div className="form-group flex flex-col">
                   <label className="text-[11px] font-bold text-slate-500 mb-1">Unidade da tinta</label>
-                  <select className="w-full p-3.5 bg-slate-50 rounded-2xl outline-none text-xs font-bold" value={unidadeTinta} onChange={e => setUnidadeTinta(e.target.value)}>
+                  <select className="w-full p-3.5 bg-slate-50 rounded-2xl outline-none text-xs font-bold border focus:border-purple-500" value={unidadeTinta} onChange={e => setUnidadeTinta(e.target.value)}>
                     <option value="Garrafinha">Garrafinha</option>
                     <option value="Cartucho">Cartucho</option>
                     <option value="Litro">Litro</option>
@@ -1510,54 +1509,54 @@ export default function App() {
 
                 <div className="form-group flex flex-col">
                   <label className="text-[11px] font-bold text-slate-500 mb-1">Quantidade de cores</label>
-                  <input type="number" className="w-full p-3.5 bg-slate-50 rounded-2xl outline-none text-sm font-bold" value={qtdCores} onChange={e => setQtdCores(e.target.value)} />
+                  <input type="number" className="w-full p-3.5 bg-slate-50 rounded-2xl outline-none text-sm font-bold border focus:border-purple-500" value={qtdCores} onChange={e => setQtdCores(e.target.value)} />
                   <span className="text-[10px] text-slate-400 mt-1">Exemplo: 4 cores (preto, ciano, magenta, amarelo)</span>
                 </div>
 
                 <div className="form-group flex flex-col">
                   <label className="text-[11px] font-bold text-slate-500 mb-1">Páginas por conjunto completo</label>
-                  <input type="number" className="w-full p-3.5 bg-slate-50 rounded-2xl outline-none text-sm font-bold" value={paginasConjunto} onChange={e => setPaginasConjunto(e.target.value)} />
+                  <input type="number" className="w-full p-3.5 bg-slate-50 rounded-2xl outline-none text-sm font-bold border focus:border-purple-500" value={paginasConjunto} onChange={e => setPaginasConjunto(e.target.value)} />
                   <span className="text-[10px] text-slate-400 mt-1">Quantas páginas consegue imprimir com todas as cores cheias</span>
                 </div>
 
-                {/* Card Amarelo do Layout Original */}
-                <div className="bg-[#fdfcf0] rounded-2xl p-4 flex justify-between items-center border border-yellow-100/60">
+                {/* Card Superior: Custo Total (Roxo Suave e Laranja) */}
+                <div className="bg-purple-50 rounded-2xl p-4 flex justify-between items-center border border-purple-100">
                   <div>
-                    <h3 className="text-[11px] font-black text-[#8c8646] tracking-wider uppercase">CUSTO TOTAL DAS TINTAS</h3>
+                    <h3 className="text-[11px] font-black text-purple-700 tracking-wider uppercase">CUSTO TOTAL DAS TINTAS</h3>
                     <p className="text-xs text-slate-600 mt-0.5">{qtdCores} cores × {formatarMoedaLocal(Number(precoTinta) || 0)}</p>
                   </div>
-                  <div className="text-xl font-black text-[#ebd670]">
+                  <div className="text-xl font-black text-orange-500">
                     {formatarMoedaLocal((Number(qtdCores) || 0) * (Number(precoTinta) || 0))}
                   </div>
                 </div>
 
-                {/* Card Rosa do Layout Original */}
-                <div className="bg-[#fff5f8] rounded-2xl p-5 text-center border border-pink-100/60">
-                  <h3 className="text-[11px] font-black text-[#a36b7a] tracking-wider uppercase">CUSTO POR IMPRESSÃO</h3>
-                  <div className="text-3xl font-black text-[#e07693] my-1">
+                {/* Card de Destaque: Custo por Impressão (Laranja Suave e Roxo) */}
+                <div className="bg-orange-50 rounded-2xl p-5 text-center border border-orange-100">
+                  <h3 className="text-[11px] font-black text-orange-600 tracking-wider uppercase">CUSTO POR IMPRESSÃO</h3>
+                  <div className="text-3xl font-black text-purple-700 my-1">
                     {formatarMoedaLocal(custoPorPaginaCalculado)}
                   </div>
-                  <p className="text-[10px] text-[#a36b7a] font-medium">Por página impressa</p>
+                  <p className="text-[10px] text-purple-500 font-medium">Por página impressa</p>
                 </div>
 
-                {/* Seção de Exemplos de Quantidade */}
+                {/* Exemplos de Quantidade */}
                 <h3 className="text-xs font-black text-slate-700 tracking-wider">Exemplos de quantidade:</h3>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-slate-50/80 border border-slate-100 p-3 rounded-xl">
+                  <div className="bg-slate-50 border border-slate-100 p-3 rounded-xl">
                     <div className="text-xs font-bold text-slate-800">10 páginas</div>
-                    <div className="text-xs text-slate-500 mt-0.5">{formatarMoedaLocal(custoPorPaginaCalculado * 10)}</div>
+                    <div className="text-xs text-purple-600 font-semibold mt-0.5">{formatarMoedaLocal(custoPorPaginaCalculado * 10)}</div>
                   </div>
-                  <div className="bg-slate-50/80 border border-slate-100 p-3 rounded-xl">
+                  <div className="bg-slate-50 border border-slate-100 p-3 rounded-xl">
                     <div className="text-xs font-bold text-slate-800">50 páginas</div>
-                    <div className="text-xs text-slate-500 mt-0.5">{formatarMoedaLocal(custoPorPaginaCalculado * 50)}</div>
+                    <div className="text-xs text-purple-600 font-semibold mt-0.5">{formatarMoedaLocal(custoPorPaginaCalculado * 50)}</div>
                   </div>
-                  <div className="bg-slate-50/80 border border-slate-100 p-3 rounded-xl">
+                  <div className="bg-slate-50 border border-slate-100 p-3 rounded-xl">
                     <div className="text-xs font-bold text-slate-800">100 páginas</div>
-                    <div className="text-xs text-slate-500 mt-0.5">{formatarMoedaLocal(custoPorPaginaCalculado * 100)}</div>
+                    <div className="text-xs text-purple-600 font-semibold mt-0.5">{formatarMoedaLocal(custoPorPaginaCalculado * 100)}</div>
                   </div>
-                  <div className="bg-slate-50/80 border border-slate-100 p-3 rounded-xl">
+                  <div className="bg-slate-50 border border-slate-100 p-3 rounded-xl">
                     <div className="text-xs font-bold text-slate-800">500 páginas</div>
-                    <div className="text-xs text-slate-500 mt-0.5">{formatarMoedaLocal(custoPorPaginaCalculado * 500)}</div>
+                    <div className="text-xs text-purple-600 font-semibold mt-0.5">{formatarMoedaLocal(custoPorPaginaCalculado * 500)}</div>
                   </div>
                 </div>
 
@@ -1571,13 +1570,12 @@ export default function App() {
                       custoPorPaginaCalculado: custoPorPaginaCalculado.toFixed(4)
                     }, { merge: true });
                     
-                    // Alimenta diretamente o custo padrão de impressão nos orçamentos
                     setCustos(prev => ({ ...prev, impressao: custoPorPaginaCalculado.toFixed(2) }));
-                    alert("Subcategoria de Impressão gravada! Taxa injetada na calculadora de orçamento. 🚀");
+                    alert("Subcategoria de Impressão gravada! Taxa vinculada com sucesso à calculadora de orçamento. 🚀");
                   } catch {
                     alert("Erro ao salvar dados de impressão.");
                   }
-                }} className="w-full bg-[#e07693] hover:bg-[#d06280] text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md mt-4 transition-colors">
+                }} className="w-full bg-orange-500 hover:bg-orange-600 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md mt-4 transition-colors">
                   Salvar Subcategoria de Custo
                 </button>
               </div>
@@ -1783,7 +1781,7 @@ export default function App() {
                   <button type="button" onClick={() => setMostrarInputNovaCatProd(true)} className="text-[10px] text-purple-600 font-black uppercase mt-1 tracking-wider hover:underline">+ Criar Nova Categoria</button>
                 ) : (
                   <div className="flex gap-2 items-center bg-slate-50 p-2.5 rounded-2xl border border-dashed border-purple-200 mt-2 animate-fadeIn">
-                    <input placeholder="Ex: 🎨 Brindes Luxo" className="flex-1 bg-white p-2.5 rounded-xl text-xs font-bold outline-none border" value={inputNovaCategoriaProd} onChange={e => setInputNovaCategoriaProd(e.target.value)} />
+                    <input placeholder="Ex: 🎨 Brindes Luxo" className="flex-1 bg-white p-2.5 rounded-xl text-xs font-bold outline-none border" value={inputNovaCategoriaProd} onChange={e => inputNovaCategoriaProd(e.target.value)} />
                     <button type="button" onClick={async () => {
                       if(!inputNovaCategoriaProd.trim()) return setMostrarInputNovaCatProd(false);
                       await addDoc(collection(db, "categorias_produtos"), { nome: inputNovaCategoriaProd.trim(), userId: user.uid });
