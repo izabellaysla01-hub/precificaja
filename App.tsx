@@ -262,10 +262,16 @@ export default function App() {
           const dadosFin = snap.data() as any;
           setFinancasFixo(dadosFin);
           
-          if(dadosFin.precoTinta) setPrecoTinta(dadosFin.precoTinta);
-          if(dadosFin.unidadeTinta) setUnidadeTinta(dadosFin.unidadeTinta);
-          if(dadosFin.qtdCores) setQtdCores(dadosFin.qtdCores);
-          if(dadosFin.paginasConjunto) setPaginasConjunto(dadosFin.paginasConjunto);
+          // --- FIXO APÓS RECARREGAR: Atualiza os estados imediatamente com os dados vindos do Firebase ---
+          if (dadosFin.precoTinta) setPrecoTinta(dadosFin.precoTinta);
+          if (dadosFin.unidadeTinta) setUnidadeTinta(dadosFin.unidadeTinta);
+          if (dadosFin.qtdCores) setQtdCores(dadosFin.qtdCores);
+          if (dadosFin.paginasConjunto) setPaginasConjunto(dadosFin.paginasConjunto);
+          
+          // Garante que a taxa calculada vai preencher o campo de novos lotes criados
+          if (dadosFin.custoPorPaginaCalculado) {
+            setCustos(prev => ({ ...prev, impressao: Number(dadosFin.custoPorPaginaCalculado).toFixed(2) }));
+          }
 
           const dias = Number(dadosFin.diasTrabalho || 20);
           const horas = Number(dadosFin.horasDia || 8);
@@ -1303,7 +1309,7 @@ export default function App() {
           <div className="space-y-6 pt-2 w-full">
             <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
               <h2 className="text-purple-700 font-bold mb-2 flex items-center gap-2 uppercase text-xs tracking-widest"><Settings size={18}/> Perfil da Minha Loja</h2>
-              <p className="text-slate-400 text-[11px] mb-6">Personalize o aplicativo com a sua marca. O logo e o nome definidos aqui aparecerão no topo de todos os seus orçamentos in PDF!</p>
+              <p className="text-slate-400 text-[11px] mb-6">Personalize o aplicativo com a sua marca. O logo e o nome definidos aqui aparecerão no topo de todos os seus orçamentos em PDF!</p>
 
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Logo Oficial da Empresa</label>
               <div className="mb-5 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-3xl p-4 bg-slate-50 relative min-h-[140px] w-full">
@@ -1478,7 +1484,7 @@ export default function App() {
                   const intentCustos = Number(financasFixo.salario || 0) + Number(financasFixo.aluguel || 0) + Number(financasFixo.internet || 0) + Number(financasFixo.luz || 0) + Number(financasFixo.outros || 0);
                   if (intentCustos > 0) setVHora((intentCustos / totalHoras).toFixed(2));
                   
-                  alert("Custos salvos com sucesso! O valor sugerido para a hora foi updated na calculadora. 🎉");
+                  alert("Custos salvos com sucesso! O valor sugerido para a hora foi atualizado na calculadora. 🎉");
                 }} className="w-full bg-purple-700 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md">
                   Salvar Configurações Fixas
                 </button>
@@ -1870,7 +1876,7 @@ export default function App() {
                   <button type="button" onClick={() => setMostrarInputNovaCatForn(true)} className="text-[10px] text-purple-600 font-black uppercase mt-1 tracking-wider hover:underline">+ Criar Categoria de Compras</button>
                 ) : (
                   <div className="flex gap-2 items-center bg-slate-50 p-2.5 rounded-2xl border border-dashed border-purple-200 mt-2 animate-fadeIn">
-                    <input placeholder="Ex: 🧵 Fitas e Cordões" className="flex-1 bg-white p-2.5 rounded-xl text-xs font-bold outline-none border" value={inputNovaCategoriaForn} onChange={e => setInputNovaCategoriaForn(e.target.value)} />
+                    <input placeholder="Ex: 🧵 Fitas e Cordões" className="flex-1 bg-white p-2.5 rounded-xl text-xs font-bold outline-none border" value={inputNovaCategoriaForn} onChange={e => inputNovaCategoriaForn(e.target.value)} />
                     <button type="button" onClick={async () => {
                       if(!inputNovaCategoriaForn.trim()) return setMostrarInputNovaCatForn(false);
                       await addDoc(collection(db, "categorias_fornecedores"), { nome: inputNovaCategoriaForn.trim(), userId: user.uid });
