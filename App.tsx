@@ -103,9 +103,6 @@ export default function App() {
   const [precoManual, setPrecoManual] = useState<string | null>(null);
   const [docObsPedido, setDocObsPedido] = useState('');
 
-  // Novo estado para armazenar o valor que você edita na calculadora
-  const [precoFinalDigitado, setPrecoFinalDigitado] = useState<string>('0.00');
-
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
@@ -265,12 +262,13 @@ export default function App() {
           const dadosFin = snap.data() as any;
           setFinancasFixo(dadosFin);
           
-          // --- FIXO APÓS RECARREGAR: ---
+          // --- FIXO APÓS RECARREGAR: Atualiza os estados imediatamente com os dados vindos do Firebase ---
           if (dadosFin.precoTinta) setPrecoTinta(dadosFin.precoTinta);
           if (dadosFin.unidadeTinta) setUnidadeTinta(dadosFin.unidadeTinta);
           if (dadosFin.qtdCores) setQtdCores(dadosFin.qtdCores);
           if (dadosFin.paginasConjunto) setPaginasConjunto(dadosFin.paginasConjunto);
           
+          // Garante que a taxa calculada vai preencher o campo de novos lotes criados
           if (dadosFin.custoPorPaginaCalculado) {
             setCustos(prev => ({ ...prev, impressao: Number(dadosFin.custoPorPaginaCalculado).toFixed(2) }));
           }
@@ -541,11 +539,6 @@ export default function App() {
     return { materiais: totalMaterials.toFixed(2), maoObra: totalMaoObra.toFixed(2), extras: totalExtras.toFixed(2), deprec: totalDesgasteMaquinas.toFixed(2), custoPeca: custoTotalPeca.toFixed(2), lucroLivre: valorLucroLivre.toFixed(2), final: isNaN(precoFinalCalculado) ? "0.00" : precoFinalCalculado.toFixed(2) };
   }, [matsNoPed, vHora, tGasto, custos, lucro, qtdPed, desconto, precoManual, equipamentos, equipamentosSelecionados, financasFixo]);
 
-  // Mantém o input editável sincronizado com a conta automática até você mexer nele
-  useEffect(() => {
-    setPrecoFinalDigitado(resumenFinanceiro.final);
-  }, [resumenFinanceiro.final]);
-
   const enviarZap = (p: any) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
     const dataP = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combinar';
@@ -794,7 +787,6 @@ export default function App() {
     setLucro('100'); setDesconto('0'); setPrazo(''); setClienteSel('');
     setPedidoEditandoId(null); setPrecoManual(null); setDocObsPedido('');
     setIsDuplicando(false);
-    setPrecoFinalDigitado('0.00');
   };
 
   const carregarPedidoParaEdicao = (p: any) => {
@@ -812,8 +804,6 @@ export default function App() {
       });
       setMatsNoPed(listaReconstruida);
     } else { setMatsNoPed([]); }
-    
-    setPrecoFinalDigitado(p.preco || '0.00');
     setActiveTab('criar');
   };
 
@@ -840,8 +830,6 @@ export default function App() {
       });
       setMatsNoPed(listaReconstruida);
     } else { setMatsNoPed([]); }
-    
-    setPrecoFinalDigitado(p.preco || '0.00');
     setActiveTab('criar');
     alert("Orçamento duplicado com sucesso! Defina o cliente e salve. ✨");
   };
@@ -878,9 +866,9 @@ export default function App() {
 
   const materiaisFiltrados = useMemo(() => {
     return materiais.filter(m => 
-      m.nome?.toLowerCase().includes(pesquisaMaterials.toLowerCase())
+      m.nome?.toLowerCase().includes(pesquisaMateriais.toLowerCase())
     );
-  }, [materiais, pesquisaMaterials]);
+  }, [materiais, pesquisaMateriais]);
 
   const produtosPublicosFiltrados = useMemo(() => {
     if (filtroVitrineSelecionado === 'Todos') return produtosPublicos;
@@ -1158,69 +1146,18 @@ export default function App() {
         </div>
       )}
 
-      {/* RODAPÉ DO ORÇAMENTO ATUALIZADO */}
-      <div className="flex flex-col items-center border-t pt-6 gap-4 w-full">
-        <div className="flex justify-between items-center w-full px-2">
-          {/* Preço sugerido apenas como referência */}
-          <div className="text-left">
-            <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">Preço Sugerido</span>
-            <span className="text-base font-bold text-slate-400">R$ {resumenFinanceiro.final}</span>
-          </div>
-
-          {/* Campo principal de digitação do preço final real cobrado */}
-          <div className="text-right flex flex-col items-end">
-            <label htmlFor="precoFinalInput" className="text-[10px] font-black uppercase text-orange-500 tracking-wider block mb-1">Preço Final Cobrado</label>
-            <div className="flex items-center gap-1.5 border-2 border-orange-400 rounded-2xl px-3 py-1 bg-orange-50/20 focus-within:border-purple-600 transition-all">
-              <span className="text-orange-500 font-black text-2xl">R$</span>
-              <input 
-                id="precoFinalInput"
-                type="number" 
-                step="0.01" 
-                className="bg-transparent font-black text-orange-500 text-3xl tracking-tighter outline-none w-32 text-right"
-                value={precoFinalDigitado}
-                onChange={e => setPrecoFinalDigitado(e.target.value)}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Único Botão Salvar - Sem os ícones antigos ao lado */}
-        <div className="w-full pt-2 flex justify-center">
+      <div className="flex items-center justify-between border-t pt-6 w-full">
+        <div className="text-orange-500 font-black text-4xl tracking-tighter">R$ {resumenFinanceiro.final}</div>
+        <div className="flex gap-2">
           <button onClick={async () => {
              if(!nomeProd) return alert("Digite o nome do produto!");
-             
-             const precoFinalSalvar = Number(precoFinalDigitado || 0).toFixed(2);
-             
-             const dadosPedido = { 
-               nomeProd, 
-               preco: precoFinalSalvar, 
-               clienteId: clienteSel, 
-               prazo, 
-               qtdPed, 
-               vHora, 
-               tGasto, 
-               custos, 
-               lucro, 
-               desconto, 
-               userId: user.uid, 
-               precoManual: precoManual, 
-               obsPedido: docObsPedido, 
-               equipamentosSelecionados, 
-               materiaisUsados: precoManual ? [] : matsNoPed.map(m => ({ id: m.id, nome: m.nome, qtdUsada: Number(m.qtdUsada || 1) })) 
-             };
-             
+             const dadosPedido = { nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed, vHora, tGasto, custos, lucro, desconto, userId: user.uid, precoManual: precoManual, obsPedido: docObsPedido, equipamentosSelecionados, materiaisUsados: precoManual ? [] : matsNoPed.map(m => ({ id: m.id, nome: m.nome, qtdUsada: Number(m.qtdUsada || 1) })) };
              if (pedidoEditandoId) await updateDoc(doc(db, "pedidos", pedidoEditandoId), dadosPedido);
              else await addDoc(collection(db, "pedidos"), { ...dadosPedido, data: new Date().toLocaleDateString('pt-BR'), status: 'Pendente', userId: user.uid });
-             
-             // Dispara o PDF automaticamente com o valor alterado por você
-             gerarPDF({nomeProd, preco: precoFinalSalvar, clienteId: clienteSel, prazo, qtdPed, obsPedido: docObsPedido});
-             
-             limparCalculadora(); 
-             setActiveTab('pedidos'); 
-             alert("Orçamento salvo e PDF gerado com sucesso! 🚀");
-          }} className="w-full max-w-xs bg-orange-500 hover:bg-orange-600 text-white font-black py-4 rounded-[26px] uppercase text-xs shadow-lg transition-transform active:scale-95 tracking-widest text-center">
-            Salvar e Gerar PDF
-          </button>
+             limparCalculadora(); setActiveTab('pedidos'); alert("Salvo!");
+          }} className="bg-orange-500 text-white px-5 py-4 rounded-[22px] font-black uppercase text-xs shadow-lg">Salvar</button>
+          <button onClick={() => gerarPDF({nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed, obsPedido: docObsPedido})} className="bg-orange-500 text-white p-4 rounded-[22px] shadow-lg"><Printer size={18}/></button>
+          <button onClick={() => enviarZap({nomeProd: nomeProd, preco: resumenFinanceiro.final, clienteId: clienteSel, prazo, qtdPed})} className="bg-emerald-500 text-white p-4 rounded-[22px] shadow-lg"><MessageCircle size={18}/></button>
         </div>
       </div>
     </div>
@@ -1554,7 +1491,7 @@ export default function App() {
               </div>
             )}
 
-            {/* INTERFACE INTEGRADA DA CALCULADORA DE IMPRESSÃO */}
+            {/* INTERFACE INTEGRADA DA CALCULADORA DE IMPRESSÃO (CORES DA MARCA: ROXO E LARANJA) */}
             {subAbaFinanceiro === 'impressao' && (
               <div className="bg-white p-6 rounded-[35px] shadow-md border w-full animate-fadeIn space-y-4">
                 <div>
@@ -1588,6 +1525,7 @@ export default function App() {
                   <span className="text-[10px] text-slate-400 mt-1">Quantas páginas consegue imprimir com todas as cores cheias</span>
                 </div>
 
+                {/* Card Superior: Custo Total (Roxo Suave e Laranja) */}
                 <div className="bg-purple-50 rounded-2xl p-4 flex justify-between items-center border border-purple-100">
                   <div>
                     <h3 className="text-[11px] font-black text-purple-700 tracking-wider uppercase">CUSTO TOTAL DAS TINTAS</h3>
@@ -1598,6 +1536,7 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* Card de Destaque: Custo por Impressão (Laranja Suave e Roxo) */}
                 <div className="bg-orange-50 rounded-2xl p-5 text-center border border-orange-100">
                   <h3 className="text-[11px] font-black text-orange-600 tracking-wider uppercase">CUSTO POR IMPRESSÃO</h3>
                   <div className="text-3xl font-black text-purple-700 my-1">
@@ -1606,6 +1545,7 @@ export default function App() {
                   <p className="text-[10px] text-purple-500 font-medium">Por página impressa</p>
                 </div>
 
+                {/* Exemplos de Quantidade */}
                 <h3 className="text-xs font-black text-slate-700 tracking-wider">Exemplos de quantidade:</h3>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-slate-50 border border-slate-100 p-3 rounded-xl">
@@ -1847,7 +1787,7 @@ export default function App() {
                   <button type="button" onClick={() => setMostrarInputNovaCatProd(true)} className="text-[10px] text-purple-600 font-black uppercase mt-1 tracking-wider hover:underline">+ Criar Nova Categoria</button>
                 ) : (
                   <div className="flex gap-2 items-center bg-slate-50 p-2.5 rounded-2xl border border-dashed border-purple-200 mt-2 animate-fadeIn">
-                    <input placeholder="Ex: 🎨 Brindes Luxo" className="flex-1 bg-white p-2.5 rounded-xl text-xs font-bold outline-none border" value={inputNovaCategoriaProd} onChange={e => setInputNovaCategoriaProd(e.target.value)} />
+                    <input placeholder="Ex: 🎨 Brindes Luxo" className="flex-1 bg-white p-2.5 rounded-xl text-xs font-bold outline-none border" value={inputNovaCategoriaProd} onChange={e => inputNovaCategoriaProd(e.target.value)} />
                     <button type="button" onClick={async () => {
                       if(!inputNovaCategoriaProd.trim()) return setMostrarInputNovaCatProd(false);
                       await addDoc(collection(db, "categorias_produtos"), { nome: inputNovaCategoriaProd.trim(), userId: user.uid });
@@ -1936,7 +1876,7 @@ export default function App() {
                   <button type="button" onClick={() => setMostrarInputNovaCatForn(true)} className="text-[10px] text-purple-600 font-black uppercase mt-1 tracking-wider hover:underline">+ Criar Categoria de Compras</button>
                 ) : (
                   <div className="flex gap-2 items-center bg-slate-50 p-2.5 rounded-2xl border border-dashed border-purple-200 mt-2 animate-fadeIn">
-                    <input placeholder="Ex: 🧵 Fitas e Cordões" className="flex-1 bg-white p-2.5 rounded-xl text-xs font-bold outline-none border" value={inputNovaCategoriaForn} onChange={e => setInputNovaCategoriaForn(e.target.value)} />
+                    <input placeholder="Ex: 🧵 Fitas e Cordões" className="flex-1 bg-white p-2.5 rounded-xl text-xs font-bold outline-none border" value={inputNovaCategoriaForn} onChange={e => inputNovaCategoriaForn(e.target.value)} />
                     <button type="button" onClick={async () => {
                       if(!inputNovaCategoriaForn.trim()) return setMostrarInputNovaCatForn(false);
                       await addDoc(collection(db, "categorias_fornecedores"), { nome: inputNovaCategoriaForn.trim(), userId: user.uid });
@@ -2110,7 +2050,7 @@ export default function App() {
               </div>
               <div className="mb-6 w-full">
                 <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Unidade de Medida</label>
-                <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-xs font-bold block border border-transparent focus:border-purple-400 mt-1" value={novoMat.unidade} onChange={e => setNovoMat({...novoMat, Pattern: e.target.value})}>
+                <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-xs font-bold block border border-transparent focus:border-purple-400 mt-1" value={novoMat.unidade} onChange={e => setNovoMat({...novoMat, unidade: e.target.value})}>
                   <option value="un">📦 Unidade (un)</option>
                   <option value="g">⚖️ Gramas (g)</option>
                   <option value="kg">🏋️ Quilo (kg)</option>
@@ -2139,8 +2079,8 @@ export default function App() {
               <input
                 type="text"
                 placeholder="Pesquisar material no armário..."
-                value={pesquisaMaterials}
-                onChange={e => setPesquisaMaterials(e.target.value)}
+                value={pesquisaMateriais}
+                onChange={e => setPesquisaMateriais(e.target.value)}
                 className="w-full p-4 pl-11 bg-white rounded-2xl border border-slate-200 outline-none text-sm font-medium focus:border-purple-500 transition-colors shadow-sm"
               />
             </div>
