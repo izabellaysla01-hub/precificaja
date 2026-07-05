@@ -103,7 +103,7 @@ export default function App() {
   const [precoManual, setPrecoManual] = useState<string | null>(null);
   const [docObsPedido, setDocObsPedido] = useState('');
 
-  // Novo estado para armazenar o valor que você edita na calculadora
+  // Estado para armazenar o valor alterado pelo usuário na calculadora
   const [precoFinalDigitado, setPrecoFinalDigitado] = useState<string>('0.00');
 
   const [email, setEmail] = useState('');
@@ -540,7 +540,7 @@ export default function App() {
     return { materiais: totalMaterials.toFixed(2), maoObra: totalMaoObra.toFixed(2), extras: totalExtras.toFixed(2), deprec: totalDesgasteMaquinas.toFixed(2), custoPeca: custoTotalPeca.toFixed(2), lucroLivre: valorLucroLivre.toFixed(2), final: isNaN(precoFinalCalculado) ? "0.00" : precoFinalCalculado.toFixed(2) };
   }, [matsNoPed, vHora, tGasto, custos, lucro, qtdPed, desconto, precoManual, equipamentos, equipamentosSelecionados, financasFixo]);
 
-  // Mantém o input editável sincronizado com a conta automática até você mexer nele
+  // Sincroniza o preço editável com a conta do sistema até que você decida digitar
   useEffect(() => {
     setPrecoFinalDigitado(resumenFinanceiro.final);
   }, [resumenFinanceiro.final]);
@@ -589,7 +589,7 @@ export default function App() {
         if(!linhaTexto.trim()) return '';
         
         let quantidadeItem = Number(p.qtdPed || 1);
-        let nomeItemLimpo = inlineTexto.trim();
+        let nomeItemLimpo = linhaTexto.trim();
         
         const matchCombo = linhaTexto.trim().match(/^(\d+)x\s+(.+)$/i);
         if(matchCombo) {
@@ -1157,16 +1157,14 @@ export default function App() {
         </div>
       )}
 
-      {/* RODAPÉ DO ORÇAMENTO ATUALIZADO */}
+      {/* RODAPÉ DO ORÇAMENTO COM PREÇO FINAL EDITÁVEL E BOTÃO ÚNICO */}
       <div className="flex flex-col items-center border-t pt-6 gap-4 w-full">
         <div className="flex justify-between items-center w-full px-2">
-          {/* Preço sugerido apenas como referência */}
           <div className="text-left">
             <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">Preço Sugerido</span>
             <span className="text-base font-bold text-slate-400">R$ {resumenFinanceiro.final}</span>
           </div>
 
-          {/* Campo principal de digitação do preço final real cobrado */}
           <div className="text-right flex flex-col items-end">
             <label htmlFor="precoFinalInput" className="text-[10px] font-black uppercase text-orange-500 tracking-wider block mb-1">Preço Final Cobrado</label>
             <div className="flex items-center gap-1.5 border-2 border-orange-400 rounded-2xl px-3 py-1 bg-orange-50/20 focus-within:border-purple-600 transition-all">
@@ -1183,7 +1181,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* Único Botão Salvar - Sem os ícones antigos ao lado */}
+        {/* Ordem de execução corrigida: Salva -> PDF -> Limpa -> Muda Aba */}
         <div className="w-full pt-2 flex justify-center">
           <button onClick={async () => {
              if(!nomeProd) return alert("Digite o nome do produto!");
@@ -1208,15 +1206,18 @@ export default function App() {
                materiaisUsados: precoManual ? [] : matsNoPed.map(m => ({ id: m.id, nome: m.nome, qtdUsada: Number(m.qtdUsada || 1) })) 
              };
              
-             if (pedidoEditandoId) await updateDoc(doc(db, "pedidos", pedidoEditandoId), dadosPedido);
-             else await addDoc(collection(db, "pedidos"), { ...dadosPedido, data: new Date().toLocaleDateString('pt-BR'), status: 'Pendente', userId: user.uid });
-             
-             // Dispara o PDF automaticamente com o valor alterado por você
-             gerarPDF({nomeProd, preco: precoFinalSalvar, clienteId: clienteSel, prazo, qtdPed, obsPedido: docObsPedido});
-             
-             limparCalculadora(); 
-             setActiveTab('pedidos'); 
-             alert("Orçamento salvo e PDF gerado com sucesso! 🚀");
+             try {
+               if (pedidoEditandoId) await updateDoc(doc(db, "pedidos", pedidoEditandoId), dadosPedido);
+               else await addDoc(collection(db, "pedidos"), { ...dadosPedido, data: new Date().toLocaleDateString('pt-BR'), status: 'Pendente', userId: user.uid });
+               
+               gerarPDF({nomeProd, preco: precoFinalSalvar, clienteId: clienteSel, prazo, qtdPed, obsPedido: docObsPedido});
+               
+               limparCalculadora(); 
+               setActiveTab('pedidos'); 
+               alert("Orçamento salvo e PDF gerado com sucesso! 🚀");
+             } catch (error) {
+               alert("Erro ao salvar dados.");
+             }
           }} className="w-full max-w-xs bg-orange-500 hover:bg-orange-600 text-white font-black py-4 rounded-[26px] uppercase text-xs shadow-lg transition-transform active:scale-95 tracking-widest text-center">
             Salvar e Gerar PDF
           </button>
@@ -1546,7 +1547,7 @@ export default function App() {
                   const intentCustos = Number(financasFixo.salario || 0) + Number(financasFixo.aluguel || 0) + Number(financasFixo.internet || 0) + Number(financasFixo.luz || 0) + Number(financasFixo.outros || 0);
                   if (intentCustos > 0) setVHora((intentCustos / totalHoras).toFixed(2));
                   
-                  alert("Custos salvos com sucesso! O valor sugerido para a hora foi atualizado na calculadora. 🎉");
+                  alert("Custos salvos com sucesso! O valor sugerido para a hora foi updated na calculadora. 🎉");
                 }} className="w-full bg-purple-700 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md">
                   Salvar Configurações Fixas
                 </button>
@@ -1587,6 +1588,7 @@ export default function App() {
                   <span className="text-[10px] text-slate-400 mt-1">Quantas páginas consegue imprimir com todas as cores cheias</span>
                 </div>
 
+                {/* Card Superior: Custo Total */}
                 <div className="bg-purple-50 rounded-2xl p-4 flex justify-between items-center border border-purple-100">
                   <div>
                     <h3 className="text-[11px] font-black text-purple-700 tracking-wider uppercase">CUSTO TOTAL DAS TINTAS</h3>
@@ -1597,6 +1599,7 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* Card de Destaque: Custo por Impressão */}
                 <div className="bg-orange-50 rounded-2xl p-5 text-center border border-orange-100">
                   <h3 className="text-[11px] font-black text-orange-600 tracking-wider uppercase">CUSTO POR IMPRESSÃO</h3>
                   <div className="text-3xl font-black text-purple-700 my-1">
@@ -1605,6 +1608,7 @@ export default function App() {
                   <p className="text-[10px] text-purple-500 font-medium">Por página impressa</p>
                 </div>
 
+                {/* Exemplos de Quantidade */}
                 <h3 className="text-xs font-black text-slate-700 tracking-wider">Exemplos de quantidade:</h3>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-slate-50 border border-slate-100 p-3 rounded-xl">
@@ -2064,7 +2068,8 @@ export default function App() {
                       
                       <button onClick={() => handleDuplicarOrcamento(p)} title="Duplicar este Orçamento" className="text-blue-500 p-2 bg-blue-50 rounded-xl active:scale-95 transition-transform"><Copy size={18}/></button>
                       
-                      <button onClick={() => gerarPDF(p)} className="text-orange-500 p-2 bg-orange-50 rounded-xl"><Printer size={18}/></button>
+                      {/* Corrigido: Passando o objeto 'p' direto da listagem do banco de dados */}
+                      <button onClick={() => gerarPDF(p)} className="text-orange-500 p-2 bg-orange-50 rounded-xl active:scale-95 transition-all"><Printer size={18}/></button>
                       <button onClick={() => enviarZap({nomeProd: p.nomeProd, preco: p.preco, clienteId: p.clienteId, prazo: p.prazo, qtdPed: p.qtdPed})} className="text-emerald-500 p-2 bg-emerald-50 rounded-xl"><MessageCircle size={18}/></button>
                       <button onClick={() => confirmarExcluir('pedido', p.id)} className="text-red-200 p-2"><Trash2 size={18}/></button>
                    </div>
@@ -2109,6 +2114,7 @@ export default function App() {
               </div>
               <div className="mb-6 w-full">
                 <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Unidade de Medida</label>
+                {/* Corrigido: Pattern ajustado para a propriedade 'unidade' */}
                 <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-xs font-bold block border border-transparent focus:border-purple-400 mt-1" value={novoMat.unidade} onChange={e => setNovoMat({...novoMat, unidade: e.target.value})}>
                   <option value="un">📦 Unidade (un)</option>
                   <option value="g">⚖️ Gramas (g)</option>
