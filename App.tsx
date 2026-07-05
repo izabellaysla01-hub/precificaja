@@ -996,7 +996,7 @@ export default function App() {
     );
   }
 
-  const renderCalculadoraForm = () => (
+    const renderCalculadoraForm = () => (
     <div className="bg-white p-6 rounded-[35px] shadow-xl border mt-2 w-full">
       {(pedidoEditandoId || isDuplicando) && (
         <div className="bg-amber-50 border border-amber-200 p-4 rounded-3xl mb-6 flex justify-between items-center animate-pulse w-full">
@@ -1160,7 +1160,7 @@ export default function App() {
         </div>
       )}
 
-      {/* RODAPÉ DO ORÇAMENTO ATUALIZADO: Preço sugerido menor, Preço real editável e apenas o botão SALVAR */}
+      {/* RODAPÉ DO ORÇAMENTO: Preço sugerido menor, Preço real editável e apenas o botão SALVAR */}
       <div className="flex flex-col items-center border-t pt-6 gap-4 w-full">
         <div className="flex justify-between items-center w-full px-2">
           {/* Valor sugerido apenas para visualização em cinza */}
@@ -1186,7 +1186,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* Botão Salvar Centralizado - Agora sem os botões de Impressora e WhatsApp ao lado */}
+        {/* Botão Salvar Centralizado - Sem os botões de Impressora e WhatsApp ao lado */}
         <div className="w-full pt-2 flex justify-center">
           <button onClick={async () => {
              if(!nomeProd) return alert("Digite o nome do produto!");
@@ -1196,7 +1196,7 @@ export default function App() {
              
              const dadosPedido = { 
                nomeProd, 
-               preco: precoFinalSalvar, // <--- Banco de dados salva o preço que você alterou!
+               preco: precoFinalSalvar, 
                clienteId: clienteSel, 
                prazo, 
                qtdPed, 
