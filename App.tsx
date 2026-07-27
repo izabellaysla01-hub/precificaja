@@ -3,7 +3,7 @@ import { initializeApp } from "firebase/app";
 import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { getFirestore, collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc, getDocs, setDoc, getDoc } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2, Menu, Search, Settings, CheckSquare, Square, Filter, MapPin, Globe, Palette } from 'lucide-react';
+import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2, Menu, Search, Settings, CheckSquare, Square, Filter, MapPin, Globe, Palette, TrendingUp } from 'lucide-react';
 
 const firebaseConfig = {
   apiKey: "AIzaSyD0BWsNm9DbGGDqiHzkdDmNdxIGdJ9tWe8",
@@ -98,8 +98,8 @@ export default function App() {
 
   const [activeTab, useStateActiveTab] = useState<'inicio' | 'materiais' | 'criar' | 'pedidos' | 'clientes' | 'catalogo' | 'balcao' | 'financeiro' | 'perfil' | 'anotacoes' | 'fornecedores'>('inicio');
   
-  // Sub-aba interna para a seção financeira
-  const [subAbaFinanceiro, setSubAbaFinanceiro] = useState<'geral' | 'impressao' | 'equipamentos'>('geral');
+  // Sub-aba interna para a seção financeira (Geral, Impressão, Equipamentos, Histórico)
+  const [subAbaFinanceiro, setSubAbaFinanceiro] = useState<'geral' | 'impressao' | 'equipamentos' | 'historico'>('geral');
 
   const [materiais, setMaterials] = useState<any[]>([]);
   const [pedidos, setPedidos] = useState<any[]>([]);
@@ -546,12 +546,69 @@ export default function App() {
     }
   };
 
+  // --- DASHBOARD METRICS (FILTRANDO APENAS O MÊS E ANO ATUAIS) ---
   const dashboardMetrics = useMemo(() => {
-    const faturamentoTotal = pedidos.filter(p => p.status === 'Vendido 💰' || p.status === 'Vendido').reduce((acc, p) => acc + Number(p.preco || 0), 0);
+    const agora = new Date();
+    const mesAtual = agora.getMonth() + 1;
+    const anoAtual = agora.getFullYear();
+
+    const pedidosDoMes = pedidos.filter(p => {
+      const isVendido = p.status === 'Vendido 💰' || p.status === 'Vendido';
+      if (!isVendido || !p.data) return false;
+
+      const partes = p.data.split('/');
+      if (partes.length === 3) {
+        const mesPedido = Number(partes[1]);
+        const anoPedido = Number(partes[2]);
+        return mesPedido === mesAtual && anoPedido === anoAtual;
+      }
+      return false;
+    });
+
+    const faturamentoMes = pedidosDoMes.reduce((acc, p) => acc + Number(p.preco || 0), 0);
     const pendentesCount = pedidos.filter(p => p.status === 'Pendente' || !p.status).length;
     const estoqueCriticoCount = materiais.filter(m => Number(m.qtdAtual || 0) <= Number(m.qtdMinima || 0)).length;
-    return { faturamento: faturamentoTotal.toFixed(2), pendentes: pendentesCount, criticos: estoqueCriticoCount, totalClientes: clientes.length };
+
+    return { 
+      faturamento: faturamentoMes.toFixed(2), 
+      pendentes: pendentesCount, 
+      criticos: estoqueCriticoCount, 
+      totalClientes: clientes.length 
+    };
   }, [pedidos, materiais, clientes]);
+
+  // --- LÓGICA DE HISTÓRICO FINANCEIRO MENSAL AGRUPADO ---
+  const historicoFinanceiroMensal = useMemo(() => {
+    const agrupado: { [key: string]: { total: number; qtd: number; mesAnoTexto: string } } = {};
+    const nomesMeses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+    pedidos.forEach(p => {
+      const isVendido = p.status === 'Vendido 💰' || p.status === 'Vendido';
+      if (!isVendido || !p.data) return;
+
+      const partes = p.data.split('/');
+      if (partes.length === 3) {
+        const mes = Number(partes[1]);
+        const ano = Number(partes[2]);
+        const chave = `${ano}-${String(mes).padStart(2, '0')}`;
+        const nomeMesTexto = `${nomesMeses[mes - 1]} / ${ano}`;
+
+        if (!agrupado[chave]) {
+          agrupado[chave] = { total: 0, qtd: 0, mesAnoTexto: nomeMesTexto };
+        }
+
+        agrupado[chave].total += Number(p.preco || 0);
+        agrupado[chave].qtd += 1;
+      }
+    });
+
+    return Object.keys(agrupado)
+      .sort((a, b) => b.localeCompare(a))
+      .map(chave => ({
+        chave,
+        ...agrupado[chave]
+      }));
+  }, [pedidos]);
 
   const resumenFinanceiro = useMemo(() => {
     if (precoManual !== null) {
@@ -1321,10 +1378,15 @@ export default function App() {
       <div className="p-4 max-w-xl mx-auto w-full">
         {activeTab === 'inicio' && (
           <div className="space-y-5 pt-2 w-full">
+            
+            {/* CARD DE FATURAMENTO DO MÊS ATUAL */}
             <div style={{ backgroundColor: themeColors.primary }} className="p-6 rounded-[35px] shadow-lg text-white w-full">
-              <p className="text-xs font-bold uppercase tracking-widest text-white/80">Faturamento Realizado</p>
-              <h2 className="text-4xl font-black mt-1 tracking-tight">R$ {dashboardMetrics.faturamento}</h2>
-              <p className="text-[11px] text-white/80 mt-2 opacity-80">📈 Dinheiro gerado de pedidos marcados como vendidos</p>
+              <div className="flex justify-between items-center mb-1">
+                <p className="text-xs font-bold uppercase tracking-widest text-white/80">Faturamento do Mês Atual</p>
+                <span className="text-[9px] bg-white/20 px-2 py-0.5 rounded-full font-bold uppercase">Zera no dia 1º</span>
+              </div>
+              <h2 className="text-4xl font-black tracking-tight">R$ {dashboardMetrics.faturamento}</h2>
+              <p className="text-[11px] text-white/80 mt-2 opacity-80">📈 Vendas concluídas no mês corrente</p>
             </div>
 
             <div onClick={() => { limparCalculadora(); setActiveTab('criar'); }} 
@@ -1456,92 +1518,92 @@ export default function App() {
               />
 
               {/* PAINEL DE PERSONALIZAÇÃO DE CORES */}
-<div className="border-t pt-6 mb-6">
-  <h3 style={{ color: themeColors.primary }} className="font-bold flex items-center gap-2 uppercase text-xs tracking-widest mb-1">
-    <Palette size={18}/> Paleta de Cores do App
-  </h3>
-  <p className="text-slate-400 text-[11px] mb-4">Escolha um tema pronto ou monte a sua combinação livremente (ex: Rosa e Verde):</p>
+              <div className="border-t pt-6 mb-6">
+                <h3 style={{ color: themeColors.primary }} className="font-bold flex items-center gap-2 uppercase text-xs tracking-widest mb-1">
+                  <Palette size={18}/> Paleta de Cores do App
+                </h3>
+                <p className="text-slate-400 text-[11px] mb-4">Escolha um tema pronto ou monte a sua combinação livremente (ex: Rosa e Verde):</p>
 
-  {/* Presets de Temas */}
-  <div className="grid grid-cols-2 gap-2 mb-4">
-    {PRESET_PALETTES.map(preset => (
-      <button
-        key={preset.id}
-        type="button"
-        onClick={() => setThemeColors({
-          primary: preset.primary,
-          primaryHover: preset.primaryHover,
-          secondary: preset.secondary,
-          secondaryHover: preset.secondaryHover
-        })}
-        className="p-3 rounded-2xl border text-left flex flex-col gap-2 transition-all border-slate-100 bg-slate-50 hover:border-slate-300"
-      >
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded-full shadow-sm" style={{ backgroundColor: preset.primary }} />
-          <div className="w-4 h-4 rounded-full shadow-sm" style={{ backgroundColor: preset.secondary }} />
-        </div>
-        <span className="text-[10px] font-bold text-slate-700">{preset.nome}</span>
-      </button>
-    ))}
-  </div>
+                {/* Presets de Temas */}
+                <div className="grid grid-cols-2 gap-2 mb-4">
+                  {PRESET_PALETTES.map(preset => (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => setThemeColors({
+                        primary: preset.primary,
+                        primaryHover: preset.primaryHover,
+                        secondary: preset.secondary,
+                        secondaryHover: preset.secondaryHover
+                      })}
+                      className="p-3 rounded-2xl border text-left flex flex-col gap-2 transition-all border-slate-100 bg-slate-50 hover:border-slate-300"
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 rounded-full shadow-sm" style={{ backgroundColor: preset.primary }} />
+                        <div className="w-4 h-4 rounded-full shadow-sm" style={{ backgroundColor: preset.secondary }} />
+                      </div>
+                      <span className="text-[10px] font-bold text-slate-700">{preset.nome}</span>
+                    </button>
+                  ))}
+                </div>
 
-  {/* Color Pickers Customizados (Escolha Livre) */}
-  <div className="grid grid-cols-2 gap-3 bg-slate-50 p-4 rounded-2xl border">
-    <div>
-      <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Cor Primária (ex: Rosa)</label>
-      <div className="flex items-center gap-2 bg-white p-2 rounded-xl border">
-        <input 
-          type="color" 
-          value={themeColors.primary} 
-          onChange={e => setThemeColors(prev => ({ 
-            ...prev, 
-            primary: e.target.value, 
-            primaryHover: e.target.value 
-          }))}
-          className="w-10 h-10 rounded-lg border-0 cursor-pointer bg-transparent"
-        />
-        <input 
-          type="text"
-          value={themeColors.primary}
-          onChange={e => setThemeColors(prev => ({ 
-            ...prev, 
-            primary: e.target.value, 
-            primaryHover: e.target.value 
-          }))}
-          className="w-full text-xs font-mono font-bold uppercase outline-none"
-          maxLength={7}
-        />
-      </div>
-    </div>
+                {/* Color Pickers Customizados (Escolha Livre) */}
+                <div className="grid grid-cols-2 gap-3 bg-slate-50 p-4 rounded-2xl border">
+                  <div>
+                    <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Cor Primária (ex: Rosa)</label>
+                    <div className="flex items-center gap-2 bg-white p-2 rounded-xl border">
+                      <input 
+                        type="color" 
+                        value={themeColors.primary} 
+                        onChange={e => setThemeColors(prev => ({ 
+                          ...prev, 
+                          primary: e.target.value, 
+                          primaryHover: e.target.value 
+                        }))}
+                        className="w-10 h-10 rounded-lg border-0 cursor-pointer bg-transparent"
+                      />
+                      <input 
+                        type="text"
+                        value={themeColors.primary}
+                        onChange={e => setThemeColors(prev => ({ 
+                          ...prev, 
+                          primary: e.target.value, 
+                          primaryHover: e.target.value 
+                        }))}
+                        className="w-full text-xs font-mono font-bold uppercase outline-none"
+                        maxLength={7}
+                      />
+                    </div>
+                  </div>
 
-    <div>
-      <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Cor Secundária (ex: Verde)</label>
-      <div className="flex items-center gap-2 bg-white p-2 rounded-xl border">
-        <input 
-          type="color" 
-          value={themeColors.secondary} 
-          onChange={e => setThemeColors(prev => ({ 
-            ...prev, 
-            secondary: e.target.value, 
-            secondaryHover: e.target.value 
-          }))}
-          className="w-10 h-10 rounded-lg border-0 cursor-pointer bg-transparent"
-        />
-        <input 
-          type="text"
-          value={themeColors.secondary}
-          onChange={e => setThemeColors(prev => ({ 
-            ...prev, 
-            secondary: e.target.value, 
-            secondaryHover: e.target.value 
-          }))}
-          className="w-full text-xs font-mono font-bold uppercase outline-none"
-          maxLength={7}
-        />
-      </div>
-    </div>
-  </div>
-</div>
+                  <div>
+                    <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Cor Secundária (ex: Verde)</label>
+                    <div className="flex items-center gap-2 bg-white p-2 rounded-xl border">
+                      <input 
+                        type="color" 
+                        value={themeColors.secondary} 
+                        onChange={e => setThemeColors(prev => ({ 
+                          ...prev, 
+                          secondary: e.target.value, 
+                          secondaryHover: e.target.value 
+                        }))}
+                        className="w-10 h-10 rounded-lg border-0 cursor-pointer bg-transparent"
+                      />
+                      <input 
+                        type="text"
+                        value={themeColors.secondary}
+                        onChange={e => setThemeColors(prev => ({ 
+                          ...prev, 
+                          secondary: e.target.value, 
+                          secondaryHover: e.target.value 
+                        }))}
+                        className="w-full text-xs font-mono font-bold uppercase outline-none"
+                        maxLength={7}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
 
               <button 
                 style={{ backgroundColor: themeColors.primary }}
@@ -1632,14 +1694,15 @@ export default function App() {
           </div>
         )}
 
-        {/* TELA DE CONFIGURAÇÃO DE CUSTOS FIXOS + CALCULADORA DE IMPRESSÃO INTEGRADA */}
+        {/* TELA DE CONFIGURAÇÃO DE CUSTOS FIXOS + CALCULADORA DE IMPRESSÃO + HISTÓRICO FINANCEIRO */}
         {activeTab === 'financeiro' && (
           <div className="space-y-6 pt-2 w-full">
             {/* SUB-MENU DE ABAS INTERNAS FINANCEIRAS */}
-            <div className="flex bg-slate-100 p-1.5 rounded-2xl gap-1 w-full border">
-              <button onClick={() => setSubAbaFinanceiro('geral')} style={{ color: subAbaFinanceiro === 'geral' ? themeColors.primary : undefined }} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${subAbaFinanceiro === 'geral' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>Geral</button>
-              <button onClick={() => setSubAbaFinanceiro('impressao')} style={{ color: subAbaFinanceiro === 'impressao' ? themeColors.primary : undefined }} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${subAbaFinanceiro === 'impressao' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>Custo de Impressão 🖨️</button>
-              <button onClick={() => setSubAbaFinanceiro('equipamentos')} style={{ color: subAbaFinanceiro === 'equipamentos' ? themeColors.primary : undefined }} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${subAbaFinanceiro === 'equipamentos' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>Fixos / Máquinas</button>
+            <div className="flex bg-slate-100 p-1.5 rounded-2xl gap-1 w-full border flex-wrap">
+              <button onClick={() => setSubAbaFinanceiro('geral')} style={{ color: subAbaFinanceiro === 'geral' ? themeColors.primary : undefined }} className={`flex-1 min-w-[70px] py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${subAbaFinanceiro === 'geral' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>Geral</button>
+              <button onClick={() => setSubAbaFinanceiro('impressao')} style={{ color: subAbaFinanceiro === 'impressao' ? themeColors.primary : undefined }} className={`flex-1 min-w-[70px] py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${subAbaFinanceiro === 'impressao' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>Impressão 🖨️</button>
+              <button onClick={() => setSubAbaFinanceiro('equipamentos')} style={{ color: subAbaFinanceiro === 'equipamentos' ? themeColors.primary : undefined }} className={`flex-1 min-w-[70px] py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${subAbaFinanceiro === 'equipamentos' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>Máquinas</button>
+              <button onClick={() => setSubAbaFinanceiro('historico')} style={{ color: subAbaFinanceiro === 'historico' ? themeColors.primary : undefined }} className={`flex-1 min-w-[70px] py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${subAbaFinanceiro === 'historico' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>Histórico 📊</button>
             </div>
 
             {subAbaFinanceiro === 'geral' && (
@@ -1858,6 +1921,43 @@ export default function App() {
                 </div>
               </div>
             )}
+
+            {/* RELATÓRIO DO HISTÓRICO FINANCEIRO MENSAL */}
+            {subAbaFinanceiro === 'historico' && (
+              <div className="bg-white p-6 rounded-[35px] shadow-md border w-full animate-fadeIn space-y-4">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h2 style={{ color: themeColors.primary }} className="font-bold flex items-center gap-2 uppercase text-xs tracking-widest"><DollarSign size={18}/> Histórico Financeiro Mensal</h2>
+                    <p className="text-slate-400 text-[11px] mt-0.5">Fechamento acumulado de vendas por mês:</p>
+                  </div>
+                  <div className="p-2 bg-purple-50 rounded-2xl" style={{ color: themeColors.primary }}>
+                    <TrendingUp size={20} />
+                  </div>
+                </div>
+
+                <div className="space-y-3 pt-2">
+                  {historicoFinanceiroMensal.map(item => (
+                    <div key={item.chave} className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex justify-between items-center hover:border-slate-200 transition-colors">
+                      <div>
+                        <p className="font-black text-slate-800 text-sm uppercase tracking-wide">{item.mesAnoTexto}</p>
+                        <p className="text-[11px] text-slate-400 font-semibold mt-0.5">{item.qtd} {item.qtd === 1 ? 'venda concluída' : 'vendas concluídas'}</p>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[9px] font-black text-slate-400 uppercase block tracking-wider">Faturamento</span>
+                        <span style={{ color: themeColors.primary }} className="font-black text-lg">R$ {item.total.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  ))}
+
+                  {historicoFinanceiroMensal.length === 0 && (
+                    <p className="text-center text-xs font-bold text-slate-400 py-8 italic">
+                      Nenhuma venda finalizada registrada até o momento. 🎉
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
           </div>
         )}
 
