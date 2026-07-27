@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+Import React, { useState, useEffect, useMemo } from 'react';
 import { initializeApp } from "firebase/app";
 import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { getFirestore, collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc, getDocs, setDoc, getDoc } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2, Menu, Search, Settings, CheckSquare, Square, Filter, MapPin, Globe } from 'lucide-react';
+import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2, Menu, Search, Settings, CheckSquare, Square, Filter, MapPin, Globe, Palette } from 'lucide-react';
 
 const firebaseConfig = {
   apiKey: "AIzaSyD0BWsNm9DbGGDqiHzkdDmNdxIGdJ9tWe8",
@@ -18,6 +18,42 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
+
+// --- PALETAS PRÉ-DEFINIDAS ---
+const PRESET_PALETTES = [
+  {
+    id: 'purple_creative',
+    nome: 'Roxo Criativo (Padrão)',
+    primary: '#7c3aed',
+    primaryHover: '#6d28d9',
+    secondary: '#f97316',
+    secondaryHover: '#ea580c'
+  },
+  {
+    id: 'blue_corporate',
+    nome: 'Azul Corporativo',
+    primary: '#2563eb',
+    primaryHover: '#1d4ed8',
+    secondary: '#38bdf8',
+    secondaryHover: '#0284c7'
+  },
+  {
+    id: 'slate_elegant',
+    nome: 'Grafite Elegante',
+    primary: '#334155',
+    primaryHover: '#1e293b',
+    secondary: '#0ea5e9',
+    secondaryHover: '#0284c7'
+  },
+  {
+    id: 'emerald_growth',
+    nome: 'Verde Esmeralda',
+    primary: '#059669',
+    primaryHover: '#047857',
+    secondary: '#10b981',
+    secondaryHover: '#059669'
+  }
+];
 
 // --- TELA DE LOGIN ---
 const Login = ({ isRegistering, setIsRegistering, email, setEmail, password, setPassword, handleAuth }: any) => {
@@ -72,7 +108,7 @@ export default function App() {
   const [equipamentos, setEquipamentos] = useState<any[]>([]);
   const [anotacoes, setAnotacoes] = useState<any[]>([]);
   
-  // Estados Novos para Categorias Dinâmicas e Fornecedores
+  // Estados para Categorias Dinâmicas e Fornecedores
   const [categoriasProd, setCategoriasProd] = useState<any[]>([]);
   const [categoriasForn, setCategoriasForn] = useState<any[]>([]);
   const [fornecedores, setFornecedores] = useState<any[]>([]);
@@ -131,6 +167,14 @@ export default function App() {
   const [logoLojaPerfil, setLogoLojaPerfil] = useState('');
   const [subindoLogo, setSubindoLogo] = useState(false);
 
+  // --- ESTADO DE TEMA E CORES ---
+  const [themeColors, setThemeColors] = useState({
+    primary: '#7c3aed',
+    primaryHover: '#6d28d9',
+    secondary: '#f97316',
+    secondaryHover: '#ea580c'
+  });
+
   const [financasFixo, setFinancasFixo] = useState({ salario: '0', aluguel: '0', internet: '0', luz: '0', outros: '0', diasTrabalho: '20', horasDia: '8' });
   const [novoEquipamento, setNovoEquipamento] = useState({ id: '', nome: '', valorPago: '', durabilidadeAnos: '2' });
 
@@ -171,7 +215,9 @@ export default function App() {
       
       getDoc(doc(db, "configuracoes_loja", lojaId)).then(docSnap => {
         if(docSnap.exists()) {
-          setZapDaLojaPublica(docSnap.data().whatsapp || '');
+          const data = docSnap.data();
+          setZapDaLojaPublica(data.whatsapp || '');
+          if (data.themeColors) setThemeColors(data.themeColors);
         }
       });
 
@@ -192,9 +238,11 @@ export default function App() {
       if (u) {
         getDoc(doc(db, "configuracoes_loja", u.uid)).then(docSnap => {
           if(docSnap.exists()) {
-            setZapDonaConta(docSnap.data().whatsapp || '');
-            setNomeLojaPerfil(docSnap.data().nomeLoja || '');
-            setLogoLojaPerfil(docSnap.data().logoUrl || '');
+            const data = docSnap.data();
+            setZapDonaConta(data.whatsapp || '');
+            setNomeLojaPerfil(data.nomeLoja || '');
+            setLogoLojaPerfil(data.logoUrl || '');
+            if (data.themeColors) setThemeColors(data.themeColors);
           }
         });
       } else {
@@ -363,21 +411,21 @@ export default function App() {
       <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto;">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px;">
           <div>
-            <h1 style="color: #7c3aed; margin: 0; font-size: 32px; font-weight: 900;">Comprovante de Pedido 🚀</h1>
+            <h1 style="color: ${themeColors.primary}; margin: 0; font-size: 32px; font-weight: 900;">Comprovante de Pedido 🚀</h1>
             <p style="color: #94a3b8; font-size: 11px; text-transform: uppercase; margin: 4px 0 0 0; font-weight: bold;">Catálogo de Vendas Online</p>
           </div>
           <div style="text-align: right; background-color: #f8fafc; padding: 12px 20px; border-radius: 16px; border: 1px solid #e2e8f0;">
-            <span style="font-size: 10px; font-weight: bold; color: #a78bfa; text-transform: uppercase; display: block;">Data do Pedido</span>
+            <span style="font-size: 10px; font-weight: bold; color: ${themeColors.primary}; text-transform: uppercase; display: block;">Data do Pedido</span>
             <span style="font-size: 14px; font-weight: bold; color: #475569; display: block; margin-top: 2px;">${dataEmissao}</span>
           </div>
         </div>
         
-        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Identificação do Comprador</div>
+        <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Identificação do Comprador</div>
         <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 25px; border: 1px solid #f1f5f9;">
           <p style="margin: 0; font-size: 14px;"><strong>Cliente Final:</strong> ${nomeCliente}</p>
         </div>
 
-        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Relação de Itens Escolhidos</div>
+        <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Relação de Itens Escolhidos</div>
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
           <thead>
             <tr style="border-bottom: 2px solid #e2e8f0; text-align: left; font-size: 11px; text-transform: uppercase; color: #94a3b8;">
@@ -393,13 +441,13 @@ export default function App() {
         </table>
 
         <div style="display: flex; flex-direction: column; align-items: flex-end; margin-bottom: 35px; padding-right: 5px; page-break-inside: avoid; break-inside: avoid;">
-          <div style="background-color: #7c3aed; color: white; padding: 12px 25px; border-radius: 12px; font-size: 18px; font-weight: 900; text-align: right; min-width: 180px;">
+          <div style="background-color: ${themeColors.primary}; color: white; padding: 12px 25px; border-radius: 12px; font-size: 18px; font-weight: 900; text-align: right; min-width: 180px;">
             <span style="font-size: 10px; font-weight: bold; text-transform: uppercase; display: block; opacity: 0.8; margin-bottom: 2px;">Valor Estimado</span>
             R$ ${total.toFixed(2)}
           </div>
         </div>
 
-        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px; page-break-inside: avoid; break-inside: avoid;">Forma de Pagamento</div>
+        <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px; page-break-inside: avoid; break-inside: avoid;">Forma de Pagamento</div>
         <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; border: 1px solid #f1f5f9; font-size: 13px; display: flex; justify-content: space-between; margin-bottom: 15px; page-break-inside: avoid; break-inside: avoid;">
           <div><strong>Forma de pagamento:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">PIX / CARTÃO</div></div>
           <div><strong>Condições de pagamento:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">A combinar direto no WhatsApp</div></div>
@@ -621,34 +669,34 @@ export default function App() {
           <div style="display: flex; align-items: center;">
             ${cabecalhoLogoHtml}
             <div>
-              <h1 style="color: #7c3aed; margin: 0; font-size: 26px; font-weight: 900; line-height: 1.1;">${cabecalhoNomeHtml}</h1>
+              <h1 style="color: ${themeColors.primary}; margin: 0; font-size: 26px; font-weight: 900; line-height: 1.1;">${cabecalhoNomeHtml}</h1>
               <p style="color: #94a3b8; font-size: 11px; text-transform: uppercase; margin: 4px 0 0 0; font-weight: bold;">Documento de Orçamento Comercial</p>
             </div>
           </div>
           <div style="text-align: right; background-color: #f8fafc; padding: 8px 14px; border-radius: 12px; border: 1px solid #e2e8f0; shrink-0;">
-            <span style="font-size: 9px; font-weight: bold; color: #a78bfa; text-transform: uppercase; display: block;">Código Ref</span>
+            <span style="font-size: 9px; font-weight: bold; color: ${themeColors.primary}; text-transform: uppercase; display: block;">Código Ref</span>
             <span style="font-size: 12px; font-weight: bold; color: #475569; display: block; margin-top: 1px;">ORC-${Math.floor(1000 + Math.random() * 9000)}</span>
           </div>
         </div>
         
-        <div style="background-color: #f8fafc; padding: 12px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #e2e8f0; font-size: 14px; font-weight: bold; color: #7c3aed;">
+        <div style="background-color: #f8fafc; padding: 12px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #e2e8f0; font-size: 14px; font-weight: bold; color: ${themeColors.primary};">
           Referência do Pedido: ${String(p.nomeProd || 'Personalizados').replace(/\n/g, ' + ')}
         </div>
 
-        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Dados do Cliente</div>
+        <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Dados do Cliente</div>
         <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 25px; border: 1px solid #f1f5f9;">
           <p style="margin: 0; font-size: 14px;"><strong>Cliente:</strong> ${cli?.nome || 'Cliente não informado'}</p>
           <p style="margin: 6px 0 0 0; font-size: 13px; color: #64748b;"><strong>WhatsApp:</strong> ${cli?.zap || 'Não informado'}</p>
         </div>
 
-        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Informações Básicas e Prazos</div>
+        <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Informações Básicas e Prazos</div>
         <div style="display: flex; justify-content: space-between; background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 25px; border: 1px solid #f1f5f9; font-size: 13px;">
           <div><strong>Data de Emissão:</strong><div style="margin-top: 4px; color: #64748b; font-weight: bold;">${dataEmissao}</div></div>
           <div><strong>Validade do Orçamento:</strong><div style="margin-top: 4px; color: #ef4444; font-weight: bold;">${dataValidade} (7 dias)</div></div>
-          <div><strong>Prazo de Entrega:</strong><div style="margin-top: 4px; color: #7c3aed; font-weight: bold;">${dataPrazo}</div></div>
+          <div><strong>Prazo de Entrega:</strong><div style="margin-top: 4px; color: ${themeColors.primary}; font-weight: bold;">${dataPrazo}</div></div>
         </div>
 
-        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Produtos / Serviços Selecionados</div>
+        <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Produtos / Serviços Selecionados</div>
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
           <thead>
             <tr style="border-bottom: 2px solid #e2e8f0; text-align: left; font-size: 11px; text-transform: uppercase; color: #94a3b8;">
@@ -665,13 +713,13 @@ export default function App() {
 
         <div style="display: flex; flex-direction: column; align-items: flex-end; margin-bottom: 35px; padding-right: 5px; page-break-inside: avoid; break-inside: avoid;">
           <div style="font-size: 13px; color: #64748b; margin-bottom: 5px;">Subtotal Geral: <strong>R$ ${totalNum.toFixed(2)}</strong></div>
-          <div style="background-color: #7c3aed; color: white; padding: 12px 25px; border-radius: 12px; font-size: 18px; font-weight: 900; text-align: right; min-width: 180px;">
+          <div style="background-color: ${themeColors.primary}; color: white; padding: 12px 25px; border-radius: 12px; font-size: 18px; font-weight: 900; text-align: right; min-width: 180px;">
             <span style="font-size: 10px; font-weight: bold; text-transform: uppercase; display: block; opacity: 0.8; margin-bottom: 2px;">Total do Pedido</span>
             R$ ${totalNum.toFixed(2)}
           </div>
         </div>
 
-        <div style="background-color: #7c3aed; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px; page-break-inside: avoid; break-inside: avoid;">Formas de Pagamento Aceitas</div>
+        <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px; page-break-inside: avoid; break-inside: avoid;">Formas de Pagamento Aceitas</div>
         <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; border: 1px solid #f1f5f9; font-size: 13px; display: flex; justify-content: space-between; margin-bottom: 15px; page-break-inside: avoid; break-inside: avoid;">
           <div><strong>Meios disponíveis:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">PIX / CARTÃO DE CRÉDITO</div></div>
           <div><strong>Condições comerciais:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">A combinar direto no WhatsApp da Loja</div></div>
@@ -1005,7 +1053,7 @@ export default function App() {
       )}
 
       <div className="flex justify-between items-center mb-6 w-full">
-        <h2 className="text-purple-700 font-bold flex items-center gap-2 uppercase text-xs tracking-widest">
+        <h2 style={{ color: themeColors.primary }} className="font-bold flex items-center gap-2 uppercase text-xs tracking-widest">
           <ShoppingCart size={18}/> {pedidoEditandoId ? 'Editando Dados' : isDuplicando ? 'Salvando Cópia' : 'Novo Orçamento'}
         </h2>
         {!pedidoEditandoId && (
@@ -1027,7 +1075,7 @@ export default function App() {
                   </div>
                   <span className="font-bold">{p.nome}</span>
                 </div>
-                <span className="text-purple-700 font-black">R$ {Number(p.precoVenda).toFixed(2)}</span>
+                <span style={{ color: themeColors.primary }} className="font-black">R$ {Number(p.precoVenda).toFixed(2)}</span>
               </div>
             ))}
           </div>
@@ -1076,23 +1124,23 @@ export default function App() {
           </div>
           <div className="grid grid-cols-2 gap-4 mb-4 w-full">
             <div className="w-full">
-              <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Tempo Gasto (min)</label>
+              <label style={{ color: themeColors.secondary }} className="text-[10px] font-bold uppercase ml-1">Tempo Gasto (min)</label>
               <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={tGasto} onChange={e => setTGasto(e.target.value)} />
             </div>
             <div className="w-full">
-              <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Valor da Hora (R$)</label>
-              <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-purple-700 border focus:border-purple-400" value={vHora} onChange={e => setVHora(e.target.value)} />
+              <label style={{ color: themeColors.secondary }} className="text-[10px] font-bold uppercase ml-1">Valor da Hora (R$)</label>
+              <input type="number" style={{ color: themeColors.primary }} className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold border focus:border-purple-400" value={vHora} onChange={e => setVHora(e.target.value)} />
             </div>
           </div>
 
           {equipamentos.length > 0 && (
             <div className="mb-4 w-full">
-              <label className="text-[10px] font-bold text-purple-600 uppercase ml-1 block mb-1">🛠️ Equipamentos Ativos neste Orçamento</label>
+              <label style={{ color: themeColors.primary }} className="text-[10px] font-bold uppercase ml-1 block mb-1">🛠️ Equipamentos Ativos neste Orçamento</label>
               <div className="flex flex-wrap gap-2 w-full">
                 {equipamentos.map(eq => {
                   const selecionado = equipamentosSelecionados.includes(eq.id);
                   return (
-                    <button key={eq.id} type="button" onClick={() => toggleEquipamento(eq.id)} className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${selecionado ? 'bg-purple-600 text-white border-purple-600 shadow-md' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-purple-300'}`}>
+                    <button key={eq.id} type="button" onClick={() => toggleEquipamento(eq.id)} style={{ backgroundColor: selecionado ? themeColors.primary : undefined, borderColor: selecionado ? themeColors.primary : undefined }} className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${selecionado ? 'text-white shadow-md' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-purple-300'}`}>
                       {eq.nome}
                     </button>
                   );
@@ -1102,7 +1150,7 @@ export default function App() {
           )}
 
           <div className="mb-4 w-full">
-            <label className="text-[10px] font-bold text-purple-600 uppercase ml-1 block mb-1">📦 Custos Extras por Unidade - Opcional (R$)</label>
+            <label style={{ color: themeColors.primary }} className="text-[10px] font-bold uppercase ml-1 block mb-1">📦 Custos Extras por Unidade - Opcional (R$)</label>
             <div className="grid grid-cols-4 gap-2 w-full">
               {[{id:'embalagem',label:'EMBAL.'},{id:'impressao',label:'IMPRES.'},{id:'energia',label:'LUZ'},{id:'outros',label:'OUTROS'}].map(c=>(
                 <div key={c.id} className="flex flex-col items-center bg-slate-50 p-2 rounded-xl w-full border">
@@ -1115,18 +1163,18 @@ export default function App() {
           
           <div className="grid grid-cols-2 gap-4 mb-4 w-full">
             <div className="w-full">
-              <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Lucro %</label>
+              <label style={{ color: themeColors.secondary }} className="text-[10px] font-bold uppercase ml-1">Lucro %</label>
               <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={lucro} onChange={e => setLucro(e.target.value)} />
             </div>
             <div className="w-full">
-              <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Prazo</label>
+              <label style={{ color: themeColors.secondary }} className="text-[10px] font-bold uppercase ml-1">Prazo</label>
               <input type="date" className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-xs font-bold block" value={prazo} onChange={e => setPrazo(e.target.value)} />
             </div>
           </div>
         </>
       ) : (
         <div className="bg-orange-50 border border-orange-100 p-4 rounded-3xl mb-4 text-xs w-full">
-          <p className="font-bold text-orange-600">💥 Preço carregado pelo catálogo.</p>
+          <p style={{ color: themeColors.secondary }} className="font-bold">💥 Preço carregado pelo catálogo.</p>
           <p className="text-slate-500 mt-1">Valor Unitário base: <strong>R$ {Number(precoManual).toFixed(2)}</strong></p>
           <div className="mt-3 w-full">
             <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Prazo</label>
@@ -1137,22 +1185,22 @@ export default function App() {
 
       <div className="mb-4 w-full">
          <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Desconto Total (R$)</label>
-         <input className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-orange-500" type="number" value={desconto} onChange={e => setDesconto(e.target.value)} />
+         <input style={{ color: themeColors.secondary }} className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" type="number" value={desconto} onChange={e => setDesconto(e.target.value)} />
       </div>
 
       <div className="mb-6 w-full">
-         <label className="text-[10px] font-bold text-purple-600 uppercase ml-1">📝 Observações do Orçamento</label>
+         <label style={{ color: themeColors.primary }} className="text-[10px] font-bold uppercase ml-1">📝 Observações do Orçamento</label>
          <textarea placeholder="Ex: Sinal de 50% para início da produção. Restante na entrega." className="w-full p-4 bg-slate-50 rounded-2xl mt-1 outline-none text-xs font-semibold border border-transparent focus:border-purple-400 resize-none h-20" value={docObsPedido} onChange={e => setDocObsPedido(e.target.value)} />
       </div>
 
       {precoManual === null && (
         <div className="bg-slate-50 p-5 rounded-3xl mb-8 border border-slate-100 text-xs space-y-2.5 w-full">
-          <p className="font-black text-purple-700 uppercase tracking-wider text-[10px] mb-1">📋 RESUMO FINANCEIRO DA PEÇA</p>
+          <p style={{ color: themeColors.primary }} className="font-black uppercase tracking-wider text-[10px] mb-1">📋 RESUMO FINANCEIRO DA PEÇA</p>
           <div className="flex justify-between text-slate-500 w-full"><span>Materiais:</span><span className="font-bold">R$ {resumenFinanceiro.materiais}</span></div>
           <div className="flex justify-between text-slate-500 w-full"><span>Mão de Obra:</span><span className="font-bold">R$ {resumenFinanceiro.maoObra}</span></div>
           <div className="flex justify-between text-slate-500 w-full"><span>Extras / Custo Manual:</span><span className="font-bold">R$ {resumenFinanceiro.extras}</span></div>
-          <div className="flex justify-between text-slate-500 w-full"><span>Depreciação de Equipamentos:</span><span className="font-bold text-purple-700">R$ {resumenFinanceiro.deprec}</span></div>
-          <div className="flex justify-between text-slate-800 font-bold border-t pt-2 mt-1 w-full"><span>Custo Total da Peça:</span><span className="text-purple-700">R$ {resumenFinanceiro.custoPeca}</span></div>
+          <div className="flex justify-between text-slate-500 w-full"><span>Depreciação de Equipamentos:</span><span style={{ color: themeColors.primary }} className="font-bold">R$ {resumenFinanceiro.deprec}</span></div>
+          <div className="flex justify-between text-slate-800 font-bold border-t pt-2 mt-1 w-full"><span>Custo Total da Peça:</span><span style={{ color: themeColors.primary }}>R$ {resumenFinanceiro.custoPeca}</span></div>
           <div className="flex justify-between text-emerald-600 font-bold w-full"><span>Lucro Livre Gerado ({lucro}%) :</span><span>R$ {resumenFinanceiro.lucroLivre}</span></div>
         </div>
       )}
@@ -1166,14 +1214,15 @@ export default function App() {
           </div>
 
           <div className="text-right flex flex-col items-end">
-            <label htmlFor="precoFinalInput" className="text-[10px] font-black uppercase text-orange-500 tracking-wider block mb-1">Preço Final Cobrado</label>
-            <div className="flex items-center gap-1.5 border-2 border-orange-400 rounded-2xl px-3 py-1 bg-orange-50/20 focus-within:border-purple-600 transition-all">
-              <span className="text-orange-500 font-black text-2xl">R$</span>
+            <label htmlFor="precoFinalInput" style={{ color: themeColors.secondary }} className="text-[10px] font-black uppercase tracking-wider block mb-1">Preço Final Cobrado</label>
+            <div style={{ borderColor: themeColors.secondary }} className="flex items-center gap-1.5 border-2 rounded-2xl px-3 py-1 bg-orange-50/20 focus-within:border-purple-600 transition-all">
+              <span style={{ color: themeColors.secondary }} className="font-black text-2xl">R$</span>
               <input 
                 id="precoFinalInput"
                 type="number" 
                 step="0.01" 
-                className="bg-transparent font-black text-orange-500 text-3xl tracking-tighter outline-none w-32 text-right"
+                style={{ color: themeColors.secondary }}
+                className="bg-transparent font-black text-3xl tracking-tighter outline-none w-32 text-right"
                 value={precoFinalDigitado}
                 onChange={e => setPrecoFinalDigitado(e.target.value)}
               />
@@ -1181,9 +1230,10 @@ export default function App() {
           </div>
         </div>
 
-        {/* Ordem de execução corrigida: Salva -> PDF -> Limpa -> Muda Aba */}
         <div className="w-full pt-2 flex justify-center">
-          <button onClick={async () => {
+          <button 
+            style={{ backgroundColor: themeColors.secondary }}
+            onClick={async () => {
              if(!nomeProd) return alert("Digite o nome do produto!");
              
              const precoFinalSalvar = Number(precoFinalDigitado || 0).toFixed(2);
@@ -1218,7 +1268,7 @@ export default function App() {
              } catch (error) {
                alert("Erro ao salvar dados.");
              }
-          }} className="w-full max-w-xs bg-orange-500 hover:bg-orange-600 text-white font-black py-4 rounded-[26px] uppercase text-xs shadow-lg transition-transform active:scale-95 tracking-widest text-center">
+          }} className="w-full max-w-xs hover:opacity-90 text-white font-black py-4 rounded-[26px] uppercase text-xs shadow-lg transition-transform active:scale-95 tracking-widest text-center">
             Salvar e Gerar PDF
           </button>
         </div>
@@ -1234,25 +1284,25 @@ export default function App() {
         <div className={`w-72 bg-white h-full shadow-2xl p-6 flex flex-col justify-between transition-transform duration-300 ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'}`} onClick={e => e.stopPropagation()}>
           <div className="space-y-6 overflow-y-auto max-h-[85vh] scrollbar-none">
             <div className="flex justify-between items-center border-b pb-4">
-              <div className="font-black text-purple-700 text-lg flex items-center gap-2"><Calculator size={22}/> Menu PrecificaJá</div>
+              <div style={{ color: themeColors.primary }} className="font-black text-lg flex items-center gap-2"><Calculator size={22}/> Menu PrecificaJá</div>
               <button onClick={() => setIsMenuOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={22}/></button>
             </div>
             <nav className="flex flex-col gap-1">
-              <button onClick={() => setActiveTab('inicio')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'inicio' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Home size={16}/> Início</button>
-              <button onClick={() => setActiveTab('criar')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'criar' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Plus size={16}/> Orçar</button>
+              <button onClick={() => setActiveTab('inicio')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'inicio' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'inicio' ? themeColors.primary : undefined }}><Home size={16}/> Início</button>
+              <button onClick={() => setActiveTab('criar')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'criar' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'criar' ? themeColors.primary : undefined }}><Plus size={16}/> Orçar</button>
               
-              <button onClick={() => setActiveTab('perfil')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'perfil' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Settings size={16}/> Perfil da Loja</button>
-              <button onClick={() => setActiveTab('anotacoes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'anotacoes' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Calendar size={16}/> Agenda / Tarefas </button>
+              <button onClick={() => setActiveTab('perfil')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'perfil' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'perfil' ? themeColors.primary : undefined }}><Settings size={16}/> Perfil e Cores da Loja</button>
+              <button onClick={() => setActiveTab('anotacoes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'anotacoes' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'anotacoes' ? themeColors.primary : undefined }}><Calendar size={16}/> Agenda / Tarefas </button>
 
-              <button onClick={() => { setActiveTab('financeiro'); setSubAbaFinanceiro('geral'); }} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'financeiro' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Calculator size={16}/> Configurações de Custos</button>
-              <button onClick={() => setActiveTab('pedidos')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'pedidos' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><History size={16}/> Histórico de Orçamentos</button>
-              <button onClick={() => setActiveTab('balcao')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'balcao' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><ShoppingCart size={16}/> Balcão de Vendas Rápido</button>
-              <button onClick={() => setActiveTab('catalogo')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'catalogo' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><BookOpen size={16}/> Meu Catálogo Visual</button>
+              <button onClick={() => { setActiveTab('financeiro'); setSubAbaFinanceiro('geral'); }} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'financeiro' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'financeiro' ? themeColors.primary : undefined }}><Calculator size={16}/> Configurações de Custos</button>
+              <button onClick={() => setActiveTab('pedidos')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'pedidos' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'pedidos' ? themeColors.primary : undefined }}><History size={16}/> Histórico de Orçamentos</button>
+              <button onClick={() => setActiveTab('balcao')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'balcao' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'balcao' ? themeColors.primary : undefined }}><ShoppingCart size={16}/> Balcão de Vendas Rápido</button>
+              <button onClick={() => setActiveTab('catalogo')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'catalogo' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'catalogo' ? themeColors.primary : undefined }}><BookOpen size={16}/> Meu Catálogo Visual</button>
               
-              <button onClick={() => setActiveTab('fornecedores')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'fornecedores' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Globe size={16}/> Biblioteca Fornecedores </button>
+              <button onClick={() => setActiveTab('fornecedores')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'fornecedores' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'fornecedores' ? themeColors.primary : undefined }}><Globe size={16}/> Biblioteca Fornecedores </button>
               
-              <button onClick={() => setActiveTab('materiais')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'materiais' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><Package size={16}/> Armário / Insumos</button>
-              <button onClick={() => setActiveTab('clientes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'clientes' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}><User size={16}/> Meus Clientes</button>
+              <button onClick={() => setActiveTab('materiais')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'materiais' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'materiais' ? themeColors.primary : undefined }}><Package size={16}/> Armário / Insumos</button>
+              <button onClick={() => setActiveTab('clientes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'clientes' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'clientes' ? themeColors.primary : undefined }}><User size={16}/> Meus Clientes</button>
             </nav>
           </div>
           <button onClick={() => signOut(auth)} className="w-full text-red-500 bg-red-50 p-4 rounded-xl text-xs font-black uppercase flex items-center justify-center gap-1.5"><LogOut size={16}/> Sair</button>
@@ -1264,23 +1314,24 @@ export default function App() {
         <button onClick={() => setIsMenuOpen(true)} className="p-2 text-slate-700 hover:text-purple-700 transition-colors">
           <Menu size={24} />
         </button>
-        <div className="font-black text-purple-700 text-lg flex items-center gap-2"><Calculator size={22}/> PrecificaJá</div>
+        <div style={{ color: themeColors.primary }} className="font-black text-lg flex items-center gap-2"><Calculator size={22}/> PrecificaJá</div>
         <div className="w-10"></div> 
       </header>
 
       <div className="p-4 max-w-xl mx-auto w-full">
         {activeTab === 'inicio' && (
           <div className="space-y-5 pt-2 w-full">
-            <div className="bg-gradient-to-tr from-purple-700 to-indigo-600 p-6 rounded-[35px] shadow-lg text-white w-full">
-              <p className="text-xs font-bold uppercase tracking-widest text-purple-200">Faturamento Realizado</p>
+            <div style={{ backgroundColor: themeColors.primary }} className="p-6 rounded-[35px] shadow-lg text-white w-full">
+              <p className="text-xs font-bold uppercase tracking-widest text-white/80">Faturamento Realizado</p>
               <h2 className="text-4xl font-black mt-1 tracking-tight">R$ {dashboardMetrics.faturamento}</h2>
-              <p className="text-[11px] text-purple-200 mt-2 opacity-80">📈 Dinheiro gerado de pedidos marcados como vendidos</p>
+              <p className="text-[11px] text-white/80 mt-2 opacity-80">📈 Dinheiro gerado de pedidos marcados como vendidos</p>
             </div>
 
             <div onClick={() => { limparCalculadora(); setActiveTab('criar'); }} 
-                 className="bg-gradient-to-r from-orange-500 to-amber-500 p-6 rounded-[35px] shadow-md cursor-pointer active:scale-95 transition-all text-white flex justify-between items-center w-full">
+                 style={{ backgroundColor: themeColors.secondary }}
+                 className="p-6 rounded-[35px] shadow-md cursor-pointer active:scale-95 transition-all text-white flex justify-between items-center w-full">
               <div>
-                <p className="text-xs font-bold uppercase tracking-widest text-orange-100">Calculadora Integrada</p>
+                <p className="text-xs font-bold uppercase tracking-widest text-white/80">Calculadora Integrada</p>
                 <h3 className="text-xl font-black mt-0.5 tracking-tight">Novo Orçamento Rápido 🚀</h3>
               </div>
               <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center text-white">
@@ -1290,10 +1341,10 @@ export default function App() {
 
             <div className="bg-white p-5 rounded-[35px] border shadow-sm w-full space-y-4">
               <div className="flex justify-between items-center px-1">
-                <h3 className="text-purple-700 font-black uppercase text-xs tracking-wider flex items-center gap-1.5">
+                <h3 style={{ color: themeColors.primary }} className="font-black uppercase text-xs tracking-wider flex items-center gap-1.5">
                   <Calendar size={16}/> Agenda da Semana
                 </h3>
-                <span className="text-[10px] bg-purple-50 text-purple-600 px-2 py-1 rounded-md font-bold uppercase">Mês Atual</span>
+                <span style={{ color: themeColors.primary }} className="text-[10px] bg-purple-50 px-2 py-1 rounded-md font-bold uppercase">Mês Atual</span>
               </div>
               
               <div className="flex justify-between gap-1 overflow-x-auto pb-1 scrollbar-none w-full">
@@ -1305,10 +1356,12 @@ export default function App() {
                       onClick={() => setDiaSelecionadoAgenda(dia.stringData)}
                       className="flex flex-col items-center gap-1 cursor-pointer min-w-[46px] select-none"
                     >
-                      <span className={`text-[10px] font-bold ${isActive ? 'text-orange-500 font-extrabold' : 'text-slate-400'}`}>
+                      <span style={{ color: isActive ? themeColors.secondary : undefined }} className={`text-[10px] font-bold ${!isActive ? 'text-slate-400' : 'font-extrabold'}`}>
                         {dia.diaSemanaTexto}
                       </span>
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-black transition-all border ${isActive ? 'bg-orange-500 text-white border-orange-500 shadow-md scale-105' : 'bg-slate-50 text-slate-700 border-slate-100'}`}>
+                      <div 
+                        style={{ backgroundColor: isActive ? themeColors.secondary : undefined, borderColor: isActive ? themeColors.secondary : undefined }}
+                        className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-black transition-all border ${isActive ? 'text-white shadow-md scale-105' : 'bg-slate-50 text-slate-700 border-slate-100'}`}>
                         {dia.diaNumero}
                       </div>
                     </div>
@@ -1319,7 +1372,7 @@ export default function App() {
               <div className="border-t border-slate-100 pt-3 space-y-2 w-full">
                 {anotacoesDoDiaSelecionado.map((item) => (
                   <div key={item.id} className="flex items-center gap-3 bg-slate-50/80 p-3 rounded-2xl border border-slate-100 animate-fadeIn">
-                    <button onClick={() => toggleStatusAnotacao(item.id, item.concluido)} className="text-purple-600 transition-transform active:scale-95 shrink-0">
+                    <button onClick={() => toggleStatusAnotacao(item.id, item.concluido)} style={{ color: themeColors.primary }} className="transition-transform active:scale-95 shrink-0">
                       {item.concluido ? <CheckSquare size={19} /> : <Square size={19} className="text-slate-400" />}
                     </button>
                     <div className="flex-1 min-w-0">
@@ -1339,13 +1392,13 @@ export default function App() {
 
             <div className="grid grid-cols-2 gap-4 w-full">
               <div onClick={() => setActiveTab('pedidos')} className="bg-white p-5 rounded-[30px] border shadow-sm cursor-pointer active:scale-95 transition-all w-full">
-                <div className="w-10 h-10 rounded-2xl bg-orange-50 flex items-center justify-center text-orange-500 mb-3"><History size={20}/></div>
+                <div style={{ color: themeColors.secondary }} className="w-10 h-10 rounded-2xl bg-orange-50 flex items-center justify-center mb-3"><History size={20}/></div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Orçamentos</p>
                 <p className="text-2xl font-black text-slate-800 mt-0.5">{dashboardMetrics.pendentes}</p>
               </div>
 
               <div onClick={() => setActiveTab('balcao')} className="bg-white p-5 rounded-[30px] border shadow-sm cursor-pointer active:scale-95 transition-all w-full">
-                <div className="w-10 h-10 rounded-2xl bg-purple-50 flex items-center justify-center text-purple-600 mb-3"><ShoppingCart size={20}/></div>
+                <div style={{ color: themeColors.primary }} className="w-10 h-10 rounded-2xl bg-purple-50 flex items-center justify-center mb-3"><ShoppingCart size={20}/></div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Balcão de Vendas</p>
                 <p className="text-2xl font-black text-slate-800 mt-0.5">{produtos.length}</p>
               </div>
@@ -1367,11 +1420,11 @@ export default function App() {
           </div>
         )}
 
-        {/* TELA DE PERFIL DA LOJA */}
+        {/* TELA DE PERFIL DA LOJA & CORES */}
         {activeTab === 'perfil' && (
           <div className="space-y-6 pt-2 w-full">
             <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
-              <h2 className="text-purple-700 font-bold mb-2 flex items-center gap-2 uppercase text-xs tracking-widest"><Settings size={18}/> Perfil da Minha Loja</h2>
+              <h2 style={{ color: themeColors.primary }} className="font-bold mb-2 flex items-center gap-2 uppercase text-xs tracking-widest"><Settings size={18}/> Perfil da Minha Loja</h2>
               <p className="text-slate-400 text-[11px] mb-6">Personalize o aplicativo com a sua marca. O logo e o nome definidos aqui aparecerão no topo de todos os seus orçamentos em PDF!</p>
 
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Logo Oficial da Empresa</label>
@@ -1383,7 +1436,7 @@ export default function App() {
                   </div>
                 ) : (
                   <label className="cursor-pointer flex flex-col items-center gap-2 text-slate-400 hover:text-purple-600 transition-colors w-full h-full justify-center py-4">
-                    <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center shadow-sm text-purple-600">
+                    <div style={{ color: themeColors.primary }} className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center shadow-sm">
                       <Camera size={22} />
                     </div>
                     <span className="text-xs font-bold uppercase tracking-wide text-[10px]">
@@ -1402,18 +1455,81 @@ export default function App() {
                 onChange={e => setNomeLojaPerfil(e.target.value)} 
               />
 
-              <button onClick={async () => {
+              {/* PAINEL DE PERSONALIZAÇÃO DE CORES */}
+              <div className="border-t pt-6 mb-6">
+                <h3 style={{ color: themeColors.primary }} className="font-bold flex items-center gap-2 uppercase text-xs tracking-widest mb-1">
+                  <Palette size={18}/> Paleta de Cores do App
+                </h3>
+                <p className="text-slate-400 text-[11px] mb-4">Escolha um tema pronto ou configure as cores exatas da sua identidade visual:</p>
+
+                {/* Presets de Temas */}
+                <div className="grid grid-cols-2 gap-2 mb-4">
+                  {PRESET_PALETTES.map(preset => (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => setThemeColors({
+                        primary: preset.primary,
+                        primaryHover: preset.primaryHover,
+                        secondary: preset.secondary,
+                        secondaryHover: preset.secondaryHover
+                      })}
+                      className={`p-3 rounded-2xl border text-left flex flex-col gap-2 transition-all ${themeColors.primary === preset.primary ? 'border-2 border-purple-600 bg-purple-50/50' : 'border-slate-100 bg-slate-50'}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 rounded-full" style={{ backgroundColor: preset.primary }} />
+                        <div className="w-4 h-4 rounded-full" style={{ backgroundColor: preset.secondary }} />
+                      </div>
+                      <span className="text-[10px] font-bold text-slate-700">{preset.nome}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Color Pickers Customizados */}
+                <div className="grid grid-cols-2 gap-3 bg-slate-50 p-4 rounded-2xl border">
+                  <div>
+                    <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Cor Primária (Marca)</label>
+                    <div className="flex items-center gap-2 bg-white p-2 rounded-xl border">
+                      <input 
+                        type="color" 
+                        value={themeColors.primary} 
+                        onChange={e => setThemeColors({ ...themeColors, primary: e.target.value, primaryHover: e.target.value })}
+                        className="w-8 h-8 rounded-lg border-0 cursor-pointer"
+                      />
+                      <span className="text-xs font-mono font-bold uppercase">{themeColors.primary}</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Cor Secundária (Ação)</label>
+                    <div className="flex items-center gap-2 bg-white p-2 rounded-xl border">
+                      <input 
+                        type="color" 
+                        value={themeColors.secondary} 
+                        onChange={e => setThemeColors({ ...themeColors, secondary: e.target.value, secondaryHover: e.target.value })}
+                        className="w-8 h-8 rounded-lg border-0 cursor-pointer"
+                      />
+                      <span className="text-xs font-mono font-bold uppercase">{themeColors.secondary}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <button 
+                style={{ backgroundColor: themeColors.primary }}
+                onClick={async () => {
                 try {
                   await setDoc(doc(db, "configuracoes_loja", user.uid), {
                     nomeLoja: nomeLojaPerfil.trim(),
-                    logoUrl: logoLojaPerfil
+                    logoUrl: logoLojaPerfil,
+                    themeColors: themeColors
                   }, { merge: true });
-                  alert("Perfil da empresa atualizado com sucesso! 🚀");
+                  alert("Perfil e cores da loja salvos com sucesso! 🚀");
                   setActiveTab('inicio');
                 } catch {
                   alert("Erro ao salvar as configurações da empresa.");
                 }
-              }} className="w-full bg-purple-700 hover:bg-purple-800 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md transition-colors" disabled={subindoLogo}>
+              }} className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md transition-all" disabled={subindoLogo}>
                 Salvar Configurações da Marca
               </button>
             </div>
@@ -1424,21 +1540,23 @@ export default function App() {
         {activeTab === 'anotacoes' && (
           <div className="space-y-4 pt-2 w-full">
             <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
-              <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2"><Calendar size={20}/> Criar Nova Tarefa / Lembrete</h2>
+              <h2 style={{ color: themeColors.primary }} className="font-bold mb-4 flex items-center gap-2"><Calendar size={20}/> Criar Nova Tarefa / Lembrete</h2>
               <p className="text-slate-400 text-[11px] mb-4">Gerencie as pendências e compras do seu negócio por data. O que você colocar aqui alimenta o painel da sua Tela Inicial.</p>
               
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">O que precisa fazer?</label>
               <input placeholder="Ex: Comprar papel fotográfico A4 / Entregar caneca do cliente" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-bold text-sm" value={novaAnotacao.titulo} onChange={e => setNovaAnotacao({...novaAnotacao, titulo: e.target.value})} />
               
               <div className="mb-4 w-full">
-                <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Data Limite / Prazo</label>
+                <label style={{ color: themeColors.secondary }} className="text-[10px] font-bold uppercase ml-1">Data Limite / Prazo</label>
                 <input type="date" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm block mt-1" value={novaAnotacao.dataPrazo} onChange={e => setNovaAnotacao({...novaAnotacao, dataPrazo: e.target.value})} />
               </div>
 
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Detalhes Adicionais (Opcional)</label>
               <textarea placeholder="Escreva informações extras ou observações aqui..." className="w-full p-4 bg-slate-50 rounded-2xl mb-6 outline-none border focus:border-purple-400 resize-none h-16 text-sm font-semibold" value={novaAnotacao.conteudo} onChange={e => setNovaAnotacao({...novaAnotacao, conteudo: e.target.value})} />
               
-              <button onClick={async () => {
+              <button 
+                style={{ backgroundColor: themeColors.secondary }}
+                onClick={async () => {
                 if(!novaAnotacao.titulo) return alert("Sua tarefa precisa de uma descrição básica!");
                 const dadosNota = { titulo: novaAnotacao.titulo, conteudo: novaAnotacao.conteudo || '', dataPrazo: novaAnotacao.dataPrazo, concluido: false, userId: user.uid, dataCriacao: new Date().toLocaleDateString('pt-BR') };
                 
@@ -1447,7 +1565,7 @@ export default function App() {
                 
                 setNovaAnotacao({ id: '', titulo: '', conteudo: '', dataPrazo: new Date().toISOString().split('T')[0] });
                 alert("Agendado com sucesso! 📅✨");
-              }} className="w-full bg-orange-500 text-white p-5 rounded-2xl font-black uppercase text-xs shadow-md">
+              }} className="w-full hover:opacity-90 text-white p-5 rounded-2xl font-black uppercase text-xs shadow-md">
                 {novaAnotacao.id ? 'Atualizar Compromisso' : 'Agendar Tarefa'}
               </button>
             </div>
@@ -1460,7 +1578,7 @@ export default function App() {
                   <div key={item.id} className={`bg-white p-5 rounded-3xl border shadow-sm w-full flex flex-col gap-2 relative ${item.concluido ? 'opacity-50' : ''}`}>
                     <div className="flex justify-between items-start anonymity-wrapper w-full">
                       <div className="flex items-start gap-3 flex-1 min-w-0">
-                        <button onClick={() => toggleStatusAnotacao(item.id, item.concluido)} className="text-purple-600 mt-0.5 shrink-0">
+                        <button onClick={() => toggleStatusAnotacao(item.id, item.concluido)} style={{ color: themeColors.primary }} className="mt-0.5 shrink-0">
                           {item.concluido ? <CheckSquare size={20} /> : <Square size={20} className="text-slate-400" />}
                         </button>
                         <div className="min-w-0 flex-1">
@@ -1468,7 +1586,7 @@ export default function App() {
                             {item.titulo}
                           </h4>
                           <div className="flex gap-2 mt-1 flex-wrap">
-                            <span className="text-[9px] bg-purple-50 text-purple-600 px-2 py-0.5 rounded font-black uppercase">🗓️ Prazo: {dataFormatada}</span>
+                            <span style={{ color: themeColors.primary }} className="text-[9px] bg-purple-50 px-2 py-0.5 rounded font-black uppercase">🗓️ Prazo: {dataFormatada}</span>
                             {item.concluido && <span className="text-[9px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded font-black uppercase">Concluído</span>}
                           </div>
                         </div>
@@ -1491,18 +1609,18 @@ export default function App() {
           <div className="space-y-6 pt-2 w-full">
             {/* SUB-MENU DE ABAS INTERNAS FINANCEIRAS */}
             <div className="flex bg-slate-100 p-1.5 rounded-2xl gap-1 w-full border">
-              <button onClick={() => setSubAbaFinanceiro('geral')} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${subAbaFinanceiro === 'geral' ? 'bg-white text-purple-700 shadow-sm' : 'text-slate-400'}`}>Geral</button>
-              <button onClick={() => setSubAbaFinanceiro('impressao')} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${subAbaFinanceiro === 'impressao' ? 'bg-white text-purple-700 shadow-sm' : 'text-slate-400'}`}>Custo de Impressão 🖨️</button>
-              <button onClick={() => setSubAbaFinanceiro('equipamentos')} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${subAbaFinanceiro === 'equipamentos' ? 'bg-white text-purple-700 shadow-sm' : 'text-slate-400'}`}>Fixos / Máquinas</button>
+              <button onClick={() => setSubAbaFinanceiro('geral')} style={{ color: subAbaFinanceiro === 'geral' ? themeColors.primary : undefined }} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${subAbaFinanceiro === 'geral' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>Geral</button>
+              <button onClick={() => setSubAbaFinanceiro('impressao')} style={{ color: subAbaFinanceiro === 'impressao' ? themeColors.primary : undefined }} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${subAbaFinanceiro === 'impressao' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>Custo de Impressão 🖨️</button>
+              <button onClick={() => setSubAbaFinanceiro('equipamentos')} style={{ color: subAbaFinanceiro === 'equipamentos' ? themeColors.primary : undefined }} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${subAbaFinanceiro === 'equipamentos' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>Fixos / Máquinas</button>
             </div>
 
             {subAbaFinanceiro === 'geral' && (
               <div className="bg-white p-6 rounded-[35px] shadow-md border w-full animate-fadeIn">
-                <h2 className="text-purple-700 font-bold mb-2 flex items-center gap-2 uppercase text-xs tracking-widest"><Calculator size={18}/> Estrutura de Custos Fixos (Opcional)</h2>
+                <h2 style={{ color: themeColors.primary }} className="font-bold mb-2 flex items-center gap-2 uppercase text-xs tracking-widest"><Calculator size={18}/> Estrutura de Custos Fixos (Opcional)</h2>
                 <p className="text-slate-400 text-[11px] mb-4">Insira ou edite seus valores aqui. Eles ficam salvos e você pode alterá-los quando quiser.</p>
 
-                <label className="text-[10px] font-bold text-purple-700 outline-none uppercase ml-1">Salário Mensal Pretendido</label>
-                <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 font-bold text-purple-700 outline-none" value={financasFixo.salario} onChange={e => setFinancasFixo({...financasFixo, salario: e.target.value})} />
+                <label style={{ color: themeColors.primary }} className="text-[10px] font-bold outline-none uppercase ml-1">Salário Mensal Pretendido</label>
+                <input type="number" style={{ color: themeColors.primary }} className="w-full p-4 bg-slate-50 rounded-2xl mb-3 font-bold outline-none" value={financasFixo.salario} onChange={e => setFinancasFixo({...financasFixo, salario: e.target.value})} />
 
                 <div className="grid grid-cols-2 gap-3 mb-3 w-full">
                   <div>
@@ -1527,28 +1645,30 @@ export default function App() {
                 </div>
 
                 <div className="w-full">
-                  <h3 className="text-purple-700 font-bold text-xs uppercase tracking-wider mb-2 mt-4">Sua Carga Horária</h3>
+                  <h3 style={{ color: themeColors.primary }} className="font-bold text-xs uppercase tracking-wider mb-2 mt-4">Sua Carga Horária</h3>
                   <div className="grid grid-cols-2 gap-3 mb-5 w-full">
                     <div>
-                      <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Dias de Trabalho no Mês</label>
+                      <label style={{ color: themeColors.secondary }} className="text-[10px] font-bold uppercase ml-1">Dias de Trabalho no Mês</label>
                       <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={financasFixo.diasTrabalho} onChange={e => setFinancasFixo({...financasFixo, diasTrabalho: e.target.value})} />
                     </div>
                     <div>
-                      <label className="text-[10px] font-bold text-orange-500 uppercase ml-1">Horas de Trabalho por Dia</label>
+                      <label style={{ color: themeColors.secondary }} className="text-[10px] font-bold uppercase ml-1">Horas de Trabalho por Dia</label>
                       <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={financasFixo.horasDia} onChange={e => setFinancasFixo({...financasFixo, horasDia: e.target.value})} />
                     </div>
                   </div>
                 </div>
 
-                <button onClick={async () => {
+                <button 
+                  style={{ backgroundColor: themeColors.primary }}
+                  onClick={async () => {
                   await setDoc(doc(db, "configuracoes_financeiras", user.uid), financasFixo, { merge: true });
                   
                   const totalHoras = Number(financasFixo.diasTrabalho || 20) * Number(financasFixo.horasDia || 8);
                   const intentCustos = Number(financasFixo.salario || 0) + Number(financasFixo.aluguel || 0) + Number(financasFixo.internet || 0) + Number(financasFixo.luz || 0) + Number(financasFixo.outros || 0);
                   if (intentCustos > 0) setVHora((intentCustos / totalHoras).toFixed(2));
                   
-                  alert("Custos salvos com sucesso! O valor sugerido para a hora foi updated na calculadora. 🎉");
-                }} className="w-full bg-purple-700 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md">
+                  alert("Custos salvos com sucesso! O valor sugerido para a hora foi atualizado na calculadora. 🎉");
+                }} className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md">
                   Salvar Configurações Fixas
                 </button>
               </div>
@@ -1558,7 +1678,7 @@ export default function App() {
             {subAbaFinanceiro === 'impressao' && (
               <div className="bg-white p-6 rounded-[35px] shadow-md border w-full animate-fadeIn space-y-4">
                 <div>
-                  <h2 className="text-purple-700 font-bold flex items-center gap-2 uppercase text-xs tracking-widest"><Printer size={18}/> Calculadora de Impressão</h2>
+                  <h2 style={{ color: themeColors.primary }} className="font-bold flex items-center gap-2 uppercase text-xs tracking-widest"><Printer size={18}/> Calculadora de Impressão</h2>
                   <p className="text-slate-400 text-[11px] mt-1">Configure o gasto real por página para aplicar automaticamente em seus novos orçamentos.</p>
                 </div>
 
@@ -1591,18 +1711,18 @@ export default function App() {
                 {/* Card Superior: Custo Total */}
                 <div className="bg-purple-50 rounded-2xl p-4 flex justify-between items-center border border-purple-100">
                   <div>
-                    <h3 className="text-[11px] font-black text-purple-700 tracking-wider uppercase">CUSTO TOTAL DAS TINTAS</h3>
+                    <h3 style={{ color: themeColors.primary }} className="text-[11px] font-black tracking-wider uppercase">CUSTO TOTAL DAS TINTAS</h3>
                     <p className="text-xs text-slate-600 mt-0.5">{qtdCores} cores × {formatarMoedaLocal(Number(precoTinta) || 0)}</p>
                   </div>
-                  <div className="text-xl font-black text-orange-500">
+                  <div style={{ color: themeColors.secondary }} className="text-xl font-black">
                     {formatarMoedaLocal((Number(qtdCores) || 0) * (Number(precoTinta) || 0))}
                   </div>
                 </div>
 
                 {/* Card de Destaque: Custo por Impressão */}
                 <div className="bg-orange-50 rounded-2xl p-5 text-center border border-orange-100">
-                  <h3 className="text-[11px] font-black text-orange-600 tracking-wider uppercase">CUSTO POR IMPRESSÃO</h3>
-                  <div className="text-3xl font-black text-purple-700 my-1">
+                  <h3 style={{ color: themeColors.secondary }} className="text-[11px] font-black tracking-wider uppercase">CUSTO POR IMPRESSÃO</h3>
+                  <div style={{ color: themeColors.primary }} className="text-3xl font-black my-1">
                     {formatarMoedaLocal(custoPorPaginaCalculado)}
                   </div>
                   <p className="text-[10px] text-purple-500 font-medium">Por página impressa</p>
@@ -1613,23 +1733,25 @@ export default function App() {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-slate-50 border border-slate-100 p-3 rounded-xl">
                     <div className="text-xs font-bold text-slate-800">10 páginas</div>
-                    <div className="text-xs text-purple-600 font-semibold mt-0.5">{formatarMoedaLocal(custoPorPaginaCalculado * 10)}</div>
+                    <div style={{ color: themeColors.primary }} className="text-xs font-semibold mt-0.5">{formatarMoedaLocal(custoPorPaginaCalculado * 10)}</div>
                   </div>
                   <div className="bg-slate-50 border border-slate-100 p-3 rounded-xl">
                     <div className="text-xs font-bold text-slate-800">50 páginas</div>
-                    <div className="text-xs text-purple-600 font-semibold mt-0.5">{formatarMoedaLocal(custoPorPaginaCalculado * 50)}</div>
+                    <div style={{ color: themeColors.primary }} className="text-xs font-semibold mt-0.5">{formatarMoedaLocal(custoPorPaginaCalculado * 50)}</div>
                   </div>
                   <div className="bg-slate-50 border border-slate-100 p-3 rounded-xl">
                     <div className="text-xs font-bold text-slate-800">100 páginas</div>
-                    <div className="text-xs text-purple-600 font-semibold mt-0.5">{formatarMoedaLocal(custoPorPaginaCalculado * 100)}</div>
+                    <div style={{ color: themeColors.primary }} className="text-xs font-semibold mt-0.5">{formatarMoedaLocal(custoPorPaginaCalculado * 100)}</div>
                   </div>
                   <div className="bg-slate-50 border border-slate-100 p-3 rounded-xl">
                     <div className="text-xs font-bold text-slate-800">500 páginas</div>
-                    <div className="text-xs text-purple-600 font-semibold mt-0.5">{formatarMoedaLocal(custoPorPaginaCalculado * 500)}</div>
+                    <div style={{ color: themeColors.primary }} className="text-xs font-semibold mt-0.5">{formatarMoedaLocal(custoPorPaginaCalculado * 500)}</div>
                   </div>
                 </div>
 
-                <button onClick={async () => {
+                <button 
+                  style={{ backgroundColor: themeColors.secondary }}
+                  onClick={async () => {
                   try {
                     await setDoc(doc(db, "configuracoes_financeiras", user.uid), {
                       precoTinta,
@@ -1644,7 +1766,7 @@ export default function App() {
                   } catch {
                     alert("Erro ao salvar dados de impressão.");
                   }
-                }} className="w-full bg-orange-500 hover:bg-orange-600 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md mt-4 transition-colors">
+                }} className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md mt-4 transition-colors">
                   Salvar Subcategoria de Custo
                 </button>
               </div>
@@ -1653,7 +1775,7 @@ export default function App() {
             {subAbaFinanceiro === 'equipamentos' && (
               <div className="space-y-6 animate-fadeIn w-full">
                 <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
-                  <h2 className="text-purple-700 font-bold mb-2 flex items-center gap-2 uppercase text-xs tracking-widest"><Package size={18}/> Minhas Ferramentas de Trabalho (Depreciação)</h2>
+                  <h2 style={{ color: themeColors.primary }} className="font-bold mb-2 flex items-center gap-2 uppercase text-xs tracking-widest"><Package size={18}/> Minhas Ferramentas de Trabalho (Depreciação)</h2>
                   <p className="text-slate-400 text-[11px] mb-4">Adicione ferramentas (secador, prensa) para incluir o desgaste financeiro automaticamente no resumo de custos.</p>
 
                   <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome do Equipamento</label>
@@ -1675,14 +1797,16 @@ export default function App() {
                     </div>
                   </div>
 
-                  <button onClick={async () => {
+                  <button 
+                    style={{ backgroundColor: themeColors.secondary }}
+                    onClick={async () => {
                     if(!novoEquipamento.nome || !novoEquipamento.valorPago) return alert("Preencha o nome e o preço do equipamento!");
                     const d = { nome: novoEquipamento.nome, valorPago: Number(novoEquipamento.valorPago), durabilidadeAnos: Number(novoEquipamento.durabilidadeAnos), userId: user.uid };
                     if (novoEquipamento.id) await updateDoc(doc(db, "equipamentos", novoEquipamento.id), d);
                     else await addDoc(collection(db, "equipamentos"), d);
                     setNovoEquipamento({ id: '', nome: '', valorPago: '', durabilidadeAnos: '2' });
                     alert("Equipamento salvo!");
-                  }} className="w-full bg-orange-500 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md">
+                  }} className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md">
                     Salvar Equipamento
                   </button>
                 </div>
@@ -1697,7 +1821,7 @@ export default function App() {
                       <div key={eq.id} className="bg-white p-4 rounded-3xl flex justify-between items-center border shadow-sm w-full">
                         <div>
                           <p className="font-bold text-slate-800">{eq.nome}</p>
-                          <p className="text-xs text-slate-400 mt-1">Desgaste: <span className="font-bold text-purple-700">R$ {isNaN(descHora) ? "0.00" : descHora.toFixed(2)} por hora de uso</span></p>
+                          <p className="text-xs text-slate-400 mt-1">Desgaste: <span style={{ color: themeColors.primary }} className="font-bold">R$ {isNaN(descHora) ? "0.00" : descHora.toFixed(2)} por hora de uso</span></p>
                         </div>
                         <button onClick={() => confirmarExcluir('equipamento', eq.id)} className="text-red-200 p-2"><Trash2 size={16}/></button>
                       </div>
@@ -1712,13 +1836,13 @@ export default function App() {
         {/* SEÇÃO DO BALCÃO DE VENDAS RÁPIDO */}
         {activeTab === 'balcao' && (
           <div className="space-y-4 pt-2 w-full">
-            <div className="bg-gradient-to-tr from-purple-800 to-purple-600 p-5 rounded-[35px] text-white shadow-md border border-purple-900 space-y-3.5 w-full">
+            <div style={{ backgroundColor: themeColors.primary }} className="p-5 rounded-[35px] text-white shadow-md border border-purple-900 space-y-3.5 w-full">
               <div className="w-full">
                 <h3 className="text-xs font-black uppercase tracking-widest text-purple-200 flex items-center gap-1.5"><Share2 size={14}/> Link da Vitrine de Clientes</h3>
                 <div className="mt-1.5 bg-purple-900/40 p-3 rounded-xl text-[11px] font-mono select-all break-all border border-purple-500/30 bg-black/10 w-full font-bold">
                   {linkDoCatalogoDestaCliente}
                 </div>
-                <div onClick={copiarLinkCatalogo} className="mt-2 w-full bg-white text-purple-800 font-bold p-2.5 rounded-xl text-xs uppercase shadow flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer">
+                <div onClick={copiarLinkCatalogo} style={{ color: themeColors.primary }} className="mt-2 w-full bg-white font-bold p-2.5 rounded-xl text-xs uppercase shadow flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer">
                   <Copy size={13}/> Copiar Link da Vitrine
                 </div>
               </div>
@@ -1727,18 +1851,20 @@ export default function App() {
                 <label className="text-[9px] font-black uppercase text-purple-200 block mb-1">📱 Seu WhatsApp de Vendas (Com DDD)</label>
                 <div className="flex gap-2 w-full">
                   <input placeholder="Ex: 21983858055" className="flex-1 p-2.5 bg-black/20 text-white rounded-xl text-xs font-bold border border-purple-500/30 outline-none" value={zapDonaConta} onChange={e => setZapDonaConta(e.target.value)} />
-                  <button onClick={async () => {
+                  <button 
+                    style={{ backgroundColor: themeColors.secondary }}
+                    onClick={async () => {
                     if(!zapDonaConta.trim()) return alert("Digite o número!");
-                    try { await setDoc(doc(db, "configuracoes_loja", user.uid), { whatsapp: zapDonaConta.trim() }, { merge: true }); alert("WhatsApp saved!"); } 
+                    try { await setDoc(doc(db, "configuracoes_loja", user.uid), { whatsapp: zapDonaConta.trim() }, { merge: true }); alert("WhatsApp salvo!"); } 
                     catch { alert("Erro ao salvar."); }
-                  }} className="bg-orange-500 text-white text-xs font-black uppercase px-4 rounded-xl shadow">Salvar</button>
+                  }} className="text-white text-xs font-black uppercase px-4 rounded-xl shadow hover:opacity-90">Salvar</button>
                 </div>
               </div>
             </div>
 
             <div className="bg-gradient-to-tr from-slate-900 to-purple-950 p-6 rounded-[35px] shadow-xl border border-slate-800 text-white w-full space-y-4">
               <div>
-                <h2 className="text-orange-400 font-black flex items-center gap-2 uppercase text-xs tracking-wider">
+                <h2 style={{ color: themeColors.secondary }} className="font-black flex items-center gap-2 uppercase text-xs tracking-wider">
                   <ShoppingCart size={16}/> Lançar Combo Rápido do Catálogo
                 </h2>
                 <p className="text-[11px] text-slate-400 mt-1">Dê um nome ao Kit, escolha o cliente, defina o prazo e as quantidades.</p>
@@ -1763,7 +1889,7 @@ export default function App() {
               </div>
 
               <div className="w-full">
-                <label className="text-[10px] font-bold text-orange-400 uppercase ml-1 block mb-1">Prazo de Entrega do Combo</label>
+                <label style={{ color: themeColors.secondary }} className="text-[10px] font-bold uppercase ml-1 block mb-1">Prazo de Entrega do Combo</label>
                 <input 
                   type="date" 
                   className="w-full p-3.5 bg-slate-800/80 rounded-xl text-xs font-bold text-white border border-slate-700 outline-none focus:border-purple-400 block"
@@ -1782,14 +1908,16 @@ export default function App() {
                         <span className="text-[11px] font-black text-purple-300 mr-1">R$ {Number(p.precoVenda).toFixed(2)}</span>
                         <button onClick={() => setCarrinhoInterno({...carrinhoInterno, [p.id]: Math.max(0, qtdInterna - 1)})} className="w-7 h-7 bg-slate-800 rounded-lg font-black text-slate-300">-</button>
                         <span className="font-bold text-xs w-4 text-center">{qtdInterna}</span>
-                        <button onClick={() => setCarrinhoInterno({...carrinhoInterno, [p.id]: qtdInterna + 1})} className="w-7 h-7 bg-purple-600 rounded-lg font-black text-white">+</button>
+                        <button onClick={() => setCarrinhoInterno({...carrinhoInterno, [p.id]: qtdInterna + 1})} style={{ backgroundColor: themeColors.primary }} className="w-7 h-7 rounded-lg font-black text-white">+</button>
                       </div>
                     </div>
                   );
                 })}
               </div>
 
-              <button onClick={lancarVendaBalcaoInterno} className="w-full bg-orange-500 hover:bg-orange-600 text-white p-4 rounded-xl text-xs font-black uppercase tracking-wider shadow-lg transition-transform active:scale-95">
+              <button 
+                style={{ backgroundColor: themeColors.secondary }}
+                onClick={lancarVendaBalcaoInterno} className="w-full hover:opacity-90 text-white p-4 rounded-xl text-xs font-black uppercase tracking-wider shadow-lg transition-transform active:scale-95">
                 Lançar Combo no Histórico 🚀
               </button>
             </div>
@@ -1800,7 +1928,7 @@ export default function App() {
         {activeTab === 'catalogo' && (
           <div className="space-y-4 pt-2 w-full">
             <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
-              <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2 uppercase text-xs tracking-widest">
+              <h2 style={{ color: themeColors.primary }} className="font-bold mb-4 flex items-center gap-2 uppercase text-xs tracking-widest">
                 <BookOpen size={18}/> {novoProdCatalogo.id ? '✏️ Editando Item do Catálogo' : 'Novo Item de Venda Fixa'}
               </h2>
               
@@ -1816,7 +1944,7 @@ export default function App() {
                   </div>
                 ) : (
                   <label className="cursor-pointer flex flex-col items-center gap-2 text-slate-400 hover:text-purple-600 transition-colors w-full h-full flex justify-center">
-                    <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center shadow-sm text-purple-600">
+                    <div style={{ color: themeColors.primary }} className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center shadow-sm">
                       <Camera size={22} />
                     </div>
                     <span className="text-xs font-bold uppercase tracking-wide text-[10px]">
@@ -1831,7 +1959,7 @@ export default function App() {
               <input placeholder="Ex: Caneca Alça Coração" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none font-medium text-sm border focus:border-purple-400" value={novoProdCatalogo.nome} onChange={e => setNovoProdCatalogo({...novoProdCatalogo, nome: e.target.value})} />
               
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Preço Fixo de Venda (R$)</label>
-              <input type="number" placeholder="Ex: 35.00" className="w-full p-4 bg-slate-50 rounded-2xl mb-4 outline-none font-bold text-purple-700 border focus:border-purple-400" value={novoProdCatalogo.precoVenda} onChange={e => setNovoProdCatalogo({...novoProdCatalogo, precoVenda: e.target.value})} />
+              <input type="number" placeholder="Ex: 35.00" style={{ color: themeColors.primary }} className="w-full p-4 bg-slate-50 rounded-2xl mb-4 outline-none font-bold border focus:border-purple-400" value={novoProdCatalogo.precoVenda} onChange={e => setNovoProdCatalogo({...novoProdCatalogo, precoVenda: e.target.value})} />
 
               <div className="mb-5 w-full">
                 <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Categorias do Produto (Selecione Múltiplas)</label>
@@ -1839,7 +1967,7 @@ export default function App() {
                   {categoriasProd.map(cat => {
                     const marcado = novoProdCatalogo.categorias?.includes(cat.nome) || false;
                     return (
-                      <button key={cat.id} type="button" onClick={() => toggleCategoriaNoProduto(cat.nome)} className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${marcado ? 'bg-purple-700 text-white border-purple-700 shadow-sm' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-purple-300'}`}>
+                      <button key={cat.id} type="button" onClick={() => toggleCategoriaNoProduto(cat.nome)} style={{ backgroundColor: marcado ? themeColors.primary : undefined, borderColor: marcado ? themeColors.primary : undefined }} className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${marcado ? 'text-white shadow-sm' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-purple-300'}`}>
                         {cat.nome}
                       </button>
                     );
@@ -1847,7 +1975,7 @@ export default function App() {
                 </div>
                 
                 {!mostrarInputNovaCatProd ? (
-                  <button type="button" onClick={() => setMostrarInputNovaCatProd(true)} className="text-[10px] text-purple-600 font-black uppercase mt-1 tracking-wider hover:underline">+ Criar Nova Categoria</button>
+                  <button type="button" onClick={() => setMostrarInputNovaCatProd(true)} style={{ color: themeColors.primary }} className="text-[10px] font-black uppercase mt-1 tracking-wider hover:underline">+ Criar Nova Categoria</button>
                 ) : (
                   <div className="flex gap-2 items-center bg-slate-50 p-2.5 rounded-2xl border border-dashed border-purple-200 mt-2 animate-fadeIn">
                     <input placeholder="Ex: 🎨 Brindes Luxo" className="flex-1 bg-white p-2.5 rounded-xl text-xs font-bold outline-none border" value={inputNovaCategoriaProd} onChange={e => setInputNovaCategoriaProd(e.target.value)} />
@@ -1855,19 +1983,21 @@ export default function App() {
                       if(!inputNovaCategoriaProd.trim()) return setMostrarInputNovaCatProd(false);
                       await addDoc(collection(db, "categorias_produtos"), { nome: inputNovaCategoriaProd.trim(), userId: user.uid });
                       setInputNovaCategoriaProd(''); setMostrarInputNovaCatProd(false);
-                    }} className="bg-purple-700 text-white text-xs font-black px-4 py-2.5 rounded-xl uppercase shadow-sm">OK</button>
+                    }} style={{ backgroundColor: themeColors.primary }} className="text-white text-xs font-black px-4 py-2.5 rounded-xl uppercase shadow-sm">OK</button>
                   </div>
                 )}
               </div>
 
-              <button onClick={async () => {
+              <button 
+                style={{ backgroundColor: themeColors.primary }}
+                onClick={async () => {
                 if(!novoProdCatalogo.nome || !novoProdCatalogo.precoVenda) return alert("Preencha o nome e o preço!");
                 const d = { nome: novoProdCatalogo.nome, precoVenda: Number(novoProdCatalogo.precoVenda), urlImagem: novoProdCatalogo.urlImagem || '', categorias: novoProdCatalogo.categorias || [], userId: user.uid };
                 if (novoProdCatalogo.id) await updateDoc(doc(db, "produtos", novoProdCatalogo.id), d);
                 else await addDoc(collection(db, "produtos"), d);
                 setNovoProdCatalogo({ id: '', nome: '', precoVenda: '', urlImagem: '', categorias: [] });
                 alert("Produto salvo no catálogo!");
-              }} className="w-full bg-purple-700 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md" disabled={subindoImagem}>
+              }} className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md" disabled={subindoImagem}>
                 {novoProdCatalogo.id ? 'Salvar Alterações 📝' : 'Salvar no Catálogo 📖'}
               </button>
             </div>
@@ -1881,7 +2011,7 @@ export default function App() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-slate-800 text-sm truncate">{p.nome}</p>
-                    <p className="text-purple-700 font-black text-sm mt-0.5">R$ {Number(p.precoVenda).toFixed(2)}</p>
+                    <p style={{ color: themeColors.primary }} className="font-black text-sm mt-0.5">R$ {Number(p.precoVenda).toFixed(2)}</p>
                     {p.categorias && p.categorias.length > 0 && (
                       <div className="flex gap-1 flex-wrap mt-1">
                         {p.categorias.map((c: string, i: number) => (
@@ -1891,7 +2021,7 @@ export default function App() {
                     )}
                   </div>
                   <div className="flex items-center gap-1">
-                    <button onClick={() => venderItemDiretoDoCatalogo(p)} className="bg-orange-500 text-white px-3 py-2 rounded-xl text-xs font-black uppercase shadow active:scale-95">Vender 🛍️</button>
+                    <button onClick={() => venderItemDiretoDoCatalogo(p)} style={{ backgroundColor: themeColors.secondary }} className="text-white px-3 py-2 rounded-xl text-xs font-black uppercase shadow active:scale-95">Vender 🛍️</button>
                     <button onClick={() => setNovoProdCatalogo({ id: p.id, nome: p.nome, precoVenda: String(p.precoVenda), urlImagem: p.urlImagem || '', categorias: p.categorias || [] })} className="text-orange-400 hover:bg-orange-50 p-1.5 rounded-xl"><Edit2 size={15}/></button>
                     <button onClick={() => confirmarExcluir('produto', p.id)} className="text-red-200 p-1.5"><Trash2 size={15}/></button>
                   </div>
@@ -1908,7 +2038,7 @@ export default function App() {
         {activeTab === 'fornecedores' && (
           <div className="space-y-4 pt-2 w-full animate-fadeIn">
             <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
-              <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2 uppercase text-xs tracking-widest"><Globe size={20}/> Cadastrar Novo Fornecedor</h2>
+              <h2 style={{ color: themeColors.primary }} className="font-bold mb-4 flex items-center gap-2 uppercase text-xs tracking-widest"><Globe size={20}/> Cadastrar Novo Fornecedor</h2>
               
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome da Empresa / Distribuidora</label>
               <input placeholder="Ex: Pampa Papéis" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm" value={novoFornecedor.nome} onChange={e => setNovoFornecedor({...novoFornecedor, nome: e.target.value})} />
@@ -1928,7 +2058,7 @@ export default function App() {
                   {categoriasForn.map(cat => {
                     const marcado = novoFornecedor.categorias?.includes(cat.nome) || false;
                     return (
-                      <button key={cat.id} type="button" onClick={() => toggleCategoriaNoFornecedor(cat.nome)} className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${marcado ? 'bg-purple-700 text-white border-purple-700 shadow-sm' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-purple-300'}`}>
+                      <button key={cat.id} type="button" onClick={() => toggleCategoriaNoFornecedor(cat.nome)} style={{ backgroundColor: marcado ? themeColors.primary : undefined, borderColor: marcado ? themeColors.primary : undefined }} className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${marcado ? 'text-white shadow-sm' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-purple-300'}`}>
                         {cat.nome}
                       </button>
                     );
@@ -1936,7 +2066,7 @@ export default function App() {
                 </div>
                 
                 {!mostrarInputNovaCatForn ? (
-                  <button type="button" onClick={() => setMostrarInputNovaCatForn(true)} className="text-[10px] text-purple-600 font-black uppercase mt-1 tracking-wider hover:underline">+ Criar Categoria de Compras</button>
+                  <button type="button" onClick={() => setMostrarInputNovaCatForn(true)} style={{ color: themeColors.primary }} className="text-[10px] font-black uppercase mt-1 tracking-wider hover:underline">+ Criar Categoria de Compras</button>
                 ) : (
                   <div className="flex gap-2 items-center bg-slate-50 p-2.5 rounded-2xl border border-dashed border-purple-200 mt-2 animate-fadeIn">
                     <input placeholder="Ex: 🧵 Fitas e Cordões" className="flex-1 bg-white p-2.5 rounded-xl text-xs font-bold outline-none border" value={inputNovaCategoriaForn} onChange={e => setInputNovaCategoriaForn(e.target.value)} />
@@ -1944,12 +2074,14 @@ export default function App() {
                       if(!inputNovaCategoriaForn.trim()) return setMostrarInputNovaCatForn(false);
                       await addDoc(collection(db, "categorias_fornecedores"), { nome: inputNovaCategoriaForn.trim(), userId: user.uid });
                       setInputNovaCategoriaForn(''); setMostrarInputNovaCatForn(false);
-                    }} className="bg-purple-700 text-white text-xs font-black px-4 py-2.5 rounded-xl uppercase shadow-sm">OK</button>
+                    }} style={{ backgroundColor: themeColors.primary }} className="text-white text-xs font-black px-4 py-2.5 rounded-xl uppercase shadow-sm">OK</button>
                   </div>
                 )}
               </div>
 
-              <button onClick={async () => {
+              <button 
+                style={{ backgroundColor: themeColors.secondary }}
+                onClick={async () => {
                 if(!novoFornecedor.nome) return alert("Digite o nome do fornecedor!");
                 const d = { nome: novoFornecedor.nome, site: novoFornecedor.site, whatsapp: novoFornecedor.whatsapp, endereco: novoFornecedor.endereco, categorias: novoFornecedor.categorias || [], userId: user.uid };
                 
@@ -1958,7 +2090,7 @@ export default function App() {
                 
                 setNovoFornecedor({ id: '', nome: '', site: '', whatsapp: '', endereco: '', categorias: [] });
                 alert("Fornecedor cadastrado com sucesso! 📦🎉");
-              }} className="w-full bg-orange-500 text-white p-5 rounded-2xl font-black uppercase text-xs shadow-md">
+              }} className="w-full hover:opacity-90 text-white p-5 rounded-2xl font-black uppercase text-xs shadow-md">
                 {novoFornecedor.id ? 'Atualizar Fornecedor' : 'Salvar Fornecedor'}
               </button>
             </div>
@@ -1969,9 +2101,9 @@ export default function App() {
                 <input type="text" placeholder="Pesquisar por nome do fornecedor..." value={pesquisaFornecedores} onChange={e => setPesquisaFornecedores(e.target.value)} className="w-full p-4 pl-11 bg-white rounded-2xl border border-slate-200 outline-none text-sm font-medium focus:border-purple-500 transition-colors shadow-sm" />
               </div>
               <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-none w-full">
-                <button onClick={() => setFiltroFornSelecionado('Todos')} className={`px-3 py-1.5 text-xs font-bold shrink-0 rounded-xl border ${filtroFornSelecionado === 'Todos' ? 'bg-purple-700 text-white border-purple-700' : 'bg-white text-slate-500'}`}>🌍 Todos</button>
+                <button onClick={() => setFiltroFornSelecionado('Todos')} style={{ backgroundColor: filtroFornSelecionado === 'Todos' ? themeColors.primary : undefined, borderColor: filtroFornSelecionado === 'Todos' ? themeColors.primary : undefined }} className={`px-3 py-1.5 text-xs font-bold shrink-0 rounded-xl border ${filtroFornSelecionado === 'Todos' ? 'text-white' : 'bg-white text-slate-500'}`}>🌍 Todos</button>
                 {categoriasForn.map(cat => (
-                  <button key={cat.id} onClick={() => setFiltroFornSelecionado(cat.nome)} className={`px-3 py-1.5 text-xs font-bold shrink-0 rounded-xl border ${filtroFornSelecionado === cat.nome ? 'bg-purple-700 text-white border-purple-700' : 'bg-white text-slate-500'}`}>{cat.nome}</button>
+                  <button key={cat.id} onClick={() => setFiltroFornSelecionado(cat.nome)} style={{ backgroundColor: filtroFornSelecionado === cat.nome ? themeColors.primary : undefined, borderColor: filtroFornSelecionado === cat.nome ? themeColors.primary : undefined }} className={`px-3 py-1.5 text-xs font-bold shrink-0 rounded-xl border ${filtroFornSelecionado === cat.nome ? 'text-white' : 'bg-white text-slate-500'}`}>{cat.nome}</button>
                 ))}
               </div>
             </div>
@@ -1986,7 +2118,7 @@ export default function App() {
                       {f.categorias && f.categorias.length > 0 && (
                         <div className="flex gap-1 flex-wrap mt-2">
                           {f.categorias.map((c: string, idx: number) => (
-                            <span key={idx} className="text-[9px] bg-purple-50 text-purple-600 px-2 py-0.5 rounded font-black uppercase">{c}</span>
+                            <span key={idx} style={{ color: themeColors.primary }} className="text-[9px] bg-purple-50 px-2 py-0.5 rounded font-black uppercase">{c}</span>
                           ))}
                         </div>
                       )}
@@ -2022,11 +2154,11 @@ export default function App() {
         {activeTab === 'pedidos' && (
           <div className="space-y-3 pt-2 w-full">
             <div className="flex justify-between items-center mb-1 w-full">
-              <h2 className="text-purple-700 font-bold flex items-center gap-2"><History size={20}/> Histórico da Loja</h2>
+              <h2 style={{ color: themeColors.primary }} className="font-bold flex items-center gap-2"><History size={20}/> Histórico da Loja</h2>
             </div>
 
             <div className="flex bg-slate-100 p-1.5 rounded-2xl gap-1 w-full mb-4 border">
-              <button onClick={() => setFiltroStatusPedido('Pendente')} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${filtroStatusPedido === 'Pendente' ? 'bg-white text-purple-700 shadow-sm' : 'text-slate-400'}`}>Pendentes ⏳</button>
+              <button onClick={() => setFiltroStatusPedido('Pendente')} style={{ color: filtroStatusPedido === 'Pendente' ? themeColors.primary : undefined }} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${filtroStatusPedido === 'Pendente' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>Pendentes ⏳</button>
               <button onClick={() => setFiltroStatusPedido('Vendido')} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${filtroStatusPedido === 'Vendido' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400'}`}>Vendidos 💰</button>
               <button onClick={() => setFiltroStatusPedido('Cancelado')} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${filtroStatusPedido === 'Cancelado' ? 'bg-white text-red-500 shadow-sm' : 'text-slate-400'}`}>Cancelados ❌</button>
             </div>
@@ -2038,7 +2170,7 @@ export default function App() {
                  <div key={p.id} className="bg-white p-5 rounded-[30px] shadow-sm flex flex-col gap-3 border w-full">
                    <div className="flex justify-between items-center w-full">
                      <div>
-                        <p className="font-black text-[10px] uppercase text-purple-700 mb-1">
+                        <p style={{ color: themeColors.primary }} className="font-black text-[10px] uppercase mb-1">
                           {cli?.nome || 'Sem Cliente'} {p.data ? `— ${p.data}` : ''} — <span className={statusAtual.includes('Vendido') ? "text-emerald-500" : statusAtual.includes('Cancelado') ? "text-red-400" : "text-orange-400"}>{statusAtual}</span>
                         </p>
                         <div className="font-bold text-slate-700 text-sm whitespace-pre-line">{p.nomeProd} <span className="text-xs text-slate-400 font-normal">({p.qtdPed || 1} un)</span></div>
@@ -2052,24 +2184,23 @@ export default function App() {
                         )}
 
                         {p.obsPedido && (
-                          <p className="text-[11px] text-purple-600 bg-purple-50 p-2 rounded-lg font-medium border border-purple-100 mt-2">🗒️ Notas: {p.obsPedido}</p>
+                          <p style={{ color: themeColors.primary }} className="text-[11px] bg-purple-50 p-2 rounded-lg font-medium border border-purple-100 mt-2">🗒️ Notas: {p.obsPedido}</p>
                         )}
                      </div>
-                     <div className="text-orange-500 font-black text-xl shrink-0">R$ {p.preco}</div>
+                     <div style={{ color: themeColors.secondary }} className="font-black text-xl shrink-0">R$ {p.preco}</div>
                    </div>
                    <div className="flex items-center justify-end border-t pt-2 gap-1 w-full">
                       {statusAtual === 'Pendente' && (
                         <>
                           <button onClick={() => confirmarVendaPedido(p)} className="text-emerald-600 p-2 bg-emerald-50 rounded-xl text-xs font-bold flex items-center gap-1 mr-auto active:scale-95"><CheckCircle size={16}/> Confirmar Venda</button>
-                          <button onClick={() => carregarPedidoParaEdicao(p)} className="text-purple-600 p-2 bg-purple-50 rounded-xl"><Edit2 size={18}/></button>
+                          <button onClick={() => carregarPedidoParaEdicao(p)} style={{ color: themeColors.primary }} className="p-2 bg-purple-50 rounded-xl"><Edit2 size={18}/></button>
                           <button onClick={() => cancelarPedidoSemExcluir(p.id)} title="Cancelar Orçamento" className="text-red-500 p-2 bg-red-50 rounded-xl"><X size={18}/></button>
                         </>
                       )}
                       
                       <button onClick={() => handleDuplicarOrcamento(p)} title="Duplicar este Orçamento" className="text-blue-500 p-2 bg-blue-50 rounded-xl active:scale-95 transition-transform"><Copy size={18}/></button>
                       
-                      {/* Corrigido: Passando o objeto 'p' direto da listagem do banco de dados */}
-                      <button onClick={() => gerarPDF(p)} className="text-orange-500 p-2 bg-orange-50 rounded-xl active:scale-95 transition-all"><Printer size={18}/></button>
+                      <button onClick={() => gerarPDF(p)} style={{ color: themeColors.secondary }} className="p-2 bg-orange-50 rounded-xl active:scale-95 transition-all"><Printer size={18}/></button>
                       <button onClick={() => enviarZap({nomeProd: p.nomeProd, preco: p.preco, clienteId: p.clienteId, prazo: p.prazo, qtdPed: p.qtdPed})} className="text-emerald-500 p-2 bg-emerald-50 rounded-xl"><MessageCircle size={18}/></button>
                       <button onClick={() => confirmarExcluir('pedido', p.id)} className="text-red-200 p-2"><Trash2 size={18}/></button>
                    </div>
@@ -2089,7 +2220,7 @@ export default function App() {
         {activeTab === 'materiais' && (
           <div className="space-y-4 pt-2 w-full">
             <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
-              <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2"><Package size={20}/> Gerenciar Armário</h2>
+              <h2 style={{ color: themeColors.primary }} className="font-bold mb-4 flex items-center gap-2"><Package size={20}/> Gerenciar Armário</h2>
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome do Insumo</label>
               <input placeholder="Ex: Caneca Cerâmica" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none font-medium text-sm border focus:border-purple-400" value={novoMat.nome} onChange={e => setNovoMat({...novoMat, nome: e.target.value})} />
               <div className="grid grid-cols-3 gap-3 mb-3 w-full">
@@ -2104,8 +2235,8 @@ export default function App() {
               </div>
               <div className="grid grid-cols-2 gap-3 mb-4 w-full">
                 <div>
-                  <label className="text-[10px] font-bold text-purple-600 uppercase ml-1">Estoque Atual</label>
-                  <input type="number" className="w-full p-4 bg-purple-50 rounded-2xl outline-none text-center font-bold text-purple-700 border focus:border-purple-400" value={novoMat.qtdAtual} onChange={e => setNovoMat({...novoMat, qtdAtual: e.target.value})} />
+                  <label style={{ color: themeColors.primary }} className="text-[10px] font-bold uppercase ml-1">Estoque Atual</label>
+                  <input type="number" style={{ color: themeColors.primary }} className="w-full p-4 bg-purple-50 rounded-2xl outline-none text-center font-bold border focus:border-purple-400" value={novoMat.qtdAtual} onChange={e => setNovoMat({...novoMat, qtdAtual: e.target.value})} />
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-red-500 uppercase ml-1">Mínimo Alerta</label>
@@ -2114,7 +2245,6 @@ export default function App() {
               </div>
               <div className="mb-6 w-full">
                 <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Unidade de Medida</label>
-                {/* Corrigido: Pattern ajustado para a propriedade 'unidade' */}
                 <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-xs font-bold block border border-transparent focus:border-purple-400 mt-1" value={novoMat.unidade} onChange={e => setNovoMat({...novoMat, unidade: e.target.value})}>
                   <option value="un">📦 Unidade (un)</option>
                   <option value="g">⚖️ Gramas (g)</option>
@@ -2124,14 +2254,16 @@ export default function App() {
                   <option value="cm">📐 Centímetro (cm)</option>
                 </select>
               </div>
-              <button onClick={async () => {
+              <button 
+                style={{ backgroundColor: themeColors.secondary }}
+                onClick={async () => {
                 if(!novoMat.nome) return alert("Digite o nome do insumo!");
                 const d = { nome: novoMat.nome, valor: Number(novoMat.valor), qtd: Number(novoMat.qtd), unidade: novoMat.unidade, qtdAtual: Number(novoMat.qtdAtual || 0), qtdMinima: Number(novoMat.qtdMinima || 0), userId: user.uid };
                 if (novoMat.id) await updateDoc(doc(db, "materiais", novoMat.id), d);
                 else await addDoc(collection(db, "materiais"), d);
                 setNovoMat({ id: '', nome: '', valor: '', qtd: '1', unidade: 'un', qtdAtual: '0', qtdMinima: '0' });
                 alert("Material Salvo!");
-              }} className="w-full bg-orange-500 text-white p-5 rounded-2xl font-black uppercase text-xs">
+              }} className="w-full hover:opacity-90 text-white p-5 rounded-2xl font-black uppercase text-xs">
                 {novoMat.id ? 'Atualizar Insumo' : 'Salvar no Armário'}
               </button>
             </div>
@@ -2158,11 +2290,11 @@ export default function App() {
                   <div>
                     <p className="font-bold text-slate-800">{estaAcabando ? '🔴' : '🟢'} {m.nome}</p>
                     <p className="text-xs text-slate-400 mt-1">Custo unitário: <span className="font-bold text-slate-600">R$ {valorUnitarioCalculado}</span></p>
-                    <p className="text-xs text-slate-500 mt-0.5">Qtd: <span className="font-bold text-purple-700">{m.qtdAtual} {m.unidade}</span></p>
+                    <p className="text-xs text-slate-500 mt-0.5">Qtd: <span style={{ color: themeColors.primary }} className="font-bold">{m.qtdAtual} {m.unidade}</span></p>
                   </div>
                   <div className="flex items-center gap-1">
                     <button onClick={async () => await updateDoc(doc(db, "materiais", m.id), { qtdAtual: Math.max(0, Number(m.qtdAtual || 0) - 1) })} className="w-8 h-8 bg-slate-100 rounded-xl font-bold">-</button>
-                    <button onClick={async () => await updateDoc(doc(db, "materiais", m.id), { qtdAtual: Number(m.qtdAtual || 0) + 1 })} className="w-8 h-8 bg-purple-100 rounded-xl font-bold text-purple-700">+</button>
+                    <button onClick={async () => await updateDoc(doc(db, "materiais", m.id), { qtdAtual: Number(m.qtdAtual || 0) + 1 })} style={{ color: themeColors.primary }} className="w-8 h-8 bg-purple-100 rounded-xl font-bold">+</button>
                     <button onClick={() => setNovoMat({id: m.id, nome: m.nome, valor: String(m.valor), qtd: String(m.qtd), unidade: m.unidade, qtdAtual: String(m.qtdAtual), qtdMinima: String(m.qtdMinima)})} className="text-orange-400 p-2"><Edit2 size={16}/></button>
                     <button onClick={() => confirmarExcluir('material', m.id)} className="text-red-400 hover:text-red-600 p-2 transition-colors"><Trash2 size={16}/></button>
                   </div>
@@ -2180,7 +2312,7 @@ export default function App() {
         {activeTab === 'clientes' && (
            <div className="space-y-4 pt-2 w-full">
             <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
-              <h2 className="text-purple-700 font-bold mb-4 flex items-center gap-2"><User size={20}/> Gerenciar Clientes</h2>
+              <h2 style={{ color: themeColors.primary }} className="font-bold mb-4 flex items-center gap-2"><User size={20}/> Gerenciar Clientes</h2>
               
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome Comercial / Completo</label>
               <input placeholder="Ex: Maria Silva" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm" value={novoCli.nome} onChange={e => setNovoCli({...novoCli, nome: e.target.value})} />
@@ -2194,7 +2326,9 @@ export default function App() {
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Endereço de Entrega Completo</label>
               <textarea placeholder="Rua, Número, Bairro, Cidade, CEP..." className="w-full p-4 bg-slate-50 rounded-2xl mb-6 outline-none border focus:border-purple-400 resize-none h-20 font-medium text-sm" value={novoCli.endereco || ''} onChange={e => setNovoCli({...novoCli, endereco: e.target.value})} />
 
-              <button onClick={async () => {
+              <button 
+                style={{ backgroundColor: themeColors.secondary }}
+                onClick={async () => {
                 if(!novoCli.nome) return alert("Digite o nome do cliente!");
                 
                 const dadosCliente = { 
@@ -2210,7 +2344,7 @@ export default function App() {
                 
                 setNovoCli({ id: '', nome: '', zap: '', email: '', endereco: '' }); 
                 alert("Cadastro do cliente salvo com sucesso! 🎉");
-              }} className="w-full bg-orange-500 text-white p-5 rounded-2xl font-black uppercase text-xs">Salvar Cliente</button>
+              }} className="w-full hover:opacity-90 text-white p-5 rounded-2xl font-black uppercase text-xs">Salvar Cliente</button>
             </div>
             {clientes.map(c => (
               <div key={c.id} className="bg-white p-5 rounded-3xl flex flex-col gap-2 border shadow-sm font-bold w-full mb-2">
@@ -2235,15 +2369,15 @@ export default function App() {
       {/* MENU INFERIOR FIXO */}
       <div className="fixed bottom-0 left-0 right-0 flex justify-center p-4 z-30 bg-transparent pointer-events-none">
         <div className="bg-white shadow-[0_-10px_30px_rgba(0,0,0,0.06)] rounded-[28px] flex justify-around items-center px-4 h-16 w-full max-w-xl pointer-events-auto border">
-          <button onClick={() => setActiveTab('inicio')} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'inicio' ? 'text-orange-500' : 'text-slate-300'}`}>
+          <button onClick={() => setActiveTab('inicio')} style={{ color: activeTab === 'inicio' ? themeColors.secondary : undefined }} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab !== 'inicio' ? 'text-slate-300' : ''}`}>
             <Home size={22} className={activeTab === 'inicio' ? 'stroke-[2.5]' : 'stroke-[2]'} />
             <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Início</span>
           </button>
-          <button onClick={() => setActiveTab('criar')} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'criar' ? 'text-orange-500' : 'text-slate-300'}`}>
+          <button onClick={() => setActiveTab('criar')} style={{ color: activeTab === 'criar' ? themeColors.secondary : undefined }} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab !== 'criar' ? 'text-slate-300' : ''}`}>
             <Plus size={22} className={activeTab === 'criar' ? 'stroke-[3]' : 'stroke-[2]'} />
             <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Orçar</span>
           </button>
-          <button onClick={() => setActiveTab('pedidos')} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab === 'pedidos' ? 'text-orange-500' : 'text-slate-300'}`}>
+          <button onClick={() => setActiveTab('pedidos')} style={{ color: activeTab === 'pedidos' ? themeColors.secondary : undefined }} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab !== 'pedidos' ? 'text-slate-300' : ''}`}>
             <History size={22} className={activeTab === 'pedidos' ? 'stroke-[2.5]' : 'stroke-[2]'} />
             <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Histórico</span>
           </button>
