@@ -3,7 +3,7 @@ import { initializeApp } from "firebase/app";
 import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { getFirestore, collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc, getDocs, setDoc, getDoc } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2, Menu, Search, Settings, CheckSquare, Square, Filter, MapPin, Globe, Palette, TrendingUp } from 'lucide-react';
+import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2, Menu, Search, Settings, CheckSquare, Square, Filter, MapPin, Globe, Palette, TrendingUp, ChevronDown, ChevronUp } from 'lucide-react';
 
 const firebaseConfig = {
   apiKey: "AIzaSyD0BWsNm9DbGGDqiHzkdDmNdxIGdJ9tWe8",
@@ -98,8 +98,13 @@ export default function App() {
 
   const [activeTab, useStateActiveTab] = useState<'inicio' | 'materiais' | 'criar' | 'pedidos' | 'clientes' | 'catalogo' | 'balcao' | 'financeiro' | 'perfil' | 'anotacoes' | 'fornecedores'>('inicio');
   
-  // Sub-aba interna para a seção financeira (Geral, Impressão, Equipamentos, Histórico)
+  // Sub-aba interna para a seção financeira
   const [subAbaFinanceiro, setSubAbaFinanceiro] = useState<'geral' | 'impressao' | 'equipamentos' | 'historico'>('geral');
+
+  // Estados do Histórico Financeiro Avançado
+  const [mesFiltroHistorico, setMesFiltroHistorico] = useState<string>(String(new Date().getMonth() + 1));
+  const [anoFiltroHistorico, setAnoFiltroHistorico] = useState<string>(String(new Date().getFullYear()));
+  const [mesExpandido, setMesExpandido] = useState<string | null>(null);
 
   const [materiais, setMaterials] = useState<any[]>([]);
   const [pedidos, setPedidos] = useState<any[]>([]);
@@ -577,9 +582,9 @@ export default function App() {
     };
   }, [pedidos, materiais, clientes]);
 
-  // --- LÓGICA DE HISTÓRICO FINANCEIRO MENSAL AGRUPADO ---
+  // --- LÓGICA DE HISTÓRICO FINANCEIRO MENSAL AGRUPADO COM DETALHES DOS PRODUTOS ---
   const historicoFinanceiroMensal = useMemo(() => {
-    const agrupado: { [key: string]: { total: number; qtd: number; mesAnoTexto: string } } = {};
+    const agrupado: { [key: string]: { total: number; qtd: number; mesAnoTexto: string; itensVendidos: any[] } } = {};
     const nomesMeses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
     pedidos.forEach(p => {
@@ -594,11 +599,12 @@ export default function App() {
         const nomeMesTexto = `${nomesMeses[mes - 1]} / ${ano}`;
 
         if (!agrupado[chave]) {
-          agrupado[chave] = { total: 0, qtd: 0, mesAnoTexto: nomeMesTexto };
+          agrupado[chave] = { total: 0, qtd: 0, mesAnoTexto: nomeMesTexto, itensVendidos: [] };
         }
 
         agrupado[chave].total += Number(p.preco || 0);
         agrupado[chave].qtd += 1;
+        agrupado[chave].itensVendidos.push(p);
       }
     });
 
@@ -609,6 +615,20 @@ export default function App() {
         ...agrupado[chave]
       }));
   }, [pedidos]);
+
+  // Filtro Dinâmico do Histórico por Mês/Ano selecionado
+  const historicoFiltradoPorData = useMemo(() => {
+    if (mesFiltroHistorico === 'Todos' && anoFiltroHistorico === 'Todos') {
+      return historicoFinanceiroMensal;
+    }
+
+    return historicoFinanceiroMensal.filter(item => {
+      const [ano, mes] = item.chave.split('-');
+      const matchMes = mesFiltroHistorico === 'Todos' || Number(mes) === Number(mesFiltroHistorico);
+      const matchAno = anoFiltroHistorico === 'Todos' || Number(ano) === Number(anoFiltroHistorico);
+      return matchMes && matchAno;
+    });
+  }, [historicoFinanceiroMensal, mesFiltroHistorico, anoFiltroHistorico]);
 
   const resumenFinanceiro = useMemo(() => {
     if (precoManual !== null) {
@@ -1922,36 +1942,124 @@ export default function App() {
               </div>
             )}
 
-            {/* RELATÓRIO DO HISTÓRICO FINANCEIRO MENSAL */}
+            {/* RELATÓRIO DO HISTÓRICO FINANCEIRO MENSAL AVANÇADO */}
             {subAbaFinanceiro === 'historico' && (
               <div className="bg-white p-6 rounded-[35px] shadow-md border w-full animate-fadeIn space-y-4">
                 <div className="flex justify-between items-center">
                   <div>
                     <h2 style={{ color: themeColors.primary }} className="font-bold flex items-center gap-2 uppercase text-xs tracking-widest"><DollarSign size={18}/> Histórico Financeiro Mensal</h2>
-                    <p className="text-slate-400 text-[11px] mt-0.5">Fechamento acumulado de vendas por mês:</p>
+                    <p className="text-slate-400 text-[11px] mt-0.5">Consulte as vendas fechadas de qualquer época do ano:</p>
                   </div>
                   <div className="p-2 bg-purple-50 rounded-2xl" style={{ color: themeColors.primary }}>
                     <TrendingUp size={20} />
                   </div>
                 </div>
 
-                <div className="space-y-3 pt-2">
-                  {historicoFinanceiroMensal.map(item => (
-                    <div key={item.chave} className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex justify-between items-center hover:border-slate-200 transition-colors">
-                      <div>
-                        <p className="font-black text-slate-800 text-sm uppercase tracking-wide">{item.mesAnoTexto}</p>
-                        <p className="text-[11px] text-slate-400 font-semibold mt-0.5">{item.qtd} {item.qtd === 1 ? 'venda concluída' : 'vendas concluídas'}</p>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-[9px] font-black text-slate-400 uppercase block tracking-wider">Faturamento</span>
-                        <span style={{ color: themeColors.primary }} className="font-black text-lg">R$ {item.total.toFixed(2)}</span>
-                      </div>
-                    </div>
-                  ))}
+                {/* SELETORES DE MÊS E ANO PARA FILTRO */}
+                <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                  <div>
+                    <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Mês de Referência</label>
+                    <select 
+                      className="w-full p-2.5 bg-white rounded-xl text-xs font-bold border outline-none text-slate-700" 
+                      value={mesFiltroHistorico} 
+                      onChange={e => setMesFiltroHistorico(e.target.value)}
+                    >
+                      <option value="Todos">📅 Todos os Meses</option>
+                      <option value="1">Janeiro</option>
+                      <option value="2">Fevereiro</option>
+                      <option value="3">Março</option>
+                      <option value="4">Abril</option>
+                      <option value="5">Maio</option>
+                      <option value="6">Junho</option>
+                      <option value="7">Julho</option>
+                      <option value="8">Agosto</option>
+                      <option value="9">Setembro</option>
+                      <option value="10">Outubro</option>
+                      <option value="11">Novembro</option>
+                      <option value="12">Dezembro</option>
+                    </select>
+                  </div>
 
-                  {historicoFinanceiroMensal.length === 0 && (
+                  <div>
+                    <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Ano de Referência</label>
+                    <select 
+                      className="w-full p-2.5 bg-white rounded-xl text-xs font-bold border outline-none text-slate-700" 
+                      value={anoFiltroHistorico} 
+                      onChange={e => setAnoFiltroHistorico(e.target.value)}
+                    >
+                      <option value="Todos">🗓️ Todos os Anos</option>
+                      <option value="2026">2026</option>
+                      <option value="2025">2025</option>
+                      <option value="2024">2024</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* LISTAGEM DE MESES COM GAVETA EXPANSÍVEL */}
+                <div className="space-y-3 pt-2">
+                  {historicoFiltradoPorData.map(item => {
+                    const isExpanded = mesExpandido === item.chave;
+                    return (
+                      <div key={item.chave} className="bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden transition-all">
+                        
+                        {/* CABEÇALHO DO MÊS (CLICÁVEL COM SETA DE EXPANDIR) */}
+                        <div 
+                          onClick={() => setMesExpandido(isExpanded ? null : item.chave)}
+                          className="p-4 flex justify-between items-center cursor-pointer hover:bg-slate-100/80 transition-colors select-none"
+                        >
+                          <div>
+                            <p className="font-black text-slate-800 text-sm uppercase tracking-wide flex items-center gap-1.5">
+                              {item.mesAnoTexto}
+                            </p>
+                            <p className="text-[11px] text-slate-400 font-semibold mt-0.5">
+                              {item.qtd} {item.qtd === 1 ? 'venda concluída' : 'vendas concluídas'} • Clique para ver itens 🔍
+                            </p>
+                          </div>
+                          
+                          <div className="flex items-center gap-3">
+                            <div className="text-right">
+                              <span className="text-[9px] font-black text-slate-400 uppercase block tracking-wider">Faturamento</span>
+                              <span style={{ color: themeColors.primary }} className="font-black text-lg">R$ {item.total.toFixed(2)}</span>
+                            </div>
+                            <div style={{ color: themeColors.primary }} className="p-1 bg-white rounded-xl border">
+                              {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* DETALHAMENTO DE PRODUTOS VENDIDOS NAQUELE MÊS (EXPANDÍVEL) */}
+                        {isExpanded && (
+                          <div className="bg-white p-4 border-t border-slate-200 space-y-2.5 animate-fadeIn">
+                            <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Relação de Peças / Combos Vendidos:</p>
+                            
+                            <div className="space-y-2">
+                              {item.itensVendidos.map((p: any, idx: number) => {
+                                const cli = clientes.find(c => c.id === p.clienteId);
+                                return (
+                                  <div key={idx} className="bg-slate-50 p-3 rounded-xl border flex justify-between items-center text-xs">
+                                    <div className="min-w-0 flex-1 pr-2">
+                                      <p className="font-bold text-slate-800 break-words whitespace-pre-line">{p.nomeProd}</p>
+                                      <p className="text-[10px] text-slate-400 font-semibold mt-0.5">
+                                        👤 {cli?.nome || 'Cliente não informado'} • 🗓️ {p.data}
+                                      </p>
+                                    </div>
+                                    <div className="font-black text-slate-700 text-sm shrink-0">
+                                      R$ {Number(p.preco || 0).toFixed(2)}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                      </div>
+                    );
+                  })}
+
+                  {historicoFiltradoPorData.length === 0 && (
                     <p className="text-center text-xs font-bold text-slate-400 py-8 italic">
-                      Nenhuma venda finalizada registrada até o momento. 🎉
+                      Nenhuma venda finalizada encontrada para este filtro de data. 🎉
                     </p>
                   )}
                 </div>
