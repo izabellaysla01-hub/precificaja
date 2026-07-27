@@ -1456,64 +1456,92 @@ export default function App() {
               />
 
               {/* PAINEL DE PERSONALIZAÇÃO DE CORES */}
-              <div className="border-t pt-6 mb-6">
-                <h3 style={{ color: themeColors.primary }} className="font-bold flex items-center gap-2 uppercase text-xs tracking-widest mb-1">
-                  <Palette size={18}/> Paleta de Cores do App
-                </h3>
-                <p className="text-slate-400 text-[11px] mb-4">Escolha um tema pronto ou configure as cores exatas da sua identidade visual:</p>
+<div className="border-t pt-6 mb-6">
+  <h3 style={{ color: themeColors.primary }} className="font-bold flex items-center gap-2 uppercase text-xs tracking-widest mb-1">
+    <Palette size={18}/> Paleta de Cores do App
+  </h3>
+  <p className="text-slate-400 text-[11px] mb-4">Escolha um tema pronto ou monte a sua combinação livremente (ex: Rosa e Verde):</p>
 
-                {/* Presets de Temas */}
-                <div className="grid grid-cols-2 gap-2 mb-4">
-                  {PRESET_PALETTES.map(preset => (
-                    <button
-                      key={preset.id}
-                      type="button"
-                      onClick={() => setThemeColors({
-                        primary: preset.primary,
-                        primaryHover: preset.primaryHover,
-                        secondary: preset.secondary,
-                        secondaryHover: preset.secondaryHover
-                      })}
-                      className={`p-3 rounded-2xl border text-left flex flex-col gap-2 transition-all ${themeColors.primary === preset.primary ? 'border-2 border-purple-600 bg-purple-50/50' : 'border-slate-100 bg-slate-50'}`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <div className="w-4 h-4 rounded-full" style={{ backgroundColor: preset.primary }} />
-                        <div className="w-4 h-4 rounded-full" style={{ backgroundColor: preset.secondary }} />
-                      </div>
-                      <span className="text-[10px] font-bold text-slate-700">{preset.nome}</span>
-                    </button>
-                  ))}
-                </div>
+  {/* Presets de Temas */}
+  <div className="grid grid-cols-2 gap-2 mb-4">
+    {PRESET_PALETTES.map(preset => (
+      <button
+        key={preset.id}
+        type="button"
+        onClick={() => setThemeColors({
+          primary: preset.primary,
+          primaryHover: preset.primaryHover,
+          secondary: preset.secondary,
+          secondaryHover: preset.secondaryHover
+        })}
+        className="p-3 rounded-2xl border text-left flex flex-col gap-2 transition-all border-slate-100 bg-slate-50 hover:border-slate-300"
+      >
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-4 rounded-full shadow-sm" style={{ backgroundColor: preset.primary }} />
+          <div className="w-4 h-4 rounded-full shadow-sm" style={{ backgroundColor: preset.secondary }} />
+        </div>
+        <span className="text-[10px] font-bold text-slate-700">{preset.nome}</span>
+      </button>
+    ))}
+  </div>
 
-                {/* Color Pickers Customizados */}
-                <div className="grid grid-cols-2 gap-3 bg-slate-50 p-4 rounded-2xl border">
-                  <div>
-                    <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Cor Primária (Marca)</label>
-                    <div className="flex items-center gap-2 bg-white p-2 rounded-xl border">
-                      <input 
-                        type="color" 
-                        value={themeColors.primary} 
-                        onChange={e => setThemeColors({ ...themeColors, primary: e.target.value, primaryHover: e.target.value })}
-                        className="w-8 h-8 rounded-lg border-0 cursor-pointer"
-                      />
-                      <span className="text-xs font-mono font-bold uppercase">{themeColors.primary}</span>
-                    </div>
-                  </div>
+  {/* Color Pickers Customizados (Escolha Livre) */}
+  <div className="grid grid-cols-2 gap-3 bg-slate-50 p-4 rounded-2xl border">
+    <div>
+      <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Cor Primária (ex: Rosa)</label>
+      <div className="flex items-center gap-2 bg-white p-2 rounded-xl border">
+        <input 
+          type="color" 
+          value={themeColors.primary} 
+          onChange={e => setThemeColors(prev => ({ 
+            ...prev, 
+            primary: e.target.value, 
+            primaryHover: e.target.value 
+          }))}
+          className="w-10 h-10 rounded-lg border-0 cursor-pointer bg-transparent"
+        />
+        <input 
+          type="text"
+          value={themeColors.primary}
+          onChange={e => setThemeColors(prev => ({ 
+            ...prev, 
+            primary: e.target.value, 
+            primaryHover: e.target.value 
+          }))}
+          className="w-full text-xs font-mono font-bold uppercase outline-none"
+          maxLength={7}
+        />
+      </div>
+    </div>
 
-                  <div>
-                    <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Cor Secundária (Ação)</label>
-                    <div className="flex items-center gap-2 bg-white p-2 rounded-xl border">
-                      <input 
-                        type="color" 
-                        value={themeColors.secondary} 
-                        onChange={e => setThemeColors({ ...themeColors, secondary: e.target.value, secondaryHover: e.target.value })}
-                        className="w-8 h-8 rounded-lg border-0 cursor-pointer"
-                      />
-                      <span className="text-xs font-mono font-bold uppercase">{themeColors.secondary}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+    <div>
+      <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Cor Secundária (ex: Verde)</label>
+      <div className="flex items-center gap-2 bg-white p-2 rounded-xl border">
+        <input 
+          type="color" 
+          value={themeColors.secondary} 
+          onChange={e => setThemeColors(prev => ({ 
+            ...prev, 
+            secondary: e.target.value, 
+            secondaryHover: e.target.value 
+          }))}
+          className="w-10 h-10 rounded-lg border-0 cursor-pointer bg-transparent"
+        />
+        <input 
+          type="text"
+          value={themeColors.secondary}
+          onChange={e => setThemeColors(prev => ({ 
+            ...prev, 
+            secondary: e.target.value, 
+            secondaryHover: e.target.value 
+          }))}
+          className="w-full text-xs font-mono font-bold uppercase outline-none"
+          maxLength={7}
+        />
+      </div>
+    </div>
+  </div>
+</div>
 
               <button 
                 style={{ backgroundColor: themeColors.primary }}
