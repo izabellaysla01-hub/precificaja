@@ -1185,38 +1185,35 @@ export default function App() {
       </div>
 
       {/* SELETOR DE MODO DE CÁLCULO */}
-      <div className="mb-5 bg-slate-50 p-3.5 rounded-2xl border border-slate-100 w-full">
-        <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-2">
-          Modo de Cálculo de Precificação
-        </label>
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => setModoCalculo('peca')}
-            style={{ 
-              backgroundColor: modoCalculo === 'peca' ? themeColors.primary : '#ffffff', 
-              color: modoCalculo === 'peca' ? '#ffffff' : '#64748b',
-              borderColor: modoCalculo === 'peca' ? themeColors.primary : '#e2e8f0'
-            }}
-            className="py-2.5 px-3 rounded-xl font-black text-xs border transition-all shadow-sm text-center"
-          >
-            Por Peça (UNIDADE)
-          </button>
+<div className="mb-5 grid grid-cols-2 gap-1 p-1 bg-slate-100 rounded-xl w-full">
+  <button
+    type="button"
+    onClick={() => setModoCalculo('peca')}
+    style={{ 
+      backgroundColor: modoCalculo === 'peca' ? themeColors.primary : 'transparent', 
+      color: modoCalculo === 'peca' ? '#ffffff' : '#64748b'
+    }}
+    className={`py-2 px-3 rounded-lg font-bold text-xs transition-all text-center ${
+      modoCalculo === 'peca' ? 'shadow-sm' : ''
+    }`}
+  >
+    Por Peça
+  </button>
 
-          <button
-            type="button"
-            onClick={() => setModoCalculo('lote')}
-            style={{ 
-              backgroundColor: modoCalculo === 'lote' ? themeColors.primary : '#ffffff', 
-              color: modoCalculo === 'lote' ? '#ffffff' : '#64748b',
-              borderColor: modoCalculo === 'lote' ? themeColors.primary : '#e2e8f0'
-            }}
-            className="py-2.5 px-3 rounded-xl font-black text-xs border transition-all shadow-sm text-center"
-          >
-            Por Lote (QTD. TOTAL)
-          </button>
-        </div>
-      </div>
+  <button
+    type="button"
+    onClick={() => setModoCalculo('lote')}
+    style={{ 
+      backgroundColor: modoCalculo === 'lote' ? themeColors.primary : 'transparent', 
+      color: modoCalculo === 'lote' ? '#ffffff' : '#64748b'
+    }}
+    className={`py-2 px-3 rounded-lg font-bold text-xs transition-all text-center ${
+      modoCalculo === 'lote' ? 'shadow-sm' : ''
+    }`}
+  >
+    Por Lote
+  </button>
+</div>
 
       {mostrarSeletorCatalogo && !pedidoEditandoId && (
         <div className="bg-purple-50/50 border border-purple-100 p-4 rounded-3xl mb-4 text-xs space-y-2 w-full">
