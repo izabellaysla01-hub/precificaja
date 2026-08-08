@@ -130,9 +130,11 @@ export default function App() {
 
   const [diaSelecionadoAgenda, setDiaSelecionadoAgenda] = useState<string>(new Date().toISOString().split('T')[0]);
 
+  // Modo de Cálculo ('peca' = por unidade, 'lote' = valor total do lote rateado)
+  const [modoCalculo, setModoCalculo] = useState<'peca' | 'lote'>('peca');
+
   const [nomeProd, setNomeProd] = useState('');
   const [qtdPed, setQtdPed] = useState('1');
-  const [modoCalculo, setModoCalculo] = useState<'lote' | 'peca'>('lote'); // 'lote' (calcula lote e divide) ou 'peca' (multiplica bruto)
   const [matsNoPed, setMatsNoPed] = useState<any[]>([]);
   const [vHora, setVHora] = useState('9');
   const [tGasto, setTGasto] = useState('60');
@@ -528,7 +530,6 @@ export default function App() {
         clienteId: clienteBalcao,
         prazo: prazoFinalVenda,
         qtdPed: "1",
-        modoCalculo: "peca",
         vHora: "0",
         tGasto: "0",
         custos: { embalagem: '0', impressao: '0', energia: '0', outros: '0' },
@@ -539,7 +540,8 @@ export default function App() {
         obsPedido: "",
         data: new Date().toLocaleDateString('pt-BR'),
         status: 'Pendente',
-        itensCombo: arrayItensSalvar 
+        itensCombo: arrayItensSalvar,
+        modoCalculo: 'peca'
       });
 
       setCarrinhoInterno({});
@@ -633,13 +635,23 @@ export default function App() {
   }, [historicoFinanceiroMensal, mesFiltroHistorico, anoFiltroHistorico]);
 
   const resumenFinanceiro = useMemo(() => {
-    const qtdSolicitada = Math.max(1, Number(qtdPed || 1));
+    const qtdNum = Math.max(1, Number(qtdPed) || 1);
 
     if (precoManual !== null) {
-      const totalCatalogo = modoCalculo === 'lote' ? Number(precoManual) : Number(precoManual) * qtdSolicitada;
+      const baseVal = Number(precoManual || 0);
+      const totalCatalogo = modoCalculo === 'peca' ? baseVal * qtdNum : baseVal;
       const semDesconto = totalCatalogo - Number(desconto || 0);
-      const unitarioCat = modoCalculo === 'lote' ? (semDesconto / qtdSolicitada) : Number(precoManual);
-      return { materiais: "0.00", maoObra: "0.00", extras: "0.00", deprec: "0.00", custoPeca: "0.00", lucroLivre: "0.00", unitario: unitarioCat.toFixed(2), final: isNaN(semDesconto) ? "0.00" : semDesconto.toFixed(2) };
+      const custoPecaUnitario = modoCalculo === 'peca' ? baseVal : baseVal / qtdNum;
+
+      return { 
+        materiais: "0.00", 
+        maoObra: "0.00", 
+        extras: "0.00", 
+        deprec: "0.00", 
+        custoPeca: custoPecaUnitario.toFixed(2), 
+        lucroLivre: "0.00", 
+        final: isNaN(semDesconto) ? "0.00" : semDesconto.toFixed(2) 
+      };
     }
 
     const totalMaterials = matsNoPed.reduce((acc, m) => acc + ((Number(m.valor || 0) / Number(m.qtd || 1)) * Number(m.qtdUsada || 0)), 0);
@@ -662,32 +674,36 @@ export default function App() {
       }
     });
 
-    const custoCalculadoNaTela = totalMaterials + totalMaoObra + totalExtras + totalDesgasteMaquinas;
-    const valorLucroLivre = custoCalculadoNaTela * (Number(lucro || 0) / 100);
-    const subtotalBruto = custoCalculadoNaTela + valorLucroLivre;
-
+    const custoTotalBasePeca = totalMaterials + totalMaoObra + totalExtras + totalDesgasteMaquinas;
+    
+    let custoTotalInvestido = 0;
+    let valorLucroLivre = 0;
     let precoFinalCalculado = 0;
-    let precoUnitarioCalculado = 0;
 
-    if (modoCalculo === 'lote') {
-      precoFinalCalculado = subtotalBruto - Number(desconto || 0);
-      precoUnitarioCalculado = precoFinalCalculado / qtdSolicitada;
+    if (modoCalculo === 'peca') {
+      // Cálculo por peça (unidade) -> multiplica pelo número de peças do lote
+      custoTotalInvestido = custoTotalBasePeca * qtdNum;
+      valorLucroLivre = custoTotalInvestido * (Number(lucro || 0) / 100);
+      precoFinalCalculado = (custoTotalInvestido + valorLucroLivre) - Number(desconto || 0);
     } else {
-      precoUnitarioCalculado = subtotalBruto;
-      precoFinalCalculado = (subtotalBruto * qtdSolicitada) - Number(desconto || 0);
+      // Cálculo por lote -> custos já referem-se ao lote total produzido
+      custoTotalInvestido = custoTotalBasePeca;
+      valorLucroLivre = custoTotalInvestido * (Number(lucro || 0) / 100);
+      precoFinalCalculado = (custoTotalInvestido + valorLucroLivre) - Number(desconto || 0);
     }
+
+    const custoUnitarioExibicao = modoCalculo === 'peca' ? custoTotalBasePeca : (custoTotalBasePeca / qtdNum);
 
     return { 
       materiais: totalMaterials.toFixed(2), 
       maoObra: totalMaoObra.toFixed(2), 
       extras: totalExtras.toFixed(2), 
       deprec: totalDesgasteMaquinas.toFixed(2), 
-      custoPeca: custoCalculadoNaTela.toFixed(2), 
+      custoPeca: custoUnitarioExibicao.toFixed(2), 
       lucroLivre: valorLucroLivre.toFixed(2), 
-      unitario: isNaN(precoUnitarioCalculado) ? "0.00" : precoUnitarioCalculado.toFixed(2),
       final: isNaN(precoFinalCalculado) ? "0.00" : precoFinalCalculado.toFixed(2) 
     };
-  }, [matsNoPed, vHora, tGasto, custos, lucro, qtdPed, modoCalculo, desconto, precoManual, equipamentos, equipamentosSelecionados, financasFixo]);
+  }, [matsNoPed, vHora, tGasto, custos, lucro, qtdPed, desconto, precoManual, equipamentos, equipamentosSelecionados, financasFixo, modoCalculo]);
 
   // Sincroniza o preço editável com a conta do sistema até que você decida digitar
   useEffect(() => {
@@ -702,7 +718,7 @@ export default function App() {
     window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
   };
 
-     const gerarPDF = (p: any) => {
+  const gerarPDF = (p: any) => {
     const idDoCliente = p.clienteId || p.clienteSel || '';
     const cli = clientes.find(c => c.id === idDoCliente);
     
@@ -761,19 +777,11 @@ export default function App() {
     }
 
     const cabecalhoNomeHtml = nomeLojaPerfil ? nomeLojaPerfil : "PrecificaJá";
-    // crossOrigin="anonymous" é essencial para o html2canvas processar a logo sem barrar CORS
-    const cabecalhoLogoHtml = logoLojaPerfil 
-      ? `<img id="pdf-logo-img" src="${logoLojaPerfil}" crossOrigin="anonymous" style="max-height: 70px; max-width: 160px; object-fit: contain; display: block;"/>` 
-      : '';
+    const cabecalhoLogoHtml = logoLojaPerfil ? `<img src="${logoLojaPerfil}" style="max-height: 70px; max-width: 160px; object-fit: contain; display: block;"/>` : '';
 
     const elemento = document.createElement('div');
-    elemento.style.position = 'absolute';
-    elemento.style.left = '-9999px';
-    elemento.style.top = '0';
-    elemento.style.width = '750px';
-
     elemento.innerHTML = `
-      <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto; background: #ffffff;">
+      <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto;">
         
         <!-- CABEÇALHO LADO A LADO: LOGO E INFO DA EMPRESA -->
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px; gap: 20px;">
@@ -847,34 +855,10 @@ export default function App() {
         </div>
       </div>
     `;
-
-    document.body.appendChild(elemento);
-
-    const opcoes = { 
-      margin: [10, 10, 10, 10], 
-      filename: `Pedido_${p.id || 'Venda'}.pdf`, 
-      html2canvas: { scale: 2, useCORS: true, allowTaint: true, scrollY: 0 }, 
-      jsPDF: { format: 'a4', orientation: 'portrait' }, 
-      pagebreak: { mode: ['avoid-all', 'css'] } 
-    };
-
-    const dispararDownload = () => {
-      (window as any).html2pdf().from(elemento).set(opcoes).save().then(() => {
-        if (document.body.contains(elemento)) {
-          document.body.removeChild(elemento);
-        }
-      });
-    };
-
-    const imgElement = elemento.querySelector('#pdf-logo-img') as HTMLImageElement;
-    if (imgElement && !imgElement.complete) {
-      imgElement.onload = dispararDownload;
-      imgElement.onerror = dispararDownload; // fallback caso dê erro de carregamento
-    } else {
-      setTimeout(dispararDownload, 100);
-    }
+    
+    const opcoes = { margin: [10, 10, 10, 10], filename: `Pedido_${p.id || 'Venda'}.pdf`, html2canvas: { scale: 2, useCORS: true, scrollY: 0 }, jsPDF: { format: 'a4', orientation: 'portrait' }, pagebreak: { mode: ['avoid-all', 'css'] } };
+    (window as any).html2pdf().from(elemento).set(opcoes).save();
   };
-
 
   const handleAuth = async () => {
     try {
@@ -969,22 +953,24 @@ export default function App() {
   };
 
   const limparCalculadora = () => {
-    setNomeProd(''); setQtdPed('1'); setModoCalculo('lote'); setMatsNoPed([]); setVHora('9'); setTGasto('60');
+    setNomeProd(''); setQtdPed('1'); setMatsNoPed([]); setVHora('9'); setTGasto('60');
     setCustos({ embalagem: '0', impressao: custoPorPaginaCalculado.toFixed(2), energia: '0', outros: '0' });
     setEquipamentosSelecionados([]);
     setLucro('100'); setDesconto('0'); setPrazo(''); setClienteSel('');
     setPedidoEditandoId(null); setPrecoManual(null); setDocObsPedido('');
     setIsDuplicando(false);
+    setModoCalculo('peca');
     setPrecoFinalDigitado('0.00');
   };
 
   const carregarPedidoParaEdicao = (p: any) => {
     setIsDuplicando(false);
-    setPedidoEditandoId(p.id); setNomeProd(p.nomeProd || ''); setQtdPed(p.qtdPed || '1'); setModoCalculo(p.modoCalculo || 'lote'); setVHora(p.vHora || '9'); setTGasto(p.tGasto || '60');
+    setPedidoEditandoId(p.id); setNomeProd(p.nomeProd || ''); setQtdPed(p.qtdPed || '1'); setVHora(p.vHora || '9'); setTGasto(p.tGasto || '60');
     setCustos(p.custos || { embalagem: '0', impressao: '0', energia: '0', outros: '0' });
     setLucro(p.lucro || '100'); setDesconto(p.desconto || '0'); setPrazo(p.prazo || ''); setClienteSel(p.clienteId || '');
     setPrecoManual(p.precoManual || null); setDocObsPedido(p.obsPedido || '');
     setEquipamentosSelecionados(p.equipamentosSelecionados || []);
+    setModoCalculo(p.modoCalculo || 'peca');
 
     if (p.materiaisUsados && p.materiaisUsados.length > 0) {
       const listaReconstruida = p.materiaisUsados.map((mSalvo: any) => {
@@ -1003,7 +989,6 @@ export default function App() {
     setIsDuplicando(true);
     setNomeProd(`${p.nomeProd} (Cópia)`); 
     setQtdPed(p.qtdPed || '1'); 
-    setModoCalculo(p.modoCalculo || 'lote');
     setVHora(p.vHora || '9'); 
     setTGasto(p.tGasto || '60');
     setCustos(p.custos || { embalagem: '0', impressao: '0', energia: '0', outros: '0' });
@@ -1014,6 +999,7 @@ export default function App() {
     setPrecoManual(p.precoManual || null); 
     setDocObsPedido(p.obsPedido || '');
     setEquipamentosSelecionados(p.equipamentosSelecionados || []);
+    setModoCalculo(p.modoCalculo || 'peca');
 
     if (p.materiaisUsados && p.materiaisUsados.length > 0) {
       const listaReconstruida = p.materiaisUsados.map((mSalvo: any) => {
@@ -1198,6 +1184,40 @@ export default function App() {
         )}
       </div>
 
+      {/* SELETOR DE MODO DE CÁLCULO */}
+      <div className="mb-5 bg-slate-50 p-3.5 rounded-2xl border border-slate-100 w-full">
+        <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-2">
+          Modo de Cálculo de Precificação
+        </label>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => setModoCalculo('peca')}
+            style={{ 
+              backgroundColor: modoCalculo === 'peca' ? themeColors.primary : '#ffffff', 
+              color: modoCalculo === 'peca' ? '#ffffff' : '#64748b',
+              borderColor: modoCalculo === 'peca' ? themeColors.primary : '#e2e8f0'
+            }}
+            className="py-2.5 px-3 rounded-xl font-black text-xs border transition-all shadow-sm text-center"
+          >
+            🧩 Por Peça (Unidade)
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setModoCalculo('lote')}
+            style={{ 
+              backgroundColor: modoCalculo === 'lote' ? themeColors.primary : '#ffffff', 
+              color: modoCalculo === 'lote' ? '#ffffff' : '#64748b',
+              borderColor: modoCalculo === 'lote' ? themeColors.primary : '#e2e8f0'
+            }}
+            className="py-2.5 px-3 rounded-xl font-black text-xs border transition-all shadow-sm text-center"
+          >
+            📦 Por Lote (Qtd Total)
+          </button>
+        </div>
+      </div>
+
       {mostrarSeletorCatalogo && !pedidoEditandoId && (
         <div className="bg-purple-50/50 border border-purple-100 p-4 rounded-3xl mb-4 text-xs space-y-2 w-full">
           <p className="font-bold text-purple-700 uppercase text-[10px]">Escolha um produto pronto:</p>
@@ -1217,35 +1237,6 @@ export default function App() {
         </div>
       )}
 
-      {/* CHAVE SELETORA DE MODO DE CÁLCULO (POR LOTE VS POR PEÇA) */}
-      <div className="mb-4 bg-slate-50 p-2.5 rounded-2xl border flex items-center justify-between w-full">
-        <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Modo de Cálculo:</span>
-        <div className="flex bg-white p-1 rounded-xl border gap-1">
-          <button 
-            type="button"
-            onClick={() => setModoCalculo('lote')}
-            style={{ 
-              backgroundColor: modoCalculo === 'lote' ? themeColors.primary : 'transparent',
-              color: modoCalculo === 'lote' ? '#ffffff' : '#64748b'
-            }}
-            className="px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all"
-          >
-            📦 Por Lote / Produção
-          </button>
-          <button 
-            type="button"
-            onClick={() => setModoCalculo('peca')}
-            style={{ 
-              backgroundColor: modoCalculo === 'peca' ? themeColors.primary : 'transparent',
-              color: modoCalculo === 'peca' ? '#ffffff' : '#64748b'
-            }}
-            className="px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all"
-          >
-            🎯 Por Peça / Multiplicar
-          </button>
-        </div>
-      </div>
-
       <div className="grid grid-cols-3 gap-3 mb-4 w-full">
          <div className="col-span-2">
             <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Produto / Serviço</label>
@@ -1253,7 +1244,7 @@ export default function App() {
          </div>
          <div>
             <label className="text-[10px] font-bold text-slate-400 uppercase text-center block">
-              {modoCalculo === 'lote' ? 'Qtd Lote' : 'Qtd Peças'}
+              {modoCalculo === 'peca' ? 'Qtd Peças' : 'Qtd no Lote'}
             </label>
             <input type="number" min="1" className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-center font-bold" value={qtdPed} onChange={e => setQtdPed(e.target.value)} />
          </div>
@@ -1270,7 +1261,9 @@ export default function App() {
       {precoManual === null ? (
         <>
           <div className="mb-4 w-full">
-             <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Materiais Usados</label>
+             <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">
+               {modoCalculo === 'peca' ? 'Materiais Usados (Por Peça)' : 'Materiais Usados (Para o Lote Inteiro)'}
+             </label>
              <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none mb-2 block border border-transparent focus:border-purple-400" onChange={e => { const m = materiais.find(item => item.id === e.target.value); if (m) setMatsNoPed([...matsNoPed, { id: m.id, nome: m.nome, valor: m.valor, qtd: m.qtd, unidade: m.unidade, qtdUsada: 1 }]); }} value="">
                 <option value="">+ Adicionar Material...</option>
                 {materiais.map(m => <option key={m.id} value={m.id}>{m.nome} ({m.unidade || 'un'})</option>)}
@@ -1316,7 +1309,9 @@ export default function App() {
           )}
 
           <div className="mb-4 w-full">
-            <label style={{ color: themeColors.primary }} className="text-[10px] font-bold uppercase ml-1 block mb-1">📦 Custos Extras - Opcional (R$)</label>
+            <label style={{ color: themeColors.primary }} className="text-[10px] font-bold uppercase ml-1 block mb-1">
+              {modoCalculo === 'peca' ? '📦 Custos Extras por Unidade (R$)' : '📦 Custos Extras do Lote (R$)'}
+            </label>
             <div className="grid grid-cols-4 gap-2 w-full">
               {[{id:'embalagem',label:'EMBAL.'},{id:'impressao',label:'IMPRES.'},{id:'energia',label:'LUZ'},{id:'outros',label:'OUTROS'}].map(c=>(
                 <div key={c.id} className="flex flex-col items-center bg-slate-50 p-2 rounded-xl w-full border">
@@ -1361,17 +1356,17 @@ export default function App() {
 
       {precoManual === null && (
         <div className="bg-slate-50 p-5 rounded-3xl mb-8 border border-slate-100 text-xs space-y-2.5 w-full">
-          <div className="flex justify-between items-center mb-1">
-            <p style={{ color: themeColors.primary }} className="font-black uppercase tracking-wider text-[10px]">📋 RESUMO FINANCEIRO {modoCalculo === 'lote' ? 'DO LOTE' : 'DA PEÇA'}</p>
-            <span className="text-[9px] bg-purple-100 text-purple-700 font-bold px-2 py-0.5 rounded-full uppercase">
-              Unitário: R$ {resumenFinanceiro.unitario}
-            </span>
-          </div>
+          <p style={{ color: themeColors.primary }} className="font-black uppercase tracking-wider text-[10px] mb-1">
+            📋 RESUMO FINANCEIRO ({modoCalculo === 'peca' ? 'POR PEÇA' : 'RATEIO DO LOTE'})
+          </p>
           <div className="flex justify-between text-slate-500 w-full"><span>Materiais:</span><span className="font-bold">R$ {resumenFinanceiro.materiais}</span></div>
           <div className="flex justify-between text-slate-500 w-full"><span>Mão de Obra:</span><span className="font-bold">R$ {resumenFinanceiro.maoObra}</span></div>
           <div className="flex justify-between text-slate-500 w-full"><span>Extras / Custo Manual:</span><span className="font-bold">R$ {resumenFinanceiro.extras}</span></div>
           <div className="flex justify-between text-slate-500 w-full"><span>Depreciação de Equipamentos:</span><span style={{ color: themeColors.primary }} className="font-bold">R$ {resumenFinanceiro.deprec}</span></div>
-          <div className="flex justify-between text-slate-800 font-bold border-t pt-2 mt-1 w-full"><span>Custo Base ({modoCalculo === 'lote' ? `${qtdPed} un` : '1 un'}):</span><span style={{ color: themeColors.primary }}>R$ {resumenFinanceiro.custoPeca}</span></div>
+          <div className="flex justify-between text-slate-800 font-bold border-t pt-2 mt-1 w-full">
+            <span>Custo Unitário da Peça:</span>
+            <span style={{ color: themeColors.primary }}>R$ {resumenFinanceiro.custoPeca}</span>
+          </div>
           <div className="flex justify-between text-emerald-600 font-bold w-full"><span>Lucro Livre Gerado ({lucro}%) :</span><span>R$ {resumenFinanceiro.lucroLivre}</span></div>
         </div>
       )}
@@ -1382,7 +1377,6 @@ export default function App() {
           <div className="text-left">
             <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">Preço Sugerido</span>
             <span className="text-base font-bold text-slate-400">R$ {resumenFinanceiro.final}</span>
-            <span className="text-[10px] text-purple-600 font-bold block mt-0.5">(R$ {resumenFinanceiro.unitario} / un)</span>
           </div>
 
           <div className="text-right flex flex-col items-end">
@@ -1409,17 +1403,13 @@ export default function App() {
              if(!nomeProd) return alert("Digite o nome do produto!");
              
              const precoFinalSalvar = Number(precoFinalDigitado || 0).toFixed(2);
-             const qtdNum = Math.max(1, Number(qtdPed || 1));
-             const unitarioCalculadoSalvar = (Number(precoFinalSalvar) / qtdNum).toFixed(2);
              
              const dadosPedido = { 
                nomeProd, 
-               preco: precoFinalSalvar,
-               precoUnitario: unitarioCalculadoSalvar,
+               preco: precoFinalSalvar, 
                clienteId: clienteSel, 
                prazo, 
                qtdPed, 
-               modoCalculo,
                vHora, 
                tGasto, 
                custos, 
@@ -1429,6 +1419,7 @@ export default function App() {
                precoManual: precoManual, 
                obsPedido: docObsPedido, 
                equipamentosSelecionados, 
+               modoCalculo,
                materiaisUsados: precoManual ? [] : matsNoPed.map(m => ({ id: m.id, nome: m.nome, qtdUsada: Number(m.qtdUsada || 1) })) 
              };
              
@@ -1436,7 +1427,7 @@ export default function App() {
                if (pedidoEditandoId) await updateDoc(doc(db, "pedidos", pedidoEditandoId), dadosPedido);
                else await addDoc(collection(db, "pedidos"), { ...dadosPedido, data: new Date().toLocaleDateString('pt-BR'), status: 'Pendente', userId: user.uid });
                
-               gerarPDF({nomeProd, preco: precoFinalSalvar, precoUnitario: unitarioCalculadoSalvar, clienteId: clienteSel, prazo, qtdPed, obsPedido: docObsPedido});
+               gerarPDF({nomeProd, preco: precoFinalSalvar, clienteId: clienteSel, prazo, qtdPed, obsPedido: docObsPedido});
                
                limparCalculadora(); 
                setActiveTab('pedidos'); 
