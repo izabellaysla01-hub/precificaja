@@ -1201,7 +1201,7 @@ export default function App() {
         modoCalculo === 'peca' ? 'shadow-sm' : ''
       }`}
     >
-      Por Peça (UNIDADE)
+      Por Peça
     </button>
 
     <button
@@ -1215,7 +1215,7 @@ export default function App() {
         modoCalculo === 'lote' ? 'shadow-sm' : ''
       }`}
     >
-      Por Lote (QTD. TOTAL)
+      Por Lote
     </button>
   </div>
 </div>
