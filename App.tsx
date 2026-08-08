@@ -702,7 +702,7 @@ export default function App() {
     window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
   };
 
-  const gerarPDF = (p: any) => {
+    const gerarPDF = async (p: any) => {
     const idDoCliente = p.clienteId || p.clienteSel || '';
     const cli = clientes.find(c => c.id === idDoCliente);
     
@@ -711,6 +711,27 @@ export default function App() {
     const dataValidade = hoje.toLocaleDateString('pt-BR');
     const dataPrazo = p.prazo ? new Date(p.prazo + 'T00:00:00').toLocaleDateString('pt-BR') : 'A combinar';
     const totalNum = Number(p.preco || 0);
+
+    // Função auxiliar para converter a imagem da URL para Base64 antes de gerar o PDF
+    const converterImagemParaBase64 = async (url: string): Promise<string> => {
+      try {
+        const response = await fetch(url, { mode: 'cors' });
+        const blob = await response.blob();
+        return new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = () => resolve('');
+          reader.readAsDataURL(blob);
+        });
+      } catch (error) {
+        return '';
+      }
+    };
+
+    let logoBase64 = '';
+    if (logoLojaPerfil) {
+      logoBase64 = await converterImagemParaBase64(logoLojaPerfil);
+    }
 
     let htmlLinhasTabela = '';
 
@@ -747,7 +768,7 @@ export default function App() {
         }
         
         const qtdSegura = quantidadeItem > 0 ? quantidadeItem : 1;
-        const unitario = p.precoUnitario ? Number(p.precoUnitario) : (totalNum / qtdSegura);
+        const unitario = p.precoManual ? Number(p.precoManual) : (totalNum / qtdSegura);
 
         return `
           <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px; page-break-inside: avoid; break-inside: avoid;">
@@ -761,22 +782,33 @@ export default function App() {
     }
 
     const cabecalhoNomeHtml = nomeLojaPerfil ? nomeLojaPerfil : "PrecificaJá";
-    const cabecalhoLogoHtml = logoLojaPerfil ? `<div style="margin-right: 15px;"><img src="${logoLojaPerfil}" style="max-height: 50px; max-width: 120px; object-fit: contain; border-radius: 8px;"/></div>` : '';
+    const srcLogoFinal = logoBase64 || logoLojaPerfil;
+    const cabecalhoLogoHtml = srcLogoFinal 
+      ? `<div style="margin-right: 15px; flex-shrink: 0;"><img src="${srcLogoFinal}" style="max-height: 65px; max-width: 150px; object-fit: contain; display: block;"/></div>` 
+      : '';
 
     const elemento = document.createElement('div');
+    elemento.style.position = 'absolute';
+    elemento.style.left = '-9999px';
+    elemento.style.top = '0';
+    elemento.style.width = '750px';
+
     elemento.innerHTML = `
-      <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto;">
+      <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto; background: #ffffff;">
+        
+        <!-- CABEÇALHO LADO A LADO: LOGO E INFO DA EMPRESA -->
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px;">
-          <div style="display: flex; align-items: center;">
+          <div style="display: flex; align-items: center; gap: 15px;">
             ${cabecalhoLogoHtml}
             <div>
-              <h1 style="color: ${themeColors.primary}; margin: 0; font-size: 26px; font-weight: 900; line-height: 1.1;">${cabecalhoNomeHtml}</h1>
+              <h1 style="color: ${themeColors.primary}; margin: 0; font-size: 24px; font-weight: 900; line-height: 1.1;">${cabecalhoNomeHtml}</h1>
               <p style="color: #94a3b8; font-size: 11px; text-transform: uppercase; margin: 4px 0 0 0; font-weight: bold;">Documento de Orçamento Comercial</p>
             </div>
           </div>
-          <div style="text-align: right; background-color: #f8fafc; padding: 8px 14px; border-radius: 12px; border: 1px solid #e2e8f0; shrink-0;">
+
+          <div style="text-align: right; background-color: #f8fafc; padding: 6px 12px; border-radius: 8px; border: 1px solid #e2e8f0; flex-shrink: 0;">
             <span style="font-size: 9px; font-weight: bold; color: ${themeColors.primary}; text-transform: uppercase; display: block;">Código Ref</span>
-            <span style="font-size: 12px; font-weight: bold; color: #475569; display: block; margin-top: 1px;">ORC-${Math.floor(1000 + Math.random() * 9000)}</span>
+            <span style="font-size: 11px; font-weight: bold; color: #475569; display: block; margin-top: 1px;">ORC-${Math.floor(1000 + Math.random() * 9000)}</span>
           </div>
         </div>
         
@@ -838,10 +870,26 @@ export default function App() {
         </div>
       </div>
     `;
-    
-    const opcoes = { margin: [10, 10, 10, 10], filename: `Pedido_${p.id || 'Venda'}.pdf`, html2canvas: { scale: 2, useCORS: true, scrollY: 0 }, jsPDF: { format: 'a4', orientation: 'portrait' }, pagebreak: { mode: ['avoid-all', 'css'] } };
-    (window as any).html2pdf().from(elemento).set(opcoes).save();
+
+    document.body.appendChild(elemento);
+
+    const opcoes = { 
+      margin: [10, 10, 10, 10], 
+      filename: `Pedido_${p.id || 'Venda'}.pdf`, 
+      html2canvas: { scale: 2, useCORS: true, allowTaint: true, scrollY: 0 }, 
+      jsPDF: { format: 'a4', orientation: 'portrait' }, 
+      pagebreak: { mode: ['avoid-all', 'css'] } 
+    };
+
+    setTimeout(() => {
+      (window as any).html2pdf().from(elemento).set(opcoes).save().then(() => {
+        if (document.body.contains(elemento)) {
+          document.body.removeChild(elemento);
+        }
+      });
+    }, 200);
   };
+
 
   const handleAuth = async () => {
     try {
