@@ -132,6 +132,7 @@ export default function App() {
 
   const [nomeProd, setNomeProd] = useState('');
   const [qtdPed, setQtdPed] = useState('1');
+  const [modoCalculo, setModoCalculo] = useState<'lote' | 'peca'>('lote'); // 'lote' (calcula lote e divide) ou 'peca' (multiplica bruto)
   const [matsNoPed, setMatsNoPed] = useState<any[]>([]);
   const [vHora, setVHora] = useState('9');
   const [tGasto, setTGasto] = useState('60');
@@ -527,6 +528,7 @@ export default function App() {
         clienteId: clienteBalcao,
         prazo: prazoFinalVenda,
         qtdPed: "1",
+        modoCalculo: "peca",
         vHora: "0",
         tGasto: "0",
         custos: { embalagem: '0', impressao: '0', energia: '0', outros: '0' },
@@ -631,10 +633,13 @@ export default function App() {
   }, [historicoFinanceiroMensal, mesFiltroHistorico, anoFiltroHistorico]);
 
   const resumenFinanceiro = useMemo(() => {
+    const qtdSolicitada = Math.max(1, Number(qtdPed || 1));
+
     if (precoManual !== null) {
-      const totalCatalogo = Number(precoManual) * Number(qtdPed || 1);
+      const totalCatalogo = modoCalculo === 'lote' ? Number(precoManual) : Number(precoManual) * qtdSolicitada;
       const semDesconto = totalCatalogo - Number(desconto || 0);
-      return { materiais: "0.00", maoObra: "0.00", extras: "0.00", deprec: "0.00", custoPeca: "0.00", lucroLivre: "0.00", final: isNaN(semDesconto) ? "0.00" : semDesconto.toFixed(2) };
+      const unitarioCat = modoCalculo === 'lote' ? (semDesconto / qtdSolicitada) : Number(precoManual);
+      return { materiais: "0.00", maoObra: "0.00", extras: "0.00", deprec: "0.00", custoPeca: "0.00", lucroLivre: "0.00", unitario: unitarioCat.toFixed(2), final: isNaN(semDesconto) ? "0.00" : semDesconto.toFixed(2) };
     }
 
     const totalMaterials = matsNoPed.reduce((acc, m) => acc + ((Number(m.valor || 0) / Number(m.qtd || 1)) * Number(m.qtdUsada || 0)), 0);
@@ -657,13 +662,32 @@ export default function App() {
       }
     });
 
-    const custoTotalPeca = totalMaterials + totalMaoObra + totalExtras + totalDesgasteMaquinas;
-    const custoTotalLote = custoTotalPeca * Number(qtdPed || 1);
-    const valorLucroLivre = custoTotalLote * (Number(lucro || 0) / 100);
-    const precoFinalCalculado = (custoTotalLote + valorLucroLivre) - Number(desconto || 0);
+    const custoCalculadoNaTela = totalMaterials + totalMaoObra + totalExtras + totalDesgasteMaquinas;
+    const valorLucroLivre = custoCalculadoNaTela * (Number(lucro || 0) / 100);
+    const subtotalBruto = custoCalculadoNaTela + valorLucroLivre;
 
-    return { materiais: totalMaterials.toFixed(2), maoObra: totalMaoObra.toFixed(2), extras: totalExtras.toFixed(2), deprec: totalDesgasteMaquinas.toFixed(2), custoPeca: custoTotalPeca.toFixed(2), lucroLivre: valorLucroLivre.toFixed(2), final: isNaN(precoFinalCalculado) ? "0.00" : precoFinalCalculado.toFixed(2) };
-  }, [matsNoPed, vHora, tGasto, custos, lucro, qtdPed, desconto, precoManual, equipamentos, equipamentosSelecionados, financasFixo]);
+    let precoFinalCalculado = 0;
+    let precoUnitarioCalculado = 0;
+
+    if (modoCalculo === 'lote') {
+      precoFinalCalculado = subtotalBruto - Number(desconto || 0);
+      precoUnitarioCalculado = precoFinalCalculado / qtdSolicitada;
+    } else {
+      precoUnitarioCalculado = subtotalBruto;
+      precoFinalCalculado = (subtotalBruto * qtdSolicitada) - Number(desconto || 0);
+    }
+
+    return { 
+      materiais: totalMaterials.toFixed(2), 
+      maoObra: totalMaoObra.toFixed(2), 
+      extras: totalExtras.toFixed(2), 
+      deprec: totalDesgasteMaquinas.toFixed(2), 
+      custoPeca: custoCalculadoNaTela.toFixed(2), 
+      lucroLivre: valorLucroLivre.toFixed(2), 
+      unitario: isNaN(precoUnitarioCalculado) ? "0.00" : precoUnitarioCalculado.toFixed(2),
+      final: isNaN(precoFinalCalculado) ? "0.00" : precoFinalCalculado.toFixed(2) 
+    };
+  }, [matsNoPed, vHora, tGasto, custos, lucro, qtdPed, modoCalculo, desconto, precoManual, equipamentos, equipamentosSelecionados, financasFixo]);
 
   // Sincroniza o preço editável com a conta do sistema até que você decida digitar
   useEffect(() => {
@@ -723,7 +747,7 @@ export default function App() {
         }
         
         const qtdSegura = quantidadeItem > 0 ? quantidadeItem : 1;
-        const unitario = p.precoManual ? Number(p.precoManual) : (totalNum / qtdSegura);
+        const unitario = p.precoUnitario ? Number(p.precoUnitario) : (totalNum / qtdSegura);
 
         return `
           <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px; page-break-inside: avoid; break-inside: avoid;">
@@ -912,7 +936,7 @@ export default function App() {
   };
 
   const limparCalculadora = () => {
-    setNomeProd(''); setQtdPed('1'); setMatsNoPed([]); setVHora('9'); setTGasto('60');
+    setNomeProd(''); setQtdPed('1'); setModoCalculo('lote'); setMatsNoPed([]); setVHora('9'); setTGasto('60');
     setCustos({ embalagem: '0', impressao: custoPorPaginaCalculado.toFixed(2), energia: '0', outros: '0' });
     setEquipamentosSelecionados([]);
     setLucro('100'); setDesconto('0'); setPrazo(''); setClienteSel('');
@@ -923,7 +947,7 @@ export default function App() {
 
   const carregarPedidoParaEdicao = (p: any) => {
     setIsDuplicando(false);
-    setPedidoEditandoId(p.id); setNomeProd(p.nomeProd || ''); setQtdPed(p.qtdPed || '1'); setVHora(p.vHora || '9'); setTGasto(p.tGasto || '60');
+    setPedidoEditandoId(p.id); setNomeProd(p.nomeProd || ''); setQtdPed(p.qtdPed || '1'); setModoCalculo(p.modoCalculo || 'lote'); setVHora(p.vHora || '9'); setTGasto(p.tGasto || '60');
     setCustos(p.custos || { embalagem: '0', impressao: '0', energia: '0', outros: '0' });
     setLucro(p.lucro || '100'); setDesconto(p.desconto || '0'); setPrazo(p.prazo || ''); setClienteSel(p.clienteId || '');
     setPrecoManual(p.precoManual || null); setDocObsPedido(p.obsPedido || '');
@@ -946,6 +970,7 @@ export default function App() {
     setIsDuplicando(true);
     setNomeProd(`${p.nomeProd} (Cópia)`); 
     setQtdPed(p.qtdPed || '1'); 
+    setModoCalculo(p.modoCalculo || 'lote');
     setVHora(p.vHora || '9'); 
     setTGasto(p.tGasto || '60');
     setCustos(p.custos || { embalagem: '0', impressao: '0', energia: '0', outros: '0' });
@@ -1159,14 +1184,45 @@ export default function App() {
         </div>
       )}
 
+      {/* CHAVE SELETORA DE MODO DE CÁLCULO (POR LOTE VS POR PEÇA) */}
+      <div className="mb-4 bg-slate-50 p-2.5 rounded-2xl border flex items-center justify-between w-full">
+        <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Modo de Cálculo:</span>
+        <div className="flex bg-white p-1 rounded-xl border gap-1">
+          <button 
+            type="button"
+            onClick={() => setModoCalculo('lote')}
+            style={{ 
+              backgroundColor: modoCalculo === 'lote' ? themeColors.primary : 'transparent',
+              color: modoCalculo === 'lote' ? '#ffffff' : '#64748b'
+            }}
+            className="px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all"
+          >
+            📦 Por Lote / Produção
+          </button>
+          <button 
+            type="button"
+            onClick={() => setModoCalculo('peca')}
+            style={{ 
+              backgroundColor: modoCalculo === 'peca' ? themeColors.primary : 'transparent',
+              color: modoCalculo === 'peca' ? '#ffffff' : '#64748b'
+            }}
+            className="px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all"
+          >
+            🎯 Por Peça / Multiplicar
+          </button>
+        </div>
+      </div>
+
       <div className="grid grid-cols-3 gap-3 mb-4 w-full">
          <div className="col-span-2">
             <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Produto / Serviço</label>
             <input className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-slate-800 border focus:border-purple-500" value={nomeProd} onChange={e => setNomeProd(e.target.value)} />
          </div>
          <div>
-            <label className="text-[10px] font-bold text-slate-400 uppercase text-center block">Qtd</label>
-            <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-center" value={qtdPed} onChange={e => setQtdPed(e.target.value)} />
+            <label className="text-[10px] font-bold text-slate-400 uppercase text-center block">
+              {modoCalculo === 'lote' ? 'Qtd Lote' : 'Qtd Peças'}
+            </label>
+            <input type="number" min="1" className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-center font-bold" value={qtdPed} onChange={e => setQtdPed(e.target.value)} />
          </div>
       </div>
 
@@ -1227,7 +1283,7 @@ export default function App() {
           )}
 
           <div className="mb-4 w-full">
-            <label style={{ color: themeColors.primary }} className="text-[10px] font-bold uppercase ml-1 block mb-1">📦 Custos Extras por Unidade - Opcional (R$)</label>
+            <label style={{ color: themeColors.primary }} className="text-[10px] font-bold uppercase ml-1 block mb-1">📦 Custos Extras - Opcional (R$)</label>
             <div className="grid grid-cols-4 gap-2 w-full">
               {[{id:'embalagem',label:'EMBAL.'},{id:'impressao',label:'IMPRES.'},{id:'energia',label:'LUZ'},{id:'outros',label:'OUTROS'}].map(c=>(
                 <div key={c.id} className="flex flex-col items-center bg-slate-50 p-2 rounded-xl w-full border">
@@ -1272,12 +1328,17 @@ export default function App() {
 
       {precoManual === null && (
         <div className="bg-slate-50 p-5 rounded-3xl mb-8 border border-slate-100 text-xs space-y-2.5 w-full">
-          <p style={{ color: themeColors.primary }} className="font-black uppercase tracking-wider text-[10px] mb-1">📋 RESUMO FINANCEIRO DA PEÇA</p>
+          <div className="flex justify-between items-center mb-1">
+            <p style={{ color: themeColors.primary }} className="font-black uppercase tracking-wider text-[10px]">📋 RESUMO FINANCEIRO {modoCalculo === 'lote' ? 'DO LOTE' : 'DA PEÇA'}</p>
+            <span className="text-[9px] bg-purple-100 text-purple-700 font-bold px-2 py-0.5 rounded-full uppercase">
+              Unitário: R$ {resumenFinanceiro.unitario}
+            </span>
+          </div>
           <div className="flex justify-between text-slate-500 w-full"><span>Materiais:</span><span className="font-bold">R$ {resumenFinanceiro.materiais}</span></div>
           <div className="flex justify-between text-slate-500 w-full"><span>Mão de Obra:</span><span className="font-bold">R$ {resumenFinanceiro.maoObra}</span></div>
           <div className="flex justify-between text-slate-500 w-full"><span>Extras / Custo Manual:</span><span className="font-bold">R$ {resumenFinanceiro.extras}</span></div>
           <div className="flex justify-between text-slate-500 w-full"><span>Depreciação de Equipamentos:</span><span style={{ color: themeColors.primary }} className="font-bold">R$ {resumenFinanceiro.deprec}</span></div>
-          <div className="flex justify-between text-slate-800 font-bold border-t pt-2 mt-1 w-full"><span>Custo Total da Peça:</span><span style={{ color: themeColors.primary }}>R$ {resumenFinanceiro.custoPeca}</span></div>
+          <div className="flex justify-between text-slate-800 font-bold border-t pt-2 mt-1 w-full"><span>Custo Base ({modoCalculo === 'lote' ? `${qtdPed} un` : '1 un'}):</span><span style={{ color: themeColors.primary }}>R$ {resumenFinanceiro.custoPeca}</span></div>
           <div className="flex justify-between text-emerald-600 font-bold w-full"><span>Lucro Livre Gerado ({lucro}%) :</span><span>R$ {resumenFinanceiro.lucroLivre}</span></div>
         </div>
       )}
@@ -1288,6 +1349,7 @@ export default function App() {
           <div className="text-left">
             <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">Preço Sugerido</span>
             <span className="text-base font-bold text-slate-400">R$ {resumenFinanceiro.final}</span>
+            <span className="text-[10px] text-purple-600 font-bold block mt-0.5">(R$ {resumenFinanceiro.unitario} / un)</span>
           </div>
 
           <div className="text-right flex flex-col items-end">
@@ -1314,13 +1376,17 @@ export default function App() {
              if(!nomeProd) return alert("Digite o nome do produto!");
              
              const precoFinalSalvar = Number(precoFinalDigitado || 0).toFixed(2);
+             const qtdNum = Math.max(1, Number(qtdPed || 1));
+             const unitarioCalculadoSalvar = (Number(precoFinalSalvar) / qtdNum).toFixed(2);
              
              const dadosPedido = { 
                nomeProd, 
-               preco: precoFinalSalvar, 
+               preco: precoFinalSalvar,
+               precoUnitario: unitarioCalculadoSalvar,
                clienteId: clienteSel, 
                prazo, 
                qtdPed, 
+               modoCalculo,
                vHora, 
                tGasto, 
                custos, 
@@ -1337,7 +1403,7 @@ export default function App() {
                if (pedidoEditandoId) await updateDoc(doc(db, "pedidos", pedidoEditandoId), dadosPedido);
                else await addDoc(collection(db, "pedidos"), { ...dadosPedido, data: new Date().toLocaleDateString('pt-BR'), status: 'Pendente', userId: user.uid });
                
-               gerarPDF({nomeProd, preco: precoFinalSalvar, clienteId: clienteSel, prazo, qtdPed, obsPedido: docObsPedido});
+               gerarPDF({nomeProd, preco: precoFinalSalvar, precoUnitario: unitarioCalculadoSalvar, clienteId: clienteSel, prazo, qtdPed, obsPedido: docObsPedido});
                
                limparCalculadora(); 
                setActiveTab('pedidos'); 
