@@ -681,10 +681,12 @@ export default function App() {
     let precoFinalCalculado = 0;
 
     if (modoCalculo === 'peca') {
+      // Cálculo por peça (unidade) -> multiplica pelo número de peças do lote
       custoTotalInvestido = custoTotalBasePeca * qtdNum;
       valorLucroLivre = custoTotalInvestido * (Number(lucro || 0) / 100);
       precoFinalCalculado = (custoTotalInvestido + valorLucroLivre) - Number(desconto || 0);
     } else {
+      // Cálculo por lote -> custos já referem-se ao lote total produzido
       custoTotalInvestido = custoTotalBasePeca;
       valorLucroLivre = custoTotalInvestido * (Number(lucro || 0) / 100);
       precoFinalCalculado = (custoTotalInvestido + valorLucroLivre) - Number(desconto || 0);
@@ -703,6 +705,7 @@ export default function App() {
     };
   }, [matsNoPed, vHora, tGasto, custos, lucro, qtdPed, desconto, precoManual, equipamentos, equipamentosSelecionados, financasFixo, modoCalculo]);
 
+  // Sincroniza o preço editável com a conta do sistema até que você decida digitar
   useEffect(() => {
     setPrecoFinalDigitado(resumenFinanceiro.final);
   }, [resumenFinanceiro.final]);
@@ -774,33 +777,23 @@ export default function App() {
     }
 
     const cabecalhoNomeHtml = nomeLojaPerfil ? nomeLojaPerfil : "PrecificaJá";
-    const cabecalhoLogoHtml = logoLojaPerfil 
-      ? `<div style="margin-right: 15px; flex-shrink: 0;"><img id="logo-pdf-img" src="${logoLojaPerfil}" crossOrigin="anonymous" style="max-height: 65px; max-width: 150px; object-fit: contain; display: block;"/></div>` 
-      : '';
+    const cabecalhoLogoHtml = logoLojaPerfil ? `<img src="${logoLojaPerfil}" style="max-height: 70px; max-width: 160px; object-fit: contain; display: block;"/>` : '';
 
     const elemento = document.createElement('div');
-    elemento.style.position = 'absolute';
-    elemento.style.left = '-9999px';
-    elemento.style.top = '0';
-    elemento.style.width = '750px';
-    elemento.style.backgroundColor = '#ffffff';
-
     elemento.innerHTML = `
-      <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto; background: #ffffff;">
+      <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto;">
         
         <!-- CABEÇALHO LADO A LADO: LOGO E INFO DA EMPRESA -->
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px;">
-          <div style="display: flex; align-items: center; gap: 15px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px; gap: 20px;">
+          <div style="flex-shrink: 0; display: flex; align-items: center;">
             ${cabecalhoLogoHtml}
-            <div>
-              <h1 style="color: ${themeColors.primary}; margin: 0; font-size: 24px; font-weight: 900; line-height: 1.1;">${cabecalhoNomeHtml}</h1>
-              <p style="color: #94a3b8; font-size: 11px; text-transform: uppercase; margin: 4px 0 0 0; font-weight: bold;">Documento de Orçamento Comercial</p>
-            </div>
           </div>
-
-          <div style="text-align: right; background-color: #f8fafc; padding: 6px 12px; border-radius: 8px; border: 1px solid #e2e8f0; flex-shrink: 0;">
-            <span style="font-size: 9px; font-weight: bold; color: ${themeColors.primary}; text-transform: uppercase; display: block;">Código Ref</span>
-            <span style="font-size: 11px; font-weight: bold; color: #475569; display: block; margin-top: 1px;">ORC-${Math.floor(1000 + Math.random() * 9000)}</span>
+          <div style="text-align: right; flex-grow: 1;">
+            <h1 style="color: ${themeColors.primary}; margin: 0; font-size: 24px; font-weight: 900; line-height: 1.1;">${cabecalhoNomeHtml}</h1>
+            <p style="color: #94a3b8; font-size: 11px; text-transform: uppercase; margin: 4px 0 0 0; font-weight: bold;">Documento de Orçamento Comercial</p>
+            <div style="display: inline-block; margin-top: 6px; background-color: #f8fafc; padding: 4px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+              <span style="font-size: 11px; font-weight: bold; color: #475569;">ORÇAMENTO REF: ORC-${Math.floor(1000 + Math.random() * 9000)}</span>
+            </div>
           </div>
         </div>
         
@@ -862,40 +855,9 @@ export default function App() {
         </div>
       </div>
     `;
-
-    document.body.appendChild(elemento);
-
-    const opcoes = { 
-      margin: [10, 10, 10, 10], 
-      filename: `Pedido_${p.id || 'Venda'}.pdf`, 
-      html2canvas: { scale: 2, useCORS: true, allowTaint: true, scrollY: 0 }, 
-      jsPDF: { format: 'a4', orientation: 'portrait' }, 
-      pagebreak: { mode: ['avoid-all', 'css'] } 
-    };
-
-    const executarGeracao = () => {
-      (window as any).html2pdf().from(elemento).set(opcoes).save().then(() => {
-        if (document.body.contains(elemento)) {
-          document.body.removeChild(elemento);
-        }
-      }).catch(() => {
-        if (document.body.contains(elemento)) {
-          document.body.removeChild(elemento);
-        }
-      });
-    };
-
-    const imgTag = elemento.querySelector('#logo-pdf-img') as HTMLImageElement;
-    if (imgTag) {
-      if (imgTag.complete && imgTag.naturalWidth !== 0) {
-        executarGeracao();
-      } else {
-        imgTag.onload = () => executarGeracao();
-        imgTag.onerror = () => executarGeracao(); // Fallback caso ocorra erro no carregamento da URL
-      }
-    } else {
-      executarGeracao();
-    }
+    
+    const opcoes = { margin: [10, 10, 10, 10], filename: `Pedido_${p.id || 'Venda'}.pdf`, html2canvas: { scale: 2, useCORS: true, scrollY: 0 }, jsPDF: { format: 'a4', orientation: 'portrait' }, pagebreak: { mode: ['avoid-all', 'css'] } };
+    (window as any).html2pdf().from(elemento).set(opcoes).save();
   };
 
   const handleAuth = async () => {
