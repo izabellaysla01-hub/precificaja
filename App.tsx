@@ -702,7 +702,7 @@ export default function App() {
     window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
   };
 
-    const gerarPDF = async (p: any) => {
+      const gerarPDF = (p: any) => {
     const idDoCliente = p.clienteId || p.clienteSel || '';
     const cli = clientes.find(c => c.id === idDoCliente);
     
@@ -711,27 +711,6 @@ export default function App() {
     const dataValidade = hoje.toLocaleDateString('pt-BR');
     const dataPrazo = p.prazo ? new Date(p.prazo + 'T00:00:00').toLocaleDateString('pt-BR') : 'A combinar';
     const totalNum = Number(p.preco || 0);
-
-    // Função auxiliar para converter a imagem da URL para Base64 antes de gerar o PDF
-    const converterImagemParaBase64 = async (url: string): Promise<string> => {
-      try {
-        const response = await fetch(url, { mode: 'cors' });
-        const blob = await response.blob();
-        return new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.onerror = () => resolve('');
-          reader.readAsDataURL(blob);
-        });
-      } catch (error) {
-        return '';
-      }
-    };
-
-    let logoBase64 = '';
-    if (logoLojaPerfil) {
-      logoBase64 = await converterImagemParaBase64(logoLojaPerfil);
-    }
 
     let htmlLinhasTabela = '';
 
@@ -782,16 +761,16 @@ export default function App() {
     }
 
     const cabecalhoNomeHtml = nomeLojaPerfil ? nomeLojaPerfil : "PrecificaJá";
-    const srcLogoFinal = logoBase64 || logoLojaPerfil;
-    const cabecalhoLogoHtml = srcLogoFinal 
-      ? `<div style="margin-right: 15px; flex-shrink: 0;"><img src="${srcLogoFinal}" style="max-height: 65px; max-width: 150px; object-fit: contain; display: block;"/></div>` 
+    const cabecalhoLogoHtml = logoLojaPerfil 
+      ? `<div style="margin-right: 15px; flex-shrink: 0;"><img src="${logoLojaPerfil}" crossOrigin="anonymous" style="max-height: 65px; max-width: 150px; object-fit: contain; display: block;"/></div>` 
       : '';
 
     const elemento = document.createElement('div');
-    elemento.style.position = 'absolute';
+    elemento.style.position = 'fixed';
     elemento.style.left = '-9999px';
     elemento.style.top = '0';
     elemento.style.width = '750px';
+    elemento.style.backgroundColor = '#ffffff';
 
     elemento.innerHTML = `
       <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto; background: #ffffff;">
@@ -887,7 +866,7 @@ export default function App() {
           document.body.removeChild(elemento);
         }
       });
-    }, 200);
+    }, 400);
   };
 
 
