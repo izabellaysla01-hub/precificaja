@@ -702,7 +702,7 @@ export default function App() {
     window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
   };
 
-      const gerarPDF = (p: any) => {
+     const gerarPDF = (p: any) => {
     const idDoCliente = p.clienteId || p.clienteSel || '';
     const cli = clientes.find(c => c.id === idDoCliente);
     
@@ -761,33 +761,31 @@ export default function App() {
     }
 
     const cabecalhoNomeHtml = nomeLojaPerfil ? nomeLojaPerfil : "PrecificaJá";
+    // crossOrigin="anonymous" é essencial para o html2canvas processar a logo sem barrar CORS
     const cabecalhoLogoHtml = logoLojaPerfil 
-      ? `<div style="margin-right: 15px; flex-shrink: 0;"><img src="${logoLojaPerfil}" crossOrigin="anonymous" style="max-height: 65px; max-width: 150px; object-fit: contain; display: block;"/></div>` 
+      ? `<img id="pdf-logo-img" src="${logoLojaPerfil}" crossOrigin="anonymous" style="max-height: 70px; max-width: 160px; object-fit: contain; display: block;"/>` 
       : '';
 
     const elemento = document.createElement('div');
-    elemento.style.position = 'fixed';
+    elemento.style.position = 'absolute';
     elemento.style.left = '-9999px';
     elemento.style.top = '0';
     elemento.style.width = '750px';
-    elemento.style.backgroundColor = '#ffffff';
 
     elemento.innerHTML = `
       <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto; background: #ffffff;">
         
         <!-- CABEÇALHO LADO A LADO: LOGO E INFO DA EMPRESA -->
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px;">
-          <div style="display: flex; align-items: center; gap: 15px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px; gap: 20px;">
+          <div style="flex-shrink: 0; display: flex; align-items: center;">
             ${cabecalhoLogoHtml}
-            <div>
-              <h1 style="color: ${themeColors.primary}; margin: 0; font-size: 24px; font-weight: 900; line-height: 1.1;">${cabecalhoNomeHtml}</h1>
-              <p style="color: #94a3b8; font-size: 11px; text-transform: uppercase; margin: 4px 0 0 0; font-weight: bold;">Documento de Orçamento Comercial</p>
-            </div>
           </div>
-
-          <div style="text-align: right; background-color: #f8fafc; padding: 6px 12px; border-radius: 8px; border: 1px solid #e2e8f0; flex-shrink: 0;">
-            <span style="font-size: 9px; font-weight: bold; color: ${themeColors.primary}; text-transform: uppercase; display: block;">Código Ref</span>
-            <span style="font-size: 11px; font-weight: bold; color: #475569; display: block; margin-top: 1px;">ORC-${Math.floor(1000 + Math.random() * 9000)}</span>
+          <div style="text-align: right; flex-grow: 1;">
+            <h1 style="color: ${themeColors.primary}; margin: 0; font-size: 24px; font-weight: 900; line-height: 1.1;">${cabecalhoNomeHtml}</h1>
+            <p style="color: #94a3b8; font-size: 11px; text-transform: uppercase; margin: 4px 0 0 0; font-weight: bold;">Documento de Orçamento Comercial</p>
+            <div style="display: inline-block; margin-top: 6px; background-color: #f8fafc; padding: 4px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+              <span style="font-size: 11px; font-weight: bold; color: #475569;">ORÇAMENTO REF: ORC-${Math.floor(1000 + Math.random() * 9000)}</span>
+            </div>
           </div>
         </div>
         
@@ -860,13 +858,21 @@ export default function App() {
       pagebreak: { mode: ['avoid-all', 'css'] } 
     };
 
-    setTimeout(() => {
+    const dispararDownload = () => {
       (window as any).html2pdf().from(elemento).set(opcoes).save().then(() => {
         if (document.body.contains(elemento)) {
           document.body.removeChild(elemento);
         }
       });
-    }, 400);
+    };
+
+    const imgElement = elemento.querySelector('#pdf-logo-img') as HTMLImageElement;
+    if (imgElement && !imgElement.complete) {
+      imgElement.onload = dispararDownload;
+      imgElement.onerror = dispararDownload; // fallback caso dê erro de carregamento
+    } else {
+      setTimeout(dispararDownload, 100);
+    }
   };
 
 
