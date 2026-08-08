@@ -1184,36 +1184,42 @@ export default function App() {
         )}
       </div>
 
-      {/* SELETOR DE MODO DE CÁLCULO */}
-<div className="mb-5 grid grid-cols-2 gap-1 p-1 bg-slate-100 rounded-xl w-full">
-  <button
-    type="button"
-    onClick={() => setModoCalculo('peca')}
-    style={{ 
-      backgroundColor: modoCalculo === 'peca' ? themeColors.primary : 'transparent', 
-      color: modoCalculo === 'peca' ? '#ffffff' : '#64748b'
-    }}
-    className={`py-2 px-3 rounded-lg font-bold text-xs transition-all text-center ${
-      modoCalculo === 'peca' ? 'shadow-sm' : ''
-    }`}
-  >
-    Por Peça
-  </button>
+ {/* SELETOR DE MODO DE CÁLCULO */}
+<div className="mb-5 w-full">
+  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-2">
+    Modo de Cálculo
+  </label>
+  <div className="grid grid-cols-2 gap-1 p-1 bg-slate-100 rounded-xl w-full">
+    <button
+      type="button"
+      onClick={() => setModoCalculo('peca')}
+      style={{ 
+        backgroundColor: modoCalculo === 'peca' ? themeColors.primary : 'transparent', 
+        color: modoCalculo === 'peca' ? '#ffffff' : '#64748b'
+      }}
+      className={`py-2 px-3 rounded-lg font-bold text-xs transition-all text-center ${
+        modoCalculo === 'peca' ? 'shadow-sm' : ''
+      }`}
+    >
+      Por Peça (UNIDADE)
+    </button>
 
-  <button
-    type="button"
-    onClick={() => setModoCalculo('lote')}
-    style={{ 
-      backgroundColor: modoCalculo === 'lote' ? themeColors.primary : 'transparent', 
-      color: modoCalculo === 'lote' ? '#ffffff' : '#64748b'
-    }}
-    className={`py-2 px-3 rounded-lg font-bold text-xs transition-all text-center ${
-      modoCalculo === 'lote' ? 'shadow-sm' : ''
-    }`}
-  >
-    Por Lote
-  </button>
+    <button
+      type="button"
+      onClick={() => setModoCalculo('lote')}
+      style={{ 
+        backgroundColor: modoCalculo === 'lote' ? themeColors.primary : 'transparent', 
+        color: modoCalculo === 'lote' ? '#ffffff' : '#64748b'
+      }}
+      className={`py-2 px-3 rounded-lg font-bold text-xs transition-all text-center ${
+        modoCalculo === 'lote' ? 'shadow-sm' : ''
+      }`}
+    >
+      Por Lote (QTD. TOTAL)
+    </button>
+  </div>
 </div>
+
 
       {mostrarSeletorCatalogo && !pedidoEditandoId && (
         <div className="bg-purple-50/50 border border-purple-100 p-4 rounded-3xl mb-4 text-xs space-y-2 w-full">
