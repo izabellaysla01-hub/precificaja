@@ -1200,7 +1200,7 @@ export default function App() {
             }}
             className="py-2.5 px-3 rounded-xl font-black text-xs border transition-all shadow-sm text-center"
           >
-            🧩 Por Peça (Unidade)
+            Por Peça (Unidade)
           </button>
 
           <button
@@ -1213,7 +1213,7 @@ export default function App() {
             }}
             className="py-2.5 px-3 rounded-xl font-black text-xs border transition-all shadow-sm text-center"
           >
-            📦 Por Lote (Qtd Total)
+            Por Lote (Qtd. Total)
           </button>
         </div>
       </div>
