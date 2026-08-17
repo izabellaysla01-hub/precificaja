@@ -134,6 +134,7 @@ export default function App() {
   const [modoCalculo, setModoCalculo] = useState<'peca' | 'lote'>('peca');
 
   const [nomeProd, setNomeProd] = useState('');
+  const [detalhamentoPed, setDetalhamentoPed] = useState(''); // NOVO ESTADO DE DETALHAMENTO DO KIT
   const [qtdPed, setQtdPed] = useState('1');
   const [matsNoPed, setMatsNoPed] = useState<any[]>([]);
   const [vHora, setVHora] = useState('9');
@@ -681,12 +682,10 @@ export default function App() {
     let precoFinalCalculado = 0;
 
     if (modoCalculo === 'peca') {
-      // Cálculo por peça (unidade) -> multiplica pelo número de peças do lote
       custoTotalInvestido = custoTotalBasePeca * qtdNum;
       valorLucroLivre = custoTotalInvestido * (Number(lucro || 0) / 100);
       precoFinalCalculado = (custoTotalInvestido + valorLucroLivre) - Number(desconto || 0);
     } else {
-      // Cálculo por lote -> custos já referem-se ao lote total produzido
       custoTotalInvestido = custoTotalBasePeca;
       valorLucroLivre = custoTotalInvestido * (Number(lucro || 0) / 100);
       precoFinalCalculado = (custoTotalInvestido + valorLucroLivre) - Number(desconto || 0);
@@ -705,7 +704,6 @@ export default function App() {
     };
   }, [matsNoPed, vHora, tGasto, custos, lucro, qtdPed, desconto, precoManual, equipamentos, equipamentosSelecionados, financasFixo, modoCalculo]);
 
-  // Sincroniza o preço editável com a conta do sistema até que você decida digitar
   useEffect(() => {
     setPrecoFinalDigitado(resumenFinanceiro.final);
   }, [resumenFinanceiro.final]);
@@ -718,6 +716,7 @@ export default function App() {
     window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
   };
 
+  // --- GERAÇÃO DO PDF ATUALIZADA COM COMPOSIÇÃO / DETALHAMENTO DO KIT ---
   const gerarPDF = (p: any) => {
     const idDoCliente = p.clienteId || p.clienteSel || '';
     const cli = clientes.find(c => c.id === idDoCliente);
@@ -748,32 +747,36 @@ export default function App() {
     } 
     else {
       const textoProduto = String(p.nomeProd || 'Produto Não Informado');
-      const arrayLinhasTexto = textoProduto.split('\n');
-      
-      htmlLinhasTabela = arrayLinhasTexto.map(linhaTexto => {
-        if(!linhaTexto.trim()) return '';
-        
-        let quantidadeItem = Number(p.qtdPed || 1);
-        let nomeItemLimpo = linhaTexto.trim();
-        
-        const matchCombo = linhaTexto.trim().match(/^(\d+)x\s+(.+)$/i);
-        if(matchCombo) {
-          quantidadeItem = Number(matchCombo[1]);
-          nomeItemLimpo = matchCombo[2].trim();
-        }
-        
-        const qtdSegura = quantidadeItem > 0 ? quantidadeItem : 1;
-        const unitario = p.precoManual ? Number(p.precoManual) : (totalNum / qtdSegura);
+      const quantidadeItem = Number(p.qtdPed || 1);
+      const unitario = p.precoManual ? Number(p.precoManual) : (totalNum / quantidadeItem);
 
-        return `
-          <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px; page-break-inside: avoid; break-inside: avoid;">
-            <td style="padding: 15px 5px; font-weight: bold; color: #1e293b; text-align: left;">${nomeItemLimpo}</td>
-            <td style="padding: 15px 5px; text-align: center; color: #475569;">${quantidadeItem}</td>
-            <td style="padding: 15px 5px; text-align: right; color: #475569;">R$ ${unitario.toFixed(2)}</td>
-            <td style="padding: 15px 5px; text-align: right; font-weight: bold; color: #1e293b;">R$ ${(quantidadeItem * unitario).toFixed(2)}</td>
-          </tr>
+      // LÓGICA DE DETALHAMENTO/COMPOSIÇÃO DO KIT DENTRO DA LINHA DA TABELA DO PDF
+      let htmlDetalhamentoKit = '';
+      if (p.detalhamentoPed && p.detalhamentoPed.trim()) {
+        const listaItens = p.detalhamentoPed.split('\n').filter((l: string) => l.trim() !== '');
+        const lisHtml = listaItens.map((i: string) => `<li style="margin-bottom: 3px;">${i.replace(/^[\s•*-]+/, '')}</li>`).join('');
+        
+        htmlDetalhamentoKit = `
+          <div style="margin-top: 8px; padding: 10px 12px; background-color: #fcfaff; border-left: 3px solid ${themeColors.primary}; border-radius: 6px;">
+            <div style="font-size: 11px; font-weight: bold; color: ${themeColors.primary}; margin-bottom: 4px; text-transform: uppercase; tracking-wide: 0.5px;">Composição / Itens Incluso no Kit:</div>
+            <ul style="margin: 0; padding-left: 18px; font-size: 12px; color: #475569; line-height: 1.4;">
+              ${lisHtml}
+            </ul>
+          </div>
         `;
-      }).join('');
+      }
+
+      htmlLinhasTabela = `
+        <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px; page-break-inside: avoid; break-inside: avoid;">
+          <td style="padding: 15px 5px; font-weight: bold; color: #1e293b; text-align: left; vertical-align: top;">
+            <div style="font-size: 15px; font-weight: 800; color: #1e293b;">${textoProduto}</div>
+            ${htmlDetalhamentoKit}
+          </td>
+          <td style="padding: 15px 5px; text-align: center; color: #475569; vertical-align: top;">${quantidadeItem}</td>
+          <td style="padding: 15px 5px; text-align: right; color: #475569; vertical-align: top;">R$ ${unitario.toFixed(2)}</td>
+          <td style="padding: 15px 5px; text-align: right; font-weight: bold; color: #1e293b; vertical-align: top;">R$ ${totalNum.toFixed(2)}</td>
+        </tr>
+      `;
     }
 
     const cabecalhoNomeHtml = nomeLojaPerfil ? nomeLojaPerfil : "PrecificaJá";
@@ -795,10 +798,6 @@ export default function App() {
               <span style="font-size: 11px; font-weight: bold; color: #475569;">ORÇAMENTO REF: ORC-${Math.floor(1000 + Math.random() * 9000)}</span>
             </div>
           </div>
-        </div>
-        
-        <div style="background-color: #f8fafc; padding: 12px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #e2e8f0; font-size: 14px; font-weight: bold; color: ${themeColors.primary};">
-          Referência do Pedido: ${String(p.nomeProd || 'Personalizados').replace(/\n/g, ' + ')}
         </div>
 
         <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Dados do Cliente</div>
@@ -953,7 +952,7 @@ export default function App() {
   };
 
   const limparCalculadora = () => {
-    setNomeProd(''); setQtdPed('1'); setMatsNoPed([]); setVHora('9'); setTGasto('60');
+    setNomeProd(''); setDetalhamentoPed(''); setQtdPed('1'); setMatsNoPed([]); setVHora('9'); setTGasto('60');
     setCustos({ embalagem: '0', impressao: custoPorPaginaCalculado.toFixed(2), energia: '0', outros: '0' });
     setEquipamentosSelecionados([]);
     setLucro('100'); setDesconto('0'); setPrazo(''); setClienteSel('');
@@ -965,7 +964,7 @@ export default function App() {
 
   const carregarPedidoParaEdicao = (p: any) => {
     setIsDuplicando(false);
-    setPedidoEditandoId(p.id); setNomeProd(p.nomeProd || ''); setQtdPed(p.qtdPed || '1'); setVHora(p.vHora || '9'); setTGasto(p.tGasto || '60');
+    setPedidoEditandoId(p.id); setNomeProd(p.nomeProd || ''); setDetalhamentoPed(p.detalhamentoPed || ''); setQtdPed(p.qtdPed || '1'); setVHora(p.vHora || '9'); setTGasto(p.tGasto || '60');
     setCustos(p.custos || { embalagem: '0', impressao: '0', energia: '0', outros: '0' });
     setLucro(p.lucro || '100'); setDesconto(p.desconto || '0'); setPrazo(p.prazo || ''); setClienteSel(p.clienteId || '');
     setPrecoManual(p.precoManual || null); setDocObsPedido(p.obsPedido || '');
@@ -988,6 +987,7 @@ export default function App() {
     setPedidoEditandoId(null); 
     setIsDuplicando(true);
     setNomeProd(`${p.nomeProd} (Cópia)`); 
+    setDetalhamentoPed(p.detalhamentoPed || '');
     setQtdPed(p.qtdPed || '1'); 
     setVHora(p.vHora || '9'); 
     setTGasto(p.tGasto || '60');
@@ -1184,42 +1184,41 @@ export default function App() {
         )}
       </div>
 
- {/* SELETOR DE MODO DE CÁLCULO */}
-<div className="mb-5 w-full">
-  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-2">
-    Modo de Cálculo
-  </label>
-  <div className="grid grid-cols-2 gap-1 p-1 bg-slate-100 rounded-xl w-full">
-    <button
-      type="button"
-      onClick={() => setModoCalculo('peca')}
-      style={{ 
-        backgroundColor: modoCalculo === 'peca' ? themeColors.primary : 'transparent', 
-        color: modoCalculo === 'peca' ? '#ffffff' : '#64748b'
-      }}
-      className={`py-2 px-3 rounded-lg font-bold text-xs transition-all text-center ${
-        modoCalculo === 'peca' ? 'shadow-sm' : ''
-      }`}
-    >
-      Por Peça
-    </button>
+      {/* SELETOR DE MODO DE CÁLCULO */}
+      <div className="mb-5 w-full">
+        <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-2">
+          Modo de Cálculo
+        </label>
+        <div className="grid grid-cols-2 gap-1 p-1 bg-slate-100 rounded-xl w-full">
+          <button
+            type="button"
+            onClick={() => setModoCalculo('peca')}
+            style={{ 
+              backgroundColor: modoCalculo === 'peca' ? themeColors.primary : 'transparent', 
+              color: modoCalculo === 'peca' ? '#ffffff' : '#64748b'
+            }}
+            className={`py-2 px-3 rounded-lg font-bold text-xs transition-all text-center ${
+              modoCalculo === 'peca' ? 'shadow-sm' : ''
+            }`}
+          >
+            Por Peça
+          </button>
 
-    <button
-      type="button"
-      onClick={() => setModoCalculo('lote')}
-      style={{ 
-        backgroundColor: modoCalculo === 'lote' ? themeColors.primary : 'transparent', 
-        color: modoCalculo === 'lote' ? '#ffffff' : '#64748b'
-      }}
-      className={`py-2 px-3 rounded-lg font-bold text-xs transition-all text-center ${
-        modoCalculo === 'lote' ? 'shadow-sm' : ''
-      }`}
-    >
-      Por Lote
-    </button>
-  </div>
-</div>
-
+          <button
+            type="button"
+            onClick={() => setModoCalculo('lote')}
+            style={{ 
+              backgroundColor: modoCalculo === 'lote' ? themeColors.primary : 'transparent', 
+              color: modoCalculo === 'lote' ? '#ffffff' : '#64748b'
+            }}
+            className={`py-2 px-3 rounded-lg font-bold text-xs transition-all text-center ${
+              modoCalculo === 'lote' ? 'shadow-sm' : ''
+            }`}
+          >
+            Por Lote
+          </button>
+        </div>
+      </div>
 
       {mostrarSeletorCatalogo && !pedidoEditandoId && (
         <div className="bg-purple-50/50 border border-purple-100 p-4 rounded-3xl mb-4 text-xs space-y-2 w-full">
@@ -1240,10 +1239,10 @@ export default function App() {
         </div>
       )}
 
-      <div className="grid grid-cols-3 gap-3 mb-4 w-full">
+      <div className="grid grid-cols-3 gap-3 mb-3 w-full">
          <div className="col-span-2">
             <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Produto / Serviço</label>
-            <input className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-slate-800 border focus:border-purple-500" value={nomeProd} onChange={e => setNomeProd(e.target.value)} />
+            <input placeholder="Ex: Kit Festa Manu 2 Anos" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-slate-800 border focus:border-purple-500" value={nomeProd} onChange={e => setNomeProd(e.target.value)} />
          </div>
          <div>
             <label className="text-[10px] font-bold text-slate-400 uppercase text-center block">
@@ -1251,6 +1250,19 @@ export default function App() {
             </label>
             <input type="number" min="1" className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-center font-bold" value={qtdPed} onChange={e => setQtdPed(e.target.value)} />
          </div>
+      </div>
+
+      {/* NOVO CAMPO DE DETALHAMENTO DO KIT / COMPOSIÇÃO */}
+      <div className="mb-4 w-full">
+         <label style={{ color: themeColors.primary }} className="text-[10px] font-bold uppercase ml-1 block mb-1">
+            📦 Composição / Detalhes dos Itens do Kit (Opcional)
+         </label>
+         <textarea 
+           placeholder="Escreva em tópicos o que compõe o kit para sair detalhado no PDF...&#10;Ex:&#10;10 topos de docinho&#10;5 topos de pote&#10;1 cordão de papel de mesa" 
+           className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-xs font-semibold border border-transparent focus:border-purple-400 resize-none h-24" 
+           value={detalhamentoPed} 
+           onChange={e => setDetalhamentoPed(e.target.value)} 
+         />
       </div>
 
       <div className="mb-4 w-full">
@@ -1409,6 +1421,7 @@ export default function App() {
              
              const dadosPedido = { 
                nomeProd, 
+               detalhamentoPed, // SALVA O CAMPO DE DETALHAMENTO NO BANCO
                preco: precoFinalSalvar, 
                clienteId: clienteSel, 
                prazo, 
@@ -1430,7 +1443,7 @@ export default function App() {
                if (pedidoEditandoId) await updateDoc(doc(db, "pedidos", pedidoEditandoId), dadosPedido);
                else await addDoc(collection(db, "pedidos"), { ...dadosPedido, data: new Date().toLocaleDateString('pt-BR'), status: 'Pendente', userId: user.uid });
                
-               gerarPDF({nomeProd, preco: precoFinalSalvar, clienteId: clienteSel, prazo, qtdPed, obsPedido: docObsPedido});
+               gerarPDF({nomeProd, detalhamentoPed, preco: precoFinalSalvar, clienteId: clienteSel, prazo, qtdPed, obsPedido: docObsPedido});
                
                limparCalculadora(); 
                setActiveTab('pedidos'); 
