@@ -1242,7 +1242,7 @@ export default function App() {
       <div className="grid grid-cols-3 gap-3 mb-3 w-full">
          <div className="col-span-2">
             <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Produto / Serviço</label>
-            <input placeholder="Ex: Kit Festa Manu 2 Anos" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-slate-800 border focus:border-purple-500" value={nomeProd} onChange={e => setNomeProd(e.target.value)} />
+            <input placeholder="Ex: Kit Festa" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-slate-800 border focus:border-purple-500" value={nomeProd} onChange={e => setNomeProd(e.target.value)} />
          </div>
          <div>
             <label className="text-[10px] font-bold text-slate-400 uppercase text-center block">
