@@ -1255,7 +1255,7 @@ export default function App() {
       {/* NOVO CAMPO DE DETALHAMENTO DO KIT / COMPOSIÇÃO */}
       <div className="mb-4 w-full">
          <label style={{ color: themeColors.primary }} className="text-[10px] font-bold uppercase ml-1 block mb-1">
-            📦 Composição / Detalhes dos Itens do Kit (Opcional)
+          Detalhamento dos Itens - Opcional
          </label>
          <textarea 
            placeholder="Escreva em tópicos o que compõe o kit para sair detalhado no PDF...&#10;Ex:&#10;10 topos de docinho&#10;5 topos de pote&#10;1 cordão de papel de mesa" 
