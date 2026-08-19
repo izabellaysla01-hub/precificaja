@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+Import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { initializeApp } from "firebase/app";
 import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { getFirestore, collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc, getDocs, setDoc, getDoc } from "firebase/firestore";
@@ -448,7 +448,7 @@ export default function App() {
     }
   };
 
-    const confirmarAssinaturaCliente = async () => {
+  const confirmarAssinaturaCliente = async () => {
     if (!assinaturaDataUrl) return alert("Por favor, desenhe sua assinatura no campo antes de confirmar!");
     try {
       const dataHoraAtual = new Date().toLocaleString('pt-BR');
@@ -960,14 +960,13 @@ export default function App() {
     (window as any).html2pdf().from(elemento).set(opcoes).save();
   };
 
-     // GERADOR DE PDF DE CONTRATOS DIRETO (INCLUI CONTRATADO, CONTRATANTE E ASSINATURA DIGITAL)
+  // GERADOR DE PDF DE CONTRATOS DIRETO (INCLUI CONTRATADO, CONTRATANTE E ASSINATURA DIGITAL)
   const gerarPDFContrato = (c: any) => {
     const elemento = document.createElement('div');
     const dataEmissao = c.dataCriacao || new Date().toLocaleDateString('pt-BR');
     const dataEventoFormatada = c.dataEvento ? new Date(c.dataEvento + 'T00:00:00').toLocaleDateString('pt-BR') : 'A combinar';
     const contratadoNome = c.nomeContratado || nomeLojaPerfil || 'CONTRATADO';
 
-    // Se o contrato já foi assinado pelo cliente, insere a imagem da assinatura; caso contrário, deixa o campo para assinatura física
     const blocoAssinaturaClienteHtml = c.assinaturaUrl 
       ? `<img src="${c.assinaturaUrl}" style="max-height: 50px; margin: 0 auto 4px auto; display: block;" />`
       : `<div style="border-bottom: 1px solid #94a3b8; margin-bottom: 6px; height: 30px;"></div>`;
@@ -1053,7 +1052,6 @@ export default function App() {
     };
     (window as any).html2pdf().from(elemento).set(opcoes).save();
   };
-
 
   const handleAuth = async () => {
     try {
@@ -1339,7 +1337,8 @@ export default function App() {
     );
   }
 
-  if (!user && !idLojaPublica) {
+  // ✅ CORREÇÃO AQUI: Permite acesso direto quando houver ID de contrato ou de loja
+  if (!user && !idLojaPublica && !idContratoPublico) {
     return (
       <Login 
         isRegistering={isRegistering} setIsRegistering={setIsRegistering}
