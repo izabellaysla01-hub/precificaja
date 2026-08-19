@@ -92,17 +92,13 @@ export default function App() {
   const [nomeComprador, setNomeComprador] = useState('');
   const [zapDaLojaPublica, setZapDaLojaPublica] = useState('');
 
-  // Estados para Filtro na Vitrine Pública do Cliente
   const [filtroVitrineSelecionado, setFiltroVitrineSelecionado] = useState('Todos');
   const [isMenuFiltroVitrineOpen, setIsMenuFiltroVitrineOpen] = useState(false);
 
-  // ESTADO DE NAVEGAÇÃO ATUALIZADO COM 'contratos'
   const [activeTab, useStateActiveTab] = useState<'inicio' | 'materiais' | 'criar' | 'pedidos' | 'clientes' | 'catalogo' | 'balcao' | 'financeiro' | 'perfil' | 'anotacoes' | 'fornecedores' | 'contratos'>('inicio');
   
-  // Sub-aba interna para a seção financeira
   const [subAbaFinanceiro, setSubAbaFinanceiro] = useState<'geral' | 'impressao' | 'equipamentos' | 'historico'>('geral');
 
-  // Estados do Histórico Financeiro Avançado
   const [mesFiltroHistorico, setMesFiltroHistorico] = useState<string>(String(new Date().getMonth() + 1));
   const [anoFiltroHistorico, setAnoFiltroHistorico] = useState<string>(String(new Date().getFullYear()));
   const [mesExpandido, setMesExpandido] = useState<string | null>(null);
@@ -123,18 +119,20 @@ export default function App() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
 
-  // Form de Contrato do Usuário Logado
+  // Form de Contrato do Usuário Logado (Com novos campos)
   const [novoContrato, setNovoContrato] = useState({
     id: '',
     titulo: '',
     clienteId: '',
     nomeClienteManual: '',
+    cpfCliente: '',
+    enderecoEvento: '',
+    nomeEvento: '',
     valor: '',
     termo: 'Pelo presente instrumento particular, as partes ajustam o fornecimento do serviço/produto conforme acordado nas especificações e orçamentos aprovados. O contratante declara ter lido e concordado com todos os termos descritos.',
     status: 'Pendente'
   });
 
-  // Estados para Categorias Dinâmicas e Fornecedores
   const [categoriasProd, setCategoriasProd] = useState<any[]>([]);
   const [categoriasForn, setCategoriasForn] = useState<any[]>([]);
   const [fornecedores, setFornecedores] = useState<any[]>([]);
@@ -151,7 +149,6 @@ export default function App() {
 
   const [diaSelecionadoAgenda, setDiaSelecionadoAgenda] = useState<string>(new Date().toISOString().split('T')[0]);
 
-  // Modo de Cálculo ('peca' = por unidade, 'lote' = valor total do lote rateado)
   const [modoCalculo, setModoCalculo] = useState<'peca' | 'lote'>('peca');
 
   const [nomeProd, setNomeProd] = useState('');
@@ -176,7 +173,7 @@ export default function App() {
   const [isRegistering, setIsRegistering] = useState(false);
   const [novoMat, setNovoMat] = useState({ id: '', nome: '', valor: '', qtd: '1', unidade: 'un', qtdAtual: '0', qtdMinima: '0' });
     
-  const [novoCli, setNovoCli] = useState({ id: '', nome: '', zap: '', email: '', endereco: '' });
+  const [novoCli, setNovoCli] = useState({ id: '', nome: '', zap: '', email: '', endereco: '', cpf: '' });
   const [novaAnotacao, setNovaAnotacao] = useState({ id: '', titulo: '', conteudo: '', dataPrazo: new Date().toISOString().split('T')[0] });
   
   const [novoProdCatalogo, setNovoProdCatalogo] = useState<{id: string, nome: string, precoVenda: string, urlImagem: string, categorias: string[]}>({ id: '', nome: '', precoVenda: '', urlImagem: '', categorias: [] });
@@ -435,7 +432,7 @@ export default function App() {
     if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
   };
 
-  // GERADOR DE PDF DE CONTRATO
+  // GERADOR DE PDF DE CONTRATO ATUALIZADO COM NOVOS CAMPOS
   const gerarPDFContrato = (c: any) => {
     const elemento = document.createElement('div');
     const dataEmissao = c.dataCriacao || new Date().toLocaleDateString('pt-BR');
@@ -453,11 +450,13 @@ export default function App() {
           </div>
         </div>
         
-        <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Identificação do Cliente / Contratante</div>
-        <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 20px; border: 1px solid #f1f5f9; font-size: 13px;">
-          <p style="margin: 0;"><strong>Nome:</strong> ${c.nomeCliente}</p>
-          ${c.documentoCliente ? `<p style="margin: 5px 0 0 0;"><strong>CPF/RG:</strong> ${c.documentoCliente}</p>` : ''}
-          ${c.valor ? `<p style="margin: 5px 0 0 0;"><strong>Valor Ajustado:</strong> R$ ${Number(c.valor).toFixed(2)}</p>` : ''}
+        <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Dados do Contratante e Evento</div>
+        <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 20px; border: 1px solid #f1f5f9; font-size: 13px; line-height: 1.6;">
+          <p style="margin: 0;"><strong>Nome do Cliente:</strong> ${c.nomeCliente}</p>
+          ${c.cpfCliente || c.documentoCliente ? `<p style="margin: 4px 0 0 0;"><strong>CPF/CNPJ:</strong> ${c.cpfCliente || c.documentoCliente}</p>` : ''}
+          ${c.nomeEvento ? `<p style="margin: 4px 0 0 0;"><strong>Nome do Evento:</strong> ${c.nomeEvento}</p>` : ''}
+          ${c.enderecoEvento ? `<p style="margin: 4px 0 0 0;"><strong>Endereço do Evento/Cliente:</strong> ${c.enderecoEvento}</p>` : ''}
+          ${c.valor ? `<p style="margin: 4px 0 0 0;"><strong>Valor Acordado:</strong> R$ ${Number(c.valor).toFixed(2)}</p>` : ''}
         </div>
 
         <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Termos do Acordo</div>
@@ -484,6 +483,23 @@ export default function App() {
     if ((window as any).html2pdf) { (window as any).html2pdf().from(elemento).set(opcoes).save(); }
   };
 
+  const enviarContratoZap = (c: any) => {
+    const cli = clientes.find(item => item.id === c.clienteId);
+    const linkAssinatura = `${window.location.origin}${window.location.pathname}?contrato=${c.id}`;
+    
+    let msg = `Olá *${c.nomeCliente}*!%0A%0A`;
+    msg += `Segue o link do seu contrato (*${c.titulo}*):%0A`;
+    msg += `${linkAssinatura}%0A%0A`;
+    msg += `Por favor, acesse o link para ler os termos e fazer sua assinatura online. O processo é super rápido e não precisa baixar nada! 🚀`;
+
+    const fone = cli?.zap ? cli.zap.replace(/\D/g, '') : '';
+    if (fone) {
+      window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
+    } else {
+      window.open(`https://wa.me/?text=${msg}`, '_blank');
+    }
+  };
+
   const salvarAssinaturaClientePublico = async () => {
     const canvas = canvasRef.current;
     if (!canvas || !contratoPublico) return;
@@ -494,7 +510,7 @@ export default function App() {
       await updateDoc(doc(db, "contratos", contratoPublico.id), {
         status: 'Assinado ✍️',
         assinaturaBase64: dataUrl,
-        documentoCliente: documentoClientePublico,
+        cpfCliente: documentoClientePublico || contratoPublico.cpfCliente || '',
         dataAssinatura: dataHoje
       });
 
@@ -502,7 +518,7 @@ export default function App() {
         ...prev,
         status: 'Assinado ✍️',
         assinaturaBase64: dataUrl,
-        documentoCliente: documentoClientePublico,
+        cpfCliente: documentoClientePublico || contratoPublico.cpfCliente || '',
         dataAssinatura: dataHoje
       }));
 
@@ -1011,6 +1027,7 @@ export default function App() {
     } catch (e) { alert("E-mail ou senha incorretos!"); }
   };
 
+  // EXCLUSÃO CORRIGIDA PARA CONTRATOS
   const confirmarExcluir = async (tipo: string, id: string) => {
     if (window.confirm(`Excluir ${tipo}?`)) {
       let colecao = "";
@@ -1233,9 +1250,12 @@ export default function App() {
         </header>
 
         <div className="bg-white p-6 rounded-[30px] shadow-sm border mb-6 space-y-4">
-          <div className="bg-purple-50 p-4 rounded-2xl border border-purple-100">
+          <div className="bg-purple-50 p-4 rounded-2xl border border-purple-100 space-y-1">
             <p className="text-xs text-purple-700 font-bold">Cliente / Contratante:</p>
             <p className="text-base font-black text-slate-800">{contratoPublico.nomeCliente}</p>
+            {contratoPublico.cpfCliente && <p className="text-xs text-slate-600 font-semibold">CPF/CNPJ: {contratoPublico.cpfCliente}</p>}
+            {contratoPublico.nomeEvento && <p className="text-xs text-slate-600 font-semibold">Evento: {contratoPublico.nomeEvento}</p>}
+            {contratoPublico.enderecoEvento && <p className="text-xs text-slate-600 font-semibold">Endereço: {contratoPublico.enderecoEvento}</p>}
             {contratoPublico.valor && <p className="text-xs text-purple-600 font-bold mt-1">Valor do Serviço: R$ {Number(contratoPublico.valor).toFixed(2)}</p>}
           </div>
 
@@ -1268,11 +1288,11 @@ export default function App() {
             </h3>
 
             <div>
-              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Seu CPF ou RG (Opcional)</label>
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Seu CPF / CNPJ (Opcional se já informado)</label>
               <input 
                 placeholder="Ex: 000.000.000-00" 
                 className="w-full p-3.5 bg-slate-50 rounded-2xl border text-xs font-bold outline-none focus:border-purple-500" 
-                value={documentoClientePublico} 
+                value={documentoClientePublico || contratoPublico.cpfCliente || ''} 
                 onChange={e => setDocumentoClientePublico(e.target.value)} 
               />
             </div>
@@ -1309,7 +1329,8 @@ export default function App() {
     );
   }
 
-  if (!user && !idLojaPublica) {
+  // REDIRECIONAMENTO DE SEGURANÇA CORRIGIDO PARA ACESSO PÚBLICO
+  if (!user && !idLojaPublica && !idContratoPublico) {
     return (
       <Login 
         isRegistering={isRegistering} setIsRegistering={setIsRegistering}
@@ -1706,7 +1727,6 @@ export default function App() {
               <button onClick={() => setActiveTab('inicio')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'inicio' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'inicio' ? themeColors.primary : undefined }}><Home size={16}/> Início</button>
               <button onClick={() => setActiveTab('criar')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'criar' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'criar' ? themeColors.primary : undefined }}><Plus size={16}/> Orçar</button>
               
-              {/* NOVO ITEM DE CONTRATOS NO MENU HAMBÚRGUER */}
               <button onClick={() => setActiveTab('contratos')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'contratos' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'contratos' ? themeColors.primary : undefined }}><FileText size={16}/> Contratos e Assinaturas</button>
 
               <button onClick={() => setActiveTab('perfil')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'perfil' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'perfil' ? themeColors.primary : undefined }}><Settings size={16}/> Perfil e Cores da Loja</button>
@@ -1841,7 +1861,7 @@ export default function App() {
           </div>
         )}
 
-        {/* TELA DE CONTRATOS E ASSINATURA ONLINE (NOVA) */}
+        {/* FORMULÁRIO E LISTA DE CONTRATOS */}
         {activeTab === 'contratos' && (
           <div className="space-y-4 pt-2 w-full animate-fadeIn">
             <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
@@ -1870,7 +1890,9 @@ export default function App() {
                       setNovoContrato({
                         ...novoContrato, 
                         clienteId: id,
-                        nomeClienteManual: c ? c.nome : ''
+                        nomeClienteManual: c ? c.nome : '',
+                        cpfCliente: c ? (c.cpf || '') : novoContrato.cpfCliente,
+                        enderecoEvento: c ? (c.endereco || '') : novoContrato.enderecoEvento
                       });
                     }}
                   >
@@ -1890,13 +1912,43 @@ export default function App() {
                 </div>
               </div>
 
-              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Valor do Acordo (R$)</label>
+              <div className="grid grid-cols-2 gap-3 mb-3 w-full">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">CPF ou CNPJ</label>
+                  <input 
+                    placeholder="Ex: 000.000.000-00" 
+                    className="w-full p-4 bg-slate-50 rounded-2xl outline-none border focus:border-purple-400 font-medium text-sm" 
+                    value={novoContrato.cpfCliente} 
+                    onChange={e => setNovoContrato({...novoContrato, cpfCliente: e.target.value})} 
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Valor do Acordo (R$)</label>
+                  <input 
+                    type="number" 
+                    placeholder="Ex: 500.00" 
+                    className="w-full p-4 bg-slate-50 rounded-2xl outline-none border focus:border-purple-400 font-bold text-sm" 
+                    value={novoContrato.valor} 
+                    onChange={e => setNovoContrato({...novoContrato, valor: e.target.value})} 
+                  />
+                </div>
+              </div>
+
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome do Evento (Opcional)</label>
               <input 
-                type="number" 
-                placeholder="Ex: 500.00" 
-                className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-bold text-sm" 
-                value={novoContrato.valor} 
-                onChange={e => setNovoContrato({...novoContrato, valor: e.target.value})} 
+                placeholder="Ex: Aniversário de 15 Anos da Julia" 
+                className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm" 
+                value={novoContrato.nomeEvento} 
+                onChange={e => setNovoContrato({...novoContrato, nomeEvento: e.target.value})} 
+              />
+
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Endereço do Evento / Entrega</label>
+              <textarea 
+                placeholder="Ex: Salão de Festas Imperial, Rua X, nº 100 - RJ" 
+                className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 resize-none h-16 font-medium text-xs" 
+                value={novoContrato.enderecoEvento} 
+                onChange={e => setNovoContrato({...novoContrato, enderecoEvento: e.target.value})} 
               />
 
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Termos e Condições do Contrato</label>
@@ -1910,7 +1962,7 @@ export default function App() {
               <div className="flex gap-2">
                 {novoContrato.id && (
                   <button 
-                    onClick={() => setNovoContrato({ id: '', titulo: '', clienteId: '', nomeClienteManual: '', valor: '', termo: 'Pelo presente instrumento particular...', status: 'Pendente' })}
+                    onClick={() => setNovoContrato({ id: '', titulo: '', clienteId: '', nomeClienteManual: '', cpfCliente: '', enderecoEvento: '', nomeEvento: '', valor: '', termo: 'Pelo presente instrumento particular...', status: 'Pendente' })}
                     className="w-1/3 bg-slate-100 text-slate-600 font-bold p-4 rounded-2xl text-xs uppercase"
                   >
                     Cancelar
@@ -1926,6 +1978,9 @@ export default function App() {
                       titulo: novoContrato.titulo,
                       clienteId: novoContrato.clienteId || '',
                       nomeCliente: nomeFinal,
+                      cpfCliente: novoContrato.cpfCliente || '',
+                      enderecoEvento: novoContrato.enderecoEvento || '',
+                      nomeEvento: novoContrato.nomeEvento || '',
                       valor: novoContrato.valor || '0',
                       termo: novoContrato.termo,
                       status: novoContrato.status || 'Pendente',
@@ -1939,7 +1994,7 @@ export default function App() {
                       await addDoc(collection(db, "contratos"), dadosContrato);
                     }
 
-                    setNovoContrato({ id: '', titulo: '', clienteId: '', nomeClienteManual: '', valor: '', termo: 'Pelo presente instrumento particular...', status: 'Pendente' });
+                    setNovoContrato({ id: '', titulo: '', clienteId: '', nomeClienteManual: '', cpfCliente: '', enderecoEvento: '', nomeEvento: '', valor: '', termo: 'Pelo presente instrumento particular...', status: 'Pendente' });
                     alert("Contrato salvo com sucesso! 📄🚀");
                   }} 
                   className="flex-1 text-white font-black p-4 rounded-2xl uppercase text-xs shadow-md hover:opacity-90 transition-all"
@@ -1963,7 +2018,9 @@ export default function App() {
                           {c.status || 'Pendente'}
                         </span>
                         <h4 className="font-black text-slate-800 text-base mt-2">{c.titulo}</h4>
-                        <p className="text-xs text-slate-500 font-semibold mt-0.5">👤 Client: {c.nomeCliente}</p>
+                        <p className="text-xs text-slate-500 font-semibold mt-0.5">👤 Cliente: {c.nomeCliente}</p>
+                        {c.cpfCliente && <p className="text-[11px] text-slate-400">CPF/CNPJ: {c.cpfCliente}</p>}
+                        {c.nomeEvento && <p className="text-[11px] text-slate-400">Evento: {c.nomeEvento}</p>}
                         {c.valor && <p className="text-xs font-black text-slate-700 mt-0.5">R$ {Number(c.valor).toFixed(2)}</p>}
                       </div>
 
@@ -1974,6 +2031,9 @@ export default function App() {
                             titulo: c.titulo,
                             clienteId: c.clienteId || '',
                             nomeClienteManual: c.nomeCliente || '',
+                            cpfCliente: c.cpfCliente || '',
+                            enderecoEvento: c.enderecoEvento || '',
+                            nomeEvento: c.nomeEvento || '',
                             valor: c.valor || '',
                             termo: c.termo || '',
                             status: c.status || 'Pendente'
@@ -1982,7 +2042,7 @@ export default function App() {
                         >
                           <Edit2 size={16}/>
                         </button>
-                        <button onClick={() => confirmarExcluir('contrato', c.id)} className="text-red-200 p-2 hover:bg-red-50 rounded-xl">
+                        <button onClick={() => confirmarExcluir('contrato', c.id)} className="text-red-400 hover:text-red-600 p-2 hover:bg-red-50 rounded-xl">
                           <Trash2 size={16}/>
                         </button>
                       </div>
@@ -1990,13 +2050,20 @@ export default function App() {
 
                     <div className="flex flex-wrap gap-2 border-t pt-3 w-full justify-end">
                       <button 
+                        onClick={() => enviarContratoZap(c)} 
+                        className="flex items-center gap-1.5 text-xs font-black uppercase bg-emerald-50 text-emerald-600 px-3 py-2 rounded-xl active:scale-95 transition-transform"
+                      >
+                        <MessageCircle size={14}/> Enviar no WhatsApp
+                      </button>
+
+                      <button 
                         onClick={() => {
                           navigator.clipboard.writeText(linkAssinatura);
-                          alert("Link de assinatura copiado! Envie ao cliente. 🔗");
+                          alert("Link de assinatura copiado! 🔗");
                         }} 
                         className="flex items-center gap-1.5 text-xs font-black uppercase bg-purple-50 text-purple-700 px-3 py-2 rounded-xl active:scale-95 transition-transform"
                       >
-                        <Share2 size={14}/> Copiar Link de Assinatura
+                        <Share2 size={14}/> Link
                       </button>
                       
                       <button 
@@ -2004,7 +2071,7 @@ export default function App() {
                         style={{ backgroundColor: themeColors.secondary }} 
                         className="flex items-center gap-1.5 text-xs font-black uppercase text-white px-3 py-2 rounded-xl active:scale-95 transition-transform shadow"
                       >
-                        <Printer size={14}/> Baixar PDF
+                        <Printer size={14}/> PDF
                       </button>
                     </div>
                   </div>
@@ -3046,7 +3113,7 @@ export default function App() {
           </div>
         )}
 
-        {/* CLIENTES */}
+        {/* CLIENTES COM CPF / CNPJ */}
         {activeTab === 'clientes' && (
            <div className="space-y-4 pt-2 w-full">
             <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
@@ -3055,9 +3122,17 @@ export default function App() {
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome Comercial / Completo</label>
               <input placeholder="Ex: Maria Silva" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm" value={novoCli.nome} onChange={e => setNovoCli({...novoCli, nome: e.target.value})} />
               
-              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">WhatsApp com DDD</label>
-              <input placeholder="Ex: 21999999999" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm" value={novoCli.zap} onChange={e => setNovoCli({...novoCli, zap: e.target.value})} />
-              
+              <div className="grid grid-cols-2 gap-3 mb-3 w-full">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">CPF ou CNPJ</label>
+                  <input placeholder="Ex: 000.000.000-00" className="w-full p-4 bg-slate-50 rounded-2xl outline-none border focus:border-purple-400 font-medium text-sm" value={novoCli.cpf || ''} onChange={e => setNovoCli({...novoCli, cpf: e.target.value})} />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">WhatsApp com DDD</label>
+                  <input placeholder="Ex: 21999999999" className="w-full p-4 bg-slate-50 rounded-2xl outline-none border focus:border-purple-400 font-medium text-sm" value={novoCli.zap} onChange={e => setNovoCli({...novoCli, zap: e.target.value})} />
+                </div>
+              </div>
+
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">E-mail de Contato</label>
               <input type="email" placeholder="Ex: cliente@email.com" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm" value={novoCli.email || ''} onChange={e => setNovoCli({...novoCli, email: e.target.value})} />
               
@@ -3074,13 +3149,14 @@ export default function App() {
                   zap: novoCli.zap, 
                   email: novoCli.email || '', 
                   endereco: novoCli.endereco || '', 
+                  cpf: novoCli.cpf || '',
                   userId: user.uid 
                 };
 
                 if(novoCli.id) await updateDoc(doc(db, "clientes", novoCli.id), dadosCliente);
                 else await addDoc(collection(db, "clientes"), dadosCliente);
                 
-                setNovoCli({ id: '', nome: '', zap: '', email: '', endereco: '' }); 
+                setNovoCli({ id: '', nome: '', zap: '', email: '', endereco: '', cpf: '' }); 
                 alert("Cadastro do cliente salvo com sucesso! 🎉");
               }} className="w-full hover:opacity-90 text-white p-5 rounded-2xl font-black uppercase text-xs">Salvar Cliente</button>
             </div>
@@ -3089,12 +3165,13 @@ export default function App() {
                 <div className="flex justify-between items-start w-full">
                   <div className="flex flex-col ml-2">
                     <span className="text-slate-800 text-base">{c.nome}</span>
+                    {c.cpf && <span className="text-xs text-slate-500 font-normal">🪪 CPF/CNPJ: {c.cpf}</span>}
                     <span className="text-xs text-slate-400 font-normal mt-0.5">{c.zap ? `📱 ${c.zap}` : 'Sem número'}</span>
                     {c.email && <span className="text-xs text-slate-400 font-normal mt-0.5">✉️ {c.email}</span>}
                     {c.endereco && <span className="text-xs text-slate-500 font-medium bg-slate-50 p-2.5 rounded-xl mt-2 border border-slate-100 whitespace-pre-line">📍 {c.endereco}</span>}
                   </div>
                   <div className="flex gap-1 shrink-0">
-                    <button onClick={() => setNovoCli({ id: c.id, nome: c.nome, zap: c.zap || '', email: c.email || '', endereco: c.endereco || '' })} className="text-orange-400 p-2"><Edit2 size={18}/></button>
+                    <button onClick={() => setNovoCli({ id: c.id, nome: c.nome, zap: c.zap || '', email: c.email || '', endereco: c.endereco || '', cpf: c.cpf || '' })} className="text-orange-400 p-2"><Edit2 size={18}/></button>
                     <button onClick={() => deleteDoc(doc(db, "clientes", c.id))} className="text-red-200 p-2"><Trash2 size={20}/></button>
                   </div>
                 </div>
