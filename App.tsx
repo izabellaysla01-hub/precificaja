@@ -119,7 +119,7 @@ export default function App() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
 
-  // Form de Contrato do Usuário Logado (Com novos campos)
+  // Form de Contrato do Usuário Logado
   const [novoContrato, setNovoContrato] = useState({
     id: '',
     titulo: '',
@@ -432,7 +432,7 @@ export default function App() {
     if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
   };
 
-  // GERADOR DE PDF DE CONTRATO ATUALIZADO COM NOVOS CAMPOS
+  // GERADOR DE PDF DE CONTRATO ATUALIZADO
   const gerarPDFContrato = (c: any) => {
     const elemento = document.createElement('div');
     const dataEmissao = c.dataCriacao || new Date().toLocaleDateString('pt-BR');
@@ -1027,7 +1027,6 @@ export default function App() {
     } catch (e) { alert("E-mail ou senha incorretos!"); }
   };
 
-  // EXCLUSÃO CORRIGIDA PARA CONTRATOS
   const confirmarExcluir = async (tipo: string, id: string) => {
     if (window.confirm(`Excluir ${tipo}?`)) {
       let colecao = "";
@@ -1237,7 +1236,7 @@ export default function App() {
 
   if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando o PrecificaJá... 🚀</div>;
 
-  // ROTA PÚBLICA DE ASSINATURA DE CONTRATO DO CLIENTE
+  // 1. ROTA PÚBLICA DE ASSINATURA DE CONTRATO DO CLIENTE (SEM LOGIN)
   if (idContratoPublico) {
     if (carregandoPublico) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando Contrato... 📄</div>;
     if (!contratoPublico) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-slate-500">Contrato não encontrado ou expirado.</div>;
@@ -1329,17 +1328,7 @@ export default function App() {
     );
   }
 
-  // REDIRECIONAMENTO DE SEGURANÇA CORRIGIDO PARA ACESSO PÚBLICO
-  if (!user && !idLojaPublica && !idContratoPublico) {
-    return (
-      <Login 
-        isRegistering={isRegistering} setIsRegistering={setIsRegistering}
-        email={email} setEmail={setEmail} password={password} setPassword={setPassword}
-        handleAuth={handleAuth}
-      />
-    );
-  }
-
+  // 2. ROTA PÚBLICA DA VITRINE DE LOJA (SEM LOGIN)
   if (idLojaPublica) {
     if (carregandoPublico) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando Vitrine... 🛍️</div>;
     const totalCarrinho = Object.keys(carrinho).reduce((acc, id) => {
@@ -1415,6 +1404,17 @@ export default function App() {
           </div>
         )}
       </div>
+    );
+  }
+
+  // 3. TELA DE LOGIN (SOMENTE EXIBIDA SE O USUÁRIO NÃO ESTIVER LOGADO E NÃO FOR ACESSO PÚBLICO)
+  if (!user) {
+    return (
+      <Login 
+        isRegistering={isRegistering} setIsRegistering={setIsRegistering}
+        email={email} setEmail={setEmail} password={password} setPassword={setPassword}
+        handleAuth={handleAuth}
+      />
     );
   }
 
@@ -2056,15 +2056,14 @@ export default function App() {
                         <MessageCircle size={14}/> Enviar no WhatsApp
                       </button>
 
-                      <button 
-                        onClick={() => {
-                          navigator.clipboard.writeText(linkAssinatura);
-                          alert("Link de assinatura copiado! 🔗");
-                        }} 
+                      <a 
+                        href={linkAssinatura}
+                        target="_blank"
+                        rel="noopener noreferrer"
                         className="flex items-center gap-1.5 text-xs font-black uppercase bg-purple-50 text-purple-700 px-3 py-2 rounded-xl active:scale-95 transition-transform"
                       >
-                        <Share2 size={14}/> Link
-                      </button>
+                        <Share2 size={14}/> Abrir Link
+                      </a>
                       
                       <button 
                         onClick={() => gerarPDFContrato(c)} 
