@@ -4,7 +4,6 @@ import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword, creat
 import { getFirestore, collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc, getDocs, setDoc, getDoc } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2, Menu, Search, Settings, CheckSquare, Square, Filter, MapPin, Globe, Palette, TrendingUp, ChevronDown, ChevronUp, FileText, Send, Link, Check } from 'lucide-react';
-import SignatureCanvas from 'react-signature-canvas';
 
 const firebaseConfig = {
   apiKey: "AIzaSyD0BWsNm9DbGGDqiHzkdDmNdxIGdJ9tWe8",
@@ -22,43 +21,18 @@ const storage = getStorage(app);
 
 // --- PALETAS PRÉ-DEFINIDAS ---
 const PRESET_PALETTES = [
-  {
-    id: 'purple_creative',
-    nome: 'Roxo Criativo (Padrão)',
-    primary: '#7c3aed',
-    primaryHover: '#6d28d9',
-    secondary: '#f97316',
-    secondaryHover: '#ea580c'
-  },
-  {
-    id: 'blue_corporate',
-    nome: 'Azul Corporativo',
-    primary: '#2563eb',
-    primaryHover: '#1d4ed8',
-    secondary: '#38bdf8',
-    secondaryHover: '#0284c7'
-  },
-  {
-    id: 'slate_elegant',
-    nome: 'Grafite Elegante',
-    primary: '#334155',
-    primaryHover: '#1e293b',
-    secondary: '#0ea5e9',
-    secondaryHover: '#0284c7'
-  },
-  {
-    id: 'emerald_growth',
-    nome: 'Verde Esmeralda',
-    primary: '#059669',
-    primaryHover: '#047857',
-    secondary: '#10b981',
-    secondaryHover: '#059669'
-  }
+  { id: 'purple_creative', nome: 'Roxo Criativo (Padrão)', primary: '#7c3aed', primaryHover: '#6d28d9', secondary: '#f97316', secondaryHover: '#ea580c' },
+  { id: 'blue_corporate', nome: 'Azul Corporativo', primary: '#2563eb', primaryHover: '#1d4ed8', secondary: '#38bdf8', secondaryHover: '#0284c7' },
+  { id: 'slate_elegant', nome: 'Grafite Elegante', primary: '#334155', primaryHover: '#1e293b', secondary: '#0ea5e9', secondaryHover: '#0284c7' },
+  { id: 'emerald_growth', nome: 'Verde Esmeralda', primary: '#059669', primaryHover: '#047857', secondary: '#10b981', secondaryHover: '#059669' }
 ];
 
-// --- COMPONENTE DA PÁGINA PÚBLICA DE ASSINATURA DO CLIENTE ---
+// --- COMPONENTE DA PÁGINA PÚBLICA DE ASSINATURA NATIVA (SEM DEPENDÊNCIA) ---
 const PaginaAssinaturaPublica = ({ contratoId, themeColors }: any) => {
-  const sigCanvas = useRef<any>({});
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [hasSignature, setHasSignature] = useState(false);
+  
   const [contrato, setContrato] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [assinado, setAssinado] = useState(false);
@@ -85,19 +59,64 @@ const PaginaAssinaturaPublica = ({ contratoId, themeColors }: any) => {
     if (contratoId) carregarContrato();
   }, [contratoId]);
 
+  // Lógica do Canvas Nativo (Funciona no Touch do Celular e Mouse)
+  const startDrawing = (e: any) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    setIsDrawing(true);
+    setHasSignature(true);
+    const rect = canvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+    ctx.beginPath();
+    ctx.moveTo(clientX - rect.left, clientY - rect.top);
+  };
+
+  const draw = (e: any) => {
+    if (!isDrawing) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+    ctx.lineTo(clientX - rect.left, clientY - rect.top);
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+  };
+
+  const stopDrawing = () => {
+    setIsDrawing(false);
+  };
+
   const limparAssinatura = () => {
-    sigCanvas.current.clear();
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+    setHasSignature(false);
   };
 
   const salvarAssinatura = async () => {
-    if (sigCanvas.current.isEmpty()) {
-      alert('Por favor, desenhe sua assinatura no campo indicado antes de confirmar.');
+    if (!hasSignature || !canvasRef.current) {
+      alert('Por favor, desenhe sua assinatura antes de confirmar.');
       return;
     }
 
     setEnviando(true);
     try {
-      const assinaturaDataUrl = sigCanvas.current.getTrimmedCanvas().toDataURL('image/png');
+      const assinaturaDataUrl = canvasRef.current.toDataURL('image/png');
 
       const docRef = doc(db, 'contratos', contratoId);
       await updateDoc(docRef, {
@@ -110,7 +129,7 @@ const PaginaAssinaturaPublica = ({ contratoId, themeColors }: any) => {
       alert('Contrato assinado com sucesso!');
     } catch (error) {
       console.error('Erro ao salvar assinatura:', error);
-      alert('Houve um erro ao processar sua assinatura. Tente novamente.');
+      alert('Houve um erro ao processar sua assinatura.');
     } finally {
       setEnviando(false);
     }
@@ -164,11 +183,19 @@ const PaginaAssinaturaPublica = ({ contratoId, themeColors }: any) => {
               Assinatura do Contratante (Desenhe abaixo com o dedo no celular ou mouse):
             </label>
             
-            <div className="border-2 border-dashed border-slate-400 rounded-2xl bg-white overflow-hidden touch-none mb-4">
-              <SignatureCanvas
-                ref={sigCanvas}
-                penColor="#0f172a"
-                canvasProps={{ width: 500, height: 180, className: 'w-full h-44 cursor-crosshair' }}
+            <div className="border-2 border-dashed border-slate-400 rounded-2xl bg-white overflow-hidden touch-none mb-4 flex justify-center">
+              <canvas
+                ref={canvasRef}
+                width={500}
+                height={180}
+                className="w-full h-44 cursor-crosshair"
+                onMouseDown={startDrawing}
+                onMouseMove={draw}
+                onMouseUp={stopDrawing}
+                onMouseLeave={stopDrawing}
+                onTouchStart={startDrawing}
+                onTouchMove={draw}
+                onTouchEnd={stopDrawing}
               />
             </div>
 
@@ -237,17 +264,13 @@ export default function App() {
   const [nomeComprador, setNomeComprador] = useState('');
   const [zapDaLojaPublica, setZapDaLojaPublica] = useState('');
 
-  // Estados para Filtro na Vitrine Pública do Cliente
   const [filtroVitrineSelecionado, setFiltroVitrineSelecionado] = useState('Todos');
   const [isMenuFiltroVitrineOpen, setIsMenuFiltroVitrineOpen] = useState(false);
 
-  // ABA ATIVA ATUALIZADA COM 'contratos'
   const [activeTab, useStateActiveTab] = useState<'inicio' | 'materiais' | 'criar' | 'pedidos' | 'clientes' | 'catalogo' | 'balcao' | 'financeiro' | 'perfil' | 'anotacoes' | 'fornecedores' | 'contratos'>('inicio');
   
-  // Sub-aba interna para a seção financeira
   const [subAbaFinanceiro, setSubAbaFinanceiro] = useState<'geral' | 'impressao' | 'equipamentos' | 'historico'>('geral');
 
-  // Estados do Histórico Financeiro Avançado
   const [mesFiltroHistorico, setMesFiltroHistorico] = useState<string>(String(new Date().getMonth() + 1));
   const [anoFiltroHistorico, setAnoFiltroHistorico] = useState<string>(String(new Date().getFullYear()));
   const [mesExpandido, setMesExpandido] = useState<string | null>(null);
@@ -260,7 +283,6 @@ export default function App() {
   const [anotacoes, setAnotacoes] = useState<any[]>([]);
   const [contratos, setContratos] = useState<any[]>([]);
   
-  // Estados para Categorias Dinâmicas e Fornecedores
   const [categoriasProd, setCategoriasProd] = useState<any[]>([]);
   const [categoriasForn, setCategoriasForn] = useState<any[]>([]);
   const [fornecedores, setFornecedores] = useState<any[]>([]);
@@ -277,7 +299,6 @@ export default function App() {
 
   const [diaSelecionadoAgenda, setDiaSelecionadoAgenda] = useState<string>(new Date().toISOString().split('T')[0]);
 
-  // Modo de Cálculo ('peca' = por unidade, 'lote' = valor total do lote rateado)
   const [modoCalculo, setModoCalculo] = useState<'peca' | 'lote'>('peca');
 
   const [nomeProd, setNomeProd] = useState('');
@@ -295,7 +316,6 @@ export default function App() {
   const [precoManual, setPrecoManual] = useState<string | null>(null);
   const [docObsPedido, setDocObsPedido] = useState('');
 
-  // Estado para armazenar o valor alterado pelo usuário na calculadora
   const [precoFinalDigitado, setPrecoFinalDigitado] = useState<string>('0.00');
 
   const [email, setEmail] = useState('');
@@ -306,7 +326,7 @@ export default function App() {
   const [novoCli, setNovoCli] = useState({ id: '', nome: '', zap: '', email: '', endereco: '' });
   const [novaAnotacao, setNovaAnotacao] = useState({ id: '', titulo: '', conteudo: '', dataPrazo: new Date().toISOString().split('T')[0] });
   
-  // ESTADOS DA ABA CONTRATOS
+  // ABA CONTRATOS
   const [editandoContratoId, setEditandoContratoId] = useState<string | null>(null);
   const [modoClienteContrato, setModoClienteContrato] = useState<'existente' | 'manual'>('existente');
   const [novoContratoForm, setNovoContratoForm] = useState({
@@ -330,12 +350,10 @@ O serviço será iniciado ou reservado mediante confirmação do pagamento acord
 A entrega ou execução ocorrerá na data e local combinados. Em caso de cancelamento por parte do cliente, aplicar-se-ão os termos acordados previa e formalmente.`
   });
 
-  // Estados de Cadastro Atualizados com Categorias
   const [novoProdCatalogo, setNovoProdCatalogo] = useState<{id: string, nome: string, precoVenda: string, urlImagem: string, categorias: string[]}>({ id: '', nome: '', precoVenda: '', urlImagem: '', categorias: [] });
   const [inputNovaCategoriaProd, setInputNovaCategoriaProd] = useState('');
   const [mostrarInputNovaCatProd, setMostrarInputNovaCatProd] = useState(false);
 
-  // Estados de Cadastro para Fornecedores
   const [novoFornecedor, setNovoFornecedor] = useState<{id: string, nome: string, site: string, whatsapp: string, endereco: string, categorias: string[]}>({ id: '', nome: '', site: '', whatsapp: '', endereco: '', categorias: [] });
   const [inputNovaCategoriaForn, setInputNovaCategoriaForn] = useState('');
   const [mostrarInputNovaCatForn, setMostrarInputNovaCatForn] = useState(false);
@@ -347,7 +365,6 @@ A entrega ou execução ocorrerá na data e local combinados. Em caso de cancela
   const [logoLojaPerfil, setLogoLojaPerfil] = useState('');
   const [subindoLogo, setSubindoLogo] = useState(false);
 
-  // --- ESTADO DE TEMA E CORES ---
   const [themeColors, setThemeColors] = useState({
     primary: '#7c3aed',
     primaryHover: '#6d28d9',
@@ -358,7 +375,6 @@ A entrega ou execução ocorrerá na data e local combinados. Em caso de cancela
   const [financasFixo, setFinancasFixo] = useState({ salario: '0', aluguel: '0', internet: '0', luz: '0', outros: '0', diasTrabalho: '20', horasDia: '8' });
   const [novoEquipamento, setNovoEquipamento] = useState({ id: '', nome: '', valorPago: '', durabilidadeAnos: '2' });
 
-  // --- ESTADOS PARA A CALCULADORA DE IMPRESSÃO ---
   const [precoTinta, setPrecoTinta] = useState('62');
   const [unidadeTinta, setUnidadeTinta] = useState('Garrafinha');
   const [qtdCores, setQtdCores] = useState('4');
@@ -374,7 +390,6 @@ A entrega ou execução ocorrerá na data e local combinados. Em caso de cancela
     setIsMenuOpen(false);
   };
 
-  // Cálculo Dinâmico do valor de impressão por folha
   const custoPorPaginaCalculado = useMemo(() => {
     const preco = Number(precoTinta) || 0;
     const cores = Number(qtdCores) || 0;
@@ -640,7 +655,7 @@ A entrega ou execução ocorrerá na data e local combinados. Em caso de cancela
         </div>
 
         <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px; page-break-inside: avoid; break-inside: avoid;">Forma de Pagamento</div>
-        <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; border: 1px solid #f1f5f9; font-size: 13px; display: flex; justify-content: space-between; margin-bottom: 15px; page-break-inside: avoid; break-inside: avoid;">
+        <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; border: 1px solid #f1f5f9; font-size: 13px; display: flex; justify-between: space-between; margin-bottom: 15px; page-break-inside: avoid; break-inside: avoid;">
           <div><strong>Forma de pagamento:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">PIX / CARTÃO</div></div>
           <div><strong>Condições de pagamento:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">A combinar direto no WhatsApp</div></div>
         </div>
@@ -739,7 +754,6 @@ A entrega ou execução ocorrerá na data e local combinados. Em caso de cancela
     }
   };
 
-  // DASHBOARD METRICS
   const dashboardMetrics = useMemo(() => {
     const agora = new Date();
     const mesAtual = agora.getMonth() + 1;
@@ -770,7 +784,6 @@ A entrega ou execução ocorrerá na data e local combinados. Em caso de cancela
     };
   }, [pedidos, materiais, clientes]);
 
-  // HISTÓRICO FINANCEIRO MENSAL
   const historicoFinanceiroMensal = useMemo(() => {
     const agrupado: { [key: string]: { total: number; qtd: number; mesAnoTexto: string; itensVendidos: any[] } } = {};
     const nomesMeses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
@@ -1378,7 +1391,6 @@ A entrega ou execução ocorrerá na data e local combinados. Em caso de cancela
     });
   }, [pedidos, filtroStatusPedido]);
 
-  // SE FOR ROTA DE ASSINATURA PÚBLICA DO CLIENTE
   if (contratoIdPublico) {
     return <PaginaAssinaturaPublica contratoId={contratoIdPublico} themeColors={themeColors} />;
   }
@@ -1770,7 +1782,6 @@ A entrega ou execução ocorrerá na data e local combinados. Em caso de cancela
   return (
     <div className="min-h-screen bg-slate-50 pb-32 font-sans text-slate-700 w-full relative overflow-x-hidden">
       
-      {/* MENU HAMBÚRGUER LATERAL COMPLETO */}
       <div className={`fixed inset-0 bg-black/40 z-50 transition-opacity duration-300 ${isMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`} onClick={() => setIsMenuOpen(false)}>
         <div className={`w-72 bg-white h-full shadow-2xl p-6 flex flex-col justify-between transition-transform duration-300 ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'}`} onClick={e => e.stopPropagation()}>
           <div className="space-y-6 overflow-y-auto max-h-[85vh] scrollbar-none">
@@ -1802,7 +1813,6 @@ A entrega ou execução ocorrerá na data e local combinados. Em caso de cancela
         </div>
       </div>
 
-      {/* HEADER PRINCIPAL */}
       <header className="bg-white p-4 flex justify-between items-center shadow-sm sticky top-0 z-40 w-full">
         <button onClick={() => setIsMenuOpen(true)} className="p-2 text-slate-700 hover:text-purple-700 transition-colors">
           <Menu size={24} />
@@ -1916,7 +1926,7 @@ A entrega ou execução ocorrerá na data e local combinados. Em caso de cancela
           </div>
         )}
 
-        {/* ================= ABA CONTRATOS INTEGRADA ================= */}
+        {/* ABA CONTRATOS INTEGRADA */}
         {activeTab === 'contratos' && (
           <div className="space-y-6 pt-2 w-full animate-fadeIn">
             <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
@@ -1943,7 +1953,6 @@ A entrega ou execução ocorrerá na data e local combinados. Em caso de cancela
                   />
                 </div>
 
-                {/* MODALIDADE DE CLIENTE: PUXAR DE CONTATOS OU PREENCHER MANUAL */}
                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
                   <label className="text-[10px] font-bold text-slate-400 uppercase block mb-2">Dados do Cliente Contratante</label>
                   
@@ -2016,7 +2025,6 @@ A entrega ou execução ocorrerá na data e local combinados. Em caso de cancela
                   </div>
                 </div>
 
-                {/* DETALHES DO SERVIÇO */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div>
                     <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Descrição do Serviço / Produto</label>
@@ -2068,7 +2076,6 @@ A entrega ou execução ocorrerá na data e local combinados. Em caso de cancela
               </form>
             </div>
 
-            {/* LISTA DE CONTRATOS SALVOS */}
             <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider ml-2">Contratos Cadastrados</h3>
             <div className="space-y-3 w-full">
               {contratos.map((c) => (
@@ -2088,7 +2095,7 @@ A entrega ou execução ocorrerá na data e local combinados. Em caso de cancela
 
                   <div className="flex gap-1 border-t pt-3 w-full justify-end flex-wrap">
                     <button
-                      onClick={() => enviarLinkContratoWhatsApp(c)}
+                      onClick={() => enviarLinkContratoWhatsapp(c)}
                       className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1 transition"
                       title="Enviar no WhatsApp para Assinatura"
                     >
@@ -3212,7 +3219,7 @@ A entrega ou execução ocorrerá na data e local combinados. Em caso de cancela
         )}
       </div>
 
-      {/* MENU INFERIOR FIXO ATUALIZADO */}
+      {/* MENU INFERIOR FIXO */}
       <div className="fixed bottom-0 left-0 right-0 flex justify-center p-4 z-30 bg-transparent pointer-events-none">
         <div className="bg-white shadow-[0_-10px_30px_rgba(0,0,0,0.06)] rounded-[28px] flex justify-around items-center px-4 h-16 w-full max-w-xl pointer-events-auto border">
           <button onClick={() => setActiveTab('inicio')} style={{ color: activeTab === 'inicio' ? themeColors.secondary : undefined }} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab !== 'inicio' ? 'text-slate-300' : ''}`}>
