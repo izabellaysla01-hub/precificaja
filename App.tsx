@@ -1395,19 +1395,20 @@ A entrega ou execução ocorrerá na data e local combinados. Em caso de cancela
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const enviarLinkContratoWhatsapp = (c: any) => {
-    const linkAssinatura = `${window.location.origin}${window.location.pathname}?assinar=${c.id}`;
-    const mensagem = `Olá, ${c.nomeCliente}! Tudo bem?\n\nSegue o link do seu contrato para conferência e assinatura digital online:\n\n👉 ${linkAssinatura}\n\nQualquer dúvida estou à disposição!`;
-    
-    navigator.clipboard.writeText(mensagem);
-    
-    const foneLimpo = c.telefoneCliente ? c.telefoneCliente.replace(/\D/g, '') : '';
-    if (foneLimpo) {
-      window.open(`https://wa.me/55${foneLimpo}?text=${encodeURIComponent(mensagem)}`, '_blank');
-    } else {
-      alert('Link do contrato e mensagem copiados! Pode colar no WhatsApp do seu cliente.');
-    }
-  };
+  const enviarLinkContratoWhatsapp = (c) => {
+  // Gera o link usando o parâmetro ?assinar= em vez de /assinar/
+  const linkAssinatura = `${window.location.origin}${window.location.pathname}?assinar=${c.id}`;
+  const mensagem = `Olá, ${c.nomeCliente}! Tudo bem?\n\nSegue o link do seu contrato para conferência e assinatura digital online:\n\n👉 ${linkAssinatura}\n\nQualquer dúvida estou à disposição!`;
+  
+  navigator.clipboard.writeText(mensagem);
+  
+  const foneLimpo = c.telefoneCliente ? c.telefoneCliente.replace(/\D/g, '') : '';
+  if (foneLimpo) {
+    window.open(`https://wa.me/55${foneLimpo}?text=${encodeURIComponent(mensagem)}`, '_blank');
+  } else {
+    alert('Link do contrato e mensagem copiados! Pode colar no WhatsApp do seu cliente.');
+  }
+};
 
   const materiaisFiltrados = useMemo(() => {
     return materiais.filter(m => 
