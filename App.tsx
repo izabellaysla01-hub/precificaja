@@ -448,20 +448,25 @@ export default function App() {
     }
   };
 
-  const confirmarAssinaturaCliente = async () => {
+    const confirmarAssinaturaCliente = async () => {
     if (!assinaturaDataUrl) return alert("Por favor, desenhe sua assinatura no campo antes de confirmar!");
     try {
+      const dataHoraAtual = new Date().toLocaleString('pt-BR');
+      const dispositivo = navigator.userAgent;
+
       await updateDoc(doc(db, "contratos", idContratoPublico!), {
         status: 'Assinado',
-        dataAssinatura: new Date().toLocaleString('pt-BR'),
+        dataAssinatura: dataHoraAtual,
         assinaturaUrl: assinaturaDataUrl,
-        ipAssinatura: 'Registrado via Web'
+        dispositivoAssinatura: dispositivo,
+        ipAssinatura: 'Registrado via Web (Navegador)'
       });
       setAssinadoSucesso(true);
     } catch {
       alert("Erro ao salvar assinatura. Tente novamente.");
     }
   };
+
 
   const linkDoCatalogoDestaCliente = useMemo(() => {
     if (!user) return '';
