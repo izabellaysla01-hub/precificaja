@@ -3,7 +3,7 @@ import { initializeApp } from "firebase/app";
 import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { getFirestore, collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc, getDocs, setDoc, getDoc } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2, Menu, Search, Settings, CheckSquare, Square, Filter, MapPin, Globe, Palette, TrendingUp, ChevronDown, ChevronUp, FileText, Send, Link, Check } from 'lucide-react';
+import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2, Menu, Search, Settings, CheckSquare, Square, Filter, MapPin, Globe, Palette, TrendingUp, ChevronDown, ChevronUp, FileText, Send, Link, Check, Download } from 'lucide-react';
 
 const firebaseConfig = {
   apiKey: "AIzaSyD0BWsNm9DbGGDqiHzkdDmNdxIGdJ9tWe8",
@@ -27,7 +27,7 @@ const PRESET_PALETTES = [
   { id: 'emerald_growth', nome: 'Verde Esmeralda', primary: '#059669', primaryHover: '#047857', secondary: '#10b981', secondaryHover: '#059669' }
 ];
 
-// --- COMPONENTE DA PÁGINA PÚBLICA DE ASSINATURA NATIVA (SEM DEPENDÊNCIA) ---
+// --- COMPONENTE PÚBLICO DE ASSINATURA E GERAÇÃO DE PDF DO CONTRATO ---
 const PaginaAssinaturaPublica = ({ contratoId, themeColors }: any) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -59,7 +59,6 @@ const PaginaAssinaturaPublica = ({ contratoId, themeColors }: any) => {
     if (contratoId) carregarContrato();
   }, [contratoId]);
 
-  // Lógica do Canvas Nativo (Funciona no Touch do Celular e Mouse)
   const startDrawing = (e: any) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -126,6 +125,7 @@ const PaginaAssinaturaPublica = ({ contratoId, themeColors }: any) => {
       });
 
       setAssinado(true);
+      setContrato((prev: any) => ({ ...prev, assinaturaUrl: assinaturaDataUrl, status: 'Assinado', dataAssinatura: new Date().toISOString() }));
       alert('Contrato assinado com sucesso!');
     } catch (error) {
       console.error('Erro ao salvar assinatura:', error);
@@ -135,7 +135,46 @@ const PaginaAssinaturaPublica = ({ contratoId, themeColors }: any) => {
     }
   };
 
-  if (loading) return <div className="p-8 text-center text-slate-600 font-bold">Carregando contrato...</div>;
+  const baixarPDFContrato = () => {
+    const elemento = document.createElement('div');
+    const dataFormatada = contrato.dataAssinatura ? new Date(contrato.dataAssinatura).toLocaleString('pt-BR') : new Date().toLocaleDateString('pt-BR');
+
+    elemento.innerHTML = `
+      <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto; line-height: 1.6;">
+        <div style="text-align: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 15px; margin-bottom: 20px;">
+          <h1 style="font-size: 20px; color: #0f172a; margin: 0; text-transform: uppercase;">${contrato.tituloContrato || 'CONTRATO DE PRESTAÇÃO DE SERVIÇOS'}</h1>
+          <p style="font-size: 11px; color: #64748b; margin-top: 4px;">Comprovação e Registro de Aceite Digital</p>
+        </div>
+
+        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 12px; margin-bottom: 20px; font-size: 13px;">
+          <h3 style="margin-top: 0; font-size: 12px; color: #0f172a; text-transform: uppercase; border-bottom: 1px solid #cbd5e1; padding-bottom: 5px;">DADOS DAS PARTES</h3>
+          <p style="margin: 4px 0;"><strong>CONTRATANTE:</strong> ${contrato.nomeCliente}</p>
+          <p style="margin: 4px 0;"><strong>CPF / Documento:</strong> ${contrato.cpfCliente || 'Não informado'}</p>
+          <p style="margin: 4px 0;"><strong>Telefone:</strong> ${contrato.telefoneCliente || 'Não informado'}</p>
+          <p style="margin: 4px 0;"><strong>Serviço / Objeto:</strong> ${contrato.nomeServico || 'Não informado'}</p>
+          <p style="margin: 4px 0;"><strong>Data do Evento/Entrega:</strong> ${contrato.dataEvento || 'A combinar'}</p>
+          <p style="margin: 4px 0;"><strong>Valor Total:</strong> R$ ${contrato.valorTotal}</p>
+        </div>
+
+        <div style="margin-bottom: 25px; font-size: 12px; text-align: justify; white-space: pre-line; background-color: #ffffff; padding: 15px; border: 1px solid #e2e8f0; border-radius: 12px;">
+          <h3 style="margin-top: 0; font-size: 12px; color: #0f172a; text-transform: uppercase; border-bottom: 1px solid #cbd5e1; padding-bottom: 5px;">CLÁUSULAS E CONDIÇÕES</h3>
+          ${contrato.clausulas}
+        </div>
+
+        <div style="margin-top: 40px; page-break-inside: avoid; break-inside: avoid; text-align: center;">
+          <p style="font-size: 11px; color: #64748b; margin-bottom: 15px;">Documento assinado digitalmente em ${dataFormatada}</p>
+          ${contrato.assinaturaUrl ? `<img src="${contrato.assinaturaUrl}" style="height: 70px; border-bottom: 1px solid #0f172a; padding-bottom: 5px; display: block; margin: 0 auto;"/>` : ''}
+          <p style="font-size: 12px; font-weight: bold; margin-top: 8px;">${contrato.nomeCliente}</p>
+          <p style="font-size: 10px; color: #64748b; margin: 0;">CONTRATANTE</p>
+        </div>
+      </div>
+    `;
+
+    const opcoes = { margin: 10, filename: `Contrato_${contrato.nomeCliente.replace(/\s+/g, '_')}.pdf`, html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'a4', orientation: 'portrait' } };
+    if ((window as any).html2pdf) { (window as any).html2pdf().from(elemento).set(opcoes).save(); }
+  };
+
+  if (loading) return <div className="p-8 text-center text-slate-600 font-bold">Carregando documento...</div>;
   if (!contrato) return <div className="p-8 text-center text-red-500 font-bold">Contrato não encontrado.</div>;
 
   return (
@@ -146,7 +185,7 @@ const PaginaAssinaturaPublica = ({ contratoId, themeColors }: any) => {
             {contrato.tituloContrato || 'CONTRATO DE PRESTAÇÃO DE SERVIÇOS'}
           </h1>
           <p style={{ color: themeColors?.primary || '#7c3aed' }} className="text-xs font-bold uppercase tracking-widest mt-1">
-            Assinatura Digital de Documento
+            Conferência e Assinatura Digital
           </p>
         </div>
 
@@ -166,16 +205,23 @@ const PaginaAssinaturaPublica = ({ contratoId, themeColors }: any) => {
         </div>
 
         {assinado ? (
-          <div className="p-5 bg-emerald-50 border border-emerald-300 rounded-2xl text-center">
-            <span className="text-emerald-800 font-black block mb-2 text-base">✓ Contrato Assinado Digitalmente</span>
+          <div className="p-5 bg-emerald-50 border border-emerald-300 rounded-2xl text-center space-y-3">
+            <span className="text-emerald-800 font-black block text-base">✓ Contrato Assinado Digitalmente</span>
             {contrato.assinaturaUrl && (
-              <div className="bg-white p-2 rounded-xl inline-block border border-slate-200 my-2">
+              <div className="bg-white p-2 rounded-xl inline-block border border-slate-200 my-1">
                 <img src={contrato.assinaturaUrl} alt="Assinatura do Cliente" className="h-20 mx-auto" />
               </div>
             )}
-            <p className="text-xs text-emerald-700 mt-1 font-semibold">
+            <p className="text-xs text-emerald-700 font-semibold block">
               Assinado em: {new Date(contrato.dataAssinatura || Date.now()).toLocaleString('pt-BR')}
             </p>
+            
+            <button
+              onClick={baixarPDFContrato}
+              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-3 rounded-xl text-xs uppercase tracking-wider shadow flex items-center justify-center gap-2 mt-3"
+            >
+              <Download size={16}/> Baixar Contrato Assinado em PDF
+            </button>
           </div>
         ) : (
           <div>
@@ -408,6 +454,7 @@ A entrega ou execução ocorrerá na data e local combinados. Em caso de cancela
 
     if (assinarId) {
       setContratoIdPublico(assinarId);
+      setLoading(false);
       return;
     }
 
@@ -1236,7 +1283,6 @@ A entrega ou execução ocorrerá na data e local combinados. Em caso de cancela
     }
   };
 
-  // FUNÇÕES DA ABA CONTRATOS
   const selecionarClienteParaContrato = (clienteId: string) => {
     const cli = clientes.find(c => c.id === clienteId);
     if (cli) {
@@ -1391,6 +1437,7 @@ A entrega ou execução ocorrerá na data e local combinados. Em caso de cancela
     });
   }, [pedidos, filtroStatusPedido]);
 
+  // SE FOR LINK PÚBLICO DE ASSINATURA DE CONTRATO (NÃO PEDE LOGIN)
   if (contratoIdPublico) {
     return <PaginaAssinaturaPublica contratoId={contratoIdPublico} themeColors={themeColors} />;
   }
