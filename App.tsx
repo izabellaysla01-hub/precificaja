@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { initializeApp } from "firebase/app";
 import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { getFirestore, collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc, getDocs, setDoc, getDoc } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2, Menu, Search, Settings, CheckSquare, Square, Filter, MapPin, Globe, Palette, TrendingUp, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2, Menu, Search, Settings, CheckSquare, Square, Filter, MapPin, Globe, Palette, TrendingUp, ChevronDown, ChevronUp, FileText } from 'lucide-react';
 
 const firebaseConfig = {
   apiKey: "AIzaSyD0BWsNm9DbGGDqiHzkdDmNdxIGdJ9tWe8",
@@ -92,11 +92,20 @@ export default function App() {
   const [nomeComprador, setNomeComprador] = useState('');
   const [zapDaLojaPublica, setZapDaLojaPublica] = useState('');
 
+  // ESTADOS PARA ROTA PÚBLICA DE ASSINATURA DE CONTRATO
+  const [idContratoPublico, setIdContratoPublico] = useState<string | null>(null);
+  const [contratoPublico, setContratoPublico] = useState<any>(null);
+  const [carregandoContrato, setCarregandoContrato] = useState(false);
+  const [assinaturaDataUrl, setAssinaturaDataUrl] = useState<string>('');
+  const [assinadoSucesso, setAssinadoSucesso] = useState(false);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [isDrawing, setIsDrawing] = useState(false);
+
   // Estados para Filtro na Vitrine Pública do Cliente
   const [filtroVitrineSelecionado, setFiltroVitrineSelecionado] = useState('Todos');
   const [isMenuFiltroVitrineOpen, setIsMenuFiltroVitrineOpen] = useState(false);
 
-  const [activeTab, useStateActiveTab] = useState<'inicio' | 'materiais' | 'criar' | 'pedidos' | 'clientes' | 'catalogo' | 'balcao' | 'financeiro' | 'perfil' | 'anotacoes' | 'fornecedores'>('inicio');
+  const [activeTab, useStateActiveTab] = useState<'inicio' | 'materiais' | 'criar' | 'pedidos' | 'clientes' | 'catalogo' | 'balcao' | 'financeiro' | 'perfil' | 'anotacoes' | 'fornecedores' | 'contratos'>('inicio');
   
   // Sub-aba interna para a seção financeira
   const [subAbaFinanceiro, setSubAbaFinanceiro] = useState<'geral' | 'impressao' | 'equipamentos' | 'historico'>('geral');
@@ -112,6 +121,7 @@ export default function App() {
   const [produtos, setProdutos] = useState<any[]>([]);
   const [equipamentos, setEquipamentos] = useState<any[]>([]);
   const [anotacoes, setAnotacoes] = useState<any[]>([]);
+  const [contratos, setContratos] = useState<any[]>([]);
   
   // Estados para Categorias Dinâmicas e Fornecedores
   const [categoriasProd, setCategoriasProd] = useState<any[]>([]);
@@ -134,7 +144,7 @@ export default function App() {
   const [modoCalculo, setModoCalculo] = useState<'peca' | 'lote'>('peca');
 
   const [nomeProd, setNomeProd] = useState('');
-  const [detalhamentoPed, setDetalhamentoPed] = useState(''); // NOVO ESTADO DE DETALHAMENTO DO KIT
+  const [detalhamentoPed, setDetalhamentoPed] = useState('');
   const [qtdPed, setQtdPed] = useState('1');
   const [matsNoPed, setMatsNoPed] = useState<any[]>([]);
   const [vHora, setVHora] = useState('9');
@@ -148,7 +158,23 @@ export default function App() {
   const [precoManual, setPrecoManual] = useState<string | null>(null);
   const [docObsPedido, setDocObsPedido] = useState('');
 
-  // Estado para armazenar o valor alterado pelo usuário na calculadora
+  // ESTADOS DO FORMULÁRIO DE CONTRATO
+  const [novoContrato, setNovoContrato] = useState({
+    id: '',
+    clienteId: '',
+    nomeCliente: '',
+    cpfCliente: '',
+    enderecoCliente: '',
+    tipoEvento: '',
+    dataEvento: '',
+    localEvento: '',
+    valorTotal: '',
+    clausulas: `1. DO OBJETO: O presente contrato tem por objeto a prestação de serviços/produtos descritos na proposta comercial.
+2. DO PAGAMENTO: O pagamento deverá ser efetuado conforme acordado entre as partes.
+3. DO CANCELAMENTO: Em caso de desistência por parte do contratante com menos de 15 dias de antecedência, o valor de sinal não será devolvido.
+4. DOS DANOS: A contratante responsabiliza-se por eventuais danos causados aos materiais durante o evento.`
+  });
+
   const [precoFinalDigitado, setPrecoFinalDigitado] = useState<string>('0.00');
 
   const [email, setEmail] = useState('');
@@ -159,12 +185,10 @@ export default function App() {
   const [novoCli, setNovoCli] = useState({ id: '', nome: '', zap: '', email: '', endereco: '' });
   const [novaAnotacao, setNovaAnotacao] = useState({ id: '', titulo: '', conteudo: '', dataPrazo: new Date().toISOString().split('T')[0] });
   
-  // Estados de Cadastro Atualizados com Categorias
   const [novoProdCatalogo, setNovoProdCatalogo] = useState<{id: string, nome: string, precoVenda: string, urlImagem: string, categorias: string[]}>({ id: '', nome: '', precoVenda: '', urlImagem: '', categorias: [] });
   const [inputNovaCategoriaProd, setInputNovaCategoriaProd] = useState('');
   const [mostrarInputNovaCatProd, setMostrarInputNovaCatProd] = useState(false);
 
-  // Estados de Cadastro para Fornecedores
   const [novoFornecedor, setNovoFornecedor] = useState<{id: string, nome: string, site: string, whatsapp: string, endereco: string, categorias: string[]}>({ id: '', nome: '', site: '', whatsapp: '', endereco: '', categorias: [] });
   const [inputNovaCategoriaForn, setInputNovaCategoriaForn] = useState('');
   const [mostrarInputNovaCatForn, setMostrarInputNovaCatForn] = useState(false);
@@ -176,7 +200,6 @@ export default function App() {
   const [logoLojaPerfil, setLogoLojaPerfil] = useState('');
   const [subindoLogo, setSubindoLogo] = useState(false);
 
-  // --- ESTADO DE TEMA E CORES ---
   const [themeColors, setThemeColors] = useState({
     primary: '#7c3aed',
     primaryHover: '#6d28d9',
@@ -187,7 +210,6 @@ export default function App() {
   const [financasFixo, setFinancasFixo] = useState({ salario: '0', aluguel: '0', internet: '0', luz: '0', outros: '0', diasTrabalho: '20', horasDia: '8' });
   const [novoEquipamento, setNovoEquipamento] = useState({ id: '', nome: '', valorPago: '', durabilidadeAnos: '2' });
 
-  // --- ESTADOS PARA A CALCULADORA DE IMPRESSÃO ---
   const [precoTinta, setPrecoTinta] = useState('62');
   const [unidadeTinta, setUnidadeTinta] = useState('Garrafinha');
   const [qtdCores, setQtdCores] = useState('4');
@@ -203,7 +225,6 @@ export default function App() {
     setIsMenuOpen(false);
   };
 
-  // Cálculo Dinâmico do valor de impressão por folha
   const custoPorPaginaCalculado = useMemo(() => {
     const preco = Number(precoTinta) || 0;
     const cores = Number(qtdCores) || 0;
@@ -218,6 +239,19 @@ export default function App() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const lojaId = params.get('loja');
+    const contratoId = params.get('assinar');
+
+    if (contratoId) {
+      setIdContratoPublico(contratoId);
+      setCarregandoContrato(true);
+      getDoc(doc(db, "contratos", contratoId)).then(docSnap => {
+        if (docSnap.exists()) {
+          setContratoPublico({ id: docSnap.id, ...docSnap.data() });
+        }
+        setCarregandoContrato(false);
+      }).catch(() => setCarregandoContrato(false));
+    }
+
     if (lojaId) {
       setIdLojaPublica(lojaId);
       setCarregandoPublico(true);
@@ -261,6 +295,7 @@ export default function App() {
         setProdutos([]);
         setEquipamentos([]);
         setAnotacoes([]);
+        setContratos([]);
       }
       setLoading(false);
     }); 
@@ -275,7 +310,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (user && !idLojaPublica) {
+    if (user && !idLojaPublica && !idContratoPublico) {
       const qMaterials = query(collection(db, "materiais"), where("userId", "==", user.uid));
       const unsubMaterials = onSnapshot(qMaterials, s => setMaterials(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
@@ -290,6 +325,9 @@ export default function App() {
 
       const qAnotacoes = query(collection(db, "anotacoes"), where("userId", "==", user.uid));
       const unsubAnotacoes = onSnapshot(qAnotacoes, s => setAnotacoes(s.docs.map(d => ({ id: d.id, ...d.data() }))));
+
+      const qContratos = query(collection(db, "contratos"), where("userId", "==", user.uid));
+      const unsubContratos = onSnapshot(qContratos, s => setContratos(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
       const qCatsProd = query(collection(db, "categorias_produtos"), where("userId", "==", user.uid));
       const unsubCatsProd = onSnapshot(qCatsProd, s => {
@@ -357,9 +395,71 @@ export default function App() {
         unsubCatsProd();
         unsubCatsForn();
         unsubFornecedores();
+        unsubContratos();
       };
     }
-  }, [user, idLojaPublica]);
+  }, [user, idLojaPublica, idContratoPublico]);
+
+  // FUNÇÕES DE DESENHO NO CANVAS DE ASSINATURA
+  const startDrawing = (e: any) => {
+    setIsDrawing(true);
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const rect = canvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    ctx.beginPath();
+    ctx.moveTo(clientX - rect.left, clientY - rect.top);
+  };
+
+  const draw = (e: any) => {
+    if (!isDrawing) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const rect = canvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    ctx.lineTo(clientX - rect.left, clientY - rect.top);
+    ctx.stroke();
+  };
+
+  const stopDrawing = () => {
+    if (!isDrawing) return;
+    setIsDrawing(false);
+    const canvas = canvasRef.current;
+    if (canvas) {
+      setAssinaturaDataUrl(canvas.toDataURL());
+    }
+  };
+
+  const limparCanvasAssinatura = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      setAssinaturaDataUrl('');
+    }
+  };
+
+  const confirmarAssinaturaCliente = async () => {
+    if (!assinaturaDataUrl) return alert("Por favor, desenhe sua assinatura no campo antes de confirmar!");
+    try {
+      await updateDoc(doc(db, "contratos", idContratoPublico!), {
+        status: 'Assinado',
+        dataAssinatura: new Date().toLocaleString('pt-BR'),
+        assinaturaUrl: assinaturaDataUrl,
+        ipAssinatura: 'Registrado via Web'
+      });
+      setAssinadoSucesso(true);
+    } catch {
+      alert("Erro ao salvar assinatura. Tente novamente.");
+    }
+  };
 
   const linkDoCatalogoDestaCliente = useMemo(() => {
     if (!user) return '';
@@ -556,7 +656,6 @@ export default function App() {
     }
   };
 
-  // --- DASHBOARD METRICS (FILTRANDO APENAS O MÊS E ANO ATUAIS) ---
   const dashboardMetrics = useMemo(() => {
     const agora = new Date();
     const mesAtual = agora.getMonth() + 1;
@@ -587,7 +686,6 @@ export default function App() {
     };
   }, [pedidos, materiais, clientes]);
 
-  // --- LÓGICA DE HISTÓRICO FINANCEIRO MENSAL AGRUPADO COM DETALHES DOS PRODUTOS ---
   const historicoFinanceiroMensal = useMemo(() => {
     const agrupado: { [key: string]: { total: number; qtd: number; mesAnoTexto: string; itensVendidos: any[] } } = {};
     const nomesMeses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
@@ -621,7 +719,6 @@ export default function App() {
       }));
   }, [pedidos]);
 
-  // Filtro Dinâmico do Histórico por Mês/Ano selecionado
   const historicoFiltradoPorData = useMemo(() => {
     if (mesFiltroHistorico === 'Todos' && anoFiltroHistorico === 'Todos') {
       return historicoFinanceiroMensal;
@@ -716,7 +813,6 @@ export default function App() {
     window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
   };
 
-  // --- GERAÇÃO DO PDF ATUALIZADA COM COMPOSIÇÃO / DETALHAMENTO DO KIT ---
   const gerarPDF = (p: any) => {
     const idDoCliente = p.clienteId || p.clienteSel || '';
     const cli = clientes.find(c => c.id === idDoCliente);
@@ -750,7 +846,6 @@ export default function App() {
       const quantidadeItem = Number(p.qtdPed || 1);
       const unitario = p.precoManual ? Number(p.precoManual) : (totalNum / quantidadeItem);
 
-      // LÓGICA DE DETALHAMENTO/COMPOSIÇÃO DO KIT DENTRO DA LINHA DA TABELA DO PDF
       let htmlDetalhamentoKit = '';
       if (p.detalhamentoPed && p.detalhamentoPed.trim()) {
         const listaItens = p.detalhamentoPed.split('\n').filter((l: string) => l.trim() !== '');
@@ -786,9 +881,8 @@ export default function App() {
     elemento.innerHTML = `
       <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto;">
         
-        <!-- CABEÇALHO LADO A LADO: LOGO E INFO DA EMPRESA -->
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px; gap: 20px;">
-          <div style="flex-shrink: 0; display: flex; align-items: center;">
+          <div style="flex-shrink: 0; display: flex; items-center;">
             ${cabecalhoLogoHtml}
           </div>
           <div style="text-align: right; flex-grow: 1;">
@@ -859,6 +953,62 @@ export default function App() {
     (window as any).html2pdf().from(elemento).set(opcoes).save();
   };
 
+  // GERADOR DE PDF DE CONTRATOS COM ASSINATURA
+  const gerarPDFContrato = (c: any) => {
+    const elemento = document.createElement('div');
+    const dataEmissao = c.dataCriacao || new Date().toLocaleDateString('pt-BR');
+
+    elemento.innerHTML = `
+      <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px;">
+          <div>
+            <h1 style="color: ${themeColors.primary}; margin: 0; font-size: 24px; font-weight: 900;">CONTRATO DE PRESTAÇÃO DE SERVIÇOS</h1>
+            <p style="color: #94a3b8; font-size: 11px; text-transform: uppercase; margin: 4px 0 0 0; font-weight: bold;">Documento Jurídico de Prestação de Serviços</p>
+          </div>
+          <div style="text-align: right;">
+            <span style="font-size: 12px; font-weight: bold; color: #475569;">Emissão: ${dataEmissao}</span>
+          </div>
+        </div>
+
+        <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">1. DADOS DO CONTRATANTE (CLIENTE)</div>
+        <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 20px; border: 1px solid #f1f5f9; font-size: 13px;">
+          <p style="margin: 0 0 5px 0;"><strong>Nome Completo:</strong> ${c.nomeCliente || 'Não informado'}</p>
+          <p style="margin: 0 0 5px 0;"><strong>CPF:</strong> ${c.cpfCliente || 'Não informado'}</p>
+          <p style="margin: 0;"><strong>Endereço:</strong> ${c.enderecoCliente || 'Não informado'}</p>
+        </div>
+
+        <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">2. DADOS DO EVENTO E VALOR</div>
+        <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 20px; border: 1px solid #f1f5f9; font-size: 13px;">
+          <p style="margin: 0 0 5px 0;"><strong>Tipo de Evento:</strong> ${c.tipoEvento || 'Não informado'}</p>
+          <p style="margin: 0 0 5px 0;"><strong>Data do Evento:</strong> ${c.dataEvento ? new Date(c.dataEvento + 'T00:00:00').toLocaleDateString('pt-BR') : 'A combinar'}</p>
+          <p style="margin: 0 0 5px 0;"><strong>Local:</strong> ${c.localEvento || 'Não informado'}</p>
+          <p style="margin: 10px 0 0 0; font-size: 15px; color: ${themeColors.primary}; font-weight: bold;"><strong>Valor Total dos Serviços:</strong> R$ ${Number(c.valorTotal || 0).toFixed(2)}</p>
+        </div>
+
+        <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">3. CLÁUSULAS E TERMOS DO CONTRATO</div>
+        <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 30px; border: 1px solid #f1f5f9; font-size: 12px; line-height: 1.6; whitespace-pre-line;">
+          ${c.clausulas || 'Termos padrão aplicáveis.'}
+        </div>
+
+        <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px; page-break-inside: avoid; break-inside: avoid;">4. REGISTRO DE ASSINATURA ELETRÔNICA</div>
+        <div style="background-color: #f8fafc; padding: 20px; border-radius: 16px; border: 1px solid #f1f5f9; font-size: 12px; text-align: center; page-break-inside: avoid; break-inside: avoid;">
+          {c.status === 'Assinado' && c.assinaturaUrl ? `
+            <img src="${c.assinaturaUrl}" style="max-height: 80px; margin: 0 auto 10px auto; display: block;"/>
+            <p style="margin: 0; font-weight: bold; color: #1e293b;">${c.nomeCliente}</p>
+            <p style="margin: 4px 0 0 0; font-size: 10px; color: #64748b;">Assinado eletronicamente em: ${c.dataAssinatura || 'Data registrada'}</p>
+            <p style="margin: 2px 0 0 0; font-size: 9px; color: #94a3b8;">Validação Digital Eletrônica - Medida Provisória nº 2.200-2/2001</p>
+          ` : `
+            <div style="height: 60px; border-bottom: 1px dashed #cbd5e1; margin-bottom: 10px;"></div>
+            <p style="margin: 0; font-weight: bold; color: #94a3b8;">Pendente de Assinatura pelo Cliente</p>
+          `}
+        </div>
+      </div>
+    `;
+
+    const opcoes = { margin: [10, 10, 10, 10], filename: `Contrato_${c.nomeCliente || 'Cliente'}.pdf`, html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'a4', orientation: 'portrait' }, pagebreak: { mode: ['avoid-all', 'css'] } };
+    (window as any).html2pdf().from(elemento).set(opcoes).save();
+  };
+
   const handleAuth = async () => {
     try {
       if (isRegistering) await createUserWithEmailAndPassword(auth, email, password);
@@ -867,7 +1017,7 @@ export default function App() {
   };
 
   const confirmarExcluir = async (tipo: string, id: string) => {
-    if (window.confirm(`Excluir ${tipo}?`)) {
+    if (window.confirm(`Tem certeza que deseja excluir este ${tipo}? Esta ação não pode ser desfeita.`)) {
       let colecao = "";
       if (tipo === 'pedido') colecao = "pedidos";
       else if (tipo === 'cliente') colecao = "clientes";
@@ -876,6 +1026,7 @@ export default function App() {
       else if (tipo === 'material') colecao = "materiais";
       else if (tipo === 'anotacao') colecao = "anotacoes";
       else if (tipo === 'fornecedor') colecao = "fornecedores";
+      else if (tipo === 'contrato') colecao = "contratos";
 
       await deleteDoc(doc(db, colecao, id));
     }
@@ -1074,6 +1225,73 @@ export default function App() {
 
   if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando o PrecificaJá... 🚀</div>;
 
+  // --- ROTA PÚBLICA DE ASSINATURA DE CONTRATO DO CLIENTE ---
+  if (idContratoPublico) {
+    if (carregandoContrato) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando Contrato... 📜</div>;
+    if (!contratoPublico) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-red-500">Contrato não encontrado ou expirado! ❌</div>;
+
+    return (
+      <div className="min-h-screen bg-slate-50 p-4 font-sans text-slate-700 max-w-xl mx-auto">
+        <div className="bg-white p-6 rounded-[35px] shadow-xl border space-y-6">
+          <div className="text-center border-b pb-4">
+            <h1 className="text-xl font-black text-purple-700">Contrato de Prestação de Serviços 📜</h1>
+            <p className="text-xs text-slate-400 font-bold uppercase mt-1">Assinatura Digital Simples e Segura</p>
+          </div>
+
+          {assinadoSucesso || contratoPublico.status === 'Assinado' ? (
+            <div className="bg-emerald-50 border border-emerald-200 p-6 rounded-3xl text-center space-y-3">
+              <CheckCircle size={48} className="text-emerald-500 mx-auto" />
+              <h2 className="text-lg font-black text-emerald-800">Contrato Assinado com Sucesso! 🎉</h2>
+              <p className="text-xs text-emerald-600 font-semibold">Obrigado! O registro digital foi salvo e enviado para o prestador de serviços.</p>
+            </div>
+          ) : (
+            <>
+              <div className="bg-slate-50 p-4 rounded-2xl border text-xs space-y-2">
+                <p><strong>Contratante:</strong> {contratoPublico.nomeCliente}</p>
+                <p><strong>CPF:</strong> {contratoPublico.cpfCliente || 'Não informado'}</p>
+                <p><strong>Evento:</strong> {contratoPublico.tipoEvento} ({contratoPublico.dataEvento})</p>
+                <p><strong>Valor dos Serviços:</strong> R$ {Number(contratoPublico.valorTotal).toFixed(2)}</p>
+              </div>
+
+              <div>
+                <h3 className="font-bold text-xs uppercase text-slate-400 mb-2">Cláusulas Contratuais</h3>
+                <div className="bg-slate-50 p-4 rounded-2xl border text-xs font-mono text-slate-600 whitespace-pre-line max-h-56 overflow-y-auto leading-relaxed">
+                  {contratoPublico.clausulas}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Desenhe sua Assinatura com o Dedo no Quadro Abaixo:</label>
+                <div className="border-2 border-dashed border-purple-300 rounded-2xl bg-white overflow-hidden touch-none relative">
+                  <canvas 
+                    ref={canvasRef} 
+                    width={320} 
+                    height={150} 
+                    className="w-full h-36 cursor-crosshair"
+                    onMouseDown={startDrawing}
+                    onMouseMove={draw}
+                    onMouseUp={stopDrawing}
+                    onTouchStart={startDrawing}
+                    onTouchMove={draw}
+                    onTouchEnd={stopDrawing}
+                  />
+                  <button onClick={limparCanvasAssinatura} className="absolute top-2 right-2 text-[10px] bg-slate-100 px-2 py-1 rounded-lg font-bold text-slate-500 hover:bg-slate-200">Limpar 🔄</button>
+                </div>
+              </div>
+
+              <button 
+                onClick={confirmarAssinaturaCliente}
+                className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-black py-4 rounded-2xl shadow-lg uppercase text-xs tracking-wider transition-all"
+              >
+                Confirmar e Assinar Contrato ✍️
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   if (!user && !idLojaPublica) {
     return (
       <Login 
@@ -1184,7 +1402,6 @@ export default function App() {
         )}
       </div>
 
-      {/* SELETOR DE MODO DE CÁLCULO */}
       <div className="mb-5 w-full">
         <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-2">
           Modo de Cálculo
@@ -1252,7 +1469,6 @@ export default function App() {
          </div>
       </div>
 
-      {/* NOVO CAMPO DE DETALHAMENTO DO KIT / COMPOSIÇÃO */}
       <div className="mb-4 w-full">
          <label style={{ color: themeColors.primary }} className="text-[10px] font-bold uppercase ml-1 block mb-1">
           Detalhamento dos Itens - Opcional
@@ -1386,7 +1602,6 @@ export default function App() {
         </div>
       )}
 
-      {/* RODAPÉ DO ORÇAMENTO COM PREÇO FINAL EDITÁVEL E BOTÃO ÚNICO */}
       <div className="flex flex-col items-center border-t pt-6 gap-4 w-full">
         <div className="flex justify-between items-center w-full px-2">
           <div className="text-left">
@@ -1421,7 +1636,7 @@ export default function App() {
              
              const dadosPedido = { 
                nomeProd, 
-               detalhamentoPed, // SALVA O CAMPO DE DETALHAMENTO NO BANCO
+               detalhamentoPed,
                preco: precoFinalSalvar, 
                clienteId: clienteSel, 
                prazo, 
@@ -1473,6 +1688,7 @@ export default function App() {
             <nav className="flex flex-col gap-1">
               <button onClick={() => setActiveTab('inicio')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'inicio' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'inicio' ? themeColors.primary : undefined }}><Home size={16}/> Início</button>
               <button onClick={() => setActiveTab('criar')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'criar' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'criar' ? themeColors.primary : undefined }}><Plus size={16}/> Orçar</button>
+              <button onClick={() => setActiveTab('contratos')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'contratos' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'contratos' ? themeColors.primary : undefined }}><FileText size={16}/> Contratos</button>
               
               <button onClick={() => setActiveTab('perfil')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'perfil' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'perfil' ? themeColors.primary : undefined }}><Settings size={16}/> Perfil e Cores da Loja</button>
               <button onClick={() => setActiveTab('anotacoes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'anotacoes' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'anotacoes' ? themeColors.primary : undefined }}><Calendar size={16}/> Agenda / Tarefas </button>
@@ -1504,8 +1720,6 @@ export default function App() {
       <div className="p-4 max-w-xl mx-auto w-full">
         {activeTab === 'inicio' && (
           <div className="space-y-5 pt-2 w-full">
-            
-            {/* CARD DE FATURAMENTO DO MÊS ATUAL */}
             <div style={{ backgroundColor: themeColors.primary }} className="p-6 rounded-[35px] shadow-lg text-white w-full">
               <div className="flex justify-between items-center mb-1">
                 <p className="text-xs font-bold uppercase tracking-widest text-white/80">Faturamento do Mês Atual</p>
@@ -1608,6 +1822,159 @@ export default function App() {
           </div>
         )}
 
+        {/* NOVA ABA DE CONTRATOS */}
+        {activeTab === 'contratos' && (
+          <div className="space-y-4 pt-2 w-full animate-fadeIn">
+            <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
+              <h2 style={{ color: themeColors.primary }} className="font-bold mb-4 flex items-center gap-2 uppercase text-xs tracking-widest"><FileText size={20}/> {novoContrato.id ? 'Editando Contrato' : 'Gerar Novo Contrato'}</h2>
+              
+              <div className="mb-3 w-full">
+                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Selecionar Cliente</label>
+                <select 
+                  className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm block border border-transparent focus:border-purple-400"
+                  value={novoContrato.clienteId}
+                  onChange={e => {
+                    const c = clientes.find(item => item.id === e.target.value);
+                    if (c) {
+                      setNovoContrato({
+                        ...novoContrato,
+                        clienteId: c.id,
+                        nomeCliente: c.nome || '',
+                        cpfCliente: c.cpf || '',
+                        enderecoCliente: c.endereco || ''
+                      });
+                    } else {
+                      setNovoContrato({ ...novoContrato, clienteId: e.target.value });
+                    }
+                  }}
+                >
+                  <option value="">👤 Escolher Cliente Cadastrado...</option>
+                  {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                </select>
+              </div>
+
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome Completo do Cliente</label>
+              <input placeholder="Ex: Maria Oliveira" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none font-bold text-sm" value={novoContrato.nomeCliente} onChange={e => setNovoContrato({...novoContrato, nomeCliente: e.target.value})} />
+
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">CPF do Cliente</label>
+                  <input placeholder="000.000.000-00" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-xs" value={novoContrato.cpfCliente} onChange={e => setNovoContrato({...novoContrato, cpfCliente: e.target.value})} />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Valor do Serviço (R$)</label>
+                  <input type="number" placeholder="0.00" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-xs" value={novoContrato.valorTotal} onChange={e => setNovoContrato({...novoContrato, valorTotal: e.target.value})} />
+                </div>
+              </div>
+
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Endereço Residencial do Cliente</label>
+              <input placeholder="Ex: Rua A, 123 - Bairro" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none text-xs font-semibold" value={novoContrato.enderecoCliente} onChange={e => setNovoContrato({...novoContrato, enderecoCliente: e.target.value})} />
+
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Tipo de Evento</label>
+                  <input placeholder="Ex: Aniversário Infantil" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-semibold text-xs" value={novoContrato.tipoEvento} onChange={e => setNovoContrato({...novoContrato, tipoEvento: e.target.value})} />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Data do Evento</label>
+                  <input type="date" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-semibold text-xs block" value={novoContrato.dataEvento} onChange={e => setNovoContrato({...novoContrato, dataEvento: e.target.value})} />
+                </div>
+              </div>
+
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Local / Endereço do Evento</label>
+              <input placeholder="Ex: Salão Festas e Cia" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none text-xs font-semibold" value={novoContrato.localEvento} onChange={e => setNovoContrato({...novoContrato, localEvento: e.target.value})} />
+
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Cláusulas do Contrato (Texto Editável)</label>
+              <textarea className="w-full p-4 bg-slate-50 rounded-2xl mb-5 outline-none font-mono text-xs leading-relaxed border resize-none h-36" value={novoContrato.clausulas} onChange={e => setNovoContrato({...novoContrato, clausulas: e.target.value})} />
+
+              <button 
+                style={{ backgroundColor: themeColors.primary }}
+                onClick={async () => {
+                  if (!novoContrato.nomeCliente) return alert("Preencha o nome do cliente!");
+                  const dados = {
+                    ...novoContrato,
+                    userId: user.uid,
+                    dataCriacao: new Date().toLocaleDateString('pt-BR'),
+                    status: novoContrato.id ? novoContrato.id : 'Pendente'
+                  };
+
+                  if (novoContrato.id) {
+                    await updateDoc(doc(db, "contratos", novoContrato.id), dados);
+                  } else {
+                    await addDoc(collection(db, "contratos"), { ...dados, status: 'Pendente' });
+                  }
+
+                  setNovoContrato({
+                    id: '', clienteId: '', nomeCliente: '', cpfCliente: '', enderecoCliente: '', tipoEvento: '', dataEvento: '', localEvento: '', valorTotal: '', clausulas: `1. DO OBJETO: O presente contrato tem por objeto a prestação de serviços/produtos descritos na proposta comercial.\n2. DO PAGAMENTO: O pagamento deverá ser efetuado conforme acordado entre as partes.\n3. DO CANCELAMENTO: Em caso de desistência por parte do contratante com menos de 15 dias de antecedência, o valor de sinal não será devolvido.`
+                  });
+                  alert("Contrato gerado com sucesso! 📜🚀");
+                }}
+                className="w-full text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md hover:opacity-90 transition-all"
+              >
+                {novoContrato.id ? 'Atualizar Contrato' : 'Gerar Link do Contrato'}
+              </button>
+            </div>
+
+            <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider ml-2 mt-4">Contratos Gerados</h3>
+            <div className="grid grid-cols-1 gap-3 w-full">
+              {contratos.map(c => {
+                const linkAssinatura = `${window.location.origin}${window.location.pathname}?assinar=${c.id}`;
+                return (
+                  <div key={c.id} className="bg-white p-5 rounded-3xl border shadow-sm flex flex-col gap-3">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${c.status === 'Assinado' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                          {c.status === 'Assinado' ? '✍️ Assinado' : '⏳ Aguardando Assinatura'}
+                        </span>
+                        <h4 className="font-black text-slate-800 text-base mt-1">{c.nomeCliente}</h4>
+                        <p className="text-xs text-slate-400 font-semibold">{c.tipoEvento || 'Evento'} — R$ {Number(c.valorTotal || 0).toFixed(2)}</p>
+                      </div>
+
+                      <div className="flex gap-1">
+                        <button onClick={() => setNovoContrato({ id: c.id, clienteId: c.clienteId || '', nomeCliente: c.nomeCliente || '', cpfCliente: c.cpfCliente || '', enderecoCliente: c.enderecoCliente || '', tipoEvento: c.tipoEvento || '', dataEvento: c.dataEvento || '', localEvento: c.localEvento || '', valorTotal: c.valorTotal || '', clausulas: c.clausulas || '' })} className="text-orange-400 p-2 hover:bg-orange-50 rounded-xl"><Edit2 size={16}/></button>
+                        <button onClick={() => confirmarExcluir('contrato', c.id)} className="text-red-300 hover:text-red-500 p-2 hover:bg-red-50 rounded-xl"><Trash2 size={16}/></button>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 border-t pt-3">
+                      <button 
+                        onClick={() => {
+                          navigator.clipboard.writeText(linkAssinatura);
+                          alert("Link de assinatura copiado! 🔗");
+                        }} 
+                        className="flex-1 bg-purple-50 text-purple-700 p-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5"
+                      >
+                        <Copy size={14}/> Copiar Link
+                      </button>
+
+                      <button 
+                        onClick={() => {
+                          const msg = `Olá *${c.nomeCliente}*! Segue o link para conferir e assinar o contrato digital do seu evento: ${linkAssinatura}`;
+                          window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+                        }} 
+                        className="bg-emerald-50 text-emerald-600 p-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5"
+                      >
+                        <MessageCircle size={14}/> WhatsApp
+                      </button>
+
+                      <button 
+                        onClick={() => gerarPDFContrato(c)} 
+                        className="bg-slate-100 text-slate-600 p-2.5 rounded-xl font-bold text-xs flex items-center justify-center"
+                      >
+                        <Printer size={14}/>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {contratos.length === 0 && (
+                <p className="text-center text-xs font-bold text-slate-400 py-8 italic">Nenhum contrato gerado até o momento. 📜</p>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* TELA DE PERFIL DA LOJA & CORES */}
         {activeTab === 'perfil' && (
           <div className="space-y-6 pt-2 w-full">
@@ -1643,14 +2010,12 @@ export default function App() {
                 onChange={e => setNomeLojaPerfil(e.target.value)} 
               />
 
-              {/* PAINEL DE PERSONALIZAÇÃO DE CORES */}
               <div className="border-t pt-6 mb-6">
                 <h3 style={{ color: themeColors.primary }} className="font-bold flex items-center gap-2 uppercase text-xs tracking-widest mb-1">
                   <Palette size={18}/> Paleta de Cores do App
                 </h3>
                 <p className="text-slate-400 text-[11px] mb-4">Escolha um tema pronto ou monte a sua combinação livremente (ex: Rosa e Verde):</p>
 
-                {/* Presets de Temas */}
                 <div className="grid grid-cols-2 gap-2 mb-4">
                   {PRESET_PALETTES.map(preset => (
                     <button
@@ -1673,7 +2038,6 @@ export default function App() {
                   ))}
                 </div>
 
-                {/* Color Pickers Customizados (Escolha Livre) */}
                 <div className="grid grid-cols-2 gap-3 bg-slate-50 p-4 rounded-2xl border">
                   <div>
                     <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Cor Primária (ex: Rosa)</label>
@@ -1823,7 +2187,6 @@ export default function App() {
         {/* TELA DE CONFIGURAÇÃO DE CUSTOS FIXOS + CALCULADORA DE IMPRESSÃO + HISTÓRICO FINANCEIRO */}
         {activeTab === 'financeiro' && (
           <div className="space-y-6 pt-2 w-full">
-            {/* SUB-MENU DE ABAS INTERNAS FINANCEIRAS */}
             <div className="flex bg-slate-100 p-1.5 rounded-2xl gap-1 w-full border flex-wrap">
               <button onClick={() => setSubAbaFinanceiro('geral')} style={{ color: subAbaFinanceiro === 'geral' ? themeColors.primary : undefined }} className={`flex-1 min-w-[70px] py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${subAbaFinanceiro === 'geral' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>Geral</button>
               <button onClick={() => setSubAbaFinanceiro('impressao')} style={{ color: subAbaFinanceiro === 'impressao' ? themeColors.primary : undefined }} className={`flex-1 min-w-[70px] py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${subAbaFinanceiro === 'impressao' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>Impressão 🖨️</button>
@@ -1891,7 +2254,6 @@ export default function App() {
               </div>
             )}
 
-            {/* INTERFACE INTEGRADA DA CALCULADORA DE IMPRESSÃO */}
             {subAbaFinanceiro === 'impressao' && (
               <div className="bg-white p-6 rounded-[35px] shadow-md border w-full animate-fadeIn space-y-4">
                 <div>
@@ -1925,7 +2287,6 @@ export default function App() {
                   <span className="text-[10px] text-slate-400 mt-1">Quantas páginas consegue imprimir com todas as cores cheias</span>
                 </div>
 
-                {/* Card Superior: Custo Total */}
                 <div className="bg-purple-50 rounded-2xl p-4 flex justify-between items-center border border-purple-100">
                   <div>
                     <h3 style={{ color: themeColors.primary }} className="text-[11px] font-black tracking-wider uppercase">CUSTO TOTAL DAS TINTAS</h3>
@@ -1936,7 +2297,6 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Card de Destaque: Custo por Impressão */}
                 <div className="bg-orange-50 rounded-2xl p-5 text-center border border-orange-100">
                   <h3 style={{ color: themeColors.secondary }} className="text-[11px] font-black tracking-wider uppercase">CUSTO POR IMPRESSÃO</h3>
                   <div style={{ color: themeColors.primary }} className="text-3xl font-black my-1">
@@ -1945,7 +2305,6 @@ export default function App() {
                   <p className="text-[10px] text-purple-500 font-medium">Por página impressa</p>
                 </div>
 
-                {/* Exemplos de Quantidade */}
                 <h3 className="text-xs font-black text-slate-700 tracking-wider">Exemplos de quantidade:</h3>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-slate-50 border border-slate-100 p-3 rounded-xl">
@@ -2048,7 +2407,6 @@ export default function App() {
               </div>
             )}
 
-            {/* RELATÓRIO DO HISTÓRICO FINANCEIRO MENSAL AVANÇADO */}
             {subAbaFinanceiro === 'historico' && (
               <div className="bg-white p-6 rounded-[35px] shadow-md border w-full animate-fadeIn space-y-4">
                 <div className="flex justify-between items-center">
@@ -2061,7 +2419,6 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* SELETORES DE MÊS E ANO PARA FILTRO */}
                 <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-2xl border border-slate-100">
                   <div>
                     <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Mês de Referência</label>
@@ -2101,14 +2458,11 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* LISTAGEM DE MESES COM GAVETA EXPANSÍVEL */}
                 <div className="space-y-3 pt-2">
                   {historicoFiltradoPorData.map(item => {
                     const isExpanded = mesExpandido === item.chave;
                     return (
                       <div key={item.chave} className="bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden transition-all">
-                        
-                        {/* CABEÇALHO DO MÊS (CLICÁVEL COM SETA DE EXPANDIR) */}
                         <div 
                           onClick={() => setMesExpandido(isExpanded ? null : item.chave)}
                           className="p-4 flex justify-between items-center cursor-pointer hover:bg-slate-100/80 transition-colors select-none"
@@ -2133,7 +2487,6 @@ export default function App() {
                           </div>
                         </div>
 
-                        {/* DETALHAMENTO DE PRODUTOS VENDIDOS NAQUELE MÊS (EXPANDÍVEL) */}
                         {isExpanded && (
                           <div className="bg-white p-4 border-t border-slate-200 space-y-2.5 animate-fadeIn">
                             <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Relação de Peças / Combos Vendidos:</p>
