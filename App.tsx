@@ -158,13 +158,15 @@ export default function App() {
   const [precoManual, setPrecoManual] = useState<string | null>(null);
   const [docObsPedido, setDocObsPedido] = useState('');
 
-  // ESTADOS DO FORMULÁRIO DE CONTRATO
+  // ESTADOS DO FORMULÁRIO DE CONTRATO (INCLUI DADOS DO CONTRATADO)
   const [novoContrato, setNovoContrato] = useState({
     id: '',
     clienteId: '',
     nomeCliente: '',
     cpfCliente: '',
     enderecoCliente: '',
+    nomeContratado: '',
+    cpfCnpjContratado: '',
     tipoEvento: '',
     dataEvento: '',
     localEvento: '',
@@ -953,11 +955,12 @@ export default function App() {
     (window as any).html2pdf().from(elemento).set(opcoes).save();
   };
 
-   // GERADOR DE PDF DE CONTRATOS DIRETO (IGUAL AO ORÇAMENTO)
+   // GERADOR DE PDF DE CONTRATOS DIRETO (INCLUI CONTRATADO E CONTRATANTE)
   const gerarPDFContrato = (c: any) => {
     const elemento = document.createElement('div');
     const dataEmissao = c.dataCriacao || new Date().toLocaleDateString('pt-BR');
     const dataEventoFormatada = c.dataEvento ? new Date(c.dataEvento + 'T00:00:00').toLocaleDateString('pt-BR') : 'A combinar';
+    const contratadoNome = c.nomeContratado || nomeLojaPerfil || 'CONTRATADO';
 
     elemento.innerHTML = `
       <div style="padding: 30px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto; line-height: 1.4;">
@@ -972,14 +975,22 @@ export default function App() {
           </div>
         </div>
 
-        <div style="background-color: ${themeColors.primary}; color: white; padding: 6px 12px; border-radius: 6px; font-size: 10px; font-weight: bold; text-transform: uppercase; margin-bottom: 10px;">1. DADOS DO CONTRATANTE (CLIENTE)</div>
-        <div style="background-color: #f8fafc; padding: 12px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #f1f5f9; font-size: 12px;">
-          <p style="margin: 0 0 4px 0;"><strong>Nome Completo:</strong> ${c.nomeCliente || 'Não informado'}</p>
-          <p style="margin: 0 0 4px 0;"><strong>CPF:</strong> ${c.cpfCliente || 'Não informado'}</p>
-          <p style="margin: 0;"><strong>Endereço:</strong> ${c.enderecoCliente || 'Não informado'}</p>
+        <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+          <div style="flex: 1; background-color: #f8fafc; padding: 12px; border-radius: 12px; border: 1px solid #f1f5f9; font-size: 12px;">
+            <div style="background-color: ${themeColors.primary}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 9px; font-weight: bold; text-transform: uppercase; margin-bottom: 8px;">1. DADOS DO CONTRATANTE (CLIENTE)</div>
+            <p style="margin: 0 0 4px 0;"><strong>Nome:</strong> ${c.nomeCliente || 'Não informado'}</p>
+            <p style="margin: 0 0 4px 0;"><strong>CPF:</strong> ${c.cpfCliente || 'Não informado'}</p>
+            <p style="margin: 0;"><strong>Endereço:</strong> ${c.enderecoCliente || 'Não informado'}</p>
+          </div>
+
+          <div style="flex: 1; background-color: #f8fafc; padding: 12px; border-radius: 12px; border: 1px solid #f1f5f9; font-size: 12px;">
+            <div style="background-color: ${themeColors.primary}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 9px; font-weight: bold; text-transform: uppercase; margin-bottom: 8px;">2. DADOS DO CONTRATADO (EMPRESA)</div>
+            <p style="margin: 0 0 4px 0;"><strong>Empresa/Nome:</strong> ${contratadoNome}</p>
+            <p style="margin: 0;"><strong>CPF/CNPJ:</strong> ${c.cpfCnpjContratado || 'Não informado'}</p>
+          </div>
         </div>
 
-        <div style="background-color: ${themeColors.primary}; color: white; padding: 6px 12px; border-radius: 6px; font-size: 10px; font-weight: bold; text-transform: uppercase; margin-bottom: 10px;">2. DADOS DO EVENTO E VALOR COMBINADO</div>
+        <div style="background-color: ${themeColors.primary}; color: white; padding: 6px 12px; border-radius: 6px; font-size: 10px; font-weight: bold; text-transform: uppercase; margin-bottom: 10px;">3. DADOS DO EVENTO E VALOR COMBINADO</div>
         <div style="background-color: #f8fafc; padding: 12px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #f1f5f9; font-size: 12px;">
           <p style="margin: 0 0 4px 0;"><strong>Tipo de Evento:</strong> ${c.tipoEvento || 'Não informado'}</p>
           <p style="margin: 0 0 4px 0;"><strong>Data do Evento:</strong> ${dataEventoFormatada}</p>
@@ -987,8 +998,8 @@ export default function App() {
           <p style="margin: 8px 0 0 0; font-size: 14px; color: ${themeColors.primary}; font-weight: bold;"><strong>Valor Total dos Serviços:</strong> R$ ${Number(c.valorTotal || 0).toFixed(2)}</p>
         </div>
 
-        <div style="background-color: ${themeColors.primary}; color: white; padding: 6px 12px; border-radius: 6px; font-size: 10px; font-weight: bold; text-transform: uppercase; margin-bottom: 10px;">3. CLÁUSULAS E TERMOS DE SERVIÇO</div>
-        <div style="background-color: #f8fafc; padding: 12px; border-radius: 12px; margin-bottom: 25px; border: 1px solid #f1f5f9; font-size: 11px; line-height: 1.5; whitespace-pre-line;">
+        <div style="background-color: ${themeColors.primary}; color: white; padding: 6px 12px; border-radius: 6px; font-size: 10px; font-weight: bold; text-transform: uppercase; margin-bottom: 10px;">4. CLÁUSULAS E TERMOS DE SERVIÇO</div>
+        <div style="background-color: #f8fafc; padding: 12px; border-radius: 12px; margin-bottom: 25px; border: 1px solid #f1f5f9; font-size: 11px; line-height: 1.5; white-space: pre-line;">
           ${c.clausulas || 'Termos acordados entre as partes.'}
         </div>
 
@@ -997,12 +1008,12 @@ export default function App() {
             <div style="flex: 1;">
               <div style="border-bottom: 1px solid #94a3b8; margin-bottom: 6px; height: 30px;"></div>
               <p style="margin: 0; font-size: 11px; font-weight: bold; color: #334155;">${c.nomeCliente || 'CONTRATANTE'}</p>
-              <p style="margin: 2px 0 0 0; font-size: 9px; color: #94a3b8; uppercase;">Assinatura do Cliente</p>
+              <p style="margin: 2px 0 0 0; font-size: 9px; color: #94a3b8; text-transform: uppercase;">Assinatura do Cliente</p>
             </div>
             <div style="flex: 1;">
               <div style="border-bottom: 1px solid #94a3b8; margin-bottom: 6px; height: 30px;"></div>
-              <p style="margin: 0; font-size: 11px; font-weight: bold; color: #334155;">${nomeLojaPerfil || 'CONTRATADO'}</p>
-              <p style="margin: 2px 0 0 0; font-size: 9px; color: #94a3b8; uppercase;">Assinatura da Empresa</p>
+              <p style="margin: 0; font-size: 11px; font-weight: bold; color: #334155;">${contratadoNome}</p>
+              <p style="margin: 2px 0 0 0; font-size: 9px; color: #94a3b8; text-transform: uppercase;">Assinatura da Empresa (Contratado)</p>
             </div>
           </div>
         </div>
@@ -1259,6 +1270,7 @@ export default function App() {
               <div className="bg-slate-50 p-4 rounded-2xl border text-xs space-y-2">
                 <p><strong>Contratante:</strong> {contratoPublico.nomeCliente}</p>
                 <p><strong>CPF:</strong> {contratoPublico.cpfCliente || 'Não informado'}</p>
+                <p><strong>Contratado:</strong> {contratoPublico.nomeContratado || nomeLojaPerfil || 'Não informado'}</p>
                 <p><strong>Evento:</strong> {contratoPublico.tipoEvento} ({contratoPublico.dataEvento})</p>
                 <p><strong>Valor dos Serviços:</strong> R$ {Number(contratoPublico.valorTotal).toFixed(2)}</p>
               </div>
@@ -1832,7 +1844,7 @@ export default function App() {
           </div>
         )}
 
-               {/* ABA DE CONTRATOS SIMPLIFICADA */}
+        {/* ABA DE CONTRATOS */}
         {activeTab === 'contratos' && (
           <div className="space-y-4 pt-2 w-full animate-fadeIn">
             <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
@@ -1863,7 +1875,7 @@ export default function App() {
                 </select>
               </div>
 
-              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome Completo do Cliente</label>
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome Completo do Cliente (Contratante)</label>
               <input placeholder="Ex: Maria Oliveira" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none font-bold text-sm" value={novoContrato.nomeCliente} onChange={e => setNovoContrato({...novoContrato, nomeCliente: e.target.value})} />
 
               <div className="grid grid-cols-2 gap-3 mb-3">
@@ -1879,6 +1891,28 @@ export default function App() {
 
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Endereço Residencial do Cliente</label>
               <input placeholder="Ex: Rua A, 123 - Bairro" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none text-xs font-semibold" value={novoContrato.enderecoCliente} onChange={e => setNovoContrato({...novoContrato, enderecoCliente: e.target.value})} />
+
+              {/* DADOS DO CONTRATADO */}
+              <div className="grid grid-cols-2 gap-3 mb-3 border-t pt-3">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Sua Empresa / Contratado</label>
+                  <input 
+                    placeholder={nomeLojaPerfil || "Nome / Razão Social"} 
+                    className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-xs" 
+                    value={novoContrato.nomeContratado} 
+                    onChange={e => setNovoContrato({...novoContrato, nomeContratado: e.target.value})} 
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Seu CPF / CNPJ</label>
+                  <input 
+                    placeholder="00.000.000/0001-00" 
+                    className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-xs" 
+                    value={novoContrato.cpfCnpjContratado} 
+                    onChange={e => setNovoContrato({...novoContrato, cpfCnpjContratado: e.target.value})} 
+                  />
+                </div>
+              </div>
 
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <div>
@@ -1916,7 +1950,7 @@ export default function App() {
                   gerarPDFContrato(dados);
 
                   setNovoContrato({
-                    id: '', clienteId: '', nomeCliente: '', cpfCliente: '', enderecoCliente: '', tipoEvento: '', dataEvento: '', localEvento: '', valorTotal: '', clausulas: `1. DO OBJETO: O presente contrato tem por objeto a prestação de serviços/produtos descritos na proposta comercial.\n2. DO PAGAMENTO: O pagamento deverá ser efetuado conforme acordado entre as partes.\n3. DO CANCELAMENTO: Em caso de desistência por parte do contratante com menos de 15 dias de antecedência, o valor de sinal não será devolvido.`
+                    id: '', clienteId: '', nomeCliente: '', cpfCliente: '', enderecoCliente: '', nomeContratado: '', cpfCnpjContratado: '', tipoEvento: '', dataEvento: '', localEvento: '', valorTotal: '', clausulas: `1. DO OBJETO: O presente contrato tem por objeto a prestação de serviços/produtos descritos na proposta comercial.\n2. DO PAGAMENTO: O pagamento deverá ser efetuado conforme acordado entre as partes.\n3. DO CANCELAMENTO: Em caso de desistência por parte do contratante com menos de 15 dias de antecedência, o valor de sinal não será devolvido.`
                   });
                   alert("Contrato salvo e PDF gerado! 📜🚀");
                 }}
@@ -1936,7 +1970,7 @@ export default function App() {
                   </div>
 
                   <div className="flex gap-1 items-center">
-                    <button onClick={() => setNovoContrato({ id: c.id, clienteId: c.clienteId || '', nomeCliente: c.nomeCliente || '', cpfCliente: c.cpfCliente || '', enderecoCliente: c.enderecoCliente || '', tipoEvento: c.tipoEvento || '', dataEvento: c.dataEvento || '', localEvento: c.localEvento || '', valorTotal: c.valorTotal || '', clausulas: c.clausulas || '' })} className="text-orange-400 p-2 hover:bg-orange-50 rounded-xl"><Edit2 size={16}/></button>
+                    <button onClick={() => setNovoContrato({ id: c.id, clienteId: c.clienteId || '', nomeCliente: c.nomeCliente || '', cpfCliente: c.cpfCliente || '', enderecoCliente: c.enderecoCliente || '', nomeContratado: c.nomeContratado || '', cpfCnpjContratado: c.cpfCnpjContratado || '', tipoEvento: c.tipoEvento || '', dataEvento: c.dataEvento || '', localEvento: c.localEvento || '', valorTotal: c.valorTotal || '', clausulas: c.clausulas || '' })} className="text-orange-400 p-2 hover:bg-orange-50 rounded-xl"><Edit2 size={16}/></button>
                     <button onClick={() => gerarPDFContrato(c)} style={{ color: themeColors.secondary }} className="p-2 bg-orange-50 rounded-xl"><Printer size={16}/></button>
                     <button onClick={() => confirmarExcluir('contrato', c.id)} className="text-red-300 hover:text-red-500 p-2 hover:bg-red-50 rounded-xl"><Trash2 size={16}/></button>
                   </div>
@@ -1949,7 +1983,6 @@ export default function App() {
             </div>
           </div>
         )}
-
 
         {/* TELA DE PERFIL DA LOJA & CORES */}
         {activeTab === 'perfil' && (
