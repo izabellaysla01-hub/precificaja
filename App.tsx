@@ -1832,7 +1832,7 @@ export default function App() {
           </div>
         )}
 
-        {/* NOVA ABA DE CONTRATOS */}
+               {/* ABA DE CONTRATOS SIMPLIFICADA */}
         {activeTab === 'contratos' && (
           <div className="space-y-4 pt-2 w-full animate-fadeIn">
             <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
@@ -1904,79 +1904,44 @@ export default function App() {
                   const dados = {
                     ...novoContrato,
                     userId: user.uid,
-                    dataCriacao: new Date().toLocaleDateString('pt-BR'),
-                    status: novoContrato.id ? novoContrato.id : 'Pendente'
+                    dataCriacao: new Date().toLocaleDateString('pt-BR')
                   };
 
                   if (novoContrato.id) {
                     await updateDoc(doc(db, "contratos", novoContrato.id), dados);
                   } else {
-                    await addDoc(collection(db, "contratos"), { ...dados, status: 'Pendente' });
+                    await addDoc(collection(db, "contratos"), dados);
                   }
+
+                  gerarPDFContrato(dados);
 
                   setNovoContrato({
                     id: '', clienteId: '', nomeCliente: '', cpfCliente: '', enderecoCliente: '', tipoEvento: '', dataEvento: '', localEvento: '', valorTotal: '', clausulas: `1. DO OBJETO: O presente contrato tem por objeto a prestação de serviços/produtos descritos na proposta comercial.\n2. DO PAGAMENTO: O pagamento deverá ser efetuado conforme acordado entre as partes.\n3. DO CANCELAMENTO: Em caso de desistência por parte do contratante com menos de 15 dias de antecedência, o valor de sinal não será devolvido.`
                   });
-                  alert("Contrato gerado com sucesso! 📜🚀");
+                  alert("Contrato salvo e PDF gerado! 📜🚀");
                 }}
                 className="w-full text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md hover:opacity-90 transition-all"
               >
-                {novoContrato.id ? 'Atualizar Contrato' : 'Gerar Link do Contrato'}
+                {novoContrato.id ? 'Salvar e Gerar PDF' : 'Salvar e Gerar PDF do Contrato'}
               </button>
             </div>
 
-            <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider ml-2 mt-4">Contratos Gerados</h3>
+            <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider ml-2 mt-4">Contratos Registrados</h3>
             <div className="grid grid-cols-1 gap-3 w-full">
-              {contratos.map(c => {
-                const linkAssinatura = `${window.location.origin}${window.location.pathname}?assinar=${c.id}`;
-                return (
-                  <div key={c.id} className="bg-white p-5 rounded-3xl border shadow-sm flex flex-col gap-3">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${c.status === 'Assinado' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                          {c.status === 'Assinado' ? '✍️ Assinado' : '⏳ Aguardando Assinatura'}
-                        </span>
-                        <h4 className="font-black text-slate-800 text-base mt-1">{c.nomeCliente}</h4>
-                        <p className="text-xs text-slate-400 font-semibold">{c.tipoEvento || 'Evento'} — R$ {Number(c.valorTotal || 0).toFixed(2)}</p>
-                      </div>
-
-                      <div className="flex gap-1">
-                        <button onClick={() => setNovoContrato({ id: c.id, clienteId: c.clienteId || '', nomeCliente: c.nomeCliente || '', cpfCliente: c.cpfCliente || '', enderecoCliente: c.enderecoCliente || '', tipoEvento: c.tipoEvento || '', dataEvento: c.dataEvento || '', localEvento: c.localEvento || '', valorTotal: c.valorTotal || '', clausulas: c.clausulas || '' })} className="text-orange-400 p-2 hover:bg-orange-50 rounded-xl"><Edit2 size={16}/></button>
-                        <button onClick={() => confirmarExcluir('contrato', c.id)} className="text-red-300 hover:text-red-500 p-2 hover:bg-red-50 rounded-xl"><Trash2 size={16}/></button>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2 border-t pt-3">
-                      <button 
-                        onClick={() => {
-                          navigator.clipboard.writeText(linkAssinatura);
-                          alert("Link de assinatura copiado! 🔗");
-                        }} 
-                        className="flex-1 bg-purple-50 text-purple-700 p-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5"
-                      >
-                        <Copy size={14}/> Copiar Link
-                      </button>
-
-                      <button 
-                        onClick={() => {
-                          const msg = `Olá *${c.nomeCliente}*! Segue o link para conferir e assinar o contrato digital do seu evento: ${linkAssinatura}`;
-                          window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
-                        }} 
-                        className="bg-emerald-50 text-emerald-600 p-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5"
-                      >
-                        <MessageCircle size={14}/> WhatsApp
-                      </button>
-
-                      <button 
-                        onClick={() => gerarPDFContrato(c)} 
-                        className="bg-slate-100 text-slate-600 p-2.5 rounded-xl font-bold text-xs flex items-center justify-center"
-                      >
-                        <Printer size={14}/>
-                      </button>
-                    </div>
+              {contratos.map(c => (
+                <div key={c.id} className="bg-white p-5 rounded-3xl border shadow-sm flex justify-between items-center">
+                  <div>
+                    <h4 className="font-black text-slate-800 text-base">{c.nomeCliente}</h4>
+                    <p className="text-xs text-slate-400 font-semibold">{c.tipoEvento || 'Evento'} — R$ {Number(c.valorTotal || 0).toFixed(2)}</p>
                   </div>
-                );
-              })}
+
+                  <div className="flex gap-1 items-center">
+                    <button onClick={() => setNovoContrato({ id: c.id, clienteId: c.clienteId || '', nomeCliente: c.nomeCliente || '', cpfCliente: c.cpfCliente || '', enderecoCliente: c.enderecoCliente || '', tipoEvento: c.tipoEvento || '', dataEvento: c.dataEvento || '', localEvento: c.localEvento || '', valorTotal: c.valorTotal || '', clausulas: c.clausulas || '' })} className="text-orange-400 p-2 hover:bg-orange-50 rounded-xl"><Edit2 size={16}/></button>
+                    <button onClick={() => gerarPDFContrato(c)} style={{ color: themeColors.secondary }} className="p-2 bg-orange-50 rounded-xl"><Printer size={16}/></button>
+                    <button onClick={() => confirmarExcluir('contrato', c.id)} className="text-red-300 hover:text-red-500 p-2 hover:bg-red-50 rounded-xl"><Trash2 size={16}/></button>
+                  </div>
+                </div>
+              ))}
 
               {contratos.length === 0 && (
                 <p className="text-center text-xs font-bold text-slate-400 py-8 italic">Nenhum contrato gerado até o momento. 📜</p>
@@ -1984,6 +1949,7 @@ export default function App() {
             </div>
           </div>
         )}
+
 
         {/* TELA DE PERFIL DA LOJA & CORES */}
         {activeTab === 'perfil' && (
