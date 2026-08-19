@@ -960,12 +960,17 @@ export default function App() {
     (window as any).html2pdf().from(elemento).set(opcoes).save();
   };
 
-   // GERADOR DE PDF DE CONTRATOS DIRETO (INCLUI CONTRATADO E CONTRATANTE)
+     // GERADOR DE PDF DE CONTRATOS DIRETO (INCLUI CONTRATADO, CONTRATANTE E ASSINATURA DIGITAL)
   const gerarPDFContrato = (c: any) => {
     const elemento = document.createElement('div');
     const dataEmissao = c.dataCriacao || new Date().toLocaleDateString('pt-BR');
     const dataEventoFormatada = c.dataEvento ? new Date(c.dataEvento + 'T00:00:00').toLocaleDateString('pt-BR') : 'A combinar';
     const contratadoNome = c.nomeContratado || nomeLojaPerfil || 'CONTRATADO';
+
+    // Se o contrato já foi assinado pelo cliente, insere a imagem da assinatura; caso contrário, deixa o campo para assinatura física
+    const blocoAssinaturaClienteHtml = c.assinaturaUrl 
+      ? `<img src="${c.assinaturaUrl}" style="max-height: 50px; margin: 0 auto 4px auto; display: block;" />`
+      : `<div style="border-bottom: 1px solid #94a3b8; margin-bottom: 6px; height: 30px;"></div>`;
 
     elemento.innerHTML = `
       <div style="padding: 30px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto; line-height: 1.4;">
@@ -1008,20 +1013,34 @@ export default function App() {
           ${c.clausulas || 'Termos acordados entre as partes.'}
         </div>
 
-        <div style="margin-top: 40px; padding-top: 10px; page-break-inside: avoid; break-inside: avoid;">
+        <div style="margin-top: 30px; padding-top: 10px; page-break-inside: avoid; break-inside: avoid;">
           <div style="display: flex; justify-content: space-around; align-items: flex-end; gap: 30px; text-align: center;">
             <div style="flex: 1;">
-              <div style="border-bottom: 1px solid #94a3b8; margin-bottom: 6px; height: 30px;"></div>
-              <p style="margin: 0; font-size: 11px; font-weight: bold; color: #334155;">${c.nomeCliente || 'CONTRATANTE'}</p>
-              <p style="margin: 2px 0 0 0; font-size: 9px; color: #94a3b8; text-transform: uppercase;">Assinatura do Cliente</p>
+              ${blocoAssinaturaClienteHtml}
+              <div style="border-top: 1px solid #94a3b8; padding-top: 4px;">
+                <p style="margin: 0; font-size: 11px; font-weight: bold; color: #334155;">${c.nomeCliente || 'CONTRATANTE'}</p>
+                <p style="margin: 2px 0 0 0; font-size: 9px; color: #94a3b8; text-transform: uppercase;">Assinatura do Cliente</p>
+              </div>
             </div>
+
             <div style="flex: 1;">
               <div style="border-bottom: 1px solid #94a3b8; margin-bottom: 6px; height: 30px;"></div>
-              <p style="margin: 0; font-size: 11px; font-weight: bold; color: #334155;">${contratadoNome}</p>
-              <p style="margin: 2px 0 0 0; font-size: 9px; color: #94a3b8; text-transform: uppercase;">Assinatura da Empresa (Contratado)</p>
+              <div style="border-top: 1px solid #94a3b8; padding-top: 4px;">
+                <p style="margin: 0; font-size: 11px; font-weight: bold; color: #334155;">${contratadoNome}</p>
+                <p style="margin: 2px 0 0 0; font-size: 9px; color: #94a3b8; text-transform: uppercase;">Assinatura da Empresa (Contratado)</p>
+              </div>
             </div>
           </div>
         </div>
+
+        ${c.status === 'Assinado' ? `
+          <div style="margin-top: 20px; background-color: #f0fdf4; border: 1px solid #bbf7d0; padding: 10px 15px; border-radius: 10px; font-size: 9px; color: #166534; page-break-inside: avoid; break-inside: avoid;">
+            <strong>🔒 REGISTRO DE VALIDAÇÃO DIGITAL</strong><br />
+            • <strong>Data/Hora da Assinatura:</strong> ${c.dataAssinatura || 'Não informada'}<br />
+            • <strong>Status do Documento:</strong> Assinado Eletronicamente via Web
+          </div>
+        ` : ''}
+
       </div>
     `;
 
@@ -1034,6 +1053,7 @@ export default function App() {
     };
     (window as any).html2pdf().from(elemento).set(opcoes).save();
   };
+
 
   const handleAuth = async () => {
     try {
