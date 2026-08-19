@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+Import React, { useState, useEffect, useMemo } from 'react';
 import { initializeApp } from "firebase/app";
 import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { getFirestore, collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc, getDocs, setDoc, getDoc } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2, Menu, Search, Settings, CheckSquare, Square, Filter, MapPin, Globe, Palette, TrendingUp, ChevronDown, ChevronUp, FileText, PenTool, CheckCircle2 } from 'lucide-react';
+import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2, Menu, Search, Settings, CheckSquare, Square, Filter, MapPin, Globe, Palette, TrendingUp, ChevronDown, ChevronUp } from 'lucide-react';
 
 const firebaseConfig = {
   apiKey: "AIzaSyD0BWsNm9DbGGDqiHzkdDmNdxIGdJ9tWe8",
@@ -92,13 +92,16 @@ export default function App() {
   const [nomeComprador, setNomeComprador] = useState('');
   const [zapDaLojaPublica, setZapDaLojaPublica] = useState('');
 
+  // Estados para Filtro na Vitrine Pública do Cliente
   const [filtroVitrineSelecionado, setFiltroVitrineSelecionado] = useState('Todos');
   const [isMenuFiltroVitrineOpen, setIsMenuFiltroVitrineOpen] = useState(false);
 
-  const [activeTab, useStateActiveTab] = useState<'inicio' | 'materiais' | 'criar' | 'pedidos' | 'clientes' | 'catalogo' | 'balcao' | 'financeiro' | 'perfil' | 'anotacoes' | 'fornecedores' | 'contratos'>('inicio');
+  const [activeTab, useStateActiveTab] = useState<'inicio' | 'materiais' | 'criar' | 'pedidos' | 'clientes' | 'catalogo' | 'balcao' | 'financeiro' | 'perfil' | 'anotacoes' | 'fornecedores'>('inicio');
   
+  // Sub-aba interna para a seção financeira
   const [subAbaFinanceiro, setSubAbaFinanceiro] = useState<'geral' | 'impressao' | 'equipamentos' | 'historico'>('geral');
 
+  // Estados do Histórico Financeiro Avançado
   const [mesFiltroHistorico, setMesFiltroHistorico] = useState<string>(String(new Date().getMonth() + 1));
   const [anoFiltroHistorico, setAnoFiltroHistorico] = useState<string>(String(new Date().getFullYear()));
   const [mesExpandido, setMesExpandido] = useState<string | null>(null);
@@ -110,29 +113,7 @@ export default function App() {
   const [equipamentos, setEquipamentos] = useState<any[]>([]);
   const [anotacoes, setAnotacoes] = useState<any[]>([]);
   
-  // ESTADO DOS CONTRATOS
-  const [contratos, setContratos] = useState<any[]>([]);
-  const [idContratoPublico, setIdContratoPublico] = useState<string | null>(null);
-  const [contratoPublico, setContratoPublico] = useState<any | null>(null);
-  const [documentoClientePublico, setDocumentoClientePublico] = useState('');
-  const [assinadoSucesso, setAssinadoSucesso] = useState(false);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [isDrawing, setIsDrawing] = useState(false);
-
-  // Form de Contrato do Usuário Logado
-  const [novoContrato, setNovoContrato] = useState({
-    id: '',
-    titulo: '',
-    clienteId: '',
-    nomeClienteManual: '',
-    cpfCliente: '',
-    enderecoEvento: '',
-    nomeEvento: '',
-    valor: '',
-    termo: 'Pelo presente instrumento particular, as partes ajustam o fornecimento do serviço/produto conforme acordado nas especificações e orçamentos aprovados. O contratante declara ter lido e concordado com todos os termos descritos.',
-    status: 'Pendente'
-  });
-
+  // Estados para Categorias Dinâmicas e Fornecedores
   const [categoriasProd, setCategoriasProd] = useState<any[]>([]);
   const [categoriasForn, setCategoriasForn] = useState<any[]>([]);
   const [fornecedores, setFornecedores] = useState<any[]>([]);
@@ -149,10 +130,11 @@ export default function App() {
 
   const [diaSelecionadoAgenda, setDiaSelecionadoAgenda] = useState<string>(new Date().toISOString().split('T')[0]);
 
+  // Modo de Cálculo ('peca' = por unidade, 'lote' = valor total do lote rateado)
   const [modoCalculo, setModoCalculo] = useState<'peca' | 'lote'>('peca');
 
   const [nomeProd, setNomeProd] = useState('');
-  const [detalhamentoPed, setDetalhamentoPed] = useState('');
+  const [detalhamentoPed, setDetalhamentoPed] = useState(''); // NOVO ESTADO DE DETALHAMENTO DO KIT
   const [qtdPed, setQtdPed] = useState('1');
   const [matsNoPed, setMatsNoPed] = useState<any[]>([]);
   const [vHora, setVHora] = useState('9');
@@ -166,6 +148,7 @@ export default function App() {
   const [precoManual, setPrecoManual] = useState<string | null>(null);
   const [docObsPedido, setDocObsPedido] = useState('');
 
+  // Estado para armazenar o valor alterado pelo usuário na calculadora
   const [precoFinalDigitado, setPrecoFinalDigitado] = useState<string>('0.00');
 
   const [email, setEmail] = useState('');
@@ -173,13 +156,15 @@ export default function App() {
   const [isRegistering, setIsRegistering] = useState(false);
   const [novoMat, setNovoMat] = useState({ id: '', nome: '', valor: '', qtd: '1', unidade: 'un', qtdAtual: '0', qtdMinima: '0' });
     
-  const [novoCli, setNovoCli] = useState({ id: '', nome: '', zap: '', email: '', endereco: '', cpf: '' });
+  const [novoCli, setNovoCli] = useState({ id: '', nome: '', zap: '', email: '', endereco: '' });
   const [novaAnotacao, setNovaAnotacao] = useState({ id: '', titulo: '', conteudo: '', dataPrazo: new Date().toISOString().split('T')[0] });
   
+  // Estados de Cadastro Atualizados com Categorias
   const [novoProdCatalogo, setNovoProdCatalogo] = useState<{id: string, nome: string, precoVenda: string, urlImagem: string, categorias: string[]}>({ id: '', nome: '', precoVenda: '', urlImagem: '', categorias: [] });
   const [inputNovaCategoriaProd, setInputNovaCategoriaProd] = useState('');
   const [mostrarInputNovaCatProd, setMostrarInputNovaCatProd] = useState(false);
 
+  // Estados de Cadastro para Fornecedores
   const [novoFornecedor, setNovoFornecedor] = useState<{id: string, nome: string, site: string, whatsapp: string, endereco: string, categorias: string[]}>({ id: '', nome: '', site: '', whatsapp: '', endereco: '', categorias: [] });
   const [inputNovaCategoriaForn, setInputNovaCategoriaForn] = useState('');
   const [mostrarInputNovaCatForn, setMostrarInputNovaCatForn] = useState(false);
@@ -191,6 +176,7 @@ export default function App() {
   const [logoLojaPerfil, setLogoLojaPerfil] = useState('');
   const [subindoLogo, setSubindoLogo] = useState(false);
 
+  // --- ESTADO DE TEMA E CORES ---
   const [themeColors, setThemeColors] = useState({
     primary: '#7c3aed',
     primaryHover: '#6d28d9',
@@ -201,6 +187,7 @@ export default function App() {
   const [financasFixo, setFinancasFixo] = useState({ salario: '0', aluguel: '0', internet: '0', luz: '0', outros: '0', diasTrabalho: '20', horasDia: '8' });
   const [novoEquipamento, setNovoEquipamento] = useState({ id: '', nome: '', valorPago: '', durabilidadeAnos: '2' });
 
+  // --- ESTADOS PARA A CALCULADORA DE IMPRESSÃO ---
   const [precoTinta, setPrecoTinta] = useState('62');
   const [unidadeTinta, setUnidadeTinta] = useState('Garrafinha');
   const [qtdCores, setQtdCores] = useState('4');
@@ -216,6 +203,7 @@ export default function App() {
     setIsMenuOpen(false);
   };
 
+  // Cálculo Dinâmico do valor de impressão por folha
   const custoPorPaginaCalculado = useMemo(() => {
     const preco = Number(precoTinta) || 0;
     const cores = Number(qtdCores) || 0;
@@ -230,19 +218,6 @@ export default function App() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const lojaId = params.get('loja');
-    const contratoIdParam = params.get('contrato');
-
-    if (contratoIdParam) {
-      setIdContratoPublico(contratoIdParam);
-      setCarregandoPublico(true);
-      getDoc(doc(db, "contratos", contratoIdParam)).then(snap => {
-        if (snap.exists()) {
-          setContratoPublico({ id: snap.id, ...snap.data() });
-        }
-        setCarregandoPublico(false);
-      }).catch(() => setCarregandoPublico(false));
-    }
-
     if (lojaId) {
       setIdLojaPublica(lojaId);
       setCarregandoPublico(true);
@@ -286,7 +261,6 @@ export default function App() {
         setProdutos([]);
         setEquipamentos([]);
         setAnotacoes([]);
-        setContratos([]);
       }
       setLoading(false);
     }); 
@@ -301,7 +275,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (user && !idLojaPublica && !idContratoPublico) {
+    if (user && !idLojaPublica) {
       const qMaterials = query(collection(db, "materiais"), where("userId", "==", user.uid));
       const unsubMaterials = onSnapshot(qMaterials, s => setMaterials(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
@@ -316,9 +290,6 @@ export default function App() {
 
       const qAnotacoes = query(collection(db, "anotacoes"), where("userId", "==", user.uid));
       const unsubAnotacoes = onSnapshot(qAnotacoes, s => setAnotacoes(s.docs.map(d => ({ id: d.id, ...d.data() }))));
-
-      const qContratos = query(collection(db, "contratos"), where("userId", "==", user.uid));
-      const unsubContratos = onSnapshot(qContratos, s => setContratos(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
       const qCatsProd = query(collection(db, "categorias_produtos"), where("userId", "==", user.uid));
       const unsubCatsProd = onSnapshot(qCatsProd, s => {
@@ -386,148 +357,9 @@ export default function App() {
         unsubCatsProd();
         unsubCatsForn();
         unsubFornecedores();
-        unsubContratos();
       };
     }
-  }, [user, idLojaPublica, idContratoPublico]);
-
-  // FUNÇÕES DE DESENHO DO CANVAS DE ASSINATURA
-  const startDrawing = (e: any) => {
-    setIsDrawing(true);
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    const rect = canvas.getBoundingClientRect();
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    ctx.beginPath();
-    ctx.moveTo(clientX - rect.left, clientY - rect.top);
-  };
-
-  const draw = (e: any) => {
-    if (!isDrawing) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    const rect = canvas.getBoundingClientRect();
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    ctx.lineTo(clientX - rect.left, clientY - rect.top);
-    ctx.strokeStyle = "#0f172a";
-    ctx.lineWidth = 2.5;
-    ctx.lineCap = "round";
-    ctx.stroke();
-  };
-
-  const stopDrawing = () => {
-    setIsDrawing(false);
-  };
-
-  const limparCanvas = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
-  };
-
-  // GERADOR DE PDF DE CONTRATO ATUALIZADO
-  const gerarPDFContrato = (c: any) => {
-    const elemento = document.createElement('div');
-    const dataEmissao = c.dataCriacao || new Date().toLocaleDateString('pt-BR');
-    
-    elemento.innerHTML = `
-      <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto;">
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px;">
-          <div>
-            <h1 style="color: ${themeColors.primary}; margin: 0; font-size: 24px; font-weight: 900;">Contrato de Prestação de Serviços</h1>
-            <p style="color: #94a3b8; font-size: 11px; text-transform: uppercase; margin: 4px 0 0 0; font-weight: bold;">${c.titulo || 'Contrato Comercial'}</p>
-          </div>
-          <div style="text-align: right; background-color: #f8fafc; padding: 10px 16px; border-radius: 12px; border: 1px solid #e2e8f0;">
-            <span style="font-size: 10px; font-weight: bold; color: ${themeColors.primary}; text-transform: uppercase; display: block;">Emissão</span>
-            <span style="font-size: 13px; font-weight: bold; color: #475569; display: block;">${dataEmissao}</span>
-          </div>
-        </div>
-        
-        <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Dados do Contratante e Evento</div>
-        <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 20px; border: 1px solid #f1f5f9; font-size: 13px; line-height: 1.6;">
-          <p style="margin: 0;"><strong>Nome do Cliente:</strong> ${c.nomeCliente}</p>
-          ${c.cpfCliente || c.documentoCliente ? `<p style="margin: 4px 0 0 0;"><strong>CPF/CNPJ:</strong> ${c.cpfCliente || c.documentoCliente}</p>` : ''}
-          ${c.nomeEvento ? `<p style="margin: 4px 0 0 0;"><strong>Nome do Evento:</strong> ${c.nomeEvento}</p>` : ''}
-          ${c.enderecoEvento ? `<p style="margin: 4px 0 0 0;"><strong>Endereço do Evento/Cliente:</strong> ${c.enderecoEvento}</p>` : ''}
-          ${c.valor ? `<p style="margin: 4px 0 0 0;"><strong>Valor Acordado:</strong> R$ ${Number(c.valor).toFixed(2)}</p>` : ''}
-        </div>
-
-        <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Termos do Acordo</div>
-        <div style="background-color: #fff; padding: 15px; border-radius: 16px; border: 1px solid #e2e8f0; font-size: 13px; line-height: 1.6; margin-bottom: 30px; white-space: pre-line;">
-          ${c.termo}
-        </div>
-
-        ${c.status === 'Assinado ✍️' && c.assinaturaBase64 ? `
-          <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; padding: 20px; border-radius: 16px; text-align: center; page-break-inside: avoid;">
-            <span style="color: #166534; font-size: 12px; font-weight: bold; text-transform: uppercase; display: block; margin-bottom: 10px;">Assinatura Digital do Cliente</span>
-            <img src="${c.assinaturaBase64}" style="max-height: 80px; margin: 0 auto; display: block;" />
-            <p style="margin: 10px 0 0 0; font-size: 11px; color: #15803d; font-weight: bold;">Assinado digitalmente em ${c.dataAssinatura || dataEmissao}</p>
-          </div>
-        ` : `
-          <div style="margin-top: 50px; text-align: center; border-top: 1px solid #cbd5e1; padding-top: 10px; page-break-inside: avoid;">
-            <p style="font-size: 12px; color: #64748b; font-weight: bold;">${c.nomeCliente}</p>
-            <p style="font-size: 10px; color: #94a3b8;">Assinatura do Contratante</p>
-          </div>
-        `}
-      </div>
-    `;
-
-    const opcoes = { margin: 10, filename: `Contrato_${c.nomeCliente.replace(/\s+/g, '_')}.pdf`, html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'a4', orientation: 'portrait' } };
-    if ((window as any).html2pdf) { (window as any).html2pdf().from(elemento).set(opcoes).save(); }
-  };
-
-  const enviarContratoZap = (c: any) => {
-    const cli = clientes.find(item => item.id === c.clienteId);
-    const linkAssinatura = `${window.location.origin}${window.location.pathname}?contrato=${c.id}`;
-    
-    let msg = `Olá *${c.nomeCliente}*!%0A%0A`;
-    msg += `Segue o link do seu contrato (*${c.titulo}*):%0A`;
-    msg += `${linkAssinatura}%0A%0A`;
-    msg += `Por favor, acesse o link para ler os termos e fazer sua assinatura online. O processo é super rápido e não precisa baixar nada! 🚀`;
-
-    const fone = cli?.zap ? cli.zap.replace(/\D/g, '') : '';
-    if (fone) {
-      window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
-    } else {
-      window.open(`https://wa.me/?text=${msg}`, '_blank');
-    }
-  };
-
-  const salvarAssinaturaClientePublico = async () => {
-    const canvas = canvasRef.current;
-    if (!canvas || !contratoPublico) return;
-    const dataUrl = canvas.toDataURL('image/png');
-    
-    try {
-      const dataHoje = new Date().toLocaleDateString('pt-BR');
-      await updateDoc(doc(db, "contratos", contratoPublico.id), {
-        status: 'Assinado ✍️',
-        assinaturaBase64: dataUrl,
-        cpfCliente: documentoClientePublico || contratoPublico.cpfCliente || '',
-        dataAssinatura: dataHoje
-      });
-
-      setContratoPublico((prev: any) => ({
-        ...prev,
-        status: 'Assinado ✍️',
-        assinaturaBase64: dataUrl,
-        cpfCliente: documentoClientePublico || contratoPublico.cpfCliente || '',
-        dataAssinatura: dataHoje
-      }));
-
-      setAssinadoSucesso(true);
-      alert("Contrato assinado com sucesso! 🚀");
-    } catch {
-      alert("Erro ao confirmar assinatura.");
-    }
-  };
+  }, [user, idLojaPublica]);
 
   const linkDoCatalogoDestaCliente = useMemo(() => {
     if (!user) return '';
@@ -724,6 +556,7 @@ export default function App() {
     }
   };
 
+  // --- DASHBOARD METRICS (FILTRANDO APENAS O MÊS E ANO ATUAIS) ---
   const dashboardMetrics = useMemo(() => {
     const agora = new Date();
     const mesAtual = agora.getMonth() + 1;
@@ -754,6 +587,7 @@ export default function App() {
     };
   }, [pedidos, materiais, clientes]);
 
+  // --- LÓGICA DE HISTÓRICO FINANCEIRO MENSAL AGRUPADO COM DETALHES DOS PRODUTOS ---
   const historicoFinanceiroMensal = useMemo(() => {
     const agrupado: { [key: string]: { total: number; qtd: number; mesAnoTexto: string; itensVendidos: any[] } } = {};
     const nomesMeses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
@@ -787,6 +621,7 @@ export default function App() {
       }));
   }, [pedidos]);
 
+  // Filtro Dinâmico do Histórico por Mês/Ano selecionado
   const historicoFiltradoPorData = useMemo(() => {
     if (mesFiltroHistorico === 'Todos' && anoFiltroHistorico === 'Todos') {
       return historicoFinanceiroMensal;
@@ -881,6 +716,7 @@ export default function App() {
     window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
   };
 
+  // --- GERAÇÃO DO PDF ATUALIZADA COM COMPOSIÇÃO / DETALHAMENTO DO KIT ---
   const gerarPDF = (p: any) => {
     const idDoCliente = p.clienteId || p.clienteSel || '';
     const cli = clientes.find(c => c.id === idDoCliente);
@@ -914,6 +750,7 @@ export default function App() {
       const quantidadeItem = Number(p.qtdPed || 1);
       const unitario = p.precoManual ? Number(p.precoManual) : (totalNum / quantidadeItem);
 
+      // LÓGICA DE DETALHAMENTO/COMPOSIÇÃO DO KIT DENTRO DA LINHA DA TABELA DO PDF
       let htmlDetalhamentoKit = '';
       if (p.detalhamentoPed && p.detalhamentoPed.trim()) {
         const listaItens = p.detalhamentoPed.split('\n').filter((l: string) => l.trim() !== '');
@@ -948,6 +785,8 @@ export default function App() {
     const elemento = document.createElement('div');
     elemento.innerHTML = `
       <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto;">
+        
+        <!-- CABEÇALHO LADO A LADO: LOGO E INFO DA EMPRESA -->
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px; gap: 20px;">
           <div style="flex-shrink: 0; display: flex; align-items: center;">
             ${cabecalhoLogoHtml}
@@ -1037,7 +876,6 @@ export default function App() {
       else if (tipo === 'material') colecao = "materiais";
       else if (tipo === 'anotacao') colecao = "anotacoes";
       else if (tipo === 'fornecedor') colecao = "fornecedores";
-      else if (tipo === 'contrato') colecao = "contratos";
 
       await deleteDoc(doc(db, colecao, id));
     }
@@ -1236,99 +1074,16 @@ export default function App() {
 
   if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando o PrecificaJá... 🚀</div>;
 
-  // 1. ROTA PÚBLICA DE ASSINATURA DE CONTRATO DO CLIENTE (SEM LOGIN)
-  if (idContratoPublico) {
-    if (carregandoPublico) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando Contrato... 📄</div>;
-    if (!contratoPublico) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-slate-500">Contrato não encontrado ou expirado.</div>;
-
+  if (!user && !idLojaPublica) {
     return (
-      <div className="min-h-screen bg-slate-50 p-4 md:p-8 font-sans max-w-2xl mx-auto">
-        <header className="bg-white p-6 rounded-[30px] shadow-sm border mb-6 text-center">
-          <h1 className="text-2xl font-black text-purple-700">Contrato de Prestação de Serviços</h1>
-          <p className="text-xs text-slate-400 font-bold uppercase mt-1 tracking-wider">{contratoPublico.titulo || 'Acordo Comercial'}</p>
-        </header>
-
-        <div className="bg-white p-6 rounded-[30px] shadow-sm border mb-6 space-y-4">
-          <div className="bg-purple-50 p-4 rounded-2xl border border-purple-100 space-y-1">
-            <p className="text-xs text-purple-700 font-bold">Cliente / Contratante:</p>
-            <p className="text-base font-black text-slate-800">{contratoPublico.nomeCliente}</p>
-            {contratoPublico.cpfCliente && <p className="text-xs text-slate-600 font-semibold">CPF/CNPJ: {contratoPublico.cpfCliente}</p>}
-            {contratoPublico.nomeEvento && <p className="text-xs text-slate-600 font-semibold">Evento: {contratoPublico.nomeEvento}</p>}
-            {contratoPublico.enderecoEvento && <p className="text-xs text-slate-600 font-semibold">Endereço: {contratoPublico.enderecoEvento}</p>}
-            {contratoPublico.valor && <p className="text-xs text-purple-600 font-bold mt-1">Valor do Serviço: R$ {Number(contratoPublico.valor).toFixed(2)}</p>}
-          </div>
-
-          <div>
-            <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider mb-2">Termos e Condições</h3>
-            <div className="bg-slate-50 p-4 rounded-2xl border text-xs text-slate-600 leading-relaxed max-h-60 overflow-y-auto whitespace-pre-line">
-              {contratoPublico.termo}
-            </div>
-          </div>
-        </div>
-
-        {contratoPublico.status === 'Assinado ✍️' || assinadoSucesso ? (
-          <div className="bg-emerald-50 border border-emerald-200 p-6 rounded-[30px] text-center space-y-4">
-            <CheckCircle2 size={48} className="text-emerald-500 mx-auto" />
-            <div>
-              <h2 className="text-lg font-black text-emerald-800">Este contrato já está assinado!</h2>
-              <p className="text-xs text-emerald-600 font-medium mt-1">O documento foi assinado e validado com sucesso.</p>
-            </div>
-            <button 
-              onClick={() => gerarPDFContrato(contratoPublico)}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-6 py-3 rounded-2xl text-xs uppercase shadow-md transition-all inline-flex items-center gap-2"
-            >
-              <Printer size={16}/> Baixar PDF do Contrato Assinado
-            </button>
-          </div>
-        ) : (
-          <div className="bg-white p-6 rounded-[30px] shadow-sm border space-y-4">
-            <h3 className="text-xs font-black uppercase text-purple-700 tracking-wider flex items-center gap-1.5">
-              <PenTool size={16}/> Assinatura Digital do Cliente
-            </h3>
-
-            <div>
-              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Seu CPF / CNPJ (Opcional se já informado)</label>
-              <input 
-                placeholder="Ex: 000.000.000-00" 
-                className="w-full p-3.5 bg-slate-50 rounded-2xl border text-xs font-bold outline-none focus:border-purple-500" 
-                value={documentoClientePublico || contratoPublico.cpfCliente || ''} 
-                onChange={e => setDocumentoClientePublico(e.target.value)} 
-              />
-            </div>
-
-            <div>
-              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Desenhe sua assinatura na caixa abaixo:</label>
-              <div className="border-2 border-dashed border-slate-300 rounded-2xl bg-slate-50 overflow-hidden touch-none flex justify-center">
-                <canvas 
-                  ref={canvasRef} 
-                  width={320} 
-                  height={150} 
-                  className="cursor-crosshair bg-slate-50"
-                  onMouseDown={startDrawing}
-                  onMouseMove={draw}
-                  onMouseUp={stopDrawing}
-                  onMouseLeave={stopDrawing}
-                  onTouchStart={startDrawing}
-                  onTouchMove={draw}
-                  onTouchEnd={stopDrawing}
-                />
-              </div>
-              <button onClick={limparCanvas} className="text-[10px] font-bold text-red-500 hover:underline mt-2 block ml-1">Limpar e Refazer Assinatura ❌</button>
-            </div>
-
-            <button 
-              onClick={salvarAssinaturaClientePublico} 
-              className="w-full bg-emerald-500 hover:bg-emerald-600 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-lg transition-all flex items-center justify-center gap-2"
-            >
-              <CheckCircle2 size={18}/> Confirmar e Assinar Contrato
-            </button>
-          </div>
-        )}
-      </div>
+      <Login 
+        isRegistering={isRegistering} setIsRegistering={setIsRegistering}
+        email={email} setEmail={setEmail} password={password} setPassword={setPassword}
+        handleAuth={handleAuth}
+      />
     );
   }
 
-  // 2. ROTA PÚBLICA DA VITRINE DE LOJA (SEM LOGIN)
   if (idLojaPublica) {
     if (carregandoPublico) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando Vitrine... 🛍️</div>;
     const totalCarrinho = Object.keys(carrinho).reduce((acc, id) => {
@@ -1407,17 +1162,6 @@ export default function App() {
     );
   }
 
-  // 3. TELA DE LOGIN (SOMENTE EXIBIDA SE O USUÁRIO NÃO ESTIVER LOGADO E NÃO FOR ACESSO PÚBLICO)
-  if (!user) {
-    return (
-      <Login 
-        isRegistering={isRegistering} setIsRegistering={setIsRegistering}
-        email={email} setEmail={setEmail} password={password} setPassword={setPassword}
-        handleAuth={handleAuth}
-      />
-    );
-  }
-
   const renderCalculadoraForm = () => (
     <div className="bg-white p-6 rounded-[35px] shadow-xl border mt-2 w-full">
       {(pedidoEditandoId || isDuplicando) && (
@@ -1440,6 +1184,7 @@ export default function App() {
         )}
       </div>
 
+      {/* SELETOR DE MODO DE CÁLCULO */}
       <div className="mb-5 w-full">
         <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-2">
           Modo de Cálculo
@@ -1507,6 +1252,7 @@ export default function App() {
          </div>
       </div>
 
+      {/* NOVO CAMPO DE DETALHAMENTO DO KIT / COMPOSIÇÃO */}
       <div className="mb-4 w-full">
          <label style={{ color: themeColors.primary }} className="text-[10px] font-bold uppercase ml-1 block mb-1">
           Detalhamento dos Itens - Opcional
@@ -1640,6 +1386,7 @@ export default function App() {
         </div>
       )}
 
+      {/* RODAPÉ DO ORÇAMENTO COM PREÇO FINAL EDITÁVEL E BOTÃO ÚNICO */}
       <div className="flex flex-col items-center border-t pt-6 gap-4 w-full">
         <div className="flex justify-between items-center w-full px-2">
           <div className="text-left">
@@ -1674,7 +1421,7 @@ export default function App() {
              
              const dadosPedido = { 
                nomeProd, 
-               detalhamentoPed,
+               detalhamentoPed, // SALVA O CAMPO DE DETALHAMENTO NO BANCO
                preco: precoFinalSalvar, 
                clienteId: clienteSel, 
                prazo, 
@@ -1727,8 +1474,6 @@ export default function App() {
               <button onClick={() => setActiveTab('inicio')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'inicio' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'inicio' ? themeColors.primary : undefined }}><Home size={16}/> Início</button>
               <button onClick={() => setActiveTab('criar')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'criar' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'criar' ? themeColors.primary : undefined }}><Plus size={16}/> Orçar</button>
               
-              <button onClick={() => setActiveTab('contratos')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'contratos' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'contratos' ? themeColors.primary : undefined }}><FileText size={16}/> Contratos e Assinaturas</button>
-
               <button onClick={() => setActiveTab('perfil')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'perfil' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'perfil' ? themeColors.primary : undefined }}><Settings size={16}/> Perfil e Cores da Loja</button>
               <button onClick={() => setActiveTab('anotacoes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'anotacoes' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'anotacoes' ? themeColors.primary : undefined }}><Calendar size={16}/> Agenda / Tarefas </button>
 
@@ -1759,6 +1504,8 @@ export default function App() {
       <div className="p-4 max-w-xl mx-auto w-full">
         {activeTab === 'inicio' && (
           <div className="space-y-5 pt-2 w-full">
+            
+            {/* CARD DE FATURAMENTO DO MÊS ATUAL */}
             <div style={{ backgroundColor: themeColors.primary }} className="p-6 rounded-[35px] shadow-lg text-white w-full">
               <div className="flex justify-between items-center mb-1">
                 <p className="text-xs font-bold uppercase tracking-widest text-white/80">Faturamento do Mês Atual</p>
@@ -1861,229 +1608,6 @@ export default function App() {
           </div>
         )}
 
-        {/* FORMULÁRIO E LISTA DE CONTRATOS */}
-        {activeTab === 'contratos' && (
-          <div className="space-y-4 pt-2 w-full animate-fadeIn">
-            <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
-              <h2 style={{ color: themeColors.primary }} className="font-bold mb-2 flex items-center gap-2 text-xs uppercase tracking-widest">
-                <FileText size={18}/> {novoContrato.id ? '✏️ Editando Contrato' : 'Gerar Novo Contrato'}
-              </h2>
-              <p className="text-slate-400 text-[11px] mb-4">Crie termos de serviço e envie o link para o cliente assinar diretamente pelo celular.</p>
-
-              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Título do Serviço / Contrato</label>
-              <input 
-                placeholder="Ex: Contrato de Brindes de Casamento" 
-                className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm" 
-                value={novoContrato.titulo} 
-                onChange={e => setNovoContrato({...novoContrato, titulo: e.target.value})} 
-              />
-
-              <div className="grid grid-cols-2 gap-3 mb-3 w-full">
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Puxar Cliente Cadastrado</label>
-                  <select 
-                    className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-xs font-bold block border focus:border-purple-400" 
-                    value={novoContrato.clienteId} 
-                    onChange={e => {
-                      const id = e.target.value;
-                      const c = clientes.find(item => item.id === id);
-                      setNovoContrato({
-                        ...novoContrato, 
-                        clienteId: id,
-                        nomeClienteManual: c ? c.nome : '',
-                        cpfCliente: c ? (c.cpf || '') : novoContrato.cpfCliente,
-                        enderecoEvento: c ? (c.endereco || '') : novoContrato.enderecoEvento
-                      });
-                    }}
-                  >
-                    <option value="">👤 Escolher...</option>
-                    {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Ou Nome do Cliente</label>
-                  <input 
-                    placeholder="Nome completo" 
-                    className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-medium text-sm border focus:border-purple-400" 
-                    value={novoContrato.nomeClienteManual} 
-                    onChange={e => setNovoContrato({...novoContrato, nomeClienteManual: e.target.value})} 
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 mb-3 w-full">
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">CPF ou CNPJ</label>
-                  <input 
-                    placeholder="Ex: 000.000.000-00" 
-                    className="w-full p-4 bg-slate-50 rounded-2xl outline-none border focus:border-purple-400 font-medium text-sm" 
-                    value={novoContrato.cpfCliente} 
-                    onChange={e => setNovoContrato({...novoContrato, cpfCliente: e.target.value})} 
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Valor do Acordo (R$)</label>
-                  <input 
-                    type="number" 
-                    placeholder="Ex: 500.00" 
-                    className="w-full p-4 bg-slate-50 rounded-2xl outline-none border focus:border-purple-400 font-bold text-sm" 
-                    value={novoContrato.valor} 
-                    onChange={e => setNovoContrato({...novoContrato, valor: e.target.value})} 
-                  />
-                </div>
-              </div>
-
-              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome do Evento (Opcional)</label>
-              <input 
-                placeholder="Ex: Aniversário de 15 Anos da Julia" 
-                className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm" 
-                value={novoContrato.nomeEvento} 
-                onChange={e => setNovoContrato({...novoContrato, nomeEvento: e.target.value})} 
-              />
-
-              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Endereço do Evento / Entrega</label>
-              <textarea 
-                placeholder="Ex: Salão de Festas Imperial, Rua X, nº 100 - RJ" 
-                className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 resize-none h-16 font-medium text-xs" 
-                value={novoContrato.enderecoEvento} 
-                onChange={e => setNovoContrato({...novoContrato, enderecoEvento: e.target.value})} 
-              />
-
-              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Termos e Condições do Contrato</label>
-              <textarea 
-                placeholder="Escreva as regras de prazos, pagamentos e cancelamentos..." 
-                className="w-full p-4 bg-slate-50 rounded-2xl mb-4 outline-none border focus:border-purple-400 resize-none h-32 font-medium text-xs leading-relaxed" 
-                value={novoContrato.termo} 
-                onChange={e => setNovoContrato({...novoContrato, termo: e.target.value})} 
-              />
-
-              <div className="flex gap-2">
-                {novoContrato.id && (
-                  <button 
-                    onClick={() => setNovoContrato({ id: '', titulo: '', clienteId: '', nomeClienteManual: '', cpfCliente: '', enderecoEvento: '', nomeEvento: '', valor: '', termo: 'Pelo presente instrumento particular...', status: 'Pendente' })}
-                    className="w-1/3 bg-slate-100 text-slate-600 font-bold p-4 rounded-2xl text-xs uppercase"
-                  >
-                    Cancelar
-                  </button>
-                )}
-                <button 
-                  style={{ backgroundColor: themeColors.primary }}
-                  onClick={async () => {
-                    const nomeFinal = novoContrato.nomeClienteManual.trim();
-                    if (!novoContrato.titulo || !nomeFinal) return alert("Preencha o título e o nome do cliente!");
-
-                    const dadosContrato = {
-                      titulo: novoContrato.titulo,
-                      clienteId: novoContrato.clienteId || '',
-                      nomeCliente: nomeFinal,
-                      cpfCliente: novoContrato.cpfCliente || '',
-                      enderecoEvento: novoContrato.enderecoEvento || '',
-                      nomeEvento: novoContrato.nomeEvento || '',
-                      valor: novoContrato.valor || '0',
-                      termo: novoContrato.termo,
-                      status: novoContrato.status || 'Pendente',
-                      userId: user.uid,
-                      dataCriacao: new Date().toLocaleDateString('pt-BR')
-                    };
-
-                    if (novoContrato.id) {
-                      await updateDoc(doc(db, "contratos", novoContrato.id), dadosContrato);
-                    } else {
-                      await addDoc(collection(db, "contratos"), dadosContrato);
-                    }
-
-                    setNovoContrato({ id: '', titulo: '', clienteId: '', nomeClienteManual: '', cpfCliente: '', enderecoEvento: '', nomeEvento: '', valor: '', termo: 'Pelo presente instrumento particular...', status: 'Pendente' });
-                    alert("Contrato salvo com sucesso! 📄🚀");
-                  }} 
-                  className="flex-1 text-white font-black p-4 rounded-2xl uppercase text-xs shadow-md hover:opacity-90 transition-all"
-                >
-                  {novoContrato.id ? 'Atualizar Contrato' : 'Salvar Contrato'}
-                </button>
-              </div>
-            </div>
-
-            <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider ml-2 mt-4">Lista de Contratos Salvos</h3>
-            <div className="grid grid-cols-1 gap-3 w-full">
-              {contratos.map(c => {
-                const linkAssinatura = `${window.location.origin}${window.location.pathname}?contrato=${c.id}`;
-                const isAssinado = c.status === 'Assinado ✍️';
-
-                return (
-                  <div key={c.id} className="bg-white p-5 rounded-[30px] border shadow-sm flex flex-col gap-3 w-full">
-                    <div className="flex justify-between items-start w-full">
-                      <div>
-                        <span className={`text-[9px] font-black uppercase px-2.5 py-1 rounded-full ${isAssinado ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                          {c.status || 'Pendente'}
-                        </span>
-                        <h4 className="font-black text-slate-800 text-base mt-2">{c.titulo}</h4>
-                        <p className="text-xs text-slate-500 font-semibold mt-0.5">👤 Cliente: {c.nomeCliente}</p>
-                        {c.cpfCliente && <p className="text-[11px] text-slate-400">CPF/CNPJ: {c.cpfCliente}</p>}
-                        {c.nomeEvento && <p className="text-[11px] text-slate-400">Evento: {c.nomeEvento}</p>}
-                        {c.valor && <p className="text-xs font-black text-slate-700 mt-0.5">R$ {Number(c.valor).toFixed(2)}</p>}
-                      </div>
-
-                      <div className="flex gap-1">
-                        <button 
-                          onClick={() => setNovoContrato({
-                            id: c.id,
-                            titulo: c.titulo,
-                            clienteId: c.clienteId || '',
-                            nomeClienteManual: c.nomeCliente || '',
-                            cpfCliente: c.cpfCliente || '',
-                            enderecoEvento: c.enderecoEvento || '',
-                            nomeEvento: c.nomeEvento || '',
-                            valor: c.valor || '',
-                            termo: c.termo || '',
-                            status: c.status || 'Pendente'
-                          })} 
-                          className="text-orange-400 p-2 hover:bg-orange-50 rounded-xl"
-                        >
-                          <Edit2 size={16}/>
-                        </button>
-                        <button onClick={() => confirmarExcluir('contrato', c.id)} className="text-red-400 hover:text-red-600 p-2 hover:bg-red-50 rounded-xl">
-                          <Trash2 size={16}/>
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2 border-t pt-3 w-full justify-end">
-                      <button 
-                        onClick={() => enviarContratoZap(c)} 
-                        className="flex items-center gap-1.5 text-xs font-black uppercase bg-emerald-50 text-emerald-600 px-3 py-2 rounded-xl active:scale-95 transition-transform"
-                      >
-                        <MessageCircle size={14}/> Enviar no WhatsApp
-                      </button>
-
-                      <a 
-                        href={linkAssinatura}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1.5 text-xs font-black uppercase bg-purple-50 text-purple-700 px-3 py-2 rounded-xl active:scale-95 transition-transform"
-                      >
-                        <Share2 size={14}/> Abrir Link
-                      </a>
-                      
-                      <button 
-                        onClick={() => gerarPDFContrato(c)} 
-                        style={{ backgroundColor: themeColors.secondary }} 
-                        className="flex items-center gap-1.5 text-xs font-black uppercase text-white px-3 py-2 rounded-xl active:scale-95 transition-transform shadow"
-                      >
-                        <Printer size={14}/> PDF
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-
-              {contratos.length === 0 && (
-                <p className="text-center font-bold text-xs text-slate-400 py-6 italic">Nenhum contrato cadastrado até o momento. 📄</p>
-              )}
-            </div>
-          </div>
-        )}
-
         {/* TELA DE PERFIL DA LOJA & CORES */}
         {activeTab === 'perfil' && (
           <div className="space-y-6 pt-2 w-full">
@@ -2119,12 +1643,14 @@ export default function App() {
                 onChange={e => setNomeLojaPerfil(e.target.value)} 
               />
 
+              {/* PAINEL DE PERSONALIZAÇÃO DE CORES */}
               <div className="border-t pt-6 mb-6">
                 <h3 style={{ color: themeColors.primary }} className="font-bold flex items-center gap-2 uppercase text-xs tracking-widest mb-1">
                   <Palette size={18}/> Paleta de Cores do App
                 </h3>
                 <p className="text-slate-400 text-[11px] mb-4">Escolha um tema pronto ou monte a sua combinação livremente (ex: Rosa e Verde):</p>
 
+                {/* Presets de Temas */}
                 <div className="grid grid-cols-2 gap-2 mb-4">
                   {PRESET_PALETTES.map(preset => (
                     <button
@@ -2147,6 +1673,7 @@ export default function App() {
                   ))}
                 </div>
 
+                {/* Color Pickers Customizados (Escolha Livre) */}
                 <div className="grid grid-cols-2 gap-3 bg-slate-50 p-4 rounded-2xl border">
                   <div>
                     <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Cor Primária (ex: Rosa)</label>
@@ -2225,7 +1752,7 @@ export default function App() {
           </div>
         )}
 
-        {/* AGENDA */}
+        {/* TELA DE AGENDA / COMPROMISSOS COM PRAZOS */}
         {activeTab === 'anotacoes' && (
           <div className="space-y-4 pt-2 w-full">
             <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
@@ -2293,9 +1820,10 @@ export default function App() {
           </div>
         )}
 
-        {/* FINANCEIRO */}
+        {/* TELA DE CONFIGURAÇÃO DE CUSTOS FIXOS + CALCULADORA DE IMPRESSÃO + HISTÓRICO FINANCEIRO */}
         {activeTab === 'financeiro' && (
           <div className="space-y-6 pt-2 w-full">
+            {/* SUB-MENU DE ABAS INTERNAS FINANCEIRAS */}
             <div className="flex bg-slate-100 p-1.5 rounded-2xl gap-1 w-full border flex-wrap">
               <button onClick={() => setSubAbaFinanceiro('geral')} style={{ color: subAbaFinanceiro === 'geral' ? themeColors.primary : undefined }} className={`flex-1 min-w-[70px] py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${subAbaFinanceiro === 'geral' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>Geral</button>
               <button onClick={() => setSubAbaFinanceiro('impressao')} style={{ color: subAbaFinanceiro === 'impressao' ? themeColors.primary : undefined }} className={`flex-1 min-w-[70px] py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${subAbaFinanceiro === 'impressao' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>Impressão 🖨️</button>
@@ -2363,6 +1891,7 @@ export default function App() {
               </div>
             )}
 
+            {/* INTERFACE INTEGRADA DA CALCULADORA DE IMPRESSÃO */}
             {subAbaFinanceiro === 'impressao' && (
               <div className="bg-white p-6 rounded-[35px] shadow-md border w-full animate-fadeIn space-y-4">
                 <div>
@@ -2396,6 +1925,7 @@ export default function App() {
                   <span className="text-[10px] text-slate-400 mt-1">Quantas páginas consegue imprimir com todas as cores cheias</span>
                 </div>
 
+                {/* Card Superior: Custo Total */}
                 <div className="bg-purple-50 rounded-2xl p-4 flex justify-between items-center border border-purple-100">
                   <div>
                     <h3 style={{ color: themeColors.primary }} className="text-[11px] font-black tracking-wider uppercase">CUSTO TOTAL DAS TINTAS</h3>
@@ -2406,6 +1936,7 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* Card de Destaque: Custo por Impressão */}
                 <div className="bg-orange-50 rounded-2xl p-5 text-center border border-orange-100">
                   <h3 style={{ color: themeColors.secondary }} className="text-[11px] font-black tracking-wider uppercase">CUSTO POR IMPRESSÃO</h3>
                   <div style={{ color: themeColors.primary }} className="text-3xl font-black my-1">
@@ -2414,6 +1945,7 @@ export default function App() {
                   <p className="text-[10px] text-purple-500 font-medium">Por página impressa</p>
                 </div>
 
+                {/* Exemplos de Quantidade */}
                 <h3 className="text-xs font-black text-slate-700 tracking-wider">Exemplos de quantidade:</h3>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-slate-50 border border-slate-100 p-3 rounded-xl">
@@ -2516,6 +2048,7 @@ export default function App() {
               </div>
             )}
 
+            {/* RELATÓRIO DO HISTÓRICO FINANCEIRO MENSAL AVANÇADO */}
             {subAbaFinanceiro === 'historico' && (
               <div className="bg-white p-6 rounded-[35px] shadow-md border w-full animate-fadeIn space-y-4">
                 <div className="flex justify-between items-center">
@@ -2528,6 +2061,7 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* SELETORES DE MÊS E ANO PARA FILTRO */}
                 <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-2xl border border-slate-100">
                   <div>
                     <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Mês de Referência</label>
@@ -2567,11 +2101,14 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* LISTAGEM DE MESES COM GAVETA EXPANSÍVEL */}
                 <div className="space-y-3 pt-2">
                   {historicoFiltradoPorData.map(item => {
                     const isExpanded = mesExpandido === item.chave;
                     return (
                       <div key={item.chave} className="bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden transition-all">
+                        
+                        {/* CABEÇALHO DO MÊS (CLICÁVEL COM SETA DE EXPANDIR) */}
                         <div 
                           onClick={() => setMesExpandido(isExpanded ? null : item.chave)}
                           className="p-4 flex justify-between items-center cursor-pointer hover:bg-slate-100/80 transition-colors select-none"
@@ -2596,6 +2133,7 @@ export default function App() {
                           </div>
                         </div>
 
+                        {/* DETALHAMENTO DE PRODUTOS VENDIDOS NAQUELE MÊS (EXPANDÍVEL) */}
                         {isExpanded && (
                           <div className="bg-white p-4 border-t border-slate-200 space-y-2.5 animate-fadeIn">
                             <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Relação de Peças / Combos Vendidos:</p>
@@ -2637,7 +2175,7 @@ export default function App() {
           </div>
         )}
 
-        {/* BALCÃO */}
+        {/* SEÇÃO DO BALCÃO DE VENDAS RÁPIDO */}
         {activeTab === 'balcao' && (
           <div className="space-y-4 pt-2 w-full">
             <div style={{ backgroundColor: themeColors.primary }} className="p-5 rounded-[35px] text-white shadow-md border border-purple-900 space-y-3.5 w-full">
@@ -2954,7 +2492,7 @@ export default function App() {
           </div>
         )}
 
-        {/* HISTÓRICO DE ORÇAMENTOS */}
+        {/* HISTÓRICO DE ORÇAMENTOS EXPANDIDO */}
         {activeTab === 'pedidos' && (
           <div className="space-y-3 pt-2 w-full">
             <div className="flex justify-between items-center mb-1 w-full">
@@ -3020,7 +2558,7 @@ export default function App() {
           </div>
         )}
 
-        {/* INSUMOS */}
+        {/* GERENCIAR ARMÁRIO / INSUMOS */}
         {activeTab === 'materiais' && (
           <div className="space-y-4 pt-2 w-full">
             <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
@@ -3112,7 +2650,7 @@ export default function App() {
           </div>
         )}
 
-        {/* CLIENTES COM CPF / CNPJ */}
+        {/* ABA DE CLIENTES */}
         {activeTab === 'clientes' && (
            <div className="space-y-4 pt-2 w-full">
             <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
@@ -3121,17 +2659,9 @@ export default function App() {
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome Comercial / Completo</label>
               <input placeholder="Ex: Maria Silva" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm" value={novoCli.nome} onChange={e => setNovoCli({...novoCli, nome: e.target.value})} />
               
-              <div className="grid grid-cols-2 gap-3 mb-3 w-full">
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">CPF ou CNPJ</label>
-                  <input placeholder="Ex: 000.000.000-00" className="w-full p-4 bg-slate-50 rounded-2xl outline-none border focus:border-purple-400 font-medium text-sm" value={novoCli.cpf || ''} onChange={e => setNovoCli({...novoCli, cpf: e.target.value})} />
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">WhatsApp com DDD</label>
-                  <input placeholder="Ex: 21999999999" className="w-full p-4 bg-slate-50 rounded-2xl outline-none border focus:border-purple-400 font-medium text-sm" value={novoCli.zap} onChange={e => setNovoCli({...novoCli, zap: e.target.value})} />
-                </div>
-              </div>
-
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">WhatsApp com DDD</label>
+              <input placeholder="Ex: 21999999999" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm" value={novoCli.zap} onChange={e => setNovoCli({...novoCli, zap: e.target.value})} />
+              
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">E-mail de Contato</label>
               <input type="email" placeholder="Ex: cliente@email.com" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm" value={novoCli.email || ''} onChange={e => setNovoCli({...novoCli, email: e.target.value})} />
               
@@ -3148,14 +2678,13 @@ export default function App() {
                   zap: novoCli.zap, 
                   email: novoCli.email || '', 
                   endereco: novoCli.endereco || '', 
-                  cpf: novoCli.cpf || '',
                   userId: user.uid 
                 };
 
                 if(novoCli.id) await updateDoc(doc(db, "clientes", novoCli.id), dadosCliente);
                 else await addDoc(collection(db, "clientes"), dadosCliente);
                 
-                setNovoCli({ id: '', nome: '', zap: '', email: '', endereco: '', cpf: '' }); 
+                setNovoCli({ id: '', nome: '', zap: '', email: '', endereco: '' }); 
                 alert("Cadastro do cliente salvo com sucesso! 🎉");
               }} className="w-full hover:opacity-90 text-white p-5 rounded-2xl font-black uppercase text-xs">Salvar Cliente</button>
             </div>
@@ -3164,13 +2693,12 @@ export default function App() {
                 <div className="flex justify-between items-start w-full">
                   <div className="flex flex-col ml-2">
                     <span className="text-slate-800 text-base">{c.nome}</span>
-                    {c.cpf && <span className="text-xs text-slate-500 font-normal">🪪 CPF/CNPJ: {c.cpf}</span>}
                     <span className="text-xs text-slate-400 font-normal mt-0.5">{c.zap ? `📱 ${c.zap}` : 'Sem número'}</span>
                     {c.email && <span className="text-xs text-slate-400 font-normal mt-0.5">✉️ {c.email}</span>}
                     {c.endereco && <span className="text-xs text-slate-500 font-medium bg-slate-50 p-2.5 rounded-xl mt-2 border border-slate-100 whitespace-pre-line">📍 {c.endereco}</span>}
                   </div>
                   <div className="flex gap-1 shrink-0">
-                    <button onClick={() => setNovoCli({ id: c.id, nome: c.nome, zap: c.zap || '', email: c.email || '', endereco: c.endereco || '', cpf: c.cpf || '' })} className="text-orange-400 p-2"><Edit2 size={18}/></button>
+                    <button onClick={() => setNovoCli({ id: c.id, nome: c.nome, zap: c.zap || '', email: c.email || '', endereco: c.endereco || '' })} className="text-orange-400 p-2"><Edit2 size={18}/></button>
                     <button onClick={() => deleteDoc(doc(db, "clientes", c.id))} className="text-red-200 p-2"><Trash2 size={20}/></button>
                   </div>
                 </div>
