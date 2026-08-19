@@ -953,10 +953,18 @@ export default function App() {
     (window as any).html2pdf().from(elemento).set(opcoes).save();
   };
 
-  // GERADOR DE PDF DE CONTRATOS COM ASSINATURA
+   // GERADOR DE PDF DE CONTRATOS COM ASSINATURA (CORRIGIDO)
   const gerarPDFContrato = (c: any) => {
     const elemento = document.createElement('div');
     const dataEmissao = c.dataCriacao || new Date().toLocaleDateString('pt-BR');
+
+    const blocoAssinatura = c.status === 'Assinado' && c.assinaturaUrl 
+      ? `<img src="${c.assinaturaUrl}" style="max-height: 80px; margin: 0 auto 10px auto; display: block;"/>
+         <p style="margin: 0; font-weight: bold; color: #1e293b;">${c.nomeCliente}</p>
+         <p style="margin: 4px 0 0 0; font-size: 10px; color: #64748b;">Assinado eletronicamente em: ${c.dataAssinatura || 'Data registrada'}</p>
+         <p style="margin: 2px 0 0 0; font-size: 9px; color: #94a3b8;">Validação Digital Eletrônica - Medida Provisória nº 2.200-2/2001</p>`
+      : `<div style="height: 60px; border-bottom: 1px dashed #cbd5e1; margin-bottom: 10px;"></div>
+         <p style="margin: 0; font-weight: bold; color: #94a3b8;">Pendente de Assinatura pelo Cliente</p>`;
 
     elemento.innerHTML = `
       <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto;">
@@ -992,15 +1000,7 @@ export default function App() {
 
         <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px; page-break-inside: avoid; break-inside: avoid;">4. REGISTRO DE ASSINATURA ELETRÔNICA</div>
         <div style="background-color: #f8fafc; padding: 20px; border-radius: 16px; border: 1px solid #f1f5f9; font-size: 12px; text-align: center; page-break-inside: avoid; break-inside: avoid;">
-          {c.status === 'Assinado' && c.assinaturaUrl ? `
-            <img src="${c.assinaturaUrl}" style="max-height: 80px; margin: 0 auto 10px auto; display: block;"/>
-            <p style="margin: 0; font-weight: bold; color: #1e293b;">${c.nomeCliente}</p>
-            <p style="margin: 4px 0 0 0; font-size: 10px; color: #64748b;">Assinado eletronicamente em: ${c.dataAssinatura || 'Data registrada'}</p>
-            <p style="margin: 2px 0 0 0; font-size: 9px; color: #94a3b8;">Validação Digital Eletrônica - Medida Provisória nº 2.200-2/2001</p>
-          ` : `
-            <div style="height: 60px; border-bottom: 1px dashed #cbd5e1; margin-bottom: 10px;"></div>
-            <p style="margin: 0; font-weight: bold; color: #94a3b8;">Pendente de Assinatura pelo Cliente</p>
-          `}
+          ${blocoAssinatura}
         </div>
       </div>
     `;
