@@ -19,7 +19,6 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
 
-// --- PALETAS PRÉ-DEFINIDAS ---
 const PRESET_PALETTES = [
   { id: 'purple_creative', nome: 'Roxo Criativo (Padrão)', primary: '#7c3aed', primaryHover: '#6d28d9', secondary: '#f97316', secondaryHover: '#ea580c' },
   { id: 'blue_corporate', nome: 'Azul Corporativo', primary: '#2563eb', primaryHover: '#1d4ed8', secondary: '#38bdf8', secondaryHover: '#0284c7' },
@@ -27,7 +26,7 @@ const PRESET_PALETTES = [
   { id: 'emerald_growth', nome: 'Verde Esmeralda', primary: '#059669', primaryHover: '#047857', secondary: '#10b981', secondaryHover: '#059669' }
 ];
 
-// --- COMPONENTE PÚBLICO DE ASSINATURA E GERAÇÃO DE PDF DO CONTRATO ---
+// COMPONENTE DA PÁGINA PÚBLICA DE ASSINATURA E GERAÇÃO DE PDF
 const PaginaAssinaturaPublica = ({ contratoId, themeColors }: any) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -271,7 +270,7 @@ const PaginaAssinaturaPublica = ({ contratoId, themeColors }: any) => {
   );
 };
 
-// --- TELA DE LOGIN ---
+// LOGIN
 const Login = ({ isRegistering, setIsRegistering, email, setEmail, password, setPassword, handleAuth }: any) => {
   const recuperarSenha = async () => {
     if (!email) return alert("Digite seu e-mail primeiro para eu te mandar o link!");
@@ -297,12 +296,17 @@ const Login = ({ isRegistering, setIsRegistering, email, setEmail, password, set
 };
 
 export default function App() {
+  // LEITURA INSTANTÂNEA DOS PARÂMETROS DA URL
+  const params = new URLSearchParams(window.location.search);
+  const contratoIdDaUrl = params.get('assinar');
+  const lojaIdDaUrl = params.get('loja');
+
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   
-  const [idLojaPublica, setIdLojaPublica] = useState<string | null>(null);
-  const [contratoIdPublico, setContratoIdPublico] = useState<string | null>(null);
+  const [idLojaPublica, setIdLojaPublica] = useState<string | null>(lojaIdDaUrl);
+  const [contratoIdPublico, setContratoIdPublico] = useState<string | null>(contratoIdDaUrl);
 
   const [produtosPublicos, setProdutosPublicos] = useState<any[]>([]);
   const [carregandoPublico, setCarregandoPublico] = useState(false);
@@ -448,21 +452,14 @@ A entrega ou execução ocorrerá na data e local combinados. Em caso de cancela
   };
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const lojaId = params.get('loja');
-    const assinarId = params.get('assinar');
-
-    if (assinarId) {
-      setContratoIdPublico(assinarId);
+    if (contratoIdDaUrl) {
       setLoading(false);
       return;
     }
 
-    if (lojaId) {
-      setIdLojaPublica(lojaId);
+    if (lojaIdDaUrl) {
       setCarregandoPublico(true);
-      
-      getDoc(doc(db, "configuracoes_loja", lojaId)).then(docSnap => {
+      getDoc(doc(db, "configuracoes_loja", lojaIdDaUrl)).then(docSnap => {
         if(docSnap.exists()) {
           const data = docSnap.data();
           setZapDaLojaPublica(data.whatsapp || '');
@@ -470,16 +467,19 @@ A entrega ou execução ocorrerá na data e local combinados. Em caso de cancela
         }
       });
 
-      const qCats = query(collection(db, "categorias_produtos"), where("userId", "==", lojaId));
+      const qCats = query(collection(db, "categorias_produtos"), where("userId", "==", lojaIdDaUrl));
       getDocs(qCats).then(snapshot => {
         setCategoriasProd(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
       });
 
-      const q = query(collection(db, "produtos"), where("userId", "==", lojaId));
+      const q = query(collection(db, "produtos"), where("userId", "==", lojaIdDaUrl));
       getDocs(q).then(snapshot => {
         setProdutosPublicos(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
         setCarregandoPublico(false);
       }).catch(() => setCarregandoPublico(false));
+      
+      setLoading(false);
+      return;
     }
     
     return onAuthStateChanged(auth, u => {
@@ -505,7 +505,7 @@ A entrega ou execução ocorrerá na data e local combinados. Em caso de cancela
       }
       setLoading(false);
     }); 
-  }, []);
+  }, [contratoIdDaUrl, lojaIdDaUrl]);
   
   useEffect(() => {
     const script = document.createElement('script');
@@ -1104,19 +1104,28 @@ A entrega ou execução ocorrerá na data e local combinados. Em caso de cancela
     } catch (e) { alert("E-mail ou senha incorretos!"); }
   };
 
+  // FUNÇÃO DE EXCLUIR CORRIGIDA (AGORA SUPORTA "contrato" e "contratos")
   const confirmarExcluir = async (tipo: string, id: string) => {
-    if (window.confirm(`Excluir ${tipo}?`)) {
-      let colecao = "";
-      if (tipo === 'pedido') colecao = "pedidos";
-      else if (tipo === 'cliente') colecao = "clientes";
-      else if (tipo === 'produto') colecao = "produtos";
-      else if (tipo === 'equipamento') colecao = "equipamentos";
-      else if (tipo === 'material') colecao = "materiais";
-      else if (tipo === 'anotacao') colecao = "anotacoes";
-      else if (tipo === 'fornecedor') colecao = "fornecedores";
-      else if (tipo === 'contrato') colecao = "contratos";
+    if (window.confirm(`Tem certeza que deseja excluir este ${tipo}?`)) {
+      try {
+        let colecao = "";
+        if (tipo === 'pedido') colecao = "pedidos";
+        else if (tipo === 'cliente') colecao = "clientes";
+        else if (tipo === 'produto') colecao = "produtos";
+        else if (tipo === 'equipamento') colecao = "equipamentos";
+        else if (tipo === 'material') colecao = "materiais";
+        else if (tipo === 'anotacao') colecao = "anotacoes";
+        else if (tipo === 'fornecedor') colecao = "fornecedores";
+        else if (tipo === 'contrato' || tipo === 'contratos') colecao = "contratos";
 
-      await deleteDoc(doc(db, colecao, id));
+        if (colecao) {
+          await deleteDoc(doc(db, colecao, id));
+          alert(`${tipo} excluído com sucesso!`);
+        }
+      } catch (err) {
+        console.error('Erro ao excluir:', err);
+        alert('Erro ao excluir do banco de dados.');
+      }
     }
   };
 
@@ -1395,20 +1404,19 @@ A entrega ou execução ocorrerá na data e local combinados. Em caso de cancela
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const enviarLinkContratoWhatsapp = (c) => {
-  // Gera o link usando o parâmetro ?assinar= em vez de /assinar/
-  const linkAssinatura = `${window.location.origin}${window.location.pathname}?assinar=${c.id}`;
-  const mensagem = `Olá, ${c.nomeCliente}! Tudo bem?\n\nSegue o link do seu contrato para conferência e assinatura digital online:\n\n👉 ${linkAssinatura}\n\nQualquer dúvida estou à disposição!`;
-  
-  navigator.clipboard.writeText(mensagem);
-  
-  const foneLimpo = c.telefoneCliente ? c.telefoneCliente.replace(/\D/g, '') : '';
-  if (foneLimpo) {
-    window.open(`https://wa.me/55${foneLimpo}?text=${encodeURIComponent(mensagem)}`, '_blank');
-  } else {
-    alert('Link do contrato e mensagem copiados! Pode colar no WhatsApp do seu cliente.');
-  }
-};
+  const enviarLinkContratoWhatsapp = (c: any) => {
+    const linkAssinatura = `${window.location.origin}${window.location.pathname}?assinar=${c.id}`;
+    const mensagem = `Olá, ${c.nomeCliente}! Tudo bem?\n\nSegue o link do seu contrato para conferência e assinatura digital online:\n\n👉 ${linkAssinatura}\n\nQualquer dúvida estou à disposição!`;
+    
+    navigator.clipboard.writeText(mensagem);
+    
+    const foneLimpo = c.telefoneCliente ? c.telefoneCliente.replace(/\D/g, '') : '';
+    if (foneLimpo) {
+      window.open(`https://wa.me/55${foneLimpo}?text=${encodeURIComponent(mensagem)}`, '_blank');
+    } else {
+      alert('Link do contrato e mensagem copiados! Pode colar no WhatsApp do seu cliente.');
+    }
+  };
 
   const materiaisFiltrados = useMemo(() => {
     return materiais.filter(m => 
@@ -1438,7 +1446,7 @@ A entrega ou execução ocorrerá na data e local combinados. Em caso de cancela
     });
   }, [pedidos, filtroStatusPedido]);
 
-  // SE FOR LINK PÚBLICO DE ASSINATURA DE CONTRATO (NÃO PEDE LOGIN)
+  // CHECAGEM PRIORITÁRIA DE LINK PÚBLICO (ABRE ANTES DE PEDIR LOGIN)
   if (contratoIdPublico) {
     return <PaginaAssinaturaPublica contratoId={contratoIdPublico} themeColors={themeColors} />;
   }
@@ -2164,7 +2172,7 @@ A entrega ou execução ocorrerá na data e local combinados. Em caso de cancela
                       <Copy size={16}/>
                     </button>
                     <button
-                      onClick={() => confirmarExcluir('contrato', c.id)}
+                      onClick={() => confirmarExcluir('contratos', c.id)}
                       className="bg-red-50 hover:bg-red-100 text-red-600 p-2 rounded-xl text-xs transition"
                       title="Excluir"
                     >
@@ -2183,7 +2191,7 @@ A entrega ou execução ocorrerá na data e local combinados. Em caso de cancela
           </div>
         )}
 
-        {/* TELA DE PERFIL DA LOJA & CORES */}
+        {/* PERFIL */}
         {activeTab === 'perfil' && (
           <div className="space-y-6 pt-2 w-full">
             <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
@@ -2324,7 +2332,7 @@ A entrega ou execução ocorrerá na data e local combinados. Em caso de cancela
           </div>
         )}
 
-        {/* TELA DE AGENDA / COMPROMISSOS COM PRAZOS */}
+        {/* TAREFAS */}
         {activeTab === 'anotacoes' && (
           <div className="space-y-4 pt-2 w-full">
             <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
@@ -2392,7 +2400,7 @@ A entrega ou execução ocorrerá na data e local combinados. Em caso de cancela
           </div>
         )}
 
-        {/* TELA DE CONFIGURAÇÃO DE CUSTOS FIXOS */}
+        {/* FINANCEIRO */}
         {activeTab === 'financeiro' && (
           <div className="space-y-6 pt-2 w-full">
             <div className="flex bg-slate-100 p-1.5 rounded-2xl gap-1 w-full border flex-wrap">
@@ -2734,7 +2742,7 @@ A entrega ou execução ocorrerá na data e local combinados. Em caso de cancela
           </div>
         )}
 
-        {/* SEÇÃO DO BALCÃO DE VENDAS RÁPIDO */}
+        {/* BALCÃO */}
         {activeTab === 'balcao' && (
           <div className="space-y-4 pt-2 w-full">
             <div style={{ backgroundColor: themeColors.primary }} className="p-5 rounded-[35px] text-white shadow-md border border-purple-900 space-y-3.5 w-full">
@@ -2825,7 +2833,7 @@ A entrega ou execução ocorrerá na data e local combinados. Em caso de cancela
           </div>
         )}
 
-        {/* MEU CATÁLOGO VISUAL */}
+        {/* CATÁLOGO */}
         {activeTab === 'catalogo' && (
           <div className="space-y-4 pt-2 w-full">
             <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
@@ -2932,10 +2940,10 @@ A entrega ou execução ocorrerá na data e local combinados. Em caso de cancela
           </div>
         )}
 
-        {/* ABA DA CALCULADORA COMPOSTA */}
+        {/* ORÇAR */}
         {activeTab === 'criar' && renderCalculadoraForm()}
 
-        {/* BIBLIOTECA DE FORNECEDORES COMPLETA */}
+        {/* FORNECEDORES */}
         {activeTab === 'fornecedores' && (
           <div className="space-y-4 pt-2 w-full animate-fadeIn">
             <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
@@ -3051,7 +3059,7 @@ A entrega ou execução ocorrerá na data e local combinados. Em caso de cancela
           </div>
         )}
 
-        {/* HISTÓRICO DE ORÇAMENTOS EXPANDIDO */}
+        {/* HISTÓRICO */}
         {activeTab === 'pedidos' && (
           <div className="space-y-3 pt-2 w-full">
             <div className="flex justify-between items-center mb-1 w-full">
@@ -3117,7 +3125,7 @@ A entrega ou execução ocorrerá na data e local combinados. Em caso de cancela
           </div>
         )}
 
-        {/* GERENCIAR ARMÁRIO / INSUMOS */}
+        {/* MATERIAIS */}
         {activeTab === 'materiais' && (
           <div className="space-y-4 pt-2 w-full">
             <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
@@ -3209,7 +3217,7 @@ A entrega ou execução ocorrerá na data e local combinados. Em caso de cancela
           </div>
         )}
 
-        {/* ABA DE CLIENTES */}
+        {/* CLIENTES */}
         {activeTab === 'clientes' && (
            <div className="space-y-4 pt-2 w-full">
             <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
