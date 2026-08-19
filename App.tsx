@@ -296,7 +296,6 @@ const Login = ({ isRegistering, setIsRegistering, email, setEmail, password, set
 };
 
 export default function App() {
-  // LEITURA INSTANTÂNEA DOS PARÂMETROS DA URL
   const params = new URLSearchParams(window.location.search);
   const contratoIdDaUrl = params.get('assinar');
   const lojaIdDaUrl = params.get('loja');
@@ -452,6 +451,7 @@ A entrega ou execução ocorrerá na data e local combinados. Em caso de cancela
   };
 
   useEffect(() => {
+    // FIX 1: Se for contrato publico, encerra o carregamento imediatamente e nao escuta auth
     if (contratoIdDaUrl) {
       setLoading(false);
       return;
@@ -1104,9 +1104,9 @@ A entrega ou execução ocorrerá na data e local combinados. Em caso de cancela
     } catch (e) { alert("E-mail ou senha incorretos!"); }
   };
 
-  // FUNÇÃO DE EXCLUIR CORRIGIDA (AGORA SUPORTA "contrato" e "contratos")
+  // FIX 2: FUNÇÃO DE EXCLUIR REVISADA
   const confirmarExcluir = async (tipo: string, id: string) => {
-    if (window.confirm(`Tem certeza que deseja excluir este ${tipo}?`)) {
+    if (window.confirm(`Tem certeza que deseja excluir este item?`)) {
       try {
         let colecao = "";
         if (tipo === 'pedido') colecao = "pedidos";
@@ -1118,13 +1118,13 @@ A entrega ou execução ocorrerá na data e local combinados. Em caso de cancela
         else if (tipo === 'fornecedor') colecao = "fornecedores";
         else if (tipo === 'contrato' || tipo === 'contratos') colecao = "contratos";
 
-        if (colecao) {
+        if (colecao && id) {
           await deleteDoc(doc(db, colecao, id));
-          alert(`${tipo} excluído com sucesso!`);
+          alert("Item excluído com sucesso!");
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('Erro ao excluir:', err);
-        alert('Erro ao excluir do banco de dados.');
+        alert('Erro ao excluir do banco de dados: ' + (err.message || 'Verifique as permissões.'));
       }
     }
   };
@@ -1348,7 +1348,7 @@ A entrega ou execução ocorrerá na data e local combinados. Em caso de cancela
       const dadosSalvar = {
         ...novoContratoForm,
         userId: user.uid,
-        status: 'Pendente',
+        status: editandoContratoId ? (contratos.find(c => c.id === editandoContratoId)?.status || 'Pendente') : 'Pendente',
         atualizadoEm: new Date().toISOString()
       };
 
@@ -1985,16 +1985,25 @@ A entrega ou execução ocorrerá na data e local combinados. Em caso de cancela
         {/* ABA CONTRATOS INTEGRADA */}
         {activeTab === 'contratos' && (
           <div className="space-y-6 pt-2 w-full animate-fadeIn">
+            {/* FIX 3: INDICADOR DE EDIÇÃO E BOTÃO DE CANCELAR REESTRUTURADOS */}
             <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
+              {editandoContratoId && (
+                <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl mb-4 flex justify-between items-center animate-pulse">
+                  <span className="text-xs text-amber-800 font-bold">✏️ Editando um contrato existente</span>
+                  <button 
+                    type="button" 
+                    onClick={limparFormContrato} 
+                    className="text-[10px] bg-red-500 text-white px-3 py-1.5 rounded-xl font-black uppercase tracking-wider shadow-sm active:scale-95 transition-all"
+                  >
+                    Cancelar Edição ❌
+                  </button>
+                </div>
+              )}
+
               <div className="flex justify-between items-center mb-4">
                 <h2 style={{ color: themeColors.primary }} className="font-bold flex items-center gap-2 uppercase text-xs tracking-widest">
-                  <FileText size={18}/> {editandoContratoId ? '✏️ Editando Contrato' : 'Novo Contrato Gerável'}
+                  <FileText size={18}/> {editandoContratoId ? 'Atualizar Dados do Contrato' : 'Novo Contrato Gerável'}
                 </h2>
-                {editandoContratoId && (
-                  <button onClick={limparFormContrato} className="text-[10px] bg-slate-100 text-slate-600 px-3 py-1.5 rounded-xl font-bold uppercase transition">
-                    Cancelar Edição
-                  </button>
-                )}
               </div>
 
               <form onSubmit={handleSalvarContrato} className="space-y-4">
@@ -2122,13 +2131,24 @@ A entrega ou execução ocorrerá na data e local combinados. Em caso de cancela
                   />
                 </div>
 
-                <button 
-                  type="submit"
-                  style={{ backgroundColor: themeColors.primary }}
-                  className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md transition-all"
-                >
-                  {editandoContratoId ? 'Atualizar Contrato' : 'Salvar Contrato'}
-                </button>
+                <div className="flex gap-2">
+                  {editandoContratoId && (
+                    <button 
+                      type="button"
+                      onClick={limparFormContrato}
+                      className="w-1/3 bg-slate-100 text-slate-600 p-4 rounded-2xl font-black uppercase text-xs transition-all hover:bg-slate-200"
+                    >
+                      Cancelar
+                    </button>
+                  )}
+                  <button 
+                    type="submit"
+                    style={{ backgroundColor: themeColors.primary }}
+                    className="flex-1 hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md transition-all"
+                  >
+                    {editandoContratoId ? 'Atualizar Contrato' : 'Salvar Contrato'}
+                  </button>
+                </div>
               </form>
             </div>
 
