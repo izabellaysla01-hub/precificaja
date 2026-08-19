@@ -953,59 +953,69 @@ export default function App() {
     (window as any).html2pdf().from(elemento).set(opcoes).save();
   };
 
-   // GERADOR DE PDF DE CONTRATOS COM ASSINATURA (CORRIGIDO)
+   // GERADOR DE PDF DE CONTRATOS DIRETO (IGUAL AO ORÇAMENTO)
   const gerarPDFContrato = (c: any) => {
     const elemento = document.createElement('div');
     const dataEmissao = c.dataCriacao || new Date().toLocaleDateString('pt-BR');
-
-    const blocoAssinatura = c.status === 'Assinado' && c.assinaturaUrl 
-      ? `<img src="${c.assinaturaUrl}" style="max-height: 80px; margin: 0 auto 10px auto; display: block;"/>
-         <p style="margin: 0; font-weight: bold; color: #1e293b;">${c.nomeCliente}</p>
-         <p style="margin: 4px 0 0 0; font-size: 10px; color: #64748b;">Assinado eletronicamente em: ${c.dataAssinatura || 'Data registrada'}</p>
-         <p style="margin: 2px 0 0 0; font-size: 9px; color: #94a3b8;">Validação Digital Eletrônica - Medida Provisória nº 2.200-2/2001</p>`
-      : `<div style="height: 60px; border-bottom: 1px dashed #cbd5e1; margin-bottom: 10px;"></div>
-         <p style="margin: 0; font-weight: bold; color: #94a3b8;">Pendente de Assinatura pelo Cliente</p>`;
+    const dataEventoFormatada = c.dataEvento ? new Date(c.dataEvento + 'T00:00:00').toLocaleDateString('pt-BR') : 'A combinar';
 
     elemento.innerHTML = `
-      <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto;">
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px;">
+      <div style="padding: 30px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto; line-height: 1.4;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 15px; margin-bottom: 20px;">
           <div>
-            <h1 style="color: ${themeColors.primary}; margin: 0; font-size: 24px; font-weight: 900;">CONTRATO DE PRESTAÇÃO DE SERVIÇOS</h1>
-            <p style="color: #94a3b8; font-size: 11px; text-transform: uppercase; margin: 4px 0 0 0; font-weight: bold;">Documento Jurídico de Prestação de Serviços</p>
+            <h1 style="color: ${themeColors.primary}; margin: 0; font-size: 22px; font-weight: 900;">CONTRATO DE PRESTAÇÃO DE SERVIÇOS</h1>
+            <p style="color: #94a3b8; font-size: 10px; text-transform: uppercase; margin: 3px 0 0 0; font-weight: bold;">Documento Comercial e Termos de Acordo</p>
           </div>
-          <div style="text-align: right;">
-            <span style="font-size: 12px; font-weight: bold; color: #475569;">Emissão: ${dataEmissao}</span>
+          <div style="text-align: right; background-color: #f8fafc; padding: 8px 15px; border-radius: 12px; border: 1px solid #e2e8f0;">
+            <span style="font-size: 10px; font-weight: bold; color: ${themeColors.primary}; text-transform: uppercase; display: block;">Data de Emissão</span>
+            <span style="font-size: 12px; font-weight: bold; color: #475569; display: block;">${dataEmissao}</span>
           </div>
         </div>
 
-        <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">1. DADOS DO CONTRATANTE (CLIENTE)</div>
-        <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 20px; border: 1px solid #f1f5f9; font-size: 13px;">
-          <p style="margin: 0 0 5px 0;"><strong>Nome Completo:</strong> ${c.nomeCliente || 'Não informado'}</p>
-          <p style="margin: 0 0 5px 0;"><strong>CPF:</strong> ${c.cpfCliente || 'Não informado'}</p>
+        <div style="background-color: ${themeColors.primary}; color: white; padding: 6px 12px; border-radius: 6px; font-size: 10px; font-weight: bold; text-transform: uppercase; margin-bottom: 10px;">1. DADOS DO CONTRATANTE (CLIENTE)</div>
+        <div style="background-color: #f8fafc; padding: 12px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #f1f5f9; font-size: 12px;">
+          <p style="margin: 0 0 4px 0;"><strong>Nome Completo:</strong> ${c.nomeCliente || 'Não informado'}</p>
+          <p style="margin: 0 0 4px 0;"><strong>CPF:</strong> ${c.cpfCliente || 'Não informado'}</p>
           <p style="margin: 0;"><strong>Endereço:</strong> ${c.enderecoCliente || 'Não informado'}</p>
         </div>
 
-        <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">2. DADOS DO EVENTO E VALOR</div>
-        <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 20px; border: 1px solid #f1f5f9; font-size: 13px;">
-          <p style="margin: 0 0 5px 0;"><strong>Tipo de Evento:</strong> ${c.tipoEvento || 'Não informado'}</p>
-          <p style="margin: 0 0 5px 0;"><strong>Data do Evento:</strong> ${c.dataEvento ? new Date(c.dataEvento + 'T00:00:00').toLocaleDateString('pt-BR') : 'A combinar'}</p>
-          <p style="margin: 0 0 5px 0;"><strong>Local:</strong> ${c.localEvento || 'Não informado'}</p>
-          <p style="margin: 10px 0 0 0; font-size: 15px; color: ${themeColors.primary}; font-weight: bold;"><strong>Valor Total dos Serviços:</strong> R$ ${Number(c.valorTotal || 0).toFixed(2)}</p>
+        <div style="background-color: ${themeColors.primary}; color: white; padding: 6px 12px; border-radius: 6px; font-size: 10px; font-weight: bold; text-transform: uppercase; margin-bottom: 10px;">2. DADOS DO EVENTO E VALOR COMBINADO</div>
+        <div style="background-color: #f8fafc; padding: 12px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #f1f5f9; font-size: 12px;">
+          <p style="margin: 0 0 4px 0;"><strong>Tipo de Evento:</strong> ${c.tipoEvento || 'Não informado'}</p>
+          <p style="margin: 0 0 4px 0;"><strong>Data do Evento:</strong> ${dataEventoFormatada}</p>
+          <p style="margin: 0 0 4px 0;"><strong>Local do Evento:</strong> ${c.localEvento || 'Não informado'}</p>
+          <p style="margin: 8px 0 0 0; font-size: 14px; color: ${themeColors.primary}; font-weight: bold;"><strong>Valor Total dos Serviços:</strong> R$ ${Number(c.valorTotal || 0).toFixed(2)}</p>
         </div>
 
-        <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">3. CLÁUSULAS E TERMOS DO CONTRATO</div>
-        <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 30px; border: 1px solid #f1f5f9; font-size: 12px; line-height: 1.6; whitespace-pre-line;">
-          ${c.clausulas || 'Termos padrão aplicáveis.'}
+        <div style="background-color: ${themeColors.primary}; color: white; padding: 6px 12px; border-radius: 6px; font-size: 10px; font-weight: bold; text-transform: uppercase; margin-bottom: 10px;">3. CLÁUSULAS E TERMOS DE SERVIÇO</div>
+        <div style="background-color: #f8fafc; padding: 12px; border-radius: 12px; margin-bottom: 25px; border: 1px solid #f1f5f9; font-size: 11px; line-height: 1.5; whitespace-pre-line;">
+          ${c.clausulas || 'Termos acordados entre as partes.'}
         </div>
 
-        <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px; page-break-inside: avoid; break-inside: avoid;">4. REGISTRO DE ASSINATURA ELETRÔNICA</div>
-        <div style="background-color: #f8fafc; padding: 20px; border-radius: 16px; border: 1px solid #f1f5f9; font-size: 12px; text-align: center; page-break-inside: avoid; break-inside: avoid;">
-          ${blocoAssinatura}
+        <div style="margin-top: 40px; padding-top: 10px; page-break-inside: avoid; break-inside: avoid;">
+          <div style="display: flex; justify-content: space-around; align-items: flex-end; gap: 30px; text-align: center;">
+            <div style="flex: 1;">
+              <div style="border-bottom: 1px solid #94a3b8; margin-bottom: 6px; height: 30px;"></div>
+              <p style="margin: 0; font-size: 11px; font-weight: bold; color: #334155;">${c.nomeCliente || 'CONTRATANTE'}</p>
+              <p style="margin: 2px 0 0 0; font-size: 9px; color: #94a3b8; uppercase;">Assinatura do Cliente</p>
+            </div>
+            <div style="flex: 1;">
+              <div style="border-bottom: 1px solid #94a3b8; margin-bottom: 6px; height: 30px;"></div>
+              <p style="margin: 0; font-size: 11px; font-weight: bold; color: #334155;">${nomeLojaPerfil || 'CONTRATADO'}</p>
+              <p style="margin: 2px 0 0 0; font-size: 9px; color: #94a3b8; uppercase;">Assinatura da Empresa</p>
+            </div>
+          </div>
         </div>
       </div>
     `;
 
-    const opcoes = { margin: [10, 10, 10, 10], filename: `Contrato_${c.nomeCliente || 'Cliente'}.pdf`, html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'a4', orientation: 'portrait' }, pagebreak: { mode: ['avoid-all', 'css'] } };
+    const opcoes = { 
+      margin: [10, 10, 10, 10], 
+      filename: `Contrato_${(c.nomeCliente || 'Cliente').replace(/\s+/g, '_')}.pdf`, 
+      html2canvas: { scale: 2, useCORS: true, scrollY: 0 }, 
+      jsPDF: { format: 'a4', orientation: 'portrait' }, 
+      pagebreak: { mode: ['avoid-all', 'css'] } 
+    };
     (window as any).html2pdf().from(elemento).set(opcoes).save();
   };
 
