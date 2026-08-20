@@ -78,7 +78,7 @@ function ContratosTab({ themeColors }: { themeColors: any }) {
       setContracts(data);
     } catch (err) {
       console.error(err);
-    } fontinally {
+    } finally {
       setLoading(false);
     }
   };
