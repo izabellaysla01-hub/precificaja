@@ -150,15 +150,18 @@ export const createContractFromQuote = async ({ quote, companyProfile, template 
   }
 };
 
-export const getAllContracts = async () => {
+export const getAllContracts = async (userId: string) => {
   try {
-    const querySnapshot = await getDocs(collection(db, 'contracts'));
+    if (!userId) return [];
+    const q = query(collection(db, 'contracts'), where('userId', '==', userId));
+    const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   } catch (error) {
     console.error("Erro ao buscar contratos:", error);
-    throw error;
+    return [];
   }
 };
+
 
 export const getContractByHash = async (publicHash: string) => {
   try {
