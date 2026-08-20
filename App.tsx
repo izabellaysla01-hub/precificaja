@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+Import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { initializeApp } from "firebase/app";
 import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { getFirestore, collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc, getDocs, setDoc, getDoc } from "firebase/firestore";
@@ -1985,60 +1985,28 @@ export default function App() {
             </div>
 
             <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider ml-2 mt-4">Contratos Registrados</h3>
-<div className="grid grid-cols-1 gap-3 w-full">
-  {contratos.map(c => {
-    // Gera o link individual do contrato para o cliente
-    const linkAssinatura = `${window.location.origin}${window.location.pathname}?assinar=${c.id}`;
+            <div className="grid grid-cols-1 gap-3 w-full">
+              {contratos.map(c => (
+                <div key={c.id} className="bg-white p-5 rounded-3xl border shadow-sm flex justify-between items-center">
+                  <div>
+                    <h4 className="font-black text-slate-800 text-base">{c.nomeCliente}</h4>
+                    <p className="text-xs text-slate-400 font-semibold">{c.tipoEvento || 'Evento'} — R$ {Number(c.valorTotal || 0).toFixed(2)}</p>
+                  </div>
 
-    return (
-      <div key={c.id} className="bg-white p-5 rounded-3xl border shadow-sm flex justify-between items-center">
-        <div>
-          <h4 className="font-black text-slate-800 text-base">{c.nomeCliente}</h4>
-          <p className="text-xs text-slate-400 font-semibold">
-            {c.tipoEvento || 'Evento'} — R$ {Number(c.valorTotal || 0).toFixed(2)}
-          </p>
-          <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${c.status === 'Assinado' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-            {c.status || 'Pendente'}
-          </span>
-        </div>
+                  <div className="flex gap-1 items-center">
+                    <button onClick={() => setNovoContrato({ id: c.id, clienteId: c.clienteId || '', nomeCliente: c.nomeCliente || '', cpfCliente: c.cpfCliente || '', enderecoCliente: c.enderecoCliente || '', nomeContratado: c.nomeContratado || '', cpfCnpjContratado: c.cpfCnpjContratado || '', tipoEvento: c.tipoEvento || '', dataEvento: c.dataEvento || '', localEvento: c.localEvento || '', valorTotal: c.valorTotal || '', clausulas: c.clausulas || '' })} className="text-orange-400 p-2 hover:bg-orange-50 rounded-xl"><Edit2 size={16}/></button>
+                    <button onClick={() => gerarPDFContrato(c)} style={{ color: themeColors.secondary }} className="p-2 bg-orange-50 rounded-xl"><Printer size={16}/></button>
+                    <button onClick={() => confirmarExcluir('contrato', c.id)} className="text-red-300 hover:text-red-500 p-2 hover:bg-red-50 rounded-xl"><Trash2 size={16}/></button>
+                  </div>
+                </div>
+              ))}
 
-        <div className="flex gap-1 items-center">
-          {/* ✅ BOTÃO NOVO: Copiar Link de Assinatura */}
-          <button 
-            onClick={() => {
-              navigator.clipboard.writeText(linkAssinatura);
-              alert("Link de assinatura do contrato copiado! Envie para o cliente. 🔗✨");
-            }} 
-            title="Copiar Link para o Cliente"
-            className="p-2 bg-purple-50 text-purple-700 rounded-xl hover:bg-purple-100"
-          >
-            <Share2 size={16}/>
-          </button>
-
-          {/* Editar */}
-          <button onClick={() => setNovoContrato({ id: c.id, clienteId: c.clienteId || '', nomeCliente: c.nomeCliente || '', cpfCliente: c.cpfCliente || '', enderecoCliente: c.enderecoCliente || '', nomeContratado: c.nomeContratado || '', cpfCnpjContratado: c.cpfCnpjContratado || '', tipoEvento: c.tipoEvento || '', dataEvento: c.dataEvento || '', localEvento: c.localEvento || '', valorTotal: c.valorTotal || '', clausulas: c.clausulas || '' })} className="text-orange-400 p-2 hover:bg-orange-50 rounded-xl">
-            <Edit2 size={16}/>
-          </button>
-
-          {/* Imprimir PDF */}
-          <button onClick={() => gerarPDFContrato(c)} style={{ color: themeColors.secondary }} className="p-2 bg-orange-50 rounded-xl">
-            <Printer size={16}/>
-          </button>
-
-          {/* Excluir (Usando a coleção 'contratos' correta) */}
-          <button onClick={() => confirmarExcluir('contrato', c.id)} className="text-red-400 hover:text-red-600 p-2 hover:bg-red-50 rounded-xl">
-            <Trash2 size={16}/>
-          </button>
-        </div>
-      </div>
-    );
-  })}
-
-  {contratos.length === 0 && (
-    <p className="text-center text-xs font-bold text-slate-400 py-8 italic">Nenhum contrato gerado até o momento. 📜</p>
-  )}
-</div>
-
+              {contratos.length === 0 && (
+                <p className="text-center text-xs font-bold text-slate-400 py-8 italic">Nenhum contrato gerado até o momento. 📜</p>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* TELA DE PERFIL DA LOJA & CORES */}
         {activeTab === 'perfil' && (
