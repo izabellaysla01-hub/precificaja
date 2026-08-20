@@ -1060,23 +1060,32 @@ export default function App() {
     } catch (e) { alert("E-mail ou senha incorretos!"); }
   };
 
-    const confirmarExcluir = async (tipo: string, id: string) => {
+      const confirmarExcluir = async (tipo: string, id: string) => {
     if (window.confirm(`Tem certeza que deseja excluir este ${tipo}? Esta ação não pode ser desfeita.`)) {
-      let colecao = "";
-      if (tipo === 'pedido' || tipo === 'pedidos') colecao = "pedidos";
-      else if (tipo === 'cliente' || tipo === 'clientes') colecao = "clientes";
-      else if (tipo === 'produto' || tipo === 'produtos') colecao = "produtos";
-      else if (tipo === 'equipamento' || tipo === 'equipamentos') colecao = "equipamentos";
-      else if (tipo === 'material' || tipo === 'materiais') colecao = "materiais";
-      else if (tipo === 'anotacao' || tipo === 'anotacoes') colecao = "anotacoes";
-      else if (tipo === 'fornecedor' || tipo === 'fornecedores') colecao = "fornecedores";
-      else if (tipo === 'contrato' || tipo === 'contratos') colecao = "contratos";
+      try {
+        let colecao = "";
+        if (tipo === 'pedido' || tipo === 'pedidos') colecao = "pedidos";
+        else if (tipo === 'cliente' || tipo === 'clientes') colecao = "clientes";
+        else if (tipo === 'produto' || tipo === 'produtos') colecao = "produtos";
+        else if (tipo === 'equipamento' || tipo === 'equipamentos') colecao = "equipamentos";
+        else if (tipo === 'material' || tipo === 'materiais') colecao = "materiais";
+        else if (tipo === 'anotacao' || tipo === 'anotacoes') colecao = "anotacoes";
+        else if (tipo === 'fornecedor' || tipo === 'fornecedores') colecao = "fornecedores";
+        else if (tipo === 'contrato' || tipo === 'contratos') colecao = "contratos";
 
-      if (colecao) {
-        await deleteDoc(doc(db, colecao, id));
+        if (colecao && id) {
+          await deleteDoc(doc(db, colecao, id));
+          alert("Contrato excluído com sucesso! 🗑️");
+        } else {
+          alert("Erro: ID ou Coleção não identificados.");
+        }
+      } catch (error: any) {
+        console.error("Erro ao excluir documento:", error);
+        alert("O Firebase recusou a exclusão: " + (error.message || error));
       }
     }
   };
+
 
 
   const confirmarVendaPedido = async (pedido: any) => {
