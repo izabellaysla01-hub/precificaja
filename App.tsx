@@ -438,7 +438,7 @@ export default function App() {
     await updateDoc(doc(db, "anotacoes", id), { concluido: !valorAtual });
   };
 
-  // --- GERADOR DE PDF DE CONTRATO (AJUSTADO COM VISIBILIDADE E DIMENSÕES PARA EVITAR PÁGINA EM BRANCO) ---
+  // --- GERADOR DE PDF DE CONTRATO (COM RETARDAMENTO PARA PROCESSAMENTO RÁPIDO EM MOBILE) ---
   const gerarPDFContrato = (contrato: any) => {
     const cli = clientes.find(c => c.id === contrato.clienteId);
     const dataEmissao = contrato.dataEmissao || new Date().toLocaleDateString('pt-BR');
@@ -452,7 +452,7 @@ export default function App() {
       const titulo = linhas[0] || '';
       const corpo = linhas.slice(1).join('<br>') || '';
       return `
-        <div style="margin-bottom: 10px;">
+        <div style="margin-bottom: 12px; page-break-inside: avoid;">
           <div style="font-weight: bold; font-size: 11px; color: #581c87; text-transform: uppercase;">${titulo}</div>
           <div style="font-size: 11px; color: #4a5568; margin-top: 2px; line-height: 1.4;">${corpo || titulo}</div>
         </div>
@@ -460,58 +460,51 @@ export default function App() {
     }).join('');
 
     const elemento = document.createElement('div');
-    
-    // Configurações do container para não sair em branco e garantir leitura total pelo html2canvas
-    elemento.style.position = "absolute";
-    elemento.style.left = "-9999px";
-    elemento.style.top = "0";
+    elemento.id = "area-impressao-contrato";
     elemento.style.width = "750px";
-    elemento.style.padding = "30px";
+    elemento.style.padding = "35px";
     elemento.style.backgroundColor = "#ffffff";
     elemento.style.color = "#2d3748";
-    elemento.style.fontFamily = "Arial, sans-serif";
+    elemento.style.fontFamily = "sans-serif";
+    elemento.style.position = "fixed";
+    elemento.style.top = "-9999px";
+    elemento.style.left = "-9999px";
 
     elemento.innerHTML = `
       <div style="width: 100%; box-sizing: border-box;">
         
         <!-- CABEÇALHO DO CONTRATO -->
-        <table style="width: 100%; margin-bottom: 20px; border-collapse: collapse;">
-          <tr>
-            <td style="text-align: left; vertical-align: top;">
-              <h1 style="color: #581c87; margin: 0; font-size: 22px; font-weight: 900;">CONTRATO DE PRESTAÇÃO DE SERVIÇOS</h1>
-              <p style="color: #94a3b8; font-size: 10px; font-weight: bold; text-transform: uppercase; margin: 4px 0 0 0;">DOCUMENTO COMERCIAL E TERMOS DE ACORDO</p>
-            </td>
-            <td style="text-align: right; vertical-align: top; width: 180px;">
-              <div style="background-color: #f8fafc; padding: 8px 12px; border-radius: 8px; border: 1px solid #e2e8f0; text-align: center;">
-                <span style="font-size: 8px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">DATA DE EMISSÃO</span>
-                <span style="font-size: 12px; font-weight: bold; color: #581c87; display: block; margin-top: 2px;">${dataEmissao}</span>
-              </div>
-            </td>
-          </tr>
-        </table>
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; border-bottom: 2px solid #f1f5f9; padding-bottom: 15px;">
+          <div>
+            <h1 style="color: #581c87; margin: 0; font-size: 22px; font-weight: 900;">CONTRATO DE PRESTAÇÃO DE SERVIÇOS</h1>
+            <p style="color: #94a3b8; font-size: 10px; font-weight: bold; text-transform: uppercase; margin: 4px 0 0 0;">DOCUMENTO COMERCIAL E TERMOS DE ACORDO</p>
+          </div>
+          <div style="background-color: #f8fafc; padding: 8px 14px; border-radius: 8px; border: 1px solid #e2e8f0; text-align: right;">
+            <span style="font-size: 8px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">DATA DE EMISSÃO</span>
+            <span style="font-size: 12px; font-weight: bold; color: #581c87; display: block; margin-top: 2px;">${dataEmissao}</span>
+          </div>
+        </div>
 
         <!-- BLOCOS DE DADOS DAS PARTES -->
-        <table style="width: 100%; border-collapse: separate; border-spacing: 10px; margin-bottom: 15px; margin-left: -10px;">
-          <tr>
-            <td style="width: 50%; vertical-align: top; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; padding: 0; background-color: #fafafa;">
-              <div style="background-color: #581c87; color: #ffffff; padding: 8px 10px; font-size: 9px; font-weight: bold; text-transform: uppercase;">1. DADOS DO CONTRATANTE (CLIENTE)</div>
-              <div style="padding: 12px; font-size: 11px; line-height: 1.5;">
-                <div><strong>Nome:</strong> ${cli?.nome || 'Não informado'}</div>
-                <div><strong>CPF/CNPJ:</strong> ${cli?.cpfCnpj || 'Não informado'}</div>
-                <div><strong>Endereço:</strong> ${cli?.endereco || 'Não informado'}</div>
-              </div>
-            </td>
+        <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+          <div style="flex: 1; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; background-color: #fafafa;">
+            <div style="background-color: #581c87; color: #ffffff; padding: 8px 10px; font-size: 9px; font-weight: bold; text-transform: uppercase;">1. DADOS DO CONTRATANTE (CLIENTE)</div>
+            <div style="padding: 12px; font-size: 11px; line-height: 1.5;">
+              <div><strong>Nome:</strong> ${cli?.nome || 'Não informado'}</div>
+              <div><strong>CPF/CNPJ:</strong> ${cli?.cpfCnpj || 'Não informado'}</div>
+              <div><strong>Endereço:</strong> ${cli?.endereco || 'Não informado'}</div>
+            </div>
+          </div>
 
-            <td style="width: 50%; vertical-align: top; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; padding: 0; background-color: #fafafa;">
-              <div style="background-color: #581c87; color: #ffffff; padding: 8px 10px; font-size: 9px; font-weight: bold; text-transform: uppercase;">2. DADOS DO CONTRATADO (EMPRESA)</div>
-              <div style="padding: 12px; font-size: 11px; line-height: 1.5;">
-                <div><strong>Empresa/Nome:</strong> ${nomeEmpresaExibir}</div>
-                <div><strong>CPF/CNPJ:</strong> ${cpfCnpjEmpresaExibir}</div>
-                ${enderecoPerfil ? `<div><strong>Endereço:</strong> ${enderecoPerfil}</div>` : ''}
-              </div>
-            </td>
-          </tr>
-        </table>
+          <div style="flex: 1; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; background-color: #fafafa;">
+            <div style="background-color: #581c87; color: #ffffff; padding: 8px 10px; font-size: 9px; font-weight: bold; text-transform: uppercase;">2. DADOS DO CONTRATADO (EMPRESA)</div>
+            <div style="padding: 12px; font-size: 11px; line-height: 1.5;">
+              <div><strong>Empresa/Nome:</strong> ${nomeEmpresaExibir}</div>
+              <div><strong>CPF/CNPJ:</strong> ${cpfCnpjEmpresaExibir}</div>
+              ${enderecoPerfil ? `<div><strong>Endereço:</strong> ${enderecoPerfil}</div>` : ''}
+            </div>
+          </div>
+        </div>
 
         <!-- BLOCO EVENTO E VALOR COMBINADO -->
         <div style="border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; margin-bottom: 15px; background-color: #fafafa;">
@@ -534,45 +527,44 @@ export default function App() {
         </div>
 
         <!-- ASSINATURAS -->
-        <table style="width: 100%; margin-top: 40px; page-break-inside: avoid;">
-          <tr>
-            <td style="width: 45%; text-align: center; vertical-align: bottom;">
-              <div style="border-top: 1px solid #cbd5e1; margin-bottom: 6px;"></div>
-              <div style="font-size: 11px; font-weight: bold; color: #1e293b;">${cli?.nome || 'Cliente'}</div>
-              <div style="font-size: 8px; font-weight: bold; color: #94a3b8; text-transform: uppercase;">ASSINATURA DO CLIENTE</div>
-            </td>
-            <td style="width: 10%;"></td>
-            <td style="width: 45%; text-align: center; vertical-align: bottom;">
-              <div style="border-top: 1px solid #cbd5e1; margin-bottom: 6px;"></div>
-              <div style="font-size: 11px; font-weight: bold; color: #1e293b;">${nomeEmpresaExibir}</div>
-              <div style="font-size: 8px; font-weight: bold; color: #94a3b8; text-transform: uppercase;">ASSINATURA DA EMPRESA (CONTRATADO)</div>
-            </td>
-          </tr>
-        </table>
+        <div style="display: flex; justify-content: space-between; gap: 40px; margin-top: 40px; page-break-inside: avoid;">
+          <div style="flex: 1; text-align: center;">
+            <div style="border-top: 1px solid #cbd5e1; margin-bottom: 6px;"></div>
+            <div style="font-size: 11px; font-weight: bold; color: #1e293b;">${cli?.nome || 'Cliente'}</div>
+            <div style="font-size: 8px; font-weight: bold; color: #94a3b8; text-transform: uppercase;">ASSINATURA DO CLIENTE</div>
+          </div>
+          <div style="flex: 1; text-align: center;">
+            <div style="border-top: 1px solid #cbd5e1; margin-bottom: 6px;"></div>
+            <div style="font-size: 11px; font-weight: bold; color: #1e293b;">${nomeEmpresaExibir}</div>
+            <div style="font-size: 8px; font-weight: bold; color: #94a3b8; text-transform: uppercase;">ASSINATURA DA EMPRESA (CONTRATADO)</div>
+          </div>
+        </div>
 
       </div>
     `;
 
     document.body.appendChild(elemento);
 
-    const opcoes = { 
-      margin: 8, 
-      filename: `Contrato_${(cli?.nome || 'Cliente').replace(/\s+/g, '_')}.pdf`, 
-      html2canvas: { scale: 2, useCORS: true, logging: false }, 
-      jsPDF: { format: 'a4', orientation: 'portrait' } 
-    };
+    setTimeout(() => {
+      const opcoes = { 
+        margin: 8, 
+        filename: `Contrato_${(cli?.nome || 'Cliente').replace(/\s+/g, '_')}.pdf`, 
+        html2canvas: { scale: 2, useCORS: true, logging: false }, 
+        jsPDF: { format: 'a4', orientation: 'portrait' } 
+      };
 
-    if ((window as any).html2pdf) { 
-      (window as any).html2pdf().from(elemento).set(opcoes).save().then(() => {
+      if ((window as any).html2pdf) { 
+        (window as any).html2pdf().from(elemento).set(opcoes).save().then(() => {
+          if (document.body.contains(elemento)) {
+            document.body.removeChild(elemento);
+          }
+        }); 
+      } else {
         if (document.body.contains(elemento)) {
           document.body.removeChild(elemento);
         }
-      }); 
-    } else {
-      if (document.body.contains(elemento)) {
-        document.body.removeChild(elemento);
       }
-    }
+    }, 200);
   };
 
   const enviarContratoWhatsapp = (contrato: any) => {
@@ -1039,7 +1031,7 @@ export default function App() {
     } catch (e) { alert("E-mail ou senha incorretos!"); }
   };
 
-  // --- CONFIRMAÇÃO DE EXCLUSÃO UNIVERSAL COM RETORNO DIRETO PARA CONTRATOS ---
+  // --- CONFIRMAÇÃO DE EXCLUSÃO CORRIGIDA PARA CONTRATOS ---
   const confirmarExcluir = async (tipo: string, id: string) => {
     if (!id) return;
     if (window.confirm(`Tem certeza de que deseja excluir este ${tipo}?`)) {
@@ -2745,7 +2737,7 @@ export default function App() {
                   {categoriasForn.map(cat => {
                     const marcado = novoFornecedor.categorias?.includes(cat.nome) || false;
                     return (
-                      <button key={cat.id} type="button" onClick={() => toggleCategoriaNoFornecedor(cat.nome)} style={{ backgroundColor: marcado ? themeColors.primary : undefined, borderColor: marcado ? themeColors.primary : undefined }} className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${marcado ? 'text-white shadow-md' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-purple-300'}`}>
+                      <button key={cat.id} type="button" onClick={() => toggleCategoriaNoFornecedor(cat.nome)} style={{ backgroundColor: marcado ? themeColors.primary : undefined, borderColor: marcado ? themeColors.primary : undefined }} className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${marcado ? 'text-white shadow-sm' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-purple-300'}`}>
                         {cat.nome}
                       </button>
                     );
