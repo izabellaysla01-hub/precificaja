@@ -1060,21 +1060,24 @@ export default function App() {
     } catch (e) { alert("E-mail ou senha incorretos!"); }
   };
 
-  const confirmarExcluir = async (tipo: string, id: string) => {
+    const confirmarExcluir = async (tipo: string, id: string) => {
     if (window.confirm(`Tem certeza que deseja excluir este ${tipo}? Esta ação não pode ser desfeita.`)) {
       let colecao = "";
-      if (tipo === 'pedido') colecao = "pedidos";
-      else if (tipo === 'cliente') colecao = "clientes";
-      else if (tipo === 'produto') colecao = "produtos";
-      else if (tipo === 'equipamento') colecao = "equipamentos";
-      else if (tipo === 'material') colecao = "materiais";
-      else if (tipo === 'anotacao') colecao = "anotacoes";
-      else if (tipo === 'fornecedor') colecao = "fornecedores";
-      else if (tipo === 'contrato') colecao = "contratos";
+      if (tipo === 'pedido' || tipo === 'pedidos') colecao = "pedidos";
+      else if (tipo === 'cliente' || tipo === 'clientes') colecao = "clientes";
+      else if (tipo === 'produto' || tipo === 'produtos') colecao = "produtos";
+      else if (tipo === 'equipamento' || tipo === 'equipamentos') colecao = "equipamentos";
+      else if (tipo === 'material' || tipo === 'materiais') colecao = "materiais";
+      else if (tipo === 'anotacao' || tipo === 'anotacoes') colecao = "anotacoes";
+      else if (tipo === 'fornecedor' || tipo === 'fornecedores') colecao = "fornecedores";
+      else if (tipo === 'contrato' || tipo === 'contratos') colecao = "contratos";
 
-      await deleteDoc(doc(db, colecao, id));
+      if (colecao) {
+        await deleteDoc(doc(db, colecao, id));
+      }
     }
   };
+
 
   const confirmarVendaPedido = async (pedido: any) => {
     if (pedido.materiaisUsados && pedido.materiaisUsados.length > 0) {
