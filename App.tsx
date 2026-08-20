@@ -1702,9 +1702,10 @@ export default function App() {
         )}
 
         {/* RENDERIZAÇÃO DA ABA DE CONTRATOS */}
-        {activeTab === 'contratos' && (
-          <ContratosTab themeColors={themeColors} />
-        )}
+       {activeTab === 'contratos' && (
+  <ContratosTab themeColors={themeColors} user={user} />
+)}
+
 
         {/* TELA DE PERFIL DA LOJA & CORES */}
         {activeTab === 'perfil' && (
