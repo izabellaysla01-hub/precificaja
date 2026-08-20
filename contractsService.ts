@@ -1,6 +1,6 @@
 import { 
   db 
-} from './main'; // ou o arquivo onde você inicializou o firebase/db
+} from './app'; // ou o arquivo onde você inicializou o firebase/db
 import { 
   doc, 
   setDoc, 
