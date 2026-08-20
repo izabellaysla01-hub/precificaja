@@ -1,9 +1,16 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { initializeApp } from "firebase/app";
 import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { getFirestore, collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc, getDocs, setDoc, getDoc } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2, Menu, Search, Settings, CheckSquare, Square, Filter, MapPin, Globe, Palette, TrendingUp, ChevronDown, ChevronUp, FileText } from 'lucide-react';
+
+// Importação das funções do serviço de contratos
+import { 
+  getAllContracts, 
+  createContractFromQuote, 
+  getContractTemplates 
+} from './contractsService';
 
 const firebaseConfig = {
   apiKey: "AIzaSyD0BWsNm9DbGGDqiHzkdDmNdxIGdJ9tWe8",
@@ -55,6 +62,95 @@ const PRESET_PALETTES = [
   }
 ];
 
+// --- COMPONENTE DA ABA CONTRATOS ---
+function ContratosTab({ themeColors }: { themeColors: any }) {
+  const [contracts, setContracts] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    loadContracts();
+  }, []);
+
+  const loadContracts = async () => {
+    try {
+      setLoading(true);
+      const data = await getAllContracts();
+      setContracts(data);
+    } catch (err) {
+      console.error(err);
+    } fontinally {
+      setLoading(false);
+    }
+  };
+
+  const copyShareLink = (publicHash: string) => {
+    const link = `${window.location.origin}/assinar/${publicHash}`;
+    navigator.clipboard.writeText(link);
+    alert('Link do contrato copiado! Envie para o seu cliente no WhatsApp.');
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'signed':
+        return <span className="bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full text-[10px] font-black uppercase">🟢 Assinado</span>;
+      case 'pending_signature':
+        return <span className="bg-amber-100 text-amber-800 px-3 py-1 rounded-full text-[10px] font-black uppercase">🟡 Aguardando Assinatura</span>;
+      default:
+        return <span className="bg-slate-100 text-slate-700 px-3 py-1 rounded-full text-[10px] font-black uppercase">📝 Rascunho</span>;
+    }
+  };
+
+  return (
+    <div className="space-y-4 pt-2 w-full animate-fadeIn">
+      <div className="bg-white p-6 rounded-[35px] shadow-md border w-full flex justify-between items-center">
+        <div>
+          <h2 style={{ color: themeColors.primary }} className="font-bold uppercase text-xs tracking-widest flex items-center gap-2">
+            <FileText size={18}/> Gerenciador de Contratos
+          </h2>
+          <p className="text-slate-400 text-[11px] mt-1">Acompanhe seus contratos e envie links de assinatura aos clientes.</p>
+        </div>
+      </div>
+
+      {loading ? (
+        <p className="text-center font-bold text-xs text-slate-400 py-8">Carregando contratos...</p>
+      ) : contracts.length === 0 ? (
+        <div className="text-center p-8 bg-white rounded-[30px] border shadow-sm">
+          <p className="font-bold text-slate-500 text-sm">Nenhum contrato gerado ainda.</p>
+          <small className="text-slate-400 text-xs">Os contratos gerados através dos seus orçamentos aparecerão aqui!</small>
+        </div>
+      ) : (
+        <div className="space-y-3 w-full">
+          {contracts.map((contract) => (
+            <div key={contract.id} className="bg-white p-5 rounded-[30px] border shadow-sm space-y-3 w-full">
+              <div className="flex justify-between items-center">
+                <strong className="text-slate-800 font-bold text-sm">{contract.client?.name || 'Cliente Sem Nome'}</strong>
+                {getStatusBadge(contract.status)}
+              </div>
+              
+              <p className="text-xs text-slate-500 font-medium">
+                Serviço: <span className="text-slate-700 font-bold">{contract.details?.serviceDescription || 'Não especificado'}</span>
+              </p>
+              
+              <p className="text-xs text-slate-700 font-black">
+                Valor Total: R$ {Number(contract.details?.totalAmount || 0).toFixed(2)}
+              </p>
+
+              <div className="border-t pt-3 flex justify-end">
+                <button 
+                  onClick={() => copyShareLink(contract.publicHash)}
+                  className="bg-emerald-500 hover:bg-emerald-600 text-white font-black px-4 py-2 rounded-2xl text-xs uppercase flex items-center gap-2 shadow active:scale-95 transition-all"
+                >
+                  <Share2 size={14} /> Copiar Link para WhatsApp
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // --- TELA DE LOGIN ---
 const Login = ({ isRegistering, setIsRegistering, email, setEmail, password, setPassword, handleAuth }: any) => {
   const recuperarSenha = async () => {
@@ -92,19 +188,11 @@ export default function App() {
   const [nomeComprador, setNomeComprador] = useState('');
   const [zapDaLojaPublica, setZapDaLojaPublica] = useState('');
 
-  // ESTADOS PARA ROTA PÚBLICA DE ASSINATURA DE CONTRATO
-  const [idContratoPublico, setIdContratoPublico] = useState<string | null>(null);
-  const [contratoPublico, setContratoPublico] = useState<any>(null);
-  const [carregandoContrato, setCarregandoContrato] = useState(false);
-  const [assinaturaDataUrl, setAssinaturaDataUrl] = useState<string>('');
-  const [assinadoSucesso, setAssinadoSucesso] = useState(false);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [isDrawing, setIsDrawing] = useState(false);
-
   // Estados para Filtro na Vitrine Pública do Cliente
   const [filtroVitrineSelecionado, setFiltroVitrineSelecionado] = useState('Todos');
   const [isMenuFiltroVitrineOpen, setIsMenuFiltroVitrineOpen] = useState(false);
 
+  // INCLUSÃO DA ABA 'CONTRATOS' NO TIPO DO ESTADO
   const [activeTab, useStateActiveTab] = useState<'inicio' | 'materiais' | 'criar' | 'pedidos' | 'clientes' | 'catalogo' | 'balcao' | 'financeiro' | 'perfil' | 'anotacoes' | 'fornecedores' | 'contratos'>('inicio');
   
   // Sub-aba interna para a seção financeira
@@ -121,7 +209,6 @@ export default function App() {
   const [produtos, setProdutos] = useState<any[]>([]);
   const [equipamentos, setEquipamentos] = useState<any[]>([]);
   const [anotacoes, setAnotacoes] = useState<any[]>([]);
-  const [contratos, setContratos] = useState<any[]>([]);
   
   // Estados para Categorias Dinâmicas e Fornecedores
   const [categoriasProd, setCategoriasProd] = useState<any[]>([]);
@@ -158,25 +245,7 @@ export default function App() {
   const [precoManual, setPrecoManual] = useState<string | null>(null);
   const [docObsPedido, setDocObsPedido] = useState('');
 
-  // ESTADOS DO FORMULÁRIO DE CONTRATO (INCLUI DADOS DO CONTRATADO)
-  const [novoContrato, setNovoContrato] = useState({
-    id: '',
-    clienteId: '',
-    nomeCliente: '',
-    cpfCliente: '',
-    enderecoCliente: '',
-    nomeContratado: '',
-    cpfCnpjContratado: '',
-    tipoEvento: '',
-    dataEvento: '',
-    localEvento: '',
-    valorTotal: '',
-    clausulas: `1. DO OBJETO: O presente contrato tem por objeto a prestação de serviços/produtos descritos na proposta comercial.
-2. DO PAGAMENTO: O pagamento deverá ser efetuado conforme acordado entre as partes.
-3. DO CANCELAMENTO: Em caso de desistência por parte do contratante com menos de 15 dias de antecedência, o valor de sinal não será devolvido.
-4. DOS DANOS: A contratante responsabiliza-se por eventuais danos causados aos materiais durante o evento.`
-  });
-
+  // Estado para armazenar o valor alterado pelo usuário na calculadora
   const [precoFinalDigitado, setPrecoFinalDigitado] = useState<string>('0.00');
 
   const [email, setEmail] = useState('');
@@ -187,10 +256,12 @@ export default function App() {
   const [novoCli, setNovoCli] = useState({ id: '', nome: '', zap: '', email: '', endereco: '' });
   const [novaAnotacao, setNovaAnotacao] = useState({ id: '', titulo: '', conteudo: '', dataPrazo: new Date().toISOString().split('T')[0] });
   
+  // Estados de Cadastro Atualizados com Categorias
   const [novoProdCatalogo, setNovoProdCatalogo] = useState<{id: string, nome: string, precoVenda: string, urlImagem: string, categorias: string[]}>({ id: '', nome: '', precoVenda: '', urlImagem: '', categorias: [] });
   const [inputNovaCategoriaProd, setInputNovaCategoriaProd] = useState('');
   const [mostrarInputNovaCatProd, setMostrarInputNovaCatProd] = useState(false);
 
+  // Estados de Cadastro para Fornecedores
   const [novoFornecedor, setNovoFornecedor] = useState<{id: string, nome: string, site: string, whatsapp: string, endereco: string, categorias: string[]}>({ id: '', nome: '', site: '', whatsapp: '', endereco: '', categorias: [] });
   const [inputNovaCategoriaForn, setInputNovaCategoriaForn] = useState('');
   const [mostrarInputNovaCatForn, setMostrarInputNovaCatForn] = useState(false);
@@ -202,6 +273,7 @@ export default function App() {
   const [logoLojaPerfil, setLogoLojaPerfil] = useState('');
   const [subindoLogo, setSubindoLogo] = useState(false);
 
+  // --- ESTADO DE TEMA E CORES ---
   const [themeColors, setThemeColors] = useState({
     primary: '#7c3aed',
     primaryHover: '#6d28d9',
@@ -212,6 +284,7 @@ export default function App() {
   const [financasFixo, setFinancasFixo] = useState({ salario: '0', aluguel: '0', internet: '0', luz: '0', outros: '0', diasTrabalho: '20', horasDia: '8' });
   const [novoEquipamento, setNovoEquipamento] = useState({ id: '', nome: '', valorPago: '', durabilidadeAnos: '2' });
 
+  // --- ESTADOS PARA A CALCULADORA DE IMPRESSÃO ---
   const [precoTinta, setPrecoTinta] = useState('62');
   const [unidadeTinta, setUnidadeTinta] = useState('Garrafinha');
   const [qtdCores, setQtdCores] = useState('4');
@@ -227,6 +300,7 @@ export default function App() {
     setIsMenuOpen(false);
   };
 
+  // Cálculo Dinâmico do valor de impressão por folha
   const custoPorPaginaCalculado = useMemo(() => {
     const preco = Number(precoTinta) || 0;
     const cores = Number(qtdCores) || 0;
@@ -241,19 +315,6 @@ export default function App() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const lojaId = params.get('loja');
-    const contratoId = params.get('assinar');
-
-    if (contratoId) {
-      setIdContratoPublico(contratoId);
-      setCarregandoContrato(true);
-      getDoc(doc(db, "contratos", contratoId)).then(docSnap => {
-        if (docSnap.exists()) {
-          setContratoPublico({ id: docSnap.id, ...docSnap.data() });
-        }
-        setCarregandoContrato(false);
-      }).catch(() => setCarregandoContrato(false));
-    }
-
     if (lojaId) {
       setIdLojaPublica(lojaId);
       setCarregandoPublico(true);
@@ -297,7 +358,6 @@ export default function App() {
         setProdutos([]);
         setEquipamentos([]);
         setAnotacoes([]);
-        setContratos([]);
       }
       setLoading(false);
     }); 
@@ -312,7 +372,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (user && !idLojaPublica && !idContratoPublico) {
+    if (user && !idLojaPublica) {
       const qMaterials = query(collection(db, "materiais"), where("userId", "==", user.uid));
       const unsubMaterials = onSnapshot(qMaterials, s => setMaterials(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
@@ -327,9 +387,6 @@ export default function App() {
 
       const qAnotacoes = query(collection(db, "anotacoes"), where("userId", "==", user.uid));
       const unsubAnotacoes = onSnapshot(qAnotacoes, s => setAnotacoes(s.docs.map(d => ({ id: d.id, ...d.data() }))));
-
-      const qContratos = query(collection(db, "contratos"), where("userId", "==", user.uid));
-      const unsubContratos = onSnapshot(qContratos, s => setContratos(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
       const qCatsProd = query(collection(db, "categorias_produtos"), where("userId", "==", user.uid));
       const unsubCatsProd = onSnapshot(qCatsProd, s => {
@@ -397,76 +454,9 @@ export default function App() {
         unsubCatsProd();
         unsubCatsForn();
         unsubFornecedores();
-        unsubContratos();
       };
     }
-  }, [user, idLojaPublica, idContratoPublico]);
-
-  // FUNÇÕES DE DESENHO NO CANVAS DE ASSINATURA
-  const startDrawing = (e: any) => {
-    setIsDrawing(true);
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    const rect = canvas.getBoundingClientRect();
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    ctx.beginPath();
-    ctx.moveTo(clientX - rect.left, clientY - rect.top);
-  };
-
-  const draw = (e: any) => {
-    if (!isDrawing) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    const rect = canvas.getBoundingClientRect();
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    ctx.lineTo(clientX - rect.left, clientY - rect.top);
-    ctx.stroke();
-  };
-
-  const stopDrawing = () => {
-    if (!isDrawing) return;
-    setIsDrawing(false);
-    const canvas = canvasRef.current;
-    if (canvas) {
-      setAssinaturaDataUrl(canvas.toDataURL());
-    }
-  };
-
-  const limparCanvasAssinatura = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      setAssinaturaDataUrl('');
-    }
-  };
-
-  const confirmarAssinaturaCliente = async () => {
-    if (!assinaturaDataUrl) return alert("Por favor, desenhe sua assinatura no campo antes de confirmar!");
-    try {
-      const dataHoraAtual = new Date().toLocaleString('pt-BR');
-      const dispositivo = navigator.userAgent;
-
-      await updateDoc(doc(db, "contratos", idContratoPublico!), {
-        status: 'Assinado',
-        dataAssinatura: dataHoraAtual,
-        assinaturaUrl: assinaturaDataUrl,
-        dispositivoAssinatura: dispositivo,
-        ipAssinatura: 'Registrado via Web (Navegador)'
-      });
-      setAssinadoSucesso(true);
-    } catch {
-      alert("Erro ao salvar assinatura. Tente novamente.");
-    }
-  };
-
+  }, [user, idLojaPublica]);
 
   const linkDoCatalogoDestaCliente = useMemo(() => {
     if (!user) return '';
@@ -525,7 +515,7 @@ export default function App() {
 
     elemento.innerHTML = `
       <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto;">
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px;">
+        <div style="display: flex; justify-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px;">
           <div>
             <h1 style="color: ${themeColors.primary}; margin: 0; font-size: 32px; font-weight: 900;">Comprovante de Pedido 🚀</h1>
             <p style="color: #94a3b8; font-size: 11px; text-transform: uppercase; margin: 4px 0 0 0; font-weight: bold;">Catálogo de Vendas Online</p>
@@ -564,7 +554,7 @@ export default function App() {
         </div>
 
         <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px; page-break-inside: avoid; break-inside: avoid;">Forma de Pagamento</div>
-        <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; border: 1px solid #f1f5f9; font-size: 13px; display: flex; justify-content: space-between; margin-bottom: 15px; page-break-inside: avoid; break-inside: avoid;">
+        <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; border: 1px solid #f1f5f9; font-size: 13px; display: flex; justify-between; margin-bottom: 15px; page-break-inside: avoid; break-inside: avoid;">
           <div><strong>Forma de pagamento:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">PIX / CARTÃO</div></div>
           <div><strong>Condições de pagamento:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">A combinar direto no WhatsApp</div></div>
         </div>
@@ -663,6 +653,7 @@ export default function App() {
     }
   };
 
+  // --- DASHBOARD METRICS ---
   const dashboardMetrics = useMemo(() => {
     const agora = new Date();
     const mesAtual = agora.getMonth() + 1;
@@ -693,6 +684,7 @@ export default function App() {
     };
   }, [pedidos, materiais, clientes]);
 
+  // --- HISTÓRICO FINANCEIRO MENSAL AGRUPADO ---
   const historicoFinanceiroMensal = useMemo(() => {
     const agrupado: { [key: string]: { total: number; qtd: number; mesAnoTexto: string; itensVendidos: any[] } } = {};
     const nomesMeses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
@@ -726,6 +718,7 @@ export default function App() {
       }));
   }, [pedidos]);
 
+  // Filtro Dinâmico do Histórico por Mês/Ano selecionado
   const historicoFiltradoPorData = useMemo(() => {
     if (mesFiltroHistorico === 'Todos' && anoFiltroHistorico === 'Todos') {
       return historicoFinanceiroMensal;
@@ -887,9 +880,8 @@ export default function App() {
     const elemento = document.createElement('div');
     elemento.innerHTML = `
       <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto;">
-        
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px; gap: 20px;">
-          <div style="flex-shrink: 0; display: flex; items-center;">
+          <div style="flex-shrink: 0; display: flex; align-items: center;">
             ${cabecalhoLogoHtml}
           </div>
           <div style="text-align: right; flex-grow: 1;">
@@ -938,7 +930,7 @@ export default function App() {
         </div>
 
         <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px; page-break-inside: avoid; break-inside: avoid;">Formas de Pagamento Aceitas</div>
-        <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; border: 1px solid #f1f5f9; font-size: 13px; display: flex; justify-content: space-between; margin-bottom: 15px; page-break-inside: avoid; break-inside: avoid;">
+        <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; border: 1px solid #f1f5f9; font-size: 13px; display: flex; justify-between; margin-bottom: 15px; page-break-inside: avoid; break-inside: avoid;">
           <div><strong>Meios disponíveis:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">PIX / CARTÃO DE CRÉDITO</div></div>
           <div><strong>Condições comerciais:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">A combinar direto no WhatsApp da Loja</div></div>
         </div>
@@ -960,99 +952,6 @@ export default function App() {
     (window as any).html2pdf().from(elemento).set(opcoes).save();
   };
 
-  // GERADOR DE PDF DE CONTRATOS DIRETO (INCLUI CONTRATADO, CONTRATANTE E ASSINATURA DIGITAL)
-  const gerarPDFContrato = (c: any) => {
-    const elemento = document.createElement('div');
-    const dataEmissao = c.dataCriacao || new Date().toLocaleDateString('pt-BR');
-    const dataEventoFormatada = c.dataEvento ? new Date(c.dataEvento + 'T00:00:00').toLocaleDateString('pt-BR') : 'A combinar';
-    const contratadoNome = c.nomeContratado || nomeLojaPerfil || 'CONTRATADO';
-
-    const blocoAssinaturaClienteHtml = c.assinaturaUrl 
-      ? `<img src="${c.assinaturaUrl}" style="max-height: 50px; margin: 0 auto 4px auto; display: block;" />`
-      : `<div style="border-bottom: 1px solid #94a3b8; margin-bottom: 6px; height: 30px;"></div>`;
-
-    elemento.innerHTML = `
-      <div style="padding: 30px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto; line-height: 1.4;">
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 15px; margin-bottom: 20px;">
-          <div>
-            <h1 style="color: ${themeColors.primary}; margin: 0; font-size: 22px; font-weight: 900;">CONTRATO DE PRESTAÇÃO DE SERVIÇOS</h1>
-            <p style="color: #94a3b8; font-size: 10px; text-transform: uppercase; margin: 3px 0 0 0; font-weight: bold;">Documento Comercial e Termos de Acordo</p>
-          </div>
-          <div style="text-align: right; background-color: #f8fafc; padding: 8px 15px; border-radius: 12px; border: 1px solid #e2e8f0;">
-            <span style="font-size: 10px; font-weight: bold; color: ${themeColors.primary}; text-transform: uppercase; display: block;">Data de Emissão</span>
-            <span style="font-size: 12px; font-weight: bold; color: #475569; display: block;">${dataEmissao}</span>
-          </div>
-        </div>
-
-        <div style="display: flex; gap: 15px; margin-bottom: 15px;">
-          <div style="flex: 1; background-color: #f8fafc; padding: 12px; border-radius: 12px; border: 1px solid #f1f5f9; font-size: 12px;">
-            <div style="background-color: ${themeColors.primary}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 9px; font-weight: bold; text-transform: uppercase; margin-bottom: 8px;">1. DADOS DO CONTRATANTE (CLIENTE)</div>
-            <p style="margin: 0 0 4px 0;"><strong>Nome:</strong> ${c.nomeCliente || 'Não informado'}</p>
-            <p style="margin: 0 0 4px 0;"><strong>CPF:</strong> ${c.cpfCliente || 'Não informado'}</p>
-            <p style="margin: 0;"><strong>Endereço:</strong> ${c.enderecoCliente || 'Não informado'}</p>
-          </div>
-
-          <div style="flex: 1; background-color: #f8fafc; padding: 12px; border-radius: 12px; border: 1px solid #f1f5f9; font-size: 12px;">
-            <div style="background-color: ${themeColors.primary}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 9px; font-weight: bold; text-transform: uppercase; margin-bottom: 8px;">2. DADOS DO CONTRATADO (EMPRESA)</div>
-            <p style="margin: 0 0 4px 0;"><strong>Empresa/Nome:</strong> ${contratadoNome}</p>
-            <p style="margin: 0;"><strong>CPF/CNPJ:</strong> ${c.cpfCnpjContratado || 'Não informado'}</p>
-          </div>
-        </div>
-
-        <div style="background-color: ${themeColors.primary}; color: white; padding: 6px 12px; border-radius: 6px; font-size: 10px; font-weight: bold; text-transform: uppercase; margin-bottom: 10px;">3. DADOS DO EVENTO E VALOR COMBINADO</div>
-        <div style="background-color: #f8fafc; padding: 12px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #f1f5f9; font-size: 12px;">
-          <p style="margin: 0 0 4px 0;"><strong>Tipo de Evento:</strong> ${c.tipoEvento || 'Não informado'}</p>
-          <p style="margin: 0 0 4px 0;"><strong>Data do Evento:</strong> ${dataEventoFormatada}</p>
-          <p style="margin: 0 0 4px 0;"><strong>Local do Evento:</strong> ${c.localEvento || 'Não informado'}</p>
-          <p style="margin: 8px 0 0 0; font-size: 14px; color: ${themeColors.primary}; font-weight: bold;"><strong>Valor Total dos Serviços:</strong> R$ ${Number(c.valorTotal || 0).toFixed(2)}</p>
-        </div>
-
-        <div style="background-color: ${themeColors.primary}; color: white; padding: 6px 12px; border-radius: 6px; font-size: 10px; font-weight: bold; text-transform: uppercase; margin-bottom: 10px;">4. CLÁUSULAS E TERMOS DE SERVIÇO</div>
-        <div style="background-color: #f8fafc; padding: 12px; border-radius: 12px; margin-bottom: 25px; border: 1px solid #f1f5f9; font-size: 11px; line-height: 1.5; white-space: pre-line;">
-          ${c.clausulas || 'Termos acordados entre as partes.'}
-        </div>
-
-        <div style="margin-top: 30px; padding-top: 10px; page-break-inside: avoid; break-inside: avoid;">
-          <div style="display: flex; justify-content: space-around; align-items: flex-end; gap: 30px; text-align: center;">
-            <div style="flex: 1;">
-              ${blocoAssinaturaClienteHtml}
-              <div style="border-top: 1px solid #94a3b8; padding-top: 4px;">
-                <p style="margin: 0; font-size: 11px; font-weight: bold; color: #334155;">${c.nomeCliente || 'CONTRATANTE'}</p>
-                <p style="margin: 2px 0 0 0; font-size: 9px; color: #94a3b8; text-transform: uppercase;">Assinatura do Cliente</p>
-              </div>
-            </div>
-
-            <div style="flex: 1;">
-              <div style="border-bottom: 1px solid #94a3b8; margin-bottom: 6px; height: 30px;"></div>
-              <div style="border-top: 1px solid #94a3b8; padding-top: 4px;">
-                <p style="margin: 0; font-size: 11px; font-weight: bold; color: #334155;">${contratadoNome}</p>
-                <p style="margin: 2px 0 0 0; font-size: 9px; color: #94a3b8; text-transform: uppercase;">Assinatura da Empresa (Contratado)</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        ${c.status === 'Assinado' ? `
-          <div style="margin-top: 20px; background-color: #f0fdf4; border: 1px solid #bbf7d0; padding: 10px 15px; border-radius: 10px; font-size: 9px; color: #166534; page-break-inside: avoid; break-inside: avoid;">
-            <strong>🔒 REGISTRO DE VALIDAÇÃO DIGITAL</strong><br />
-            • <strong>Data/Hora da Assinatura:</strong> ${c.dataAssinatura || 'Não informada'}<br />
-            • <strong>Status do Documento:</strong> Assinado Eletronicamente via Web
-          </div>
-        ` : ''}
-
-      </div>
-    `;
-
-    const opcoes = { 
-      margin: [10, 10, 10, 10], 
-      filename: `Contrato_${(c.nomeCliente || 'Cliente').replace(/\s+/g, '_')}.pdf`, 
-      html2canvas: { scale: 2, useCORS: true, scrollY: 0 }, 
-      jsPDF: { format: 'a4', orientation: 'portrait' }, 
-      pagebreak: { mode: ['avoid-all', 'css'] } 
-    };
-    (window as any).html2pdf().from(elemento).set(opcoes).save();
-  };
-
   const handleAuth = async () => {
     try {
       if (isRegistering) await createUserWithEmailAndPassword(auth, email, password);
@@ -1060,33 +959,20 @@ export default function App() {
     } catch (e) { alert("E-mail ou senha incorretos!"); }
   };
 
-      const confirmarExcluir = async (tipo: string, id: string) => {
-    if (window.confirm(`Tem certeza que deseja excluir este ${tipo}? Esta ação não pode ser desfeita.`)) {
-      try {
-        let colecao = "";
-        if (tipo === 'pedido' || tipo === 'pedidos') colecao = "pedidos";
-        else if (tipo === 'cliente' || tipo === 'clientes') colecao = "clientes";
-        else if (tipo === 'produto' || tipo === 'produtos') colecao = "produtos";
-        else if (tipo === 'equipamento' || tipo === 'equipamentos') colecao = "equipamentos";
-        else if (tipo === 'material' || tipo === 'materiais') colecao = "materiais";
-        else if (tipo === 'anotacao' || tipo === 'anotacoes') colecao = "anotacoes";
-        else if (tipo === 'fornecedor' || tipo === 'fornecedores') colecao = "fornecedores";
-        else if (tipo === 'contrato' || tipo === 'contratos') colecao = "contratos";
+  const confirmarExcluir = async (tipo: string, id: string) => {
+    if (window.confirm(`Excluir ${tipo}?`)) {
+      let colecao = "";
+      if (tipo === 'pedido') colecao = "pedidos";
+      else if (tipo === 'cliente') colecao = "clientes";
+      else if (tipo === 'produto') colecao = "produtos";
+      else if (tipo === 'equipamento') colecao = "equipamentos";
+      else if (tipo === 'material') colecao = "materiais";
+      else if (tipo === 'anotacao') colecao = "anotacoes";
+      else if (tipo === 'fornecedor') colecao = "fornecedores";
 
-        if (colecao && id) {
-          await deleteDoc(doc(db, colecao, id));
-          alert("Contrato excluído com sucesso! 🗑️");
-        } else {
-          alert("Erro: ID ou Coleção não identificados.");
-        }
-      } catch (error: any) {
-        console.error("Erro ao excluir documento:", error);
-        alert("O Firebase recusou a exclusão: " + (error.message || error));
-      }
+      await deleteDoc(doc(db, colecao, id));
     }
   };
-
-
 
   const confirmarVendaPedido = async (pedido: any) => {
     if (pedido.materiaisUsados && pedido.materiaisUsados.length > 0) {
@@ -1281,76 +1167,7 @@ export default function App() {
 
   if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando o PrecificaJá... 🚀</div>;
 
-  // --- ROTA PÚBLICA DE ASSINATURA DE CONTRATO DO CLIENTE ---
-  if (idContratoPublico) {
-    if (carregandoContrato) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando Contrato... 📜</div>;
-    if (!contratoPublico) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-red-500">Contrato não encontrado ou expirado! ❌</div>;
-
-    return (
-      <div className="min-h-screen bg-slate-50 p-4 font-sans text-slate-700 max-w-xl mx-auto">
-        <div className="bg-white p-6 rounded-[35px] shadow-xl border space-y-6">
-          <div className="text-center border-b pb-4">
-            <h1 className="text-xl font-black text-purple-700">Contrato de Prestação de Serviços 📜</h1>
-            <p className="text-xs text-slate-400 font-bold uppercase mt-1">Assinatura Digital Simples e Segura</p>
-          </div>
-
-          {assinadoSucesso || contratoPublico.status === 'Assinado' ? (
-            <div className="bg-emerald-50 border border-emerald-200 p-6 rounded-3xl text-center space-y-3">
-              <CheckCircle size={48} className="text-emerald-500 mx-auto" />
-              <h2 className="text-lg font-black text-emerald-800">Contrato Assinado com Sucesso! 🎉</h2>
-              <p className="text-xs text-emerald-600 font-semibold">Obrigado! O registro digital foi salvo e enviado para o prestador de serviços.</p>
-            </div>
-          ) : (
-            <>
-              <div className="bg-slate-50 p-4 rounded-2xl border text-xs space-y-2">
-                <p><strong>Contratante:</strong> {contratoPublico.nomeCliente}</p>
-                <p><strong>CPF:</strong> {contratoPublico.cpfCliente || 'Não informado'}</p>
-                <p><strong>Contratado:</strong> {contratoPublico.nomeContratado || nomeLojaPerfil || 'Não informado'}</p>
-                <p><strong>Evento:</strong> {contratoPublico.tipoEvento} ({contratoPublico.dataEvento})</p>
-                <p><strong>Valor dos Serviços:</strong> R$ {Number(contratoPublico.valorTotal).toFixed(2)}</p>
-              </div>
-
-              <div>
-                <h3 className="font-bold text-xs uppercase text-slate-400 mb-2">Cláusulas Contratuais</h3>
-                <div className="bg-slate-50 p-4 rounded-2xl border text-xs font-mono text-slate-600 whitespace-pre-line max-h-56 overflow-y-auto leading-relaxed">
-                  {contratoPublico.clausulas}
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Desenhe sua Assinatura com o Dedo no Quadro Abaixo:</label>
-                <div className="border-2 border-dashed border-purple-300 rounded-2xl bg-white overflow-hidden touch-none relative">
-                  <canvas 
-                    ref={canvasRef} 
-                    width={320} 
-                    height={150} 
-                    className="w-full h-36 cursor-crosshair"
-                    onMouseDown={startDrawing}
-                    onMouseMove={draw}
-                    onMouseUp={stopDrawing}
-                    onTouchStart={startDrawing}
-                    onTouchMove={draw}
-                    onTouchEnd={stopDrawing}
-                  />
-                  <button onClick={limparCanvasAssinatura} className="absolute top-2 right-2 text-[10px] bg-slate-100 px-2 py-1 rounded-lg font-bold text-slate-500 hover:bg-slate-200">Limpar 🔄</button>
-                </div>
-              </div>
-
-              <button 
-                onClick={confirmarAssinaturaCliente}
-                className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-black py-4 rounded-2xl shadow-lg uppercase text-xs tracking-wider transition-all"
-              >
-                Confirmar e Assinar Contrato ✍️
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // ✅ CORREÇÃO AQUI: Permite acesso direto quando houver ID de contrato ou de loja
-  if (!user && !idLojaPublica && !idContratoPublico) {
+  if (!user && !idLojaPublica) {
     return (
       <Login 
         isRegistering={isRegistering} setIsRegistering={setIsRegistering}
@@ -1460,6 +1277,7 @@ export default function App() {
         )}
       </div>
 
+      {/* SELETOR DE MODO DE CÁLCULO */}
       <div className="mb-5 w-full">
         <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-2">
           Modo de Cálculo
@@ -1660,6 +1478,7 @@ export default function App() {
         </div>
       )}
 
+      {/* RODAPÉ DO ORÇAMENTO COM PREÇO FINAL EDITÁVEL E BOTÃO ÚNICO */}
       <div className="flex flex-col items-center border-t pt-6 gap-4 w-full">
         <div className="flex justify-between items-center w-full px-2">
           <div className="text-left">
@@ -1694,7 +1513,7 @@ export default function App() {
              
              const dadosPedido = { 
                nomeProd, 
-               detalhamentoPed,
+               detalhamentoPed, 
                preco: precoFinalSalvar, 
                clienteId: clienteSel, 
                prazo, 
@@ -1746,8 +1565,10 @@ export default function App() {
             <nav className="flex flex-col gap-1">
               <button onClick={() => setActiveTab('inicio')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'inicio' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'inicio' ? themeColors.primary : undefined }}><Home size={16}/> Início</button>
               <button onClick={() => setActiveTab('criar')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'criar' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'criar' ? themeColors.primary : undefined }}><Plus size={16}/> Orçar</button>
-              <button onClick={() => setActiveTab('contratos')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'contratos' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'contratos' ? themeColors.primary : undefined }}><FileText size={16}/> Contratos</button>
               
+              {/* NOVO BOTÃO DA ABA CONTRATOS NO MENU */}
+              <button onClick={() => setActiveTab('contratos')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'contratos' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'contratos' ? themeColors.primary : undefined }}><FileText size={16}/> Contratos 📄</button>
+
               <button onClick={() => setActiveTab('perfil')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'perfil' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'perfil' ? themeColors.primary : undefined }}><Settings size={16}/> Perfil e Cores da Loja</button>
               <button onClick={() => setActiveTab('anotacoes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'anotacoes' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'anotacoes' ? themeColors.primary : undefined }}><Calendar size={16}/> Agenda / Tarefas </button>
 
@@ -1880,144 +1701,9 @@ export default function App() {
           </div>
         )}
 
-        {/* ABA DE CONTRATOS */}
+        {/* RENDERIZAÇÃO DA ABA DE CONTRATOS */}
         {activeTab === 'contratos' && (
-          <div className="space-y-4 pt-2 w-full animate-fadeIn">
-            <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
-              <h2 style={{ color: themeColors.primary }} className="font-bold mb-4 flex items-center gap-2 uppercase text-xs tracking-widest"><FileText size={20}/> {novoContrato.id ? 'Editando Contrato' : 'Gerar Novo Contrato'}</h2>
-              
-              <div className="mb-3 w-full">
-                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Selecionar Cliente</label>
-                <select 
-                  className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm block border border-transparent focus:border-purple-400"
-                  value={novoContrato.clienteId}
-                  onChange={e => {
-                    const c = clientes.find(item => item.id === e.target.value);
-                    if (c) {
-                      setNovoContrato({
-                        ...novoContrato,
-                        clienteId: c.id,
-                        nomeCliente: c.nome || '',
-                        cpfCliente: c.cpf || '',
-                        enderecoCliente: c.endereco || ''
-                      });
-                    } else {
-                      setNovoContrato({ ...novoContrato, clienteId: e.target.value });
-                    }
-                  }}
-                >
-                  <option value="">👤 Escolher Cliente Cadastrado...</option>
-                  {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-                </select>
-              </div>
-
-              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome Completo do Cliente (Contratante)</label>
-              <input placeholder="Ex: Maria Oliveira" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none font-bold text-sm" value={novoContrato.nomeCliente} onChange={e => setNovoContrato({...novoContrato, nomeCliente: e.target.value})} />
-
-              <div className="grid grid-cols-2 gap-3 mb-3">
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">CPF do Cliente</label>
-                  <input placeholder="000.000.000-00" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-xs" value={novoContrato.cpfCliente} onChange={e => setNovoContrato({...novoContrato, cpfCliente: e.target.value})} />
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Valor do Serviço (R$)</label>
-                  <input type="number" placeholder="0.00" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-xs" value={novoContrato.valorTotal} onChange={e => setNovoContrato({...novoContrato, valorTotal: e.target.value})} />
-                </div>
-              </div>
-
-              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Endereço Residencial do Cliente</label>
-              <input placeholder="Ex: Rua A, 123 - Bairro" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none text-xs font-semibold" value={novoContrato.enderecoCliente} onChange={e => setNovoContrato({...novoContrato, enderecoCliente: e.target.value})} />
-
-              {/* DADOS DO CONTRATADO */}
-              <div className="grid grid-cols-2 gap-3 mb-3 border-t pt-3">
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Sua Empresa / Contratado</label>
-                  <input 
-                    placeholder={nomeLojaPerfil || "Nome / Razão Social"} 
-                    className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-xs" 
-                    value={novoContrato.nomeContratado} 
-                    onChange={e => setNovoContrato({...novoContrato, nomeContratado: e.target.value})} 
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Seu CPF / CNPJ</label>
-                  <input 
-                    placeholder="00.000.000/0001-00" 
-                    className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-xs" 
-                    value={novoContrato.cpfCnpjContratado} 
-                    onChange={e => setNovoContrato({...novoContrato, cpfCnpjContratado: e.target.value})} 
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 mb-3">
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Tipo de Evento</label>
-                  <input placeholder="Ex: Aniversário Infantil" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-semibold text-xs" value={novoContrato.tipoEvento} onChange={e => setNovoContrato({...novoContrato, tipoEvento: e.target.value})} />
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Data do Evento</label>
-                  <input type="date" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-semibold text-xs block" value={novoContrato.dataEvento} onChange={e => setNovoContrato({...novoContrato, dataEvento: e.target.value})} />
-                </div>
-              </div>
-
-              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Local / Endereço do Evento</label>
-              <input placeholder="Ex: Salão Festas e Cia" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none text-xs font-semibold" value={novoContrato.localEvento} onChange={e => setNovoContrato({...novoContrato, localEvento: e.target.value})} />
-
-              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Cláusulas do Contrato (Texto Editável)</label>
-              <textarea className="w-full p-4 bg-slate-50 rounded-2xl mb-5 outline-none font-mono text-xs leading-relaxed border resize-none h-36" value={novoContrato.clausulas} onChange={e => setNovoContrato({...novoContrato, clausulas: e.target.value})} />
-
-              <button 
-                style={{ backgroundColor: themeColors.primary }}
-                onClick={async () => {
-                  if (!novoContrato.nomeCliente) return alert("Preencha o nome do cliente!");
-                  const dados = {
-                    ...novoContrato,
-                    userId: user.uid,
-                    dataCriacao: new Date().toLocaleDateString('pt-BR')
-                  };
-
-                  if (novoContrato.id) {
-                    await updateDoc(doc(db, "contratos", novoContrato.id), dados);
-                  } else {
-                    await addDoc(collection(db, "contratos"), dados);
-                  }
-
-                  gerarPDFContrato(dados);
-
-                  setNovoContrato({
-                    id: '', clienteId: '', nomeCliente: '', cpfCliente: '', enderecoCliente: '', nomeContratado: '', cpfCnpjContratado: '', tipoEvento: '', dataEvento: '', localEvento: '', valorTotal: '', clausulas: `1. DO OBJETO: O presente contrato tem por objeto a prestação de serviços/produtos descritos na proposta comercial.\n2. DO PAGAMENTO: O pagamento deverá ser efetuado conforme acordado entre as partes.\n3. DO CANCELAMENTO: Em caso de desistência por parte do contratante com menos de 15 dias de antecedência, o valor de sinal não será devolvido.`
-                  });
-                  alert("Contrato salvo e PDF gerado! 📜🚀");
-                }}
-                className="w-full text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md hover:opacity-90 transition-all"
-              >
-                {novoContrato.id ? 'Salvar e Gerar PDF' : 'Salvar e Gerar PDF do Contrato'}
-              </button>
-            </div>
-
-            <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider ml-2 mt-4">Contratos Registrados</h3>
-            <div className="grid grid-cols-1 gap-3 w-full">
-              {contratos.map(c => (
-                <div key={c.id} className="bg-white p-5 rounded-3xl border shadow-sm flex justify-between items-center">
-                  <div>
-                    <h4 className="font-black text-slate-800 text-base">{c.nomeCliente}</h4>
-                    <p className="text-xs text-slate-400 font-semibold">{c.tipoEvento || 'Evento'} — R$ {Number(c.valorTotal || 0).toFixed(2)}</p>
-                  </div>
-
-                  <div className="flex gap-1 items-center">
-                    <button onClick={() => setNovoContrato({ id: c.id, clienteId: c.clienteId || '', nomeCliente: c.nomeCliente || '', cpfCliente: c.cpfCliente || '', enderecoCliente: c.enderecoCliente || '', nomeContratado: c.nomeContratado || '', cpfCnpjContratado: c.cpfCnpjContratado || '', tipoEvento: c.tipoEvento || '', dataEvento: c.dataEvento || '', localEvento: c.localEvento || '', valorTotal: c.valorTotal || '', clausulas: c.clausulas || '' })} className="text-orange-400 p-2 hover:bg-orange-50 rounded-xl"><Edit2 size={16}/></button>
-                    <button onClick={() => gerarPDFContrato(c)} style={{ color: themeColors.secondary }} className="p-2 bg-orange-50 rounded-xl"><Printer size={16}/></button>
-                    <button onClick={() => confirmarExcluir('contrato', c.id)} className="text-red-300 hover:text-red-500 p-2 hover:bg-red-50 rounded-xl"><Trash2 size={16}/></button>
-                  </div>
-                </div>
-              ))}
-
-              {contratos.length === 0 && (
-                <p className="text-center text-xs font-bold text-slate-400 py-8 italic">Nenhum contrato gerado até o momento. 📜</p>
-              )}
-            </div>
-          </div>
+          <ContratosTab themeColors={themeColors} />
         )}
 
         {/* TELA DE PERFIL DA LOJA & CORES */}
@@ -2059,7 +1745,7 @@ export default function App() {
                 <h3 style={{ color: themeColors.primary }} className="font-bold flex items-center gap-2 uppercase text-xs tracking-widest mb-1">
                   <Palette size={18}/> Paleta de Cores do App
                 </h3>
-                <p className="text-slate-400 text-[11px] mb-4">Escolha um tema pronto ou monte a sua combinação livremente (ex: Rosa e Verde):</p>
+                <p className="text-slate-400 text-[11px] mb-4">Escolha um tema pronto ou monte a sua combinação livremente:</p>
 
                 <div className="grid grid-cols-2 gap-2 mb-4">
                   {PRESET_PALETTES.map(preset => (
@@ -2085,7 +1771,7 @@ export default function App() {
 
                 <div className="grid grid-cols-2 gap-3 bg-slate-50 p-4 rounded-2xl border">
                   <div>
-                    <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Cor Primária (ex: Rosa)</label>
+                    <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Cor Primária</label>
                     <div className="flex items-center gap-2 bg-white p-2 rounded-xl border">
                       <input 
                         type="color" 
@@ -2112,7 +1798,7 @@ export default function App() {
                   </div>
 
                   <div>
-                    <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Cor Secundária (ex: Verde)</label>
+                    <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Cor Secundária</label>
                     <div className="flex items-center gap-2 bg-white p-2 rounded-xl border">
                       <input 
                         type="color" 
@@ -2161,12 +1847,12 @@ export default function App() {
           </div>
         )}
 
-        {/* TELA DE AGENDA / COMPROMISSOS COM PRAZOS */}
+        {/* TELA DE AGENDA */}
         {activeTab === 'anotacoes' && (
           <div className="space-y-4 pt-2 w-full">
             <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
               <h2 style={{ color: themeColors.primary }} className="font-bold mb-4 flex items-center gap-2"><Calendar size={20}/> Criar Nova Tarefa / Lembrete</h2>
-              <p className="text-slate-400 text-[11px] mb-4">Gerencie as pendências e compras do seu negócio por data. O que você colocar aqui alimenta o painel da sua Tela Inicial.</p>
+              <p className="text-slate-400 text-[11px] mb-4">Gerencie as pendências e compras do seu negócio por data.</p>
               
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">O que precisa fazer?</label>
               <input placeholder="Ex: Comprar papel fotográfico A4 / Entregar caneca do cliente" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-bold text-sm" value={novaAnotacao.titulo} onChange={e => setNovaAnotacao({...novaAnotacao, titulo: e.target.value})} />
@@ -2229,7 +1915,7 @@ export default function App() {
           </div>
         )}
 
-        {/* TELA DE CONFIGURAÇÃO DE CUSTOS FIXOS + CALCULADORA DE IMPRESSÃO + HISTÓRICO FINANCEIRO */}
+        {/* TELA DE FINANCEIRO */}
         {activeTab === 'financeiro' && (
           <div className="space-y-6 pt-2 w-full">
             <div className="flex bg-slate-100 p-1.5 rounded-2xl gap-1 w-full border flex-wrap">
@@ -2242,7 +1928,7 @@ export default function App() {
             {subAbaFinanceiro === 'geral' && (
               <div className="bg-white p-6 rounded-[35px] shadow-md border w-full animate-fadeIn">
                 <h2 style={{ color: themeColors.primary }} className="font-bold mb-2 flex items-center gap-2 uppercase text-xs tracking-widest"><Calculator size={18}/> Estrutura de Custos Fixos (Opcional)</h2>
-                <p className="text-slate-400 text-[11px] mb-4">Insira ou edite seus valores aqui. Eles ficam salvos e você pode alterá-los quando quiser.</p>
+                <p className="text-slate-400 text-[11px] mb-4">Insira ou edite seus valores aqui.</p>
 
                 <label style={{ color: themeColors.primary }} className="text-[10px] font-bold outline-none uppercase ml-1">Salário Mensal Pretendido</label>
                 <input type="number" style={{ color: themeColors.primary }} className="w-full p-4 bg-slate-50 rounded-2xl mb-3 font-bold outline-none" value={financasFixo.salario} onChange={e => setFinancasFixo({...financasFixo, salario: e.target.value})} />
@@ -2292,7 +1978,7 @@ export default function App() {
                   const intentCustos = Number(financasFixo.salario || 0) + Number(financasFixo.aluguel || 0) + Number(financasFixo.internet || 0) + Number(financasFixo.luz || 0) + Number(financasFixo.outros || 0);
                   if (intentCustos > 0) setVHora((intentCustos / totalHoras).toFixed(2));
                   
-                  alert("Custos salvos com sucesso! O valor sugerido para a hora foi atualizado na calculadora. 🎉");
+                  alert("Custos salvos com sucesso! 🎉");
                 }} className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md">
                   Salvar Configurações Fixas
                 </button>
@@ -2303,7 +1989,7 @@ export default function App() {
               <div className="bg-white p-6 rounded-[35px] shadow-md border w-full animate-fadeIn space-y-4">
                 <div>
                   <h2 style={{ color: themeColors.primary }} className="font-bold flex items-center gap-2 uppercase text-xs tracking-widest"><Printer size={18}/> Calculadora de Impressão</h2>
-                  <p className="text-slate-400 text-[11px] mt-1">Configure o gasto real por página para aplicar automaticamente em seus novos orçamentos.</p>
+                  <p className="text-slate-400 text-[11px] mt-1">Configure o gasto por página.</p>
                 </div>
 
                 <div className="form-group flex flex-col">
@@ -2323,13 +2009,11 @@ export default function App() {
                 <div className="form-group flex flex-col">
                   <label className="text-[11px] font-bold text-slate-500 mb-1">Quantidade de cores</label>
                   <input type="number" className="w-full p-3.5 bg-slate-50 rounded-2xl outline-none text-sm font-bold border focus:border-purple-500" value={qtdCores} onChange={e => setQtdCores(e.target.value)} />
-                  <span className="text-[10px] text-slate-400 mt-1">Exemplo: 4 cores (preto, ciano, magenta, amarelo)</span>
                 </div>
 
                 <div className="form-group flex flex-col">
                   <label className="text-[11px] font-bold text-slate-500 mb-1">Páginas por conjunto completo</label>
                   <input type="number" className="w-full p-3.5 bg-slate-50 rounded-2xl outline-none text-sm font-bold border focus:border-purple-500" value={paginasConjunto} onChange={e => setPaginasConjunto(e.target.value)} />
-                  <span className="text-[10px] text-slate-400 mt-1">Quantas páginas consegue imprimir com todas as cores cheias</span>
                 </div>
 
                 <div className="bg-purple-50 rounded-2xl p-4 flex justify-between items-center border border-purple-100">
@@ -2350,26 +2034,6 @@ export default function App() {
                   <p className="text-[10px] text-purple-500 font-medium">Por página impressa</p>
                 </div>
 
-                <h3 className="text-xs font-black text-slate-700 tracking-wider">Exemplos de quantidade:</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-slate-50 border border-slate-100 p-3 rounded-xl">
-                    <div className="text-xs font-bold text-slate-800">10 páginas</div>
-                    <div style={{ color: themeColors.primary }} className="text-xs font-semibold mt-0.5">{formatarMoedaLocal(custoPorPaginaCalculado * 10)}</div>
-                  </div>
-                  <div className="bg-slate-50 border border-slate-100 p-3 rounded-xl">
-                    <div className="text-xs font-bold text-slate-800">50 páginas</div>
-                    <div style={{ color: themeColors.primary }} className="text-xs font-semibold mt-0.5">{formatarMoedaLocal(custoPorPaginaCalculado * 50)}</div>
-                  </div>
-                  <div className="bg-slate-50 border border-slate-100 p-3 rounded-xl">
-                    <div className="text-xs font-bold text-slate-800">100 páginas</div>
-                    <div style={{ color: themeColors.primary }} className="text-xs font-semibold mt-0.5">{formatarMoedaLocal(custoPorPaginaCalculado * 100)}</div>
-                  </div>
-                  <div className="bg-slate-50 border border-slate-100 p-3 rounded-xl">
-                    <div className="text-xs font-bold text-slate-800">500 páginas</div>
-                    <div style={{ color: themeColors.primary }} className="text-xs font-semibold mt-0.5">{formatarMoedaLocal(custoPorPaginaCalculado * 500)}</div>
-                  </div>
-                </div>
-
                 <button 
                   style={{ backgroundColor: themeColors.secondary }}
                   onClick={async () => {
@@ -2383,7 +2047,7 @@ export default function App() {
                     }, { merge: true });
                     
                     setCustos(prev => ({ ...prev, impressao: custoPorPaginaCalculado.toFixed(2) }));
-                    alert("Subcategoria de Impressão gravada! Taxa vinculada com sucesso à calculadora de orçamento. 🚀");
+                    alert("Custo de impressão salvo! 🚀");
                   } catch {
                     alert("Erro ao salvar dados de impressão.");
                   }
@@ -2396,8 +2060,7 @@ export default function App() {
             {subAbaFinanceiro === 'equipamentos' && (
               <div className="space-y-6 animate-fadeIn w-full">
                 <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
-                  <h2 style={{ color: themeColors.primary }} className="font-bold mb-2 flex items-center gap-2 uppercase text-xs tracking-widest"><Package size={18}/> Minhas Ferramentas de Trabalho (Depreciação)</h2>
-                  <p className="text-slate-400 text-[11px] mb-4">Adicione ferramentas (secador, prensa) para incluir o desgaste financeiro automaticamente no resumo de custos.</p>
+                  <h2 style={{ color: themeColors.primary }} className="font-bold mb-2 flex items-center gap-2 uppercase text-xs tracking-widest"><Package size={18}/> Minhas Ferramentas de Trabalho</h2>
 
                   <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome do Equipamento</label>
                   <input placeholder="Ex: Secador Profissional" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none" value={novoEquipamento.nome} onChange={e => setNovoEquipamento({...novoEquipamento, nome: e.target.value})} />
@@ -2432,7 +2095,6 @@ export default function App() {
                   </button>
                 </div>
 
-                <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider ml-2">Equipamentos Cadastrados</h3>
                 <div className="space-y-2 w-full">
                   {equipamentos.map(eq => {
                     const meses = Number(eq.durabilidadeAnos || 2) * 12;
@@ -2442,7 +2104,7 @@ export default function App() {
                       <div key={eq.id} className="bg-white p-4 rounded-3xl flex justify-between items-center border shadow-sm w-full">
                         <div>
                           <p className="font-bold text-slate-800">{eq.nome}</p>
-                          <p className="text-xs text-slate-400 mt-1">Desgaste: <span style={{ color: themeColors.primary }} className="font-bold">R$ {isNaN(descHora) ? "0.00" : descHora.toFixed(2)} por hora de uso</span></p>
+                          <p className="text-xs text-slate-400 mt-1">Desgaste: <span style={{ color: themeColors.primary }} className="font-bold">R$ {isNaN(descHora) ? "0.00" : descHora.toFixed(2)} / hora</span></p>
                         </div>
                         <button onClick={() => confirmarExcluir('equipamento', eq.id)} className="text-red-200 p-2"><Trash2 size={16}/></button>
                       </div>
@@ -2457,7 +2119,6 @@ export default function App() {
                 <div className="flex justify-between items-center">
                   <div>
                     <h2 style={{ color: themeColors.primary }} className="font-bold flex items-center gap-2 uppercase text-xs tracking-widest"><DollarSign size={18}/> Histórico Financeiro Mensal</h2>
-                    <p className="text-slate-400 text-[11px] mt-0.5">Consulte as vendas fechadas de qualquer época do ano:</p>
                   </div>
                   <div className="p-2 bg-purple-50 rounded-2xl" style={{ color: themeColors.primary }}>
                     <TrendingUp size={20} />
@@ -2517,7 +2178,7 @@ export default function App() {
                               {item.mesAnoTexto}
                             </p>
                             <p className="text-[11px] text-slate-400 font-semibold mt-0.5">
-                              {item.qtd} {item.qtd === 1 ? 'venda concluída' : 'vendas concluídas'} • Clique para ver itens 🔍
+                              {item.qtd} {item.qtd === 1 ? 'venda concluída' : 'vendas concluídas'}
                             </p>
                           </div>
                           
@@ -2534,8 +2195,7 @@ export default function App() {
 
                         {isExpanded && (
                           <div className="bg-white p-4 border-t border-slate-200 space-y-2.5 animate-fadeIn">
-                            <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Relação de Peças / Combos Vendidos:</p>
-                            
+                            <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Relação de Peças Vendidas:</p>
                             <div className="space-y-2">
                               {item.itensVendidos.map((p: any, idx: number) => {
                                 const cli = clientes.find(c => c.id === p.clienteId);
@@ -2556,24 +2216,16 @@ export default function App() {
                             </div>
                           </div>
                         )}
-
                       </div>
                     );
                   })}
-
-                  {historicoFiltradoPorData.length === 0 && (
-                    <p className="text-center text-xs font-bold text-slate-400 py-8 italic">
-                      Nenhuma venda finalizada encontrada para este filtro de data. 🎉
-                    </p>
-                  )}
                 </div>
               </div>
             )}
-
           </div>
         )}
 
-        {/* SEÇÃO DO BALCÃO DE VENDAS RÁPIDO */}
+        {/* BALCÃO DE VENDAS */}
         {activeTab === 'balcao' && (
           <div className="space-y-4 pt-2 w-full">
             <div style={{ backgroundColor: themeColors.primary }} className="p-5 rounded-[35px] text-white shadow-md border border-purple-900 space-y-3.5 w-full">
@@ -2607,7 +2259,6 @@ export default function App() {
                 <h2 style={{ color: themeColors.secondary }} className="font-black flex items-center gap-2 uppercase text-xs tracking-wider">
                   <ShoppingCart size={16}/> Lançar Combo Rápido do Catálogo
                 </h2>
-                <p className="text-[11px] text-slate-400 mt-1">Dê um nome ao Kit, escolha o cliente, defina o prazo e as quantidades.</p>
               </div>
 
               <div className="w-full">
@@ -2664,7 +2315,7 @@ export default function App() {
           </div>
         )}
 
-        {/* MEU CATÁLOGO VISUAL */}
+        {/* CATÁLOGO VISUAL */}
         {activeTab === 'catalogo' && (
           <div className="space-y-4 pt-2 w-full">
             <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
@@ -2702,7 +2353,7 @@ export default function App() {
               <input type="number" placeholder="Ex: 35.00" style={{ color: themeColors.primary }} className="w-full p-4 bg-slate-50 rounded-2xl mb-4 outline-none font-bold border focus:border-purple-400" value={novoProdCatalogo.precoVenda} onChange={e => setNovoProdCatalogo({...novoProdCatalogo, precoVenda: e.target.value})} />
 
               <div className="mb-5 w-full">
-                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Categorias do Produto (Selecione Múltiplas)</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Categorias do Produto</label>
                 <div className="flex flex-wrap gap-2 mb-2">
                   {categoriasProd.map(cat => {
                     const marcado = novoProdCatalogo.categorias?.includes(cat.nome) || false;
@@ -2742,7 +2393,6 @@ export default function App() {
               </button>
             </div>
 
-            <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider ml-2">Seu Catálogo Visual</h3>
             <div className="grid grid-cols-1 gap-3 w-full">
               {produtos.map(p => (
                 <div key={p.id} className="bg-white p-4 rounded-[30px] flex gap-4 items-center border border-slate-100 shadow-sm w-full">
@@ -2752,13 +2402,6 @@ export default function App() {
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-slate-800 text-sm truncate">{p.nome}</p>
                     <p style={{ color: themeColors.primary }} className="font-black text-sm mt-0.5">R$ {Number(p.precoVenda).toFixed(2)}</p>
-                    {p.categorias && p.categorias.length > 0 && (
-                      <div className="flex gap-1 flex-wrap mt-1">
-                        {p.categorias.map((c: string, i: number) => (
-                          <span key={i} className="text-[8px] bg-slate-100 font-bold text-slate-500 px-1.5 py-0.5 rounded uppercase">{c.split(' ')[0]}</span>
-                        ))}
-                      </div>
-                    )}
                   </div>
                   <div className="flex items-center gap-1">
                     <button onClick={() => venderItemDiretoDoCatalogo(p)} style={{ backgroundColor: themeColors.secondary }} className="text-white px-3 py-2 rounded-xl text-xs font-black uppercase shadow active:scale-95">Vender 🛍️</button>
@@ -2771,53 +2414,26 @@ export default function App() {
           </div>
         )}
 
-        {/* ABA DA CALCULADORA COMPOSTA */}
+        {/* ABA DA CALCULADORA */}
         {activeTab === 'criar' && renderCalculadoraForm()}
 
-        {/* BIBLIOTECA DE FORNECEDORES COMPLETA */}
+        {/* BIBLIOTECA DE FORNECEDORES */}
         {activeTab === 'fornecedores' && (
           <div className="space-y-4 pt-2 w-full animate-fadeIn">
             <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
               <h2 style={{ color: themeColors.primary }} className="font-bold mb-4 flex items-center gap-2 uppercase text-xs tracking-widest"><Globe size={20}/> Cadastrar Novo Fornecedor</h2>
               
-              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome da Empresa / Distribuidora</label>
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome da Empresa</label>
               <input placeholder="Ex: Pampa Papéis" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm" value={novoFornecedor.nome} onChange={e => setNovoFornecedor({...novoFornecedor, nome: e.target.value})} />
               
-              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Site Oficial (Link)</label>
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Site Oficial</label>
               <input placeholder="Ex: www.pampapapeis.com.br" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm" value={novoFornecedor.site} onChange={e => setNovoFornecedor({...novoFornecedor, site: e.target.value})} />
               
-              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">WhatsApp com DDD</label>
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">WhatsApp</label>
               <input placeholder="Ex: 11999999999" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm" value={novoFornecedor.whatsapp} onChange={e => setNovoFornecedor({...novoFornecedor, whatsapp: e.target.value})} />
               
-              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Endereço Físico (Cidade/Estado)</label>
-              <textarea placeholder="Ex: Rua das Flores, 123 - Centro, São Paulo - SP" className="w-full p-4 bg-slate-50 rounded-2xl mb-4 outline-none border focus:border-purple-400 resize-none h-16 font-medium text-sm" value={novoFornecedor.endereco} onChange={e => setNovoFornecedor({...novoFornecedor, endereco: e.target.value})} />
-
-              <div className="mb-6 w-full">
-                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Categorias do Fornecedor</label>
-                <div className="flex flex-wrap gap-2 mb-2">
-                  {categoriasForn.map(cat => {
-                    const marcado = novoFornecedor.categorias?.includes(cat.nome) || false;
-                    return (
-                      <button key={cat.id} type="button" onClick={() => toggleCategoriaNoFornecedor(cat.nome)} style={{ backgroundColor: marcado ? themeColors.primary : undefined, borderColor: marcado ? themeColors.primary : undefined }} className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${marcado ? 'text-white shadow-sm' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-purple-300'}`}>
-                        {cat.nome}
-                      </button>
-                    );
-                  })}
-                </div>
-                
-                {!mostrarInputNovaCatForn ? (
-                  <button type="button" onClick={() => setMostrarInputNovaCatForn(true)} style={{ color: themeColors.primary }} className="text-[10px] font-black uppercase mt-1 tracking-wider hover:underline">+ Criar Categoria de Compras</button>
-                ) : (
-                  <div className="flex gap-2 items-center bg-slate-50 p-2.5 rounded-2xl border border-dashed border-purple-200 mt-2 animate-fadeIn">
-                    <input placeholder="Ex: 🧵 Fitas e Cordões" className="flex-1 bg-white p-2.5 rounded-xl text-xs font-bold outline-none border" value={inputNovaCategoriaForn} onChange={e => setInputNovaCategoriaForn(e.target.value)} />
-                    <button type="button" onClick={async () => {
-                      if(!inputNovaCategoriaForn.trim()) return setMostrarInputNovaCatForn(false);
-                      await addDoc(collection(db, "categorias_fornecedores"), { nome: inputNovaCategoriaForn.trim(), userId: user.uid });
-                      setInputNovaCategoriaForn(''); setMostrarInputNovaCatForn(false);
-                    }} style={{ backgroundColor: themeColors.primary }} className="text-white text-xs font-black px-4 py-2.5 rounded-xl uppercase shadow-sm">OK</button>
-                  </div>
-                )}
-              </div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Endereço Físico</label>
+              <textarea placeholder="Ex: Rua das Flores, 123..." className="w-full p-4 bg-slate-50 rounded-2xl mb-4 outline-none border focus:border-purple-400 resize-none h-16 font-medium text-sm" value={novoFornecedor.endereco} onChange={e => setNovoFornecedor({...novoFornecedor, endereco: e.target.value})} />
 
               <button 
                 style={{ backgroundColor: themeColors.secondary }}
@@ -2829,23 +2445,10 @@ export default function App() {
                 else await addDoc(collection(db, "fornecedores"), d);
                 
                 setNovoFornecedor({ id: '', nome: '', site: '', whatsapp: '', endereco: '', categorias: [] });
-                alert("Fornecedor cadastrado com sucesso! 📦🎉");
+                alert("Fornecedor cadastrado!");
               }} className="w-full hover:opacity-90 text-white p-5 rounded-2xl font-black uppercase text-xs shadow-md">
                 {novoFornecedor.id ? 'Atualizar Fornecedor' : 'Salvar Fornecedor'}
               </button>
-            </div>
-
-            <div className="flex flex-col gap-2 w-full mt-4">
-              <div className="relative w-full">
-                <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input type="text" placeholder="Pesquisar por nome do fornecedor..." value={pesquisaFornecedores} onChange={e => setPesquisaFornecedores(e.target.value)} className="w-full p-4 pl-11 bg-white rounded-2xl border border-slate-200 outline-none text-sm font-medium focus:border-purple-500 transition-colors shadow-sm" />
-              </div>
-              <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-none w-full">
-                <button onClick={() => setFiltroFornSelecionado('Todos')} style={{ backgroundColor: filtroFornSelecionado === 'Todos' ? themeColors.primary : undefined, borderColor: filtroFornSelecionado === 'Todos' ? themeColors.primary : undefined }} className={`px-3 py-1.5 text-xs font-bold shrink-0 rounded-xl border ${filtroFornSelecionado === 'Todos' ? 'text-white' : 'bg-white text-slate-500'}`}>🌍 Todos</button>
-                {categoriasForn.map(cat => (
-                  <button key={cat.id} onClick={() => setFiltroFornSelecionado(cat.nome)} style={{ backgroundColor: filtroFornSelecionado === cat.nome ? themeColors.primary : undefined, borderColor: filtroFornSelecionado === cat.nome ? themeColors.primary : undefined }} className={`px-3 py-1.5 text-xs font-bold shrink-0 rounded-xl border ${filtroFornSelecionado === cat.nome ? 'text-white' : 'bg-white text-slate-500'}`}>{cat.nome}</button>
-                ))}
-              </div>
             </div>
 
             <div className="grid grid-cols-1 gap-3 w-full">
@@ -2854,43 +2457,19 @@ export default function App() {
                   <div className="flex justify-between items-start w-full">
                     <div className="flex-1 min-w-0">
                       <h4 className="font-black text-slate-800 text-base truncate">{f.nome}</h4>
-                      {f.endereco && <p className="text-xs text-slate-500 mt-1 font-semibold flex items-center gap-1"><MapPin size={12}/> {f.endereco}</p>}
-                      {f.categorias && f.categorias.length > 0 && (
-                        <div className="flex gap-1 flex-wrap mt-2">
-                          {f.categorias.map((c: string, idx: number) => (
-                            <span key={idx} style={{ color: themeColors.primary }} className="text-[9px] bg-purple-50 px-2 py-0.5 rounded font-black uppercase">{c}</span>
-                          ))}
-                        </div>
-                      )}
                     </div>
                     <div className="flex gap-1 shrink-0">
                       <button onClick={() => setNovoFornecedor({ id: f.id, nome: f.nome, site: f.site || '', whatsapp: f.whatsapp || '', endereco: f.endereco || '', categorias: f.categorias || [] })} className="text-orange-400 p-2 hover:bg-orange-50 rounded-xl"><Edit2 size={16}/></button>
                       <button onClick={() => confirmarExcluir('fornecedor', f.id)} className="text-red-200 p-2 hover:bg-red-50 rounded-xl"><Trash2 size={16}/></button>
                     </div>
                   </div>
-                  
-                  <div className="flex gap-2 border-t pt-3 w-full justify-end">
-                    {f.site && (
-                      <button onClick={() => window.open(f.site.startsWith('http') ? f.site : `https://${f.site}`, '_blank')} className="flex items-center gap-1 text-xs font-black uppercase bg-blue-50 text-blue-600 px-3 py-2 rounded-xl active:scale-95 transition-transform"><Globe size={13}/> Site</button>
-                    )}
-                    {f.whatsapp && (
-                      <button onClick={() => window.open(`https://wa.me/55${f.whatsapp.replace(/\D/g, '')}`, '_blank')} className="flex items-center gap-1 text-xs font-black uppercase bg-emerald-50 text-emerald-600 px-3 py-2 rounded-xl active:scale-95 transition-transform"><MessageCircle size={13}/> WhatsApp</button>
-                    )}
-                    {f.endereco && (
-                      <button onClick={() => window.open(`http://maps.google.com/?q=${encodeURIComponent(f.endereco)}`, '_blank')} className="flex items-center gap-1 text-xs font-black uppercase bg-slate-50 text-slate-600 px-3 py-2 rounded-xl active:scale-95 transition-transform"><MapPin size={13}/> Mapa</button>
-                    )}
-                  </div>
                 </div>
               ))}
-              
-              {proveedoresFiltrados.length === 0 && (
-                <p className="text-center font-bold text-xs text-slate-400 py-6 italic">Nenhum fornecedor cadastrado nesta seção. 📦</p>
-              )}
             </div>
           </div>
         )}
 
-        {/* HISTÓRICO DE ORÇAMENTOS EXPANDIDO */}
+        {/* HISTÓRICO DE ORÇAMENTOS */}
         {activeTab === 'pedidos' && (
           <div className="space-y-3 pt-2 w-full">
             <div className="flex justify-between items-center mb-1 w-full">
@@ -2914,18 +2493,6 @@ export default function App() {
                           {cli?.nome || 'Sem Cliente'} {p.data ? `— ${p.data}` : ''} — <span className={statusAtual.includes('Vendido') ? "text-emerald-500" : statusAtual.includes('Cancelado') ? "text-red-400" : "text-orange-400"}>{statusAtual}</span>
                         </p>
                         <div className="font-bold text-slate-700 text-sm whitespace-pre-line">{p.nomeProd} <span className="text-xs text-slate-400 font-normal">({p.qtdPed || 1} un)</span></div>
-                        
-                        {cli && (cli.zap || cli.email || cli.endereco) && (
-                          <div className="mt-2 text-[11px] text-slate-400 bg-slate-50 p-2.5 rounded-xl border border-dashed border-slate-200 space-y-0.5">
-                            {cli.zap && <p>📱 WhatsApp: <span className="font-semibold text-slate-600">{cli.zap}</span></p>}
-                            {cli.email && <p>✉️ E-mail: <span className="font-semibold text-slate-600">{cli.email}</span></p>}
-                            {cli.endereco && <p className="mt-1">📍 Entrega: <span className="font-semibold text-slate-600 whitespace-pre-line">{cli.endereco}</span></p>}
-                          </div>
-                        )}
-
-                        {p.obsPedido && (
-                          <p style={{ color: themeColors.primary }} className="text-[11px] bg-purple-50 p-2 rounded-lg font-medium border border-purple-100 mt-2">🗒️ Notas: {p.obsPedido}</p>
-                        )}
                      </div>
                      <div style={{ color: themeColors.secondary }} className="font-black text-xl shrink-0">R$ {p.preco}</div>
                    </div>
@@ -2939,7 +2506,6 @@ export default function App() {
                       )}
                       
                       <button onClick={() => handleDuplicarOrcamento(p)} title="Duplicar este Orçamento" className="text-blue-500 p-2 bg-blue-50 rounded-xl active:scale-95 transition-transform"><Copy size={18}/></button>
-                      
                       <button onClick={() => gerarPDF(p)} style={{ color: themeColors.secondary }} className="p-2 bg-orange-50 rounded-xl active:scale-95 transition-all"><Printer size={18}/></button>
                       <button onClick={() => enviarZap({nomeProd: p.nomeProd, preco: p.preco, clienteId: p.clienteId, prazo: p.prazo, qtdPed: p.qtdPed})} className="text-emerald-500 p-2 bg-emerald-50 rounded-xl"><MessageCircle size={18}/></button>
                       <button onClick={() => confirmarExcluir('pedido', p.id)} className="text-red-200 p-2"><Trash2 size={18}/></button>
@@ -2947,53 +2513,16 @@ export default function App() {
                  </div>
                );
             })}
-
-            {pedidosFiltradosPorStatus.length === 0 && (
-              <div className="text-center text-slate-400 py-12 text-xs font-bold bg-white rounded-[30px] border shadow-sm">
-                Nenhum pedido nesta categoria no momento. 🎉
-              </div>
-            )}
           </div>
         )}
 
-        {/* GERENCIAR ARMÁRIO / INSUMOS */}
+        {/* GERENCIAR ARMÁRIO */}
         {activeTab === 'materiais' && (
           <div className="space-y-4 pt-2 w-full">
             <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
               <h2 style={{ color: themeColors.primary }} className="font-bold mb-4 flex items-center gap-2"><Package size={20}/> Gerenciar Armário</h2>
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome do Insumo</label>
               <input placeholder="Ex: Caneca Cerâmica" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none font-medium text-sm border focus:border-purple-400" value={novoMat.nome} onChange={e => setNovoMat({...novoMat, nome: e.target.value})} />
-              <div className="grid grid-cols-3 gap-3 mb-3 w-full">
-                <div className="col-span-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Preço Unidade/Caixa/Rolo</label>
-                  <input type="number" placeholder="R$ 0,00" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-medium text-sm border focus:border-purple-400" value={novoMat.valor} onChange={e => setNovoMat({...novoMat, valor: e.target.value})} />
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase block text-center">Rende Quantos?</label>
-                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-center font-medium text-sm border focus:border-purple-400" value={novoMat.qtd} onChange={e => setNovoMat({...novoMat, qtd: e.target.value})} />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3 mb-4 w-full">
-                <div>
-                  <label style={{ color: themeColors.primary }} className="text-[10px] font-bold uppercase ml-1">Estoque Atual</label>
-                  <input type="number" style={{ color: themeColors.primary }} className="w-full p-4 bg-purple-50 rounded-2xl outline-none text-center font-bold border focus:border-purple-400" value={novoMat.qtdAtual} onChange={e => setNovoMat({...novoMat, qtdAtual: e.target.value})} />
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-red-500 uppercase ml-1">Mínimo Alerta</label>
-                  <input type="number" className="w-full p-4 bg-red-50 rounded-2xl outline-none text-center font-bold text-red-700 border focus:border-purple-400" value={novoMat.qtdMinima} onChange={e => setNovoMat({...novoMat, qtdMinima: e.target.value})} />
-                </div>
-              </div>
-              <div className="mb-6 w-full">
-                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Unidade de Medida</label>
-                <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-xs font-bold block border border-transparent focus:border-purple-400 mt-1" value={novoMat.unidade} onChange={e => setNovoMat({...novoMat, unidade: e.target.value})}>
-                  <option value="un">📦 Unidade (un)</option>
-                  <option value="g">⚖️ Gramas (g)</option>
-                  <option value="kg">🏋️ Quilo (kg)</option>
-                  <option value="Folha A4">📄 Folha A4</option>
-                  <option value="m">📏 Metro (m)</option>
-                  <option value="cm">📐 Centímetro (cm)</option>
-                </select>
-              </div>
               <button 
                 style={{ backgroundColor: themeColors.secondary }}
                 onClick={async () => {
@@ -3008,43 +2537,17 @@ export default function App() {
               </button>
             </div>
 
-            <div className="relative w-full mb-2">
-              <Search 
-                size={18} 
-                className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" 
-              />
-              <input
-                type="text"
-                placeholder="Pesquisar material no armário..."
-                value={pesquisaMateriais}
-                onChange={e => setPesquisaMateriais(e.target.value)}
-                className="w-full p-4 pl-11 bg-white rounded-2xl border border-slate-200 outline-none text-sm font-medium focus:border-purple-500 transition-colors shadow-sm"
-              />
-            </div>
-
-            {materiaisFiltrados.map(m => {
-              const estaAcabando = Number(m.qtdAtual || 0) <= Number(m.qtdMinima || 0);
-              const valorUnitarioCalculado = Number(m.qtd || 1) > 0 ? (Number(m.valor || 0) / Number(m.qtd || 1)).toFixed(2) : "0.00";
-              return (
-                <div key={m.id} className="bg-white p-5 rounded-3xl flex justify-between items-center border w-full mb-2 shadow-sm">
-                  <div>
-                    <p className="font-bold text-slate-800">{estaAcabando ? '🔴' : '🟢'} {m.nome}</p>
-                    <p className="text-xs text-slate-400 mt-1">Custo unitário: <span className="font-bold text-slate-600">R$ {valorUnitarioCalculado}</span></p>
-                    <p className="text-xs text-slate-500 mt-0.5">Qtd: <span style={{ color: themeColors.primary }} className="font-bold">{m.qtdAtual} {m.unidade}</span></p>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <button onClick={async () => await updateDoc(doc(db, "materiais", m.id), { qtdAtual: Math.max(0, Number(m.qtdAtual || 0) - 1) })} className="w-8 h-8 bg-slate-100 rounded-xl font-bold">-</button>
-                    <button onClick={async () => await updateDoc(doc(db, "materiais", m.id), { qtdAtual: Number(m.qtdAtual || 0) + 1 })} style={{ color: themeColors.primary }} className="w-8 h-8 bg-purple-100 rounded-xl font-bold">+</button>
-                    <button onClick={() => setNovoMat({id: m.id, nome: m.nome, valor: String(m.valor), qtd: String(m.qtd), unidade: m.unidade, qtdAtual: String(m.qtdAtual), qtdMinima: String(m.qtdMinima)})} className="text-orange-400 p-2"><Edit2 size={16}/></button>
-                    <button onClick={() => confirmarExcluir('material', m.id)} className="text-red-400 hover:text-red-600 p-2 transition-colors"><Trash2 size={16}/></button>
-                  </div>
+            {materiaisFiltrados.map(m => (
+              <div key={m.id} className="bg-white p-5 rounded-3xl flex justify-between items-center border w-full mb-2 shadow-sm">
+                <div>
+                  <p className="font-bold text-slate-800">{m.nome}</p>
                 </div>
-              );
-            })}
-
-            {materiaisFiltrados.length === 0 && (
-              <p className="text-center text-xs text-slate-400 py-4">Nenhum insumo encontrado com esse nome.</p>
-            )}
+                <div className="flex items-center gap-1">
+                  <button onClick={() => setNovoMat({id: m.id, nome: m.nome, valor: String(m.valor), qtd: String(m.qtd), unidade: m.unidade, qtdAtual: String(m.qtdAtual), qtdMinima: String(m.qtdMinima)})} className="text-orange-400 p-2"><Edit2 size={16}/></button>
+                  <button onClick={() => confirmarExcluir('material', m.id)} className="text-red-400 hover:text-red-600 p-2 transition-colors"><Trash2 size={16}/></button>
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
@@ -3057,48 +2560,23 @@ export default function App() {
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome Comercial / Completo</label>
               <input placeholder="Ex: Maria Silva" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm" value={novoCli.nome} onChange={e => setNovoCli({...novoCli, nome: e.target.value})} />
               
-              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">WhatsApp com DDD</label>
-              <input placeholder="Ex: 21999999999" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm" value={novoCli.zap} onChange={e => setNovoCli({...novoCli, zap: e.target.value})} />
-              
-              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">E-mail de Contato</label>
-              <input type="email" placeholder="Ex: cliente@email.com" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm" value={novoCli.email || ''} onChange={e => setNovoCli({...novoCli, email: e.target.value})} />
-              
-              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Endereço de Entrega Completo</label>
-              <textarea placeholder="Rua, Número, Bairro, Cidade, CEP..." className="w-full p-4 bg-slate-50 rounded-2xl mb-6 outline-none border focus:border-purple-400 resize-none h-20 font-medium text-sm" value={novoCli.endereco || ''} onChange={e => setNovoCli({...novoCli, endereco: e.target.value})} />
-
               <button 
                 style={{ backgroundColor: themeColors.secondary }}
                 onClick={async () => {
                 if(!novoCli.nome) return alert("Digite o nome do cliente!");
-                
-                const dadosCliente = { 
-                  nome: novoCli.nome, 
-                  zap: novoCli.zap, 
-                  email: novoCli.email || '', 
-                  endereco: novoCli.endereco || '', 
-                  userId: user.uid 
-                };
-
+                const dadosCliente = { nome: novoCli.nome, zap: novoCli.zap, email: novoCli.email || '', endereco: novoCli.endereco || '', userId: user.uid };
                 if(novoCli.id) await updateDoc(doc(db, "clientes", novoCli.id), dadosCliente);
                 else await addDoc(collection(db, "clientes"), dadosCliente);
-                
                 setNovoCli({ id: '', nome: '', zap: '', email: '', endereco: '' }); 
-                alert("Cadastro do cliente salvo com sucesso! 🎉");
+                alert("Cliente salvo! 🎉");
               }} className="w-full hover:opacity-90 text-white p-5 rounded-2xl font-black uppercase text-xs">Salvar Cliente</button>
             </div>
             {clientes.map(c => (
-              <div key={c.id} className="bg-white p-5 rounded-3xl flex flex-col gap-2 border shadow-sm font-bold w-full mb-2">
-                <div className="flex justify-between items-start w-full">
-                  <div className="flex flex-col ml-2">
-                    <span className="text-slate-800 text-base">{c.nome}</span>
-                    <span className="text-xs text-slate-400 font-normal mt-0.5">{c.zap ? `📱 ${c.zap}` : 'Sem número'}</span>
-                    {c.email && <span className="text-xs text-slate-400 font-normal mt-0.5">✉️ {c.email}</span>}
-                    {c.endereco && <span className="text-xs text-slate-500 font-medium bg-slate-50 p-2.5 rounded-xl mt-2 border border-slate-100 whitespace-pre-line">📍 {c.endereco}</span>}
-                  </div>
-                  <div className="flex gap-1 shrink-0">
-                    <button onClick={() => setNovoCli({ id: c.id, nome: c.nome, zap: c.zap || '', email: c.email || '', endereco: c.endereco || '' })} className="text-orange-400 p-2"><Edit2 size={18}/></button>
-                    <button onClick={() => deleteDoc(doc(db, "clientes", c.id))} className="text-red-200 p-2"><Trash2 size={20}/></button>
-                  </div>
+              <div key={c.id} className="bg-white p-5 rounded-3xl flex justify-between items-center border shadow-sm font-bold w-full mb-2">
+                <span>{c.nome}</span>
+                <div className="flex gap-1 shrink-0">
+                  <button onClick={() => setNovoCli({ id: c.id, nome: c.nome, zap: c.zap || '', email: c.email || '', endereco: c.endereco || '' })} className="text-orange-400 p-2"><Edit2 size={18}/></button>
+                  <button onClick={() => deleteDoc(doc(db, "clientes", c.id))} className="text-red-200 p-2"><Trash2 size={20}/></button>
                 </div>
               </div>
             ))}
