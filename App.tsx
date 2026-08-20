@@ -165,7 +165,6 @@ export default function App() {
   const [zapDonaConta, setZapDonaConta] = useState('');
   const [subindoImagem, setSubindoImagem] = useState(false);
 
-  // --- DADOS DO PERFIL DA LOJA ---
   const [nomeLojaPerfil, setNomeLojaPerfil] = useState('');
   const [nomeFantasiaPerfil, setNomeFantasiaPerfil] = useState('');
   const [cpfCnpjPerfil, setCpfCnpjPerfil] = useState('');
@@ -179,7 +178,6 @@ export default function App() {
   const [logoLojaPerfil, setLogoLojaPerfil] = useState('');
   const [subindoLogo, setSubindoLogo] = useState(false);
 
-  // --- ESTADOS DA ABA CONTRATOS ---
   const [novoContrato, setNovoContrato] = useState({
     id: '',
     clienteId: '',
@@ -312,6 +310,7 @@ export default function App() {
       const qAnotacoes = query(collection(db, "anotacoes"), where("userId", "==", user.uid));
       const unsubAnotacoes = onSnapshot(qAnotacoes, s => setAnotacoes(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
+      // Mapeamento explícito do ID do contrato
       const qContratos = query(collection(db, "contratos"), where("userId", "==", user.uid));
       const unsubContratos = onSnapshot(qContratos, s => setContratos(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
@@ -428,7 +427,7 @@ export default function App() {
     await updateDoc(doc(db, "anotacoes", id), { concluido: !valorAtual });
   };
 
-  // --- GERADOR DE PDF DE CONTRATO SEM CORTAR ASSINATURA ---
+  // --- GERADOR DE PDF DE CONTRATO (SISTEMA DE OVERLAY VISÍVEL PARA IMPEDIR PÁGINA EM BRANCO EM DISPOSITIVOS MÓVEIS) ---
   const gerarPDFContrato = (contrato: any) => {
     const cli = clientes.find(c => c.id === contrato.clienteId);
     const dataEmissao = contrato.dataEmissao || new Date().toLocaleDateString('pt-BR');
@@ -442,13 +441,14 @@ export default function App() {
       const titulo = linhas[0] || '';
       const corpo = linhas.slice(1).join('<br>') || '';
       return `
-        <div style="margin-bottom: 10px; page-break-inside: avoid;">
-          <div style="font-weight: bold; font-size: 10px; color: #581c87; text-transform: uppercase;">${titulo}</div>
-          <div style="font-size: 10px; color: #4a5568; margin-top: 2px; line-height: 1.3;">${corpo || titulo}</div>
+        <div style="margin-bottom: 12px; page-break-inside: avoid;">
+          <div style="font-weight: bold; font-size: 11px; color: #581c87; text-transform: uppercase;">${titulo}</div>
+          <div style="font-size: 11px; color: #4a5568; margin-top: 2px; line-height: 1.4;">${corpo || titulo}</div>
         </div>
       `;
     }).join('');
 
+    // Overlay visível temporário para renderização do canvas
     const overlay = document.createElement('div');
     overlay.style.position = "fixed";
     overlay.style.top = "0";
@@ -460,45 +460,46 @@ export default function App() {
     overlay.style.overflow = "auto";
     overlay.style.display = "flex";
     overlay.style.justifyContent = "center";
-    overlay.style.padding = "10px";
+    overlay.style.padding = "20px";
 
     const elemento = document.createElement('div');
-    elemento.style.width = "680px";
-    elemento.style.padding = "20px";
+    elemento.style.width = "700px";
+    elemento.style.padding = "30px";
     elemento.style.backgroundColor = "#ffffff";
     elemento.style.color = "#2d3748";
     elemento.style.fontFamily = "Arial, sans-serif";
-    elemento.style.boxSizing = "border-box";
+    elemento.style.boxShadow = "0 10px 25px rgba(0,0,0,0.1)";
+    elemento.style.borderRadius = "12px";
 
     elemento.innerHTML = `
       <div style="width: 100%; box-sizing: border-box;">
         
         <!-- CABEÇALHO DO CONTRATO -->
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; border-bottom: 2px solid #f1f5f9; padding-bottom: 15px;">
           <div>
-            <h1 style="color: #581c87; margin: 0; font-size: 18px; font-weight: 900;">CONTRATO DE PRESTAÇÃO DE SERVIÇOS</h1>
-            <p style="color: #94a3b8; font-size: 9px; font-weight: bold; text-transform: uppercase; margin: 2px 0 0 0;">DOCUMENTO COMERCIAL E TERMOS DE ACORDO</p>
+            <h1 style="color: #581c87; margin: 0; font-size: 22px; font-weight: 900;">CONTRATO DE PRESTAÇÃO DE SERVIÇOS</h1>
+            <p style="color: #94a3b8; font-size: 10px; font-weight: bold; text-transform: uppercase; margin: 4px 0 0 0;">DOCUMENTO COMERCIAL E TERMOS DE ACORDO</p>
           </div>
-          <div style="background-color: #f8fafc; padding: 6px 10px; border-radius: 6px; border: 1px solid #e2e8f0; text-align: right;">
+          <div style="background-color: #f8fafc; padding: 8px 14px; border-radius: 8px; border: 1px solid #e2e8f0; text-align: right;">
             <span style="font-size: 8px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">DATA DE EMISSÃO</span>
-            <span style="font-size: 10px; font-weight: bold; color: #581c87; display: block; margin-top: 1px;">${dataEmissao}</span>
+            <span style="font-size: 12px; font-weight: bold; color: #581c87; display: block; margin-top: 2px;">${dataEmissao}</span>
           </div>
         </div>
 
         <!-- BLOCOS DE DADOS DAS PARTES -->
-        <div style="display: flex; gap: 10px; margin-bottom: 12px;">
-          <div style="flex: 1; border-radius: 6px; border: 1px solid #e2e8f0; overflow: hidden; background-color: #fafafa;">
-            <div style="background-color: #581c87; color: #ffffff; padding: 6px 8px; font-size: 8px; font-weight: bold; text-transform: uppercase;">1. DADOS DO CONTRATANTE (CLIENTE)</div>
-            <div style="padding: 8px; font-size: 10px; line-height: 1.4;">
+        <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+          <div style="flex: 1; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; background-color: #fafafa;">
+            <div style="background-color: #581c87; color: #ffffff; padding: 8px 10px; font-size: 9px; font-weight: bold; text-transform: uppercase;">1. DADOS DO CONTRATANTE (CLIENTE)</div>
+            <div style="padding: 12px; font-size: 11px; line-height: 1.5;">
               <div><strong>Nome:</strong> ${cli?.nome || 'Não informado'}</div>
               <div><strong>CPF/CNPJ:</strong> ${cli?.cpfCnpj || 'Não informado'}</div>
               <div><strong>Endereço:</strong> ${cli?.endereco || 'Não informado'}</div>
             </div>
           </div>
 
-          <div style="flex: 1; border-radius: 6px; border: 1px solid #e2e8f0; overflow: hidden; background-color: #fafafa;">
-            <div style="background-color: #581c87; color: #ffffff; padding: 6px 8px; font-size: 8px; font-weight: bold; text-transform: uppercase;">2. DADOS DO CONTRATADO (EMPRESA)</div>
-            <div style="padding: 8px; font-size: 10px; line-height: 1.4;">
+          <div style="flex: 1; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; background-color: #fafafa;">
+            <div style="background-color: #581c87; color: #ffffff; padding: 8px 10px; font-size: 9px; font-weight: bold; text-transform: uppercase;">2. DADOS DO CONTRATADO (EMPRESA)</div>
+            <div style="padding: 12px; font-size: 11px; line-height: 1.5;">
               <div><strong>Empresa/Nome:</strong> ${nomeEmpresaExibir}</div>
               <div><strong>CPF/CNPJ:</strong> ${cpfCnpjEmpresaExibir}</div>
               ${enderecoPerfil ? `<div><strong>Endereço:</strong> ${enderecoPerfil}</div>` : ''}
@@ -507,41 +508,38 @@ export default function App() {
         </div>
 
         <!-- BLOCO EVENTO E VALOR COMBINADO -->
-        <div style="border-radius: 6px; border: 1px solid #e2e8f0; overflow: hidden; margin-bottom: 12px; background-color: #fafafa;">
-          <div style="background-color: #581c87; color: #ffffff; padding: 6px 8px; font-size: 8px; font-weight: bold; text-transform: uppercase;">3. DADOS DO EVENTO E VALOR COMBINADO</div>
-          <div style="padding: 8px; font-size: 10px; line-height: 1.5;">
+        <div style="border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; margin-bottom: 15px; background-color: #fafafa;">
+          <div style="background-color: #581c87; color: #ffffff; padding: 8px 10px; font-size: 9px; font-weight: bold; text-transform: uppercase;">3. DADOS DO EVENTO E VALOR COMBINADO</div>
+          <div style="padding: 12px; font-size: 11px; line-height: 1.6;">
             <div><strong>Tipo de Evento:</strong> ${contrato.tipoEvento || 'Não informado'}</div>
             <div><strong>Data do Evento:</strong> ${dataEventoFormatada}</div>
             <div><strong>Local do Evento:</strong> ${contrato.localEvento || 'Não informado'}</div>
-            <div style="color: #581c87; font-size: 12px; font-weight: 900; margin-top: 4px;">Valor Total dos Serviços: R$ ${Number(contrato.valorTotal || 0).toFixed(2)}</div>
-            ${dadosBancariosPerfil ? `<div style="margin-top: 6px; font-size: 9px; color: #475569; background-color: #f1f5f9; padding: 6px; border-radius: 4px;"><strong>Dados para Pagamento:</strong> ${dadosBancariosPerfil}</div>` : ''}
+            <div style="color: #581c87; font-size: 14px; font-weight: 900; margin-top: 6px;">Valor Total dos Serviços: R$ ${Number(contrato.valorTotal || 0).toFixed(2)}</div>
+            ${dadosBancariosPerfil ? `<div style="margin-top: 8px; font-size: 10px; color: #475569; background-color: #f1f5f9; padding: 8px; border-radius: 6px;"><strong>Dados para Pagamento:</strong> ${dadosBancariosPerfil}</div>` : ''}
           </div>
         </div>
 
         <!-- CLÁUSULAS E TERMOS -->
-        <div style="border-radius: 6px; border: 1px solid #e2e8f0; overflow: hidden; margin-bottom: 20px; background-color: #fafafa;">
-          <div style="background-color: #581c87; color: #ffffff; padding: 6px 8px; font-size: 8px; font-weight: bold; text-transform: uppercase;">4. CLÁUSULAS E TERMOS DE SERVIÇO</div>
-          <div style="padding: 10px;">
+        <div style="border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; margin-bottom: 30px; background-color: #fafafa;">
+          <div style="background-color: #581c87; color: #ffffff; padding: 8px 10px; font-size: 9px; font-weight: bold; text-transform: uppercase;">4. CLÁUSULAS E TERMOS DE SERVIÇO</div>
+          <div style="padding: 12px;">
             ${clausulasFormatadas}
           </div>
         </div>
 
-        <!-- ASSINATURAS RIGIDAS -->
-        <table style="width: 100%; margin-top: 25px; page-break-inside: avoid; border-collapse: collapse;">
-          <tr>
-            <td style="width: 45%; text-align: center; vertical-align: bottom; padding: 0 10px;">
-              <div style="border-top: 1px solid #cbd5e1; margin-bottom: 4px; width: 100%;"></div>
-              <div style="font-size: 10px; font-weight: bold; color: #1e293b;">${cli?.nome || 'Cliente'}</div>
-              <div style="font-size: 8px; font-weight: bold; color: #94a3b8; text-transform: uppercase;">ASSINATURA DO CLIENTE</div>
-            </td>
-            <td style="width: 10%;"></td>
-            <td style="width: 45%; text-align: center; vertical-align: bottom; padding: 0 10px;">
-              <div style="border-top: 1px solid #cbd5e1; margin-bottom: 4px; width: 100%;"></div>
-              <div style="font-size: 10px; font-weight: bold; color: #1e293b;">${nomeEmpresaExibir}</div>
-              <div style="font-size: 8px; font-weight: bold; color: #94a3b8; text-transform: uppercase;">ASSINATURA DA EMPRESA (CONTRATADO)</div>
-            </td>
-          </tr>
-        </table>
+        <!-- ASSINATURAS -->
+        <div style="display: flex; justify-content: space-between; gap: 40px; margin-top: 40px; page-break-inside: avoid;">
+          <div style="flex: 1; text-align: center;">
+            <div style="border-top: 1px solid #cbd5e1; margin-bottom: 6px;"></div>
+            <div style="font-size: 11px; font-weight: bold; color: #1e293b;">${cli?.nome || 'Cliente'}</div>
+            <div style="font-size: 8px; font-weight: bold; color: #94a3b8; text-transform: uppercase;">ASSINATURA DO CLIENTE</div>
+          </div>
+          <div style="flex: 1; text-align: center;">
+            <div style="border-top: 1px solid #cbd5e1; margin-bottom: 6px;"></div>
+            <div style="font-size: 11px; font-weight: bold; color: #1e293b;">${nomeEmpresaExibir}</div>
+            <div style="font-size: 8px; font-weight: bold; color: #94a3b8; text-transform: uppercase;">ASSINATURA DA EMPRESA (CONTRATADO)</div>
+          </div>
+        </div>
 
       </div>
     `;
@@ -551,11 +549,10 @@ export default function App() {
 
     setTimeout(() => {
       const opcoes = { 
-        margin: [5, 5, 5, 5], 
+        margin: 8, 
         filename: `Contrato_${(cli?.nome || 'Cliente').replace(/\s+/g, '_')}.pdf`, 
-        html2canvas: { scale: 2, useCORS: true, logging: false, scrollY: 0 }, 
-        jsPDF: { format: 'a4', orientation: 'portrait' },
-        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+        html2canvas: { scale: 2, useCORS: true, logging: false }, 
+        jsPDF: { format: 'a4', orientation: 'portrait' } 
       };
 
       if ((window as any).html2pdf) { 
@@ -730,52 +727,48 @@ export default function App() {
     }
   };
 
-  // --- EXCLUSÃO DE CONTRATOS (SUPOSTA INTEGRAÇÃO COM ID DO FIRESTORE E BUSCA AUTOMÁTICA) ---
+  // --- EXCLUSÃO DE CONTRATOS COM DUPLA BUSCA (POR ID E FALLBACK POR CONTEÚDO PARA ANTESTES) ---
   const excluirContratoInteligente = async (contratoItem: any) => {
     if (!window.confirm("Deseja realmente excluir este contrato?")) return;
 
     try {
-      if (contratoItem && contratoItem.id) {
+      if (contratoItem.id) {
         await deleteDoc(doc(db, "contratos", contratoItem.id));
         alert("Contrato excluído com sucesso! 🗑️");
         return;
       }
 
-      // Se o objeto não tinha ID associado
+      // Se for um item antigo gravado sem id na lista local
       const q = query(
         collection(db, "contratos"), 
-        where("userId", "==", user.uid)
+        where("userId", "==", user.uid),
+        where("clienteId", "==", contratoItem.clienteId || '')
       );
       const snapshot = await getDocs(q);
       
-      let removido = false;
-      for (const d of snapshot.docs) {
-        const data = d.data();
-        if (data.clienteId === contratoItem.clienteId || data.valorTotal === contratoItem.valorTotal) {
+      if (!snapshot.empty) {
+        snapshot.docs.forEach(async (d) => {
           await deleteDoc(doc(db, "contratos", d.id));
-          removido = true;
-        }
-      }
-
-      if (removido) {
-        alert("Contrato excluído do banco com sucesso! 🗑️");
+        });
+        alert("Contrato antigo excluído do banco! 🗑️");
       } else {
-        alert("Não foi possível encontrar este contrato para excluir.");
+        alert("Não foi possível encontrar a referência do contrato no banco.");
       }
     } catch (e) {
       alert("Erro ao tentar excluir contrato.");
     }
   };
 
+  // --- APAGAR TODOS OS CONTRATOS DE TESTE DE UMA SÓ VEZ ---
   const zerarTodosContratos = async () => {
     if (window.confirm("Tem certeza que deseja APAGAR TODOS OS CONTRATOS salvos para zerar os testes?")) {
       try {
         const q = query(collection(db, "contratos"), where("userId", "==", user.uid));
         const snap = await getDocs(q);
-        for (const d of snap.docs) {
+        snap.docs.forEach(async (d) => {
           await deleteDoc(doc(db, "contratos", d.id));
-        }
-        alert("Todos os contratos foram removidos com sucesso! ✨");
+        });
+        alert("Todos os contratos de teste foram removidos! ✨");
       } catch {
         alert("Erro ao zerar contratos.");
       }
@@ -995,6 +988,309 @@ export default function App() {
       return st === 'Pendente';
     });
   }, [pedidos, filtroStatusPedido]);
+
+  const dashboardMetrics = useMemo(() => {
+    const agora = new Date();
+    const mesAtual = agora.getMonth() + 1;
+    const anoAtual = agora.getFullYear();
+
+    const pedidosDoMes = pedidos.filter(p => {
+      const isVendido = p.status === 'Vendido 💰' || p.status === 'Vendido';
+      if (!isVendido || !p.data) return false;
+
+      const partes = p.data.split('/');
+      if (partes.length === 3) {
+        const mesPedido = Number(partes[1]);
+        const anoPedido = Number(partes[2]);
+        return mesPedido === mesAtual && anoPedido === anoAtual;
+      }
+      return false;
+    });
+
+    const faturamentoMes = pedidosDoMes.reduce((acc, p) => acc + Number(p.preco || 0), 0);
+    const pendentesCount = pedidos.filter(p => p.status === 'Pendente' || !p.status).length;
+    const estoqueCriticoCount = materiais.filter(m => Number(m.qtdAtual || 0) <= Number(m.qtdMinima || 0)).length;
+
+    return { 
+      faturamento: faturamentoMes.toFixed(2), 
+      pendentes: pendentesCount, 
+      criticos: estoqueCriticoCount, 
+      totalClientes: clientes.length 
+    };
+  }, [pedidos, materiais, clientes]);
+
+  const historicoFinanceiroMensal = useMemo(() => {
+    const agrupado: { [key: string]: { total: number; qtd: number; mesAnoTexto: string; itensVendidos: any[] } } = {};
+    const nomesMeses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+    pedidos.forEach(p => {
+      const isVendido = p.status === 'Vendido 💰' || p.status === 'Vendido';
+      if (!isVendido || !p.data) return;
+
+      const partes = p.data.split('/');
+      if (partes.length === 3) {
+        const mes = Number(partes[1]);
+        const ano = Number(partes[2]);
+        const chave = `${ano}-${String(mes).padStart(2, '0')}`;
+        const nomeMesTexto = `${nomesMeses[mes - 1]} / ${ano}`;
+
+        if (!agrupado[chave]) {
+          agrupado[chave] = { total: 0, qtd: 0, mesAnoTexto: nomeMesTexto, itensVendidos: [] };
+        }
+
+        agrupado[chave].total += Number(p.preco || 0);
+        agrupado[chave].qtd += 1;
+        agrupado[chave].itensVendidos.push(p);
+      }
+    });
+
+    return Object.keys(agrupado)
+      .sort((a, b) => b.localeCompare(a))
+      .map(chave => ({
+        chave,
+        ...agrupado[chave]
+      }));
+  }, [pedidos]);
+
+  const historicoFiltradoPorData = useMemo(() => {
+    if (mesFiltroHistorico === 'Todos' && anoFiltroHistorico === 'Todos') {
+      return historicoFinanceiroMensal;
+    }
+
+    return historicoFinanceiroMensal.filter(item => {
+      const [ano, mes] = item.chave.split('-');
+      const matchMes = mesFiltroHistorico === 'Todos' || Number(mes) === Number(mesFiltroHistorico);
+      const matchAno = anoFiltroHistorico === 'Todos' || Number(ano) === Number(anoFiltroHistorico);
+      return matchMes && matchAno;
+    });
+  }, [historicoFinanceiroMensal, mesFiltroHistorico, anoFiltroHistorico]);
+
+  const resumenFinanceiro = useMemo(() => {
+    const qtdNum = Math.max(1, Number(qtdPed) || 1);
+
+    if (precoManual !== null) {
+      const baseVal = Number(precoManual || 0);
+      const totalCatalogo = modoCalculo === 'peca' ? baseVal * qtdNum : baseVal;
+      const semDesconto = totalCatalogo - Number(desconto || 0);
+      const custoPecaUnitario = modoCalculo === 'peca' ? baseVal : baseVal / qtdNum;
+
+      return { 
+        materiais: "0.00", 
+        maoObra: "0.00", 
+        extras: "0.00", 
+        deprec: "0.00", 
+        custoPeca: custoPecaUnitario.toFixed(2), 
+        lucroLivre: "0.00", 
+        final: isNaN(semDesconto) ? "0.00" : semDesconto.toFixed(2) 
+      };
+    }
+
+    const totalMaterials = matsNoPed.reduce((acc, m) => acc + ((Number(m.valor || 0) / Number(m.qtd || 1)) * Number(m.qtdUsada || 0)), 0);
+    const totalMaoObra = (Number(vHora || 0) / 60) * Number(tGasto || 0);
+    const totalExtras = Number(custos.embalagem || 0) + Number(custos.impressao || 0) + Number(custos.energia || 0) + Number(custos.outros || 0);
+    
+    let totalDesgasteMaquinas = 0;
+    const dias = Number(financasFixo.diasTrabalho || 20);
+    const horas = Number(financasFixo.horasDia || 8);
+    const totalHorasMes = dias * horas || 160;
+    const tempoEmHoras = Number(tGasto || 0) / 60;
+
+    equipamentosSelecionados.forEach(idEquip => {
+      const eq = equipamentos.find(e => e.id === idEquip);
+      if (eq) {
+        const valorEquip = Number(eq.valorPago || 0);
+        const mesesVida = Number(eq.durabilidadeAnos || 2) * 12;
+        const custoHoraEquip = (valorEquip / mesesVida) / totalHorasMes;
+        totalDesgasteMaquinas += custoHoraEquip * tempoEmHoras;
+      }
+    });
+
+    const custoTotalBasePeca = totalMaterials + totalMaoObra + totalExtras + totalDesgasteMaquinas;
+    
+    let custoTotalInvestido = 0;
+    let valorLucroLivre = 0;
+    let precoFinalCalculado = 0;
+
+    if (modoCalculo === 'peca') {
+      custoTotalInvestido = custoTotalBasePeca * qtdNum;
+      valorLucroLivre = custoTotalInvestido * (Number(lucro || 0) / 100);
+      precoFinalCalculado = (custoTotalInvestido + valorLucroLivre) - Number(desconto || 0);
+    } else {
+      custoTotalInvestido = custoTotalBasePeca;
+      valorLucroLivre = custoTotalInvestido * (Number(lucro || 0) / 100);
+      precoFinalCalculado = (custoTotalInvestido + valorLucroLivre) - Number(desconto || 0);
+    }
+
+    const custoUnitarioExibicao = modoCalculo === 'peca' ? custoTotalBasePeca : (custoTotalBasePeca / qtdNum);
+
+    return { 
+      materiais: totalMaterials.toFixed(2), 
+      maoObra: totalMaoObra.toFixed(2), 
+      extras: totalExtras.toFixed(2), 
+      deprec: totalDesgasteMaquinas.toFixed(2), 
+      custoPeca: custoUnitarioExibicao.toFixed(2), 
+      lucroLivre: valorLucroLivre.toFixed(2), 
+      final: isNaN(precoFinalCalculado) ? "0.00" : precoFinalCalculado.toFixed(2) 
+    };
+  }, [matsNoPed, vHora, tGasto, custos, lucro, qtdPed, desconto, precoManual, equipamentos, equipamentosSelecionados, financasFixo, modoCalculo]);
+
+  useEffect(() => {
+    setPrecoFinalDigitado(resumenFinanceiro.final);
+  }, [resumenFinanceiro.final]);
+
+  const enviarZap = (p: any) => {
+    const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
+    const dataP = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combinar';
+    const msg = `*RESUMO ORÇAMENTO*%0A---%0A*Cliente:* ${cli?.nome || 'Cliente'}%0A*Produto:* %0A${p.nomeProd}%0A*Qtd:* ${p.qtdPed || 1} un%0A*Prazo:* ${dataP}%0A*VALOR TOTAL:* R$ ${p.preco}%0A---%0AObrigado!`;
+    const fone = cli?.zap ? cli.zap.replace(/\D/g, '') : '';
+    window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
+  };
+
+  const gerarPDF = (p: any) => {
+    const idDoCliente = p.clienteId || p.clienteSel || '';
+    const cli = clientes.find(c => c.id === idDoCliente);
+    
+    const dataEmissao = p.data || new Date().toLocaleDateString('pt-BR');
+    const hoje = new Date(); hoje.setDate(hoje.getDate() + 7);
+    const dataValidade = hoje.toLocaleDateString('pt-BR');
+    const dataPrazo = p.prazo ? new Date(p.prazo + 'T00:00:00').toLocaleDateString('pt-BR') : 'A combinar';
+    const totalNum = Number(p.preco || 0);
+
+    let htmlLinhasTabela = '';
+
+    if (p.itensCombo && Array.isArray(p.itensCombo) && p.itensCombo.length > 0) {
+      htmlLinhasTabela = p.itensCombo.map((item: any) => {
+        const qtd = Number(item.qtd || 1);
+        const precoVenda = Number(item.precoVenda || 0);
+        const subtotal = qtd * precoVenda;
+        
+        return `
+          <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px; page-break-inside: avoid; break-inside: avoid;">
+            <td style="padding: 15px 5px; font-weight: bold; color: #1e293b; text-align: left;">${item.nome}</td>
+            <td style="padding: 15px 5px; text-align: center; color: #475569;">${qtd}</td>
+            <td style="padding: 15px 5px; text-align: right; color: #475569;">R$ ${precoVenda.toFixed(2)}</td>
+            <td style="padding: 15px 5px; text-align: right; font-weight: bold; color: #1e293b;">R$ ${subtotal.toFixed(2)}</td>
+          </tr>
+        `;
+      }).join('');
+    } 
+    else {
+      const textoProduto = String(p.nomeProd || 'Produto Não Informado');
+      const quantidadeItem = Number(p.qtdPed || 1);
+      const unitario = p.precoManual ? Number(p.precoManual) : (totalNum / quantidadeItem);
+
+      let htmlDetalhamentoKit = '';
+      if (p.detalhamentoPed && p.detalhamentoPed.trim()) {
+        const listaItens = p.detalhamentoPed.split('\n').filter((l: string) => l.trim() !== '');
+        const lisHtml = listaItens.map((i: string) => `<li style="margin-bottom: 3px;">${i.replace(/^[\s•*-]+/, '')}</li>`).join('');
+        
+        htmlDetalhamentoKit = `
+          <div style="margin-top: 8px; padding: 10px 12px; background-color: #fcfaff; border-left: 3px solid ${themeColors.primary}; border-radius: 6px;">
+            <div style="font-size: 11px; font-weight: bold; color: ${themeColors.primary}; margin-bottom: 4px; text-transform: uppercase; tracking-wide: 0.5px;">Composição / Itens Incluso no Kit:</div>
+            <ul style="margin: 0; padding-left: 18px; font-size: 12px; color: #475569; line-height: 1.4;">
+              ${lisHtml}
+            </ul>
+          </div>
+        `;
+      }
+
+      htmlLinhasTabela = `
+        <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px; page-break-inside: avoid; break-inside: avoid;">
+          <td style="padding: 15px 5px; font-weight: bold; color: #1e293b; text-align: left; vertical-align: top;">
+            <div style="font-size: 15px; font-weight: 800; color: #1e293b;">${textoProduto}</div>
+            ${htmlDetalhamentoKit}
+          </td>
+          <td style="padding: 15px 5px; text-align: center; color: #475569; vertical-align: top;">${quantidadeItem}</td>
+          <td style="padding: 15px 5px; text-align: right; color: #475569; vertical-align: top;">R$ ${unitario.toFixed(2)}</td>
+          <td style="padding: 15px 5px; text-align: right; font-weight: bold; color: #1e293b; vertical-align: top;">R$ ${totalNum.toFixed(2)}</td>
+        </tr>
+      `;
+    }
+
+    const cabecalhoNomeHtml = nomeLojaPerfil ? nomeLojaPerfil : "PrecificaJá";
+    const cabecalhoLogoHtml = logoLojaPerfil ? `<img src="${logoLojaPerfil}" style="max-height: 70px; max-width: 160px; object-fit: contain; display: block;"/>` : '';
+
+    const elemento = document.createElement('div');
+    elemento.innerHTML = `
+      <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px; gap: 20px;">
+          <div style="flex-shrink: 0; display: flex; align-items: center;">
+            ${cabecalhoLogoHtml}
+          </div>
+          <div style="text-align: right; flex-grow: 1;">
+            <h1 style="color: ${themeColors.primary}; margin: 0; font-size: 24px; font-weight: 900; line-height: 1.1;">${cabecalhoNomeHtml}</h1>
+            <p style="color: #94a3b8; font-size: 11px; text-transform: uppercase; margin: 4px 0 0 0; font-weight: bold;">Documento de Orçamento Comercial</p>
+            <div style="display: inline-block; margin-top: 6px; background-color: #f8fafc; padding: 4px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+              <span style="font-size: 11px; font-weight: bold; color: #475569;">ORÇAMENTO REF: ORC-${Math.floor(1000 + Math.random() * 9000)}</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Dados do Cliente</div>
+        <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 25px; border: 1px solid #f1f5f9;">
+          <p style="margin: 0; font-size: 14px;"><strong>Cliente:</strong> ${cli?.nome || 'Cliente não informado'}</p>
+          <p style="margin: 6px 0 0 0; font-size: 13px; color: #64748b;"><strong>WhatsApp:</strong> ${cli?.zap || 'Não informado'}</p>
+        </div>
+
+        <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Informações Básicas e Prazos</div>
+        <div style="display: flex; justify-content: space-between; background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 25px; border: 1px solid #f1f5f9; font-size: 13px;">
+          <div><strong>Data de Emissão:</strong><div style="margin-top: 4px; color: #64748b; font-weight: bold;">${dataEmissao}</div></div>
+          <div><strong>Validade do Orçamento:</strong><div style="margin-top: 4px; color: #ef4444; font-weight: bold;">${dataValidade} (7 dias)</div></div>
+          <div><strong>Prazo de Entrega:</strong><div style="margin-top: 4px; color: ${themeColors.primary}; font-weight: bold;">${dataPrazo}</div></div>
+        </div>
+
+        <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Produtos / Serviços Selecionados</div>
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+          <thead>
+            <tr style="border-bottom: 2px solid #e2e8f0; text-align: left; font-size: 11px; text-transform: uppercase; color: #94a3b8;">
+              <th style="padding: 10px 5px; text-align: left;">Descrição do Item</th>
+              <th style="padding: 10px 5px; text-align: center;">Qtd</th>
+              <th style="padding: 10px 5px; text-align: right;">Preço Unit.</th>
+              <th style="padding: 10px 5px; text-align: right;">Subtotal</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${htmlLinhasTabela}
+          </tbody>
+        </table>
+
+        <div style="display: flex; flex-direction: column; align-items: flex-end; margin-bottom: 35px; padding-right: 5px; page-break-inside: avoid; break-inside: avoid;">
+          <div style="font-size: 13px; color: #64748b; margin-bottom: 5px;">Subtotal Geral: <strong>R$ ${totalNum.toFixed(2)}</strong></div>
+          <div style="background-color: ${themeColors.primary}; color: white; padding: 12px 25px; border-radius: 12px; font-size: 18px; font-weight: 900; text-align: right; min-width: 180px;">
+            <span style="font-size: 10px; font-weight: bold; text-transform: uppercase; display: block; opacity: 0.8; margin-bottom: 2px;">Total do Pedido</span>
+            R$ ${totalNum.toFixed(2)}
+          </div>
+        </div>
+
+        <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px; page-break-inside: avoid; break-inside: avoid;">Formas de Pagamento Aceitas</div>
+        <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; border: 1px solid #f1f5f9; font-size: 13px; display: flex; justify-content: space-between; margin-bottom: 15px; page-break-inside: avoid; break-inside: avoid;">
+          <div><strong>Meios disponíveis:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">PIX / CARTÃO DE CRÉDITO</div></div>
+          <div><strong>Condições comerciais:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">A combinar direto no WhatsApp da Loja</div></div>
+        </div>
+
+        ${p.obsPedido ? `
+        <div style="background-color: #f3e8ff; border: 1px solid #e9d5ff; padding: 15px; border-radius: 16px; font-size: 13px; color: #6b21a8; margin-bottom: 15px; page-break-inside: avoid; break-inside: avoid;">
+          <strong style="text-transform: uppercase; font-size: 10px; display: block; color: #a855f7; margin-bottom: 4px;">Observações Importantes:</strong>
+          ${p.obsPedido.replace(/\n/g, '<br>')}
+        </div>
+        ` : ''}
+
+        <div style="text-align: center; font-size: 11px; color: #94a3b8; margin-top: 40px; border-top: 1px dashed #e2e8f0; padding-top: 15px; page-break-inside: avoid; break-inside: avoid;">
+          Obrigado pela preferência! Caso tenha dúvidas, entre em contato pelo nosso WhatsApp.
+        </div>
+      </div>
+    `;
+    
+    const opcoes = { margin: [10, 10, 10, 10], filename: `Pedido_${p.id || 'Venda'}.pdf`, html2canvas: { scale: 2, useCORS: true, scrollY: 0 }, jsPDF: { format: 'a4', orientation: 'portrait' }, pagebreak: { mode: ['avoid-all', 'css'] } };
+    (window as any).html2pdf().from(elemento).set(opcoes).save();
+  };
+
+  const handleAuth = async () => {
+    try {
+      if (isRegistering) await createUserWithEmailAndPassword(auth, email, password);
+      else await signInWithEmailAndPassword(auth, email, password);
+    } catch (e) { alert("E-mail ou senha incorretos!"); }
+  };
 
   if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando o PrecificaJá... 🚀</div>;
 
