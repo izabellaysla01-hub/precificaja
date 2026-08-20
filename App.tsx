@@ -92,16 +92,13 @@ export default function App() {
   const [nomeComprador, setNomeComprador] = useState('');
   const [zapDaLojaPublica, setZapDaLojaPublica] = useState('');
 
-  // Estados para Filtro na Vitrine Pública do Cliente
   const [filtroVitrineSelecionado, setFiltroVitrineSelecionado] = useState('Todos');
   const [isMenuFiltroVitrineOpen, setIsMenuFiltroVitrineOpen] = useState(false);
 
   const [activeTab, useStateActiveTab] = useState<'inicio' | 'materiais' | 'criar' | 'pedidos' | 'clientes' | 'catalogo' | 'balcao' | 'financeiro' | 'perfil' | 'anotacoes' | 'fornecedores' | 'contratos'>('inicio');
   
-  // Sub-aba interna para a seção financeira
   const [subAbaFinanceiro, setSubAbaFinanceiro] = useState<'geral' | 'impressao' | 'equipamentos' | 'historico'>('geral');
 
-  // Estados do Histórico Financeiro Avançado
   const [mesFiltroHistorico, setMesFiltroHistorico] = useState<string>(String(new Date().getMonth() + 1));
   const [anoFiltroHistorico, setAnoFiltroHistorico] = useState<string>(String(new Date().getFullYear()));
   const [mesExpandido, setMesExpandido] = useState<string | null>(null);
@@ -114,7 +111,6 @@ export default function App() {
   const [anotacoes, setAnotacoes] = useState<any[]>([]);
   const [contratos, setContratos] = useState<any[]>([]);
   
-  // Estados para Categorias Dinâmicas e Fornecedores
   const [categoriasProd, setCategoriasProd] = useState<any[]>([]);
   const [categoriasForn, setCategoriasForn] = useState<any[]>([]);
   const [fornecedores, setFornecedores] = useState<any[]>([]);
@@ -131,7 +127,6 @@ export default function App() {
 
   const [diaSelecionadoAgenda, setDiaSelecionadoAgenda] = useState<string>(new Date().toISOString().split('T')[0]);
 
-  // Modo de Cálculo ('peca' = por unidade, 'lote' = valor total do lote rateado)
   const [modoCalculo, setModoCalculo] = useState<'peca' | 'lote'>('peca');
 
   const [nomeProd, setNomeProd] = useState('');
@@ -149,7 +144,6 @@ export default function App() {
   const [precoManual, setPrecoManual] = useState<string | null>(null);
   const [docObsPedido, setDocObsPedido] = useState('');
 
-  // Estado para armazenar o valor alterado pelo usuário na calculadora
   const [precoFinalDigitado, setPrecoFinalDigitado] = useState<string>('0.00');
 
   const [email, setEmail] = useState('');
@@ -160,12 +154,10 @@ export default function App() {
   const [novoCli, setNovoCli] = useState({ id: '', nome: '', zap: '', email: '', endereco: '', cpfCnpj: '' });
   const [novaAnotacao, setNovaAnotacao] = useState({ id: '', titulo: '', conteudo: '', dataPrazo: new Date().toISOString().split('T')[0] });
   
-  // Estados de Cadastro Atualizados com Categorias
   const [novoProdCatalogo, setNovoProdCatalogo] = useState<{id: string, nome: string, precoVenda: string, urlImagem: string, categorias: string[]}>({ id: '', nome: '', precoVenda: '', urlImagem: '', categorias: [] });
   const [inputNovaCategoriaProd, setInputNovaCategoriaProd] = useState('');
   const [mostrarInputNovaCatProd, setMostrarInputNovaCatProd] = useState(false);
 
-  // Estados de Cadastro para Fornecedores
   const [novoFornecedor, setNovoFornecedor] = useState<{id: string, nome: string, site: string, whatsapp: string, endereco: string, categorias: string[]}>({ id: '', nome: '', site: '', whatsapp: '', endereco: '', categorias: [] });
   const [inputNovaCategoriaForn, setInputNovaCategoriaForn] = useState('');
   const [mostrarInputNovaCatForn, setMostrarInputNovaCatForn] = useState(false);
@@ -173,7 +165,6 @@ export default function App() {
   const [zapDonaConta, setZapDonaConta] = useState('');
   const [subindoImagem, setSubindoImagem] = useState(false);
 
-  // --- DADOS DO PERFIL DA LOJA (PARA CONTRATOS E ORÇAMENTOS) ---
   const [nomeLojaPerfil, setNomeLojaPerfil] = useState('');
   const [nomeFantasiaPerfil, setNomeFantasiaPerfil] = useState('');
   const [cpfCnpjPerfil, setCpfCnpjPerfil] = useState('');
@@ -187,7 +178,6 @@ export default function App() {
   const [logoLojaPerfil, setLogoLojaPerfil] = useState('');
   const [subindoLogo, setSubindoLogo] = useState(false);
 
-  // --- ESTADOS DA ABA CONTRATOS ---
   const [novoContrato, setNovoContrato] = useState({
     id: '',
     clienteId: '',
@@ -198,7 +188,6 @@ export default function App() {
     clausulas: `1. DAS PARTES E DO OBJETO\nO presente contrato estabelece os termos para a prestação dos serviços/produtos contratados.\n\n2. DO PAGAMENTO E CONFIRMAÇÃO\nO serviço será iniciado ou reservado mediante confirmação do pagamento acordado entre as partes.\n\n3. DAS CONDIÇÕES DE ENTREGA E CANCELAMENTO\nA entrega ou execução ocorrerá na data e local combinados. Em caso de cancelamento por parte do cliente, aplicar-se-ão os termos acordados prévia e formalmente.`
   });
 
-  // --- ESTADO DE TEMA E CORES ---
   const [themeColors, setThemeColors] = useState({
     primary: '#7c3aed',
     primaryHover: '#6d28d9',
@@ -209,7 +198,6 @@ export default function App() {
   const [financasFixo, setFinancasFixo] = useState({ salario: '0', aluguel: '0', internet: '0', luz: '0', outros: '0', diasTrabalho: '20', horasDia: '8' });
   const [novoEquipamento, setNovoEquipamento] = useState({ id: '', nome: '', valorPago: '', durabilidadeAnos: '2' });
 
-  // --- ESTADOS PARA A CALCULADORA DE IMPRESSÃO ---
   const [precoTinta, setPrecoTinta] = useState('62');
   const [unidadeTinta, setUnidadeTinta] = useState('Garrafinha');
   const [qtdCores, setQtdCores] = useState('4');
@@ -438,7 +426,7 @@ export default function App() {
     await updateDoc(doc(db, "anotacoes", id), { concluido: !valorAtual });
   };
 
-  // --- GERADOR DE PDF DE CONTRATO (COM RETARDAMENTO PARA PROCESSAMENTO RÁPIDO EM MOBILE) ---
+  // --- GERADOR DE PDF DE CONTRATO CORRIGIDO PARA MOBILE E VERCEL ---
   const gerarPDFContrato = (contrato: any) => {
     const cli = clientes.find(c => c.id === contrato.clienteId);
     const dataEmissao = contrato.dataEmissao || new Date().toLocaleDateString('pt-BR');
@@ -460,86 +448,87 @@ export default function App() {
     }).join('');
 
     const elemento = document.createElement('div');
-    elemento.id = "area-impressao-contrato";
-    elemento.style.width = "750px";
-    elemento.style.padding = "35px";
+    elemento.style.width = "700px";
+    elemento.style.padding = "25px";
     elemento.style.backgroundColor = "#ffffff";
     elemento.style.color = "#2d3748";
-    elemento.style.fontFamily = "sans-serif";
-    elemento.style.position = "fixed";
-    elemento.style.top = "-9999px";
+    elemento.style.fontFamily = "Arial, sans-serif";
+    elemento.style.position = "absolute";
     elemento.style.left = "-9999px";
+    elemento.style.top = "0";
 
     elemento.innerHTML = `
       <div style="width: 100%; box-sizing: border-box;">
-        
-        <!-- CABEÇALHO DO CONTRATO -->
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; border-bottom: 2px solid #f1f5f9; padding-bottom: 15px;">
-          <div>
-            <h1 style="color: #581c87; margin: 0; font-size: 22px; font-weight: 900;">CONTRATO DE PRESTAÇÃO DE SERVIÇOS</h1>
-            <p style="color: #94a3b8; font-size: 10px; font-weight: bold; text-transform: uppercase; margin: 4px 0 0 0;">DOCUMENTO COMERCIAL E TERMOS DE ACORDO</p>
-          </div>
-          <div style="background-color: #f8fafc; padding: 8px 14px; border-radius: 8px; border: 1px solid #e2e8f0; text-align: right;">
-            <span style="font-size: 8px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">DATA DE EMISSÃO</span>
-            <span style="font-size: 12px; font-weight: bold; color: #581c87; display: block; margin-top: 2px;">${dataEmissao}</span>
-          </div>
-        </div>
+        <table style="width: 100%; margin-bottom: 20px;">
+          <tr>
+            <td style="text-align: left; vertical-align: top;">
+              <h1 style="color: #581c87; margin: 0; font-size: 20px; font-weight: 900;">CONTRATO DE PRESTAÇÃO DE SERVIÇOS</h1>
+              <p style="color: #94a3b8; font-size: 10px; font-weight: bold; text-transform: uppercase; margin: 4px 0 0 0;">DOCUMENTO COMERCIAL E TERMOS DE ACORDO</p>
+            </td>
+            <td style="text-align: right; vertical-align: top; width: 180px;">
+              <div style="background-color: #f8fafc; padding: 6px 12px; border-radius: 8px; border: 1px solid #e2e8f0; text-align: center;">
+                <span style="font-size: 8px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">DATA DE EMISSÃO</span>
+                <span style="font-size: 11px; font-weight: bold; color: #581c87; display: block; margin-top: 2px;">${dataEmissao}</span>
+              </div>
+            </td>
+          </tr>
+        </table>
 
-        <!-- BLOCOS DE DADOS DAS PARTES -->
-        <div style="display: flex; gap: 15px; margin-bottom: 15px;">
-          <div style="flex: 1; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; background-color: #fafafa;">
-            <div style="background-color: #581c87; color: #ffffff; padding: 8px 10px; font-size: 9px; font-weight: bold; text-transform: uppercase;">1. DADOS DO CONTRATANTE (CLIENTE)</div>
-            <div style="padding: 12px; font-size: 11px; line-height: 1.5;">
-              <div><strong>Nome:</strong> ${cli?.nome || 'Não informado'}</div>
-              <div><strong>CPF/CNPJ:</strong> ${cli?.cpfCnpj || 'Não informado'}</div>
-              <div><strong>Endereço:</strong> ${cli?.endereco || 'Não informado'}</div>
-            </div>
-          </div>
+        <table style="width: 100%; border-collapse: separate; border-spacing: 10px; margin-bottom: 15px; margin-left: -10px;">
+          <tr>
+            <td style="width: 50%; vertical-align: top; border-radius: 8px; border: 1px solid #e2e8f0; padding: 0; background-color: #fafafa;">
+              <div style="background-color: #581c87; color: #ffffff; padding: 6px 10px; font-size: 9px; font-weight: bold; text-transform: uppercase;">1. DADOS DO CONTRATANTE (CLIENTE)</div>
+              <div style="padding: 10px; font-size: 11px; line-height: 1.5;">
+                <div><strong>Nome:</strong> ${cli?.nome || 'Não informado'}</div>
+                <div><strong>CPF/CNPJ:</strong> ${cli?.cpfCnpj || 'Não informado'}</div>
+                <div><strong>Endereço:</strong> ${cli?.endereco || 'Não informado'}</div>
+              </div>
+            </td>
 
-          <div style="flex: 1; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; background-color: #fafafa;">
-            <div style="background-color: #581c87; color: #ffffff; padding: 8px 10px; font-size: 9px; font-weight: bold; text-transform: uppercase;">2. DADOS DO CONTRATADO (EMPRESA)</div>
-            <div style="padding: 12px; font-size: 11px; line-height: 1.5;">
-              <div><strong>Empresa/Nome:</strong> ${nomeEmpresaExibir}</div>
-              <div><strong>CPF/CNPJ:</strong> ${cpfCnpjEmpresaExibir}</div>
-              ${enderecoPerfil ? `<div><strong>Endereço:</strong> ${enderecoPerfil}</div>` : ''}
-            </div>
-          </div>
-        </div>
+            <td style="width: 50%; vertical-align: top; border-radius: 8px; border: 1px solid #e2e8f0; padding: 0; background-color: #fafafa;">
+              <div style="background-color: #581c87; color: #ffffff; padding: 6px 10px; font-size: 9px; font-weight: bold; text-transform: uppercase;">2. DADOS DO CONTRATADO (EMPRESA)</div>
+              <div style="padding: 10px; font-size: 11px; line-height: 1.5;">
+                <div><strong>Empresa/Nome:</strong> ${nomeEmpresaExibir}</div>
+                <div><strong>CPF/CNPJ:</strong> ${cpfCnpjEmpresaExibir}</div>
+                ${enderecoPerfil ? `<div><strong>Endereço:</strong> ${enderecoPerfil}</div>` : ''}
+              </div>
+            </td>
+          </tr>
+        </table>
 
-        <!-- BLOCO EVENTO E VALOR COMBINADO -->
-        <div style="border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; margin-bottom: 15px; background-color: #fafafa;">
-          <div style="background-color: #581c87; color: #ffffff; padding: 8px 10px; font-size: 9px; font-weight: bold; text-transform: uppercase;">3. DADOS DO EVENTO E VALOR COMBINADO</div>
-          <div style="padding: 12px; font-size: 11px; line-height: 1.6;">
+        <div style="border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 15px; background-color: #fafafa; overflow: hidden;">
+          <div style="background-color: #581c87; color: #ffffff; padding: 6px 10px; font-size: 9px; font-weight: bold; text-transform: uppercase;">3. DADOS DO EVENTO E VALOR COMBINADO</div>
+          <div style="padding: 10px; font-size: 11px; line-height: 1.6;">
             <div><strong>Tipo de Evento:</strong> ${contrato.tipoEvento || 'Não informado'}</div>
             <div><strong>Data do Evento:</strong> ${dataEventoFormatada}</div>
             <div><strong>Local do Evento:</strong> ${contrato.localEvento || 'Não informado'}</div>
-            <div style="color: #581c87; font-size: 14px; font-weight: 900; margin-top: 6px;">Valor Total dos Serviços: R$ ${Number(contrato.valorTotal || 0).toFixed(2)}</div>
-            ${dadosBancariosPerfil ? `<div style="margin-top: 8px; font-size: 10px; color: #475569; background-color: #f1f5f9; padding: 8px; border-radius: 6px;"><strong>Dados para Pagamento:</strong> ${dadosBancariosPerfil}</div>` : ''}
+            <div style="color: #581c87; font-size: 13px; font-weight: 900; margin-top: 4px;">Valor Total dos Serviços: R$ ${Number(contrato.valorTotal || 0).toFixed(2)}</div>
+            ${dadosBancariosPerfil ? `<div style="margin-top: 6px; font-size: 10px; color: #475569; background-color: #f1f5f9; padding: 6px; border-radius: 6px;"><strong>Dados para Pagamento:</strong> ${dadosBancariosPerfil}</div>` : ''}
           </div>
         </div>
 
-        <!-- CLÁUSULAS E TERMOS -->
-        <div style="border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; margin-bottom: 30px; background-color: #fafafa;">
-          <div style="background-color: #581c87; color: #ffffff; padding: 8px 10px; font-size: 9px; font-weight: bold; text-transform: uppercase;">4. CLÁUSULAS E TERMOS DE SERVIÇO</div>
+        <div style="border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 30px; background-color: #fafafa; overflow: hidden;">
+          <div style="background-color: #581c87; color: #ffffff; padding: 6px 10px; font-size: 9px; font-weight: bold; text-transform: uppercase;">4. CLÁUSULAS E TERMOS DE SERVIÇO</div>
           <div style="padding: 12px;">
             ${clausulasFormatadas}
           </div>
         </div>
 
-        <!-- ASSINATURAS -->
-        <div style="display: flex; justify-content: space-between; gap: 40px; margin-top: 40px; page-break-inside: avoid;">
-          <div style="flex: 1; text-align: center;">
-            <div style="border-top: 1px solid #cbd5e1; margin-bottom: 6px;"></div>
-            <div style="font-size: 11px; font-weight: bold; color: #1e293b;">${cli?.nome || 'Cliente'}</div>
-            <div style="font-size: 8px; font-weight: bold; color: #94a3b8; text-transform: uppercase;">ASSINATURA DO CLIENTE</div>
-          </div>
-          <div style="flex: 1; text-align: center;">
-            <div style="border-top: 1px solid #cbd5e1; margin-bottom: 6px;"></div>
-            <div style="font-size: 11px; font-weight: bold; color: #1e293b;">${nomeEmpresaExibir}</div>
-            <div style="font-size: 8px; font-weight: bold; color: #94a3b8; text-transform: uppercase;">ASSINATURA DA EMPRESA (CONTRATADO)</div>
-          </div>
-        </div>
-
+        <table style="width: 100%; margin-top: 30px; page-break-inside: avoid;">
+          <tr>
+            <td style="width: 45%; text-align: center; vertical-align: bottom;">
+              <div style="border-top: 1px solid #cbd5e1; margin-bottom: 6px;"></div>
+              <div style="font-size: 11px; font-weight: bold; color: #1e293b;">${cli?.nome || 'Cliente'}</div>
+              <div style="font-size: 8px; font-weight: bold; color: #94a3b8; text-transform: uppercase;">ASSINATURA DO CLIENTE</div>
+            </td>
+            <td style="width: 10%;"></td>
+            <td style="width: 45%; text-align: center; vertical-align: bottom;">
+              <div style="border-top: 1px solid #cbd5e1; margin-bottom: 6px;"></div>
+              <div style="font-size: 11px; font-weight: bold; color: #1e293b;">${nomeEmpresaExibir}</div>
+              <div style="font-size: 8px; font-weight: bold; color: #94a3b8; text-transform: uppercase;">ASSINATURA DA EMPRESA (CONTRATADO)</div>
+            </td>
+          </tr>
+        </table>
       </div>
     `;
 
@@ -555,16 +544,12 @@ export default function App() {
 
       if ((window as any).html2pdf) { 
         (window as any).html2pdf().from(elemento).set(opcoes).save().then(() => {
-          if (document.body.contains(elemento)) {
-            document.body.removeChild(elemento);
-          }
+          if (document.body.contains(elemento)) document.body.removeChild(elemento);
         }); 
       } else {
-        if (document.body.contains(elemento)) {
-          document.body.removeChild(elemento);
-        }
+        if (document.body.contains(elemento)) document.body.removeChild(elemento);
       }
-    }, 200);
+    }, 250);
   };
 
   const enviarContratoWhatsapp = (contrato: any) => {
@@ -727,7 +712,235 @@ export default function App() {
     }
   };
 
-  // --- DASHBOARD METRICS ---
+  // --- EXCLUSÃO DIRETA DE CONTRATOS ---
+  const excluirContratoDireto = async (id: string) => {
+    if (!id) return alert("Erro ao identificar o contrato.");
+    if (window.confirm("Deseja realmente excluir este contrato?")) {
+      try {
+        await deleteDoc(doc(db, "contratos", id));
+        alert("Contrato excluído com sucesso! 🗑️");
+      } catch (e) {
+        alert("Erro ao excluir o contrato do Firebase.");
+      }
+    }
+  };
+
+  // --- CONFIRMAÇÃO DE EXCLUSÃO DE OUTROS ITENS ---
+  const confirmarExcluir = async (tipo: string, id: string) => {
+    if (!id) return;
+    if (window.confirm(`Tem certeza de que deseja excluir este ${tipo}?`)) {
+      let colecao = "";
+      if (tipo === 'pedido') colecao = "pedidos";
+      else if (tipo === 'cliente') colecao = "clientes";
+      else if (tipo === 'produto') colecao = "produtos";
+      else if (tipo === 'equipamento') colecao = "equipamentos";
+      else if (tipo === 'material') colecao = "materiais";
+      else if (tipo === 'anotacao') colecao = "anotacoes";
+      else if (tipo === 'fornecedor') colecao = "fornecedores";
+      else if (tipo === 'contrato') colecao = "contratos";
+
+      if (colecao) {
+        try {
+          await deleteDoc(doc(db, colecao, id));
+          alert("Item excluído com sucesso! 🗑️");
+        } catch (error) {
+          alert("Erro ao excluir do banco de dados.");
+        }
+      }
+    }
+  };
+
+  const confirmarVendaPedido = async (pedido: any) => {
+    if (pedido.materiaisUsados && pedido.materiaisUsados.length > 0) {
+      for (const m of pedido.materiaisUsados) {
+        const matDoBanco = materiais.find(item => item.id === m.id);
+        if (matDoBanco) {
+          const estoqueFiscal = Number(matDoBanco.qtdAtual || 0);
+          const gastoTotal = Number(m.qtdUsada || 0) * Number(pedido.qtdPed || 1);
+          await updateDoc(doc(db, "materiais", m.id), { qtdAtual: Math.max(0, estoqueFiscal - gastoTotal) });
+        }
+      }
+    } 
+    
+    const textoVenda = String(pedido.nomeProd || '');
+    if (textoVenda.includes('x ')) {
+      const partesItens = textoVenda.split(/\n| \+ /);
+      for (const parte of partesItens) {
+        const regexMatch = parte.trim().match(/^(\d+)x\s+(.+)$/i);
+        if (regexMatch) {
+          const qtdVendida = Number(regexMatch[1]);
+          const nomeProdutoTexto = regexMatch[2].trim().toLowerCase();
+          const materialCorrespondente = materiais.find(m => nomeProdutoTexto.includes(m.nome.toLowerCase()) || m.nome.toLowerCase().includes(nomeProdutoTexto));
+          if (materialCorrespondente) {
+            const estoqueAtual = Number(materialCorrespondente.qtdAtual || 0);
+            const novoEstoque = Math.max(0, estoqueAtual - qtdVendida);
+            await updateDoc(doc(db, "materiais", materialCorrespondente.id), { qtdAtual: novoEstoque });
+          }
+        }
+      }
+    }
+    await updateDoc(doc(db, "pedidos", pedido.id), { status: 'Vendido 💰' });
+    alert("Venda confirmada!");
+  };
+
+  const cancelarPedidoSemExcluir = async (id: string) => {
+    if (window.confirm("Deseja realmente mover este orçamento para os cancelados?")) {
+      await updateDoc(doc(db, "pedidos", id), { status: 'Cancelado ❌' });
+      alert("Pedido cancelado!");
+    }
+  };
+
+  const handleUploadImagem = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    setSubindoImagem(true);
+    try {
+      const nomeArquivo = `${user.uid}_${Date.now()}_${file.name}`;
+      const imagemRef = ref(storage, `produtos/${nomeArquivo}`);
+      await uploadBytes(imagemRef, file);
+      const urlDisponivel = await getDownloadURL(imagemRef);
+      setNovoProdCatalogo(prev => ({ ...prev, urlImagem: urlDisponivel }));
+      alert("Foto carregada com sucesso! 📸");
+    } catch (error) { alert("Erro ao subir a foto!"); } 
+    finally { setSubindoImagem(false); }
+  };
+
+  const handleUploadLogo = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    setSubindoLogo(true);
+    try {
+      const nomeArquivo = `logo_${user.uid}_${Date.now()}_${file.name}`;
+      const logoRef = ref(storage, `logos/${nomeArquivo}`);
+      await uploadBytes(logoRef, file);
+      const urlDisponivel = await getDownloadURL(logoRef);
+      setLogoLojaPerfil(urlDisponivel);
+      alert("Logo carregado com sucesso! Salve o perfil para aplicar. 📸");
+    } catch (error) { alert("Erro ao subir o logo!"); }
+    finally { setSubindoLogo(false); }
+  };
+
+  const limparCalculadora = () => {
+    setNomeProd(''); setDetalhamentoPed(''); setQtdPed('1'); setMatsNoPed([]); setVHora('9'); setTGasto('60');
+    setCustos({ embalagem: '0', impressao: custoPorPaginaCalculado.toFixed(2), energia: '0', outros: '0' });
+    setEquipamentosSelecionados([]);
+    setLucro('100'); setDesconto('0'); setPrazo(''); setClienteSel('');
+    setPedidoEditandoId(null); setPrecoManual(null); setDocObsPedido('');
+    setIsDuplicando(false);
+    setModoCalculo('peca');
+    setPrecoFinalDigitado('0.00');
+  };
+
+  const carregarPedidoParaEdicao = (p: any) => {
+    setIsDuplicando(false);
+    setPedidoEditandoId(p.id); setNomeProd(p.nomeProd || ''); setDetalhamentoPed(p.detalhamentoPed || ''); setQtdPed(p.qtdPed || '1'); setVHora(p.vHora || '9'); setTGasto(p.tGasto || '60');
+    setCustos(p.custos || { embalagem: '0', impressao: '0', energia: '0', outros: '0' });
+    setLucro(p.lucro || '100'); setDesconto(p.desconto || '0'); setPrazo(p.prazo || ''); setClienteSel(p.clienteId || '');
+    setPrecoManual(p.precoManual || null); setDocObsPedido(p.obsPedido || '');
+    setEquipamentosSelecionados(p.equipamentosSelecionados || []);
+    setModoCalculo(p.modoCalculo || 'peca');
+
+    if (p.materiaisUsados && p.materiaisUsados.length > 0) {
+      const listaReconstruida = p.materiaisUsados.map((mSalvo: any) => {
+        const matDoArmario = materiais.find(item => item.id === mSalvo.id);
+        return { id: mSalvo.id, nome: matDoArmario ? matDoArmario.nome : mSalvo.nome, qtdUsada: Number(mSalvo.qtdUsada || 1), valor: matDoArmario ? Number(matDoArmario.valor) : Number(mSalvo.valor || 0), qtd: matDoArmario ? Number(matDoArmario.qtd) : Number(mSalvo.qtd || 1), unidade: matDoArmario ? matDoArmario.unidade : (mSalvo.unidade || 'un') };
+      });
+      setMatsNoPed(listaReconstruida);
+    } else { setMatsNoPed([]); }
+    
+    setPrecoFinalDigitado(p.preco || '0.00');
+    setActiveTab('criar');
+  };
+
+  const handleDuplicarOrcamento = (p: any) => {
+    setPedidoEditandoId(null); 
+    setIsDuplicando(true);
+    setNomeProd(`${p.nomeProd} (Cópia)`); 
+    setDetalhamentoPed(p.detalhamentoPed || '');
+    setQtdPed(p.qtdPed || '1'); 
+    setVHora(p.vHora || '9'); 
+    setTGasto(p.tGasto || '60');
+    setCustos(p.custos || { embalagem: '0', impressao: '0', energia: '0', outros: '0' });
+    setLucro(p.lucro || '100'); 
+    setDesconto(p.desconto || '0'); 
+    setPrazo(p.prazo || ''); 
+    setClienteSel(''); 
+    setPrecoManual(p.precoManual || null); 
+    setDocObsPedido(p.obsPedido || '');
+    setEquipamentosSelecionados(p.equipamentosSelecionados || []);
+    setModoCalculo(p.modoCalculo || 'peca');
+
+    if (p.materiaisUsados && p.materiaisUsados.length > 0) {
+      const listaReconstruida = p.materiaisUsados.map((mSalvo: any) => {
+        const matDoArmario = materiais.find(item => item.id === mSalvo.id);
+        return { id: mSalvo.id, nome: matDoArmario ? matDoArmario.nome : mSalvo.nome, qtdUsada: Number(mSalvo.qtdUsada || 1), valor: matDoArmario ? Number(matDoArmario.valor) : Number(mSalvo.valor || 0), qtd: matDoArmario ? Number(matDoArmario.qtd) : Number(mSalvo.qtd || 1), unidade: matDoArmario ? matDoArmario.unidade : (mSalvo.unidade || 'un') };
+      });
+      setMatsNoPed(listaReconstruida);
+    } else { setMatsNoPed([]); }
+    
+    setPrecoFinalDigitado(p.preco || '0.00');
+    setActiveTab('criar');
+    alert("Orçamento duplicado com sucesso! Defina o cliente e salve. ✨");
+  };
+
+  const venderItemDiretoDoCatalogo = (prod: any) => {
+    limparCalculadora(); setNomeProd(prod.nome); setPrecoManual(prod.precoVenda); setActiveTab('criar');
+  };
+
+  const toggleEquipamento = (id: string) => {
+    if (equipamentosSelecionados.includes(id)) {
+      setEquipamentosSelecionados(equipamentosSelecionados.filter(item => item !== id));
+    } else {
+      setEquipamentosSelecionados([...equipamentosSelecionados, id]);
+    }
+  };
+
+  const toggleCategoriaNoProduto = (catNome: string) => {
+    const jaTem = novoProdCatalogo.categorias?.includes(catNome) || false;
+    if(jaTem) {
+      setNovoProdCatalogo({...novoProdCatalogo, categorias: novoProdCatalogo.categorias.filter(c => c !== catNome)});
+    } else {
+      setNovoProdCatalogo({...novoProdCatalogo, categorias: [...(novoProdCatalogo.categorias || []), catNome]});
+    }
+  };
+
+  const toggleCategoriaNoFornecedor = (catNome: string) => {
+    const jaTem = novoFornecedor.categorias?.includes(catNome) || false;
+    if(jaTem) {
+      setNovoFornecedor({...novoFornecedor, categorias: novoFornecedor.categorias.filter(c => c !== catNome)});
+    } else {
+      setNovoFornecedor({...novoFornecedor, categorias: [...(novoFornecedor.categorias || []), catNome]});
+    }
+  };
+
+  const materiaisFiltrados = useMemo(() => {
+    return materiais.filter(m => 
+      m.nome?.toLowerCase().includes(pesquisaMateriais.toLowerCase())
+    );
+  }, [materiais, pesquisaMateriais]);
+
+  const produtosPublicosFiltrados = useMemo(() => {
+    if (filtroVitrineSelecionado === 'Todos') return produtosPublicos;
+    return produtosPublicos.filter(p => p.categorias && p.categorias.includes(filtroVitrineSelecionado));
+  }, [produtosPublicos, filtroVitrineSelecionado]);
+
+  const proveedoresFiltrados = useMemo(() => {
+    return fornecedores.filter(f => {
+      const matchNome = f.nome?.toLowerCase().includes(pesquisaFornecedores.toLowerCase());
+      const matchCat = filtroFornSelecionado === 'Todos' ? true : (f.categorias && f.categorias.includes(filtroFornSelecionado));
+      return matchNome && matchCat;
+    });
+  }, [fornecedores, pesquisaFornecedores, filtroFornSelecionado]);
+
+  const pedidosFiltradosPorStatus = useMemo(() => {
+    return pedidos.filter(p => {
+      const st = p.status || 'Pendente';
+      if (filtroStatusPedido === 'Vendido') return st.includes('Vendido');
+      if (filtroStatusPedido === 'Cancelado') return st.includes('Cancelado');
+      return st === 'Pendente';
+    });
+  }, [pedidos, filtroStatusPedido]);
+
   const dashboardMetrics = useMemo(() => {
     const agora = new Date();
     const mesAtual = agora.getMonth() + 1;
@@ -1030,222 +1243,6 @@ export default function App() {
       else await signInWithEmailAndPassword(auth, email, password);
     } catch (e) { alert("E-mail ou senha incorretos!"); }
   };
-
-  // --- CONFIRMAÇÃO DE EXCLUSÃO CORRIGIDA PARA CONTRATOS ---
-  const confirmarExcluir = async (tipo: string, id: string) => {
-    if (!id) return;
-    if (window.confirm(`Tem certeza de que deseja excluir este ${tipo}?`)) {
-      let colecao = "";
-      if (tipo === 'pedido') colecao = "pedidos";
-      else if (tipo === 'cliente') colecao = "clientes";
-      else if (tipo === 'produto') colecao = "produtos";
-      else if (tipo === 'equipamento') colecao = "equipamentos";
-      else if (tipo === 'material') colecao = "materiais";
-      else if (tipo === 'anotacao') colecao = "anotacoes";
-      else if (tipo === 'fornecedor') colecao = "fornecedores";
-      else if (tipo === 'contrato') colecao = "contratos";
-
-      if (colecao) {
-        try {
-          await deleteDoc(doc(db, colecao, id));
-          alert("Item excluído com sucesso! 🗑️");
-        } catch (error) {
-          alert("Erro ao excluir do banco de dados.");
-        }
-      }
-    }
-  };
-
-  const confirmarVendaPedido = async (pedido: any) => {
-    if (pedido.materiaisUsados && pedido.materiaisUsados.length > 0) {
-      for (const m of pedido.materiaisUsados) {
-        const matDoBanco = materiais.find(item => item.id === m.id);
-        if (matDoBanco) {
-          const estoqueFiscal = Number(matDoBanco.qtdAtual || 0);
-          const gastoTotal = Number(m.qtdUsada || 0) * Number(pedido.qtdPed || 1);
-          await updateDoc(doc(db, "materiais", m.id), { qtdAtual: Math.max(0, estoqueFiscal - gastoTotal) });
-        }
-      }
-    } 
-    
-    const textoVenda = String(pedido.nomeProd || '');
-    if (textoVenda.includes('x ')) {
-      const partesItens = textoVenda.split(/\n| \+ /);
-      for (const parte of partesItens) {
-        const regexMatch = parte.trim().match(/^(\d+)x\s+(.+)$/i);
-        if (regexMatch) {
-          const qtdVendida = Number(regexMatch[1]);
-          const nomeProdutoTexto = regexMatch[2].trim().toLowerCase();
-          const materialCorrespondente = materiais.find(m => nomeProdutoTexto.includes(m.nome.toLowerCase()) || m.nome.toLowerCase().includes(nomeProdutoTexto));
-          if (materialCorrespondente) {
-            const estoqueAtual = Number(materialCorrespondente.qtdAtual || 0);
-            const novoEstoque = Math.max(0, estoqueAtual - qtdVendida);
-            await updateDoc(doc(db, "materiais", materialCorrespondente.id), { qtdAtual: novoEstoque });
-          }
-        }
-      }
-    }
-    await updateDoc(doc(db, "pedidos", pedido.id), { status: 'Vendido 💰' });
-    alert("Venda confirmada!");
-  };
-
-  const cancelarPedidoSemExcluir = async (id: string) => {
-    if (window.confirm("Deseja realmente mover este orçamento para os cancelados?")) {
-      await updateDoc(doc(db, "pedidos", id), { status: 'Cancelado ❌' });
-      alert("Pedido cancelado!");
-    }
-  };
-
-  const handleUploadImagem = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !user) return;
-    setSubindoImagem(true);
-    try {
-      const nomeArquivo = `${user.uid}_${Date.now()}_${file.name}`;
-      const imagemRef = ref(storage, `produtos/${nomeArquivo}`);
-      await uploadBytes(imagemRef, file);
-      const urlDisponivel = await getDownloadURL(imagemRef);
-      setNovoProdCatalogo(prev => ({ ...prev, urlImagem: urlDisponivel }));
-      alert("Foto carregada com sucesso! 📸");
-    } catch (error) { alert("Erro ao subir a foto!"); } 
-    finally { setSubindoImagem(false); }
-  };
-
-  const handleUploadLogo = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !user) return;
-    setSubindoLogo(true);
-    try {
-      const nomeArquivo = `logo_${user.uid}_${Date.now()}_${file.name}`;
-      const logoRef = ref(storage, `logos/${nomeArquivo}`);
-      await uploadBytes(logoRef, file);
-      const urlDisponivel = await getDownloadURL(logoRef);
-      setLogoLojaPerfil(urlDisponivel);
-      alert("Logo carregado com sucesso! Salve o perfil para aplicar. 📸");
-    } catch (error) { alert("Erro ao subir o logo!"); }
-    finally { setSubindoLogo(false); }
-  };
-
-  const limparCalculadora = () => {
-    setNomeProd(''); setDetalhamentoPed(''); setQtdPed('1'); setMatsNoPed([]); setVHora('9'); setTGasto('60');
-    setCustos({ embalagem: '0', impressao: custoPorPaginaCalculado.toFixed(2), energia: '0', outros: '0' });
-    setEquipamentosSelecionados([]);
-    setLucro('100'); setDesconto('0'); setPrazo(''); setClienteSel('');
-    setPedidoEditandoId(null); setPrecoManual(null); setDocObsPedido('');
-    setIsDuplicando(false);
-    setModoCalculo('peca');
-    setPrecoFinalDigitado('0.00');
-  };
-
-  const carregarPedidoParaEdicao = (p: any) => {
-    setIsDuplicando(false);
-    setPedidoEditandoId(p.id); setNomeProd(p.nomeProd || ''); setDetalhamentoPed(p.detalhamentoPed || ''); setQtdPed(p.qtdPed || '1'); setVHora(p.vHora || '9'); setTGasto(p.tGasto || '60');
-    setCustos(p.custos || { embalagem: '0', impressao: '0', energia: '0', outros: '0' });
-    setLucro(p.lucro || '100'); setDesconto(p.desconto || '0'); setPrazo(p.prazo || ''); setClienteSel(p.clienteId || '');
-    setPrecoManual(p.precoManual || null); setDocObsPedido(p.obsPedido || '');
-    setEquipamentosSelecionados(p.equipamentosSelecionados || []);
-    setModoCalculo(p.modoCalculo || 'peca');
-
-    if (p.materiaisUsados && p.materiaisUsados.length > 0) {
-      const listaReconstruida = p.materiaisUsados.map((mSalvo: any) => {
-        const matDoArmario = materiais.find(item => item.id === mSalvo.id);
-        return { id: mSalvo.id, nome: matDoArmario ? matDoArmario.nome : mSalvo.nome, qtdUsada: Number(mSalvo.qtdUsada || 1), valor: matDoArmario ? Number(matDoArmario.valor) : Number(mSalvo.valor || 0), qtd: matDoArmario ? Number(matDoArmario.qtd) : Number(mSalvo.qtd || 1), unidade: matDoArmario ? matDoArmario.unidade : (mSalvo.unidade || 'un') };
-      });
-      setMatsNoPed(listaReconstruida);
-    } else { setMatsNoPed([]); }
-    
-    setPrecoFinalDigitado(p.preco || '0.00');
-    setActiveTab('criar');
-  };
-
-  const handleDuplicarOrcamento = (p: any) => {
-    setPedidoEditandoId(null); 
-    setIsDuplicando(true);
-    setNomeProd(`${p.nomeProd} (Cópia)`); 
-    setDetalhamentoPed(p.detalhamentoPed || '');
-    setQtdPed(p.qtdPed || '1'); 
-    setVHora(p.vHora || '9'); 
-    setTGasto(p.tGasto || '60');
-    setCustos(p.custos || { embalagem: '0', impressao: '0', energia: '0', outros: '0' });
-    setLucro(p.lucro || '100'); 
-    setDesconto(p.desconto || '0'); 
-    setPrazo(p.prazo || ''); 
-    setClienteSel(''); 
-    setPrecoManual(p.precoManual || null); 
-    setDocObsPedido(p.obsPedido || '');
-    setEquipamentosSelecionados(p.equipamentosSelecionados || []);
-    setModoCalculo(p.modoCalculo || 'peca');
-
-    if (p.materiaisUsados && p.materiaisUsados.length > 0) {
-      const listaReconstruida = p.materiaisUsados.map((mSalvo: any) => {
-        const matDoArmario = materiais.find(item => item.id === mSalvo.id);
-        return { id: mSalvo.id, nome: matDoArmario ? matDoArmario.nome : mSalvo.nome, qtdUsada: Number(mSalvo.qtdUsada || 1), valor: matDoArmario ? Number(matDoArmario.valor) : Number(mSalvo.valor || 0), qtd: matDoArmario ? Number(matDoArmario.qtd) : Number(mSalvo.qtd || 1), unidade: matDoArmario ? matDoArmario.unidade : (mSalvo.unidade || 'un') };
-      });
-      setMatsNoPed(listaReconstruida);
-    } else { setMatsNoPed([]); }
-    
-    setPrecoFinalDigitado(p.preco || '0.00');
-    setActiveTab('criar');
-    alert("Orçamento duplicado com sucesso! Defina o cliente e salve. ✨");
-  };
-
-  const venderItemDiretoDoCatalogo = (prod: any) => {
-    limparCalculadora(); setNomeProd(prod.nome); setPrecoManual(prod.precoVenda); setActiveTab('criar');
-  };
-
-  const toggleEquipamento = (id: string) => {
-    if (equipamentosSelecionados.includes(id)) {
-      setEquipamentosSelecionados(equipamentosSelecionados.filter(item => item !== id));
-    } else {
-      setEquipamentosSelecionados([...equipamentosSelecionados, id]);
-    }
-  };
-
-  const toggleCategoriaNoProduto = (catNome: string) => {
-    const jaTem = novoProdCatalogo.categorias?.includes(catNome) || false;
-    if(jaTem) {
-      setNovoProdCatalogo({...novoProdCatalogo, categorias: novoProdCatalogo.categorias.filter(c => c !== catNome)});
-    } else {
-      setNovoProdCatalogo({...novoProdCatalogo, categorias: [...(novoProdCatalogo.categorias || []), catNome]});
-    }
-  };
-
-  const toggleCategoriaNoFornecedor = (catNome: string) => {
-    const jaTem = novoFornecedor.categorias?.includes(catNome) || false;
-    if(jaTem) {
-      setNovoFornecedor({...novoFornecedor, categorias: novoFornecedor.categorias.filter(c => c !== catNome)});
-    } else {
-      setNovoFornecedor({...novoFornecedor, categorias: [...(novoFornecedor.categorias || []), catNome]});
-    }
-  };
-
-  const materiaisFiltrados = useMemo(() => {
-    return materiais.filter(m => 
-      m.nome?.toLowerCase().includes(pesquisaMateriais.toLowerCase())
-    );
-  }, [materiais, pesquisaMateriais]);
-
-  const produtosPublicosFiltrados = useMemo(() => {
-    if (filtroVitrineSelecionado === 'Todos') return produtosPublicos;
-    return produtosPublicos.filter(p => p.categorias && p.categorias.includes(filtroVitrineSelecionado));
-  }, [produtosPublicos, filtroVitrineSelecionado]);
-
-  const proveedoresFiltrados = useMemo(() => {
-    return fornecedores.filter(f => {
-      const matchNome = f.nome?.toLowerCase().includes(pesquisaFornecedores.toLowerCase());
-      const matchCat = filtroFornSelecionado === 'Todos' ? true : (f.categorias && f.categorias.includes(filtroFornSelecionado));
-      return matchNome && matchCat;
-    });
-  }, [fornecedores, pesquisaFornecedores, filtroFornSelecionado]);
-
-  const pedidosFiltradosPorStatus = useMemo(() => {
-    return pedidos.filter(p => {
-      const st = p.status || 'Pendente';
-      if (filtroStatusPedido === 'Vendido') return st.includes('Vendido');
-      if (filtroStatusPedido === 'Cancelado') return st.includes('Cancelado');
-      return st === 'Pendente';
-    });
-  }, [pedidos, filtroStatusPedido]);
 
   if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando o PrecificaJá... 🚀</div>;
 
@@ -1861,7 +1858,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* PAINEL DE PERSONALIZAÇÃO DE CORES */}
               <div className="border-t pt-6 mb-6">
                 <h3 style={{ color: themeColors.primary }} className="font-bold flex items-center gap-2 uppercase text-xs tracking-widest mb-1">
                   <Palette size={18}/> Paleta de Cores do App
@@ -2087,7 +2083,7 @@ export default function App() {
                       
                       <button onClick={() => enviarContratoWhatsapp(c)} className="p-2 bg-emerald-50 text-emerald-600 rounded-xl"><MessageCircle size={16}/></button>
                       
-                      <button onClick={() => confirmarExcluir('contrato', c.id)} className="p-2 text-red-400 hover:text-red-600 transition-colors"><Trash2 size={16}/></button>
+                      <button onClick={() => excluirContratoDireto(c.id)} className="p-2 text-red-500 hover:text-red-700 transition-colors"><Trash2 size={16}/></button>
                     </div>
                   </div>
                 );
