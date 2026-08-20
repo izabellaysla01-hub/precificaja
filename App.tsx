@@ -438,7 +438,7 @@ export default function App() {
     await updateDoc(doc(db, "anotacoes", id), { concluido: !valorAtual });
   };
 
-  // --- GERADOR DE PDF DE CONTRATO COMPATÍVEL COM O MODELO DA FOTO ---
+  // --- GERADOR DE PDF DE CONTRATO CORRIGIDO PARA NÃO SAIR EM BRANCO ---
   const gerarPDFContrato = (contrato: any) => {
     const cli = clientes.find(c => c.id === contrato.clienteId);
     const dataEmissao = contrato.dataEmissao || new Date().toLocaleDateString('pt-BR');
@@ -453,52 +453,64 @@ export default function App() {
       const corpo = linhas.slice(1).join('<br>') || '';
       return `
         <div style="margin-bottom: 12px;">
-          <div style="font-weight: 700; font-size: 11px; color: #4b0082; text-transform: uppercase;">${titulo}</div>
-          <div style="font-size: 11px; color: #4a5568; margin-top: 2px; line-height: 1.3;">${corpo || titulo}</div>
+          <div style="font-weight: bold; font-size: 11px; color: #4b0082; text-transform: uppercase;">${titulo}</div>
+          <div style="font-size: 11px; color: #4a5568; margin-top: 2px; line-height: 1.4;">${corpo || titulo}</div>
         </div>
       `;
     }).join('');
 
     const elemento = document.createElement('div');
+    elemento.style.width = "750px";
+    elemento.style.padding = "30px";
+    elemento.style.backgroundColor = "#ffffff";
+    elemento.style.color = "#2d3748";
+    elemento.style.fontFamily = "Arial, sans-serif";
+
     elemento.innerHTML = `
-      <div style="padding: 30px; font-family: system-ui, -apple-system, sans-serif; color: #2d3748; max-width: 750px; margin: 0 auto; background: #fff;">
+      <div style="width: 100%; box-sizing: border-box;">
         
         <!-- CABEÇALHO -->
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
-          <div>
-            <h1 style="color: #4c1d95; margin: 0; font-size: 22px; font-weight: 900; letter-spacing: -0.5px;">CONTRATO DE PRESTAÇÃO DE SERVIÇOS</h1>
-            <p style="color: #94a3b8; font-size: 10px; font-weight: 700; text-transform: uppercase; margin: 3px 0 0 0;">DOCUMENTO COMERCIAL E TERMOS DE ACORDO</p>
-          </div>
-          <div style="background-color: #f8fafc; padding: 6px 12px; border-radius: 8px; border: 1px solid #e2e8f0; text-align: right;">
-            <span style="font-size: 8px; font-weight: 800; color: #64748b; text-transform: uppercase; display: block;">DATA DE EMISSÃO</span>
-            <span style="font-size: 11px; font-weight: 800; color: #4c1d95; display: block;">${dataEmissao}</span>
-          </div>
-        </div>
+        <table style="width: 100%; margin-bottom: 20px;">
+          <tr>
+            <td style="text-align: left; vertical-align: top;">
+              <h1 style="color: #4c1d95; margin: 0; font-size: 20px; font-weight: 900;">CONTRATO DE PRESTAÇÃO DE SERVIÇOS</h1>
+              <p style="color: #94a3b8; font-size: 10px; font-weight: bold; text-transform: uppercase; margin: 4px 0 0 0;">DOCUMENTO COMERCIAL E TERMOS DE ACORDO</p>
+            </td>
+            <td style="text-align: right; vertical-align: top; width: 180px;">
+              <div style="background-color: #f8fafc; padding: 6px 12px; border-radius: 8px; border: 1px solid #e2e8f0; text-align: center;">
+                <span style="font-size: 8px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">DATA DE EMISSÃO</span>
+                <span style="font-size: 11px; font-weight: bold; color: #4c1d95; display: block; margin-top: 2px;">${dataEmissao}</span>
+              </div>
+            </td>
+          </tr>
+        </table>
 
         <!-- BLOCOS DE DADOS DAS PARTES -->
-        <div style="display: flex; gap: 12px; margin-bottom: 15px;">
-          <div style="flex: 1; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0;">
-            <div style="background-color: #581c87; color: white; padding: 6px 10px; font-size: 9px; font-weight: 800; text-transform: uppercase;">1. DADOS DO CONTRATANTE (CLIENTE)</div>
-            <div style="padding: 10px; font-size: 11px; background-color: #fafafa; line-height: 1.5;">
-              <div><strong>Nome:</strong> ${cli?.nome || 'Não informado'}</div>
-              <div><strong>CPF/CNPJ:</strong> ${cli?.cpfCnpj || 'Não informado'}</div>
-              <div><strong>Endereço:</strong> ${cli?.endereco || 'Não informado'}</div>
-            </div>
-          </div>
+        <table style="width: 100%; border-collapse: separate; border-spacing: 10px; margin-bottom: 15px; margin-left: -10px;">
+          <tr>
+            <td style="width: 50%; vertical-align: top; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; padding: 0;">
+              <div style="background-color: #581c87; color: white; padding: 6px 10px; font-size: 9px; font-weight: bold; text-transform: uppercase;">1. DADOS DO CONTRATANTE (CLIENTE)</div>
+              <div style="padding: 10px; font-size: 11px; background-color: #fafafa; line-height: 1.5;">
+                <div><strong>Nome:</strong> ${cli?.nome || 'Não informado'}</div>
+                <div><strong>CPF/CNPJ:</strong> ${cli?.cpfCnpj || 'Não informado'}</div>
+                <div><strong>Endereço:</strong> ${cli?.endereco || 'Não informado'}</div>
+              </div>
+            </td>
 
-          <div style="flex: 1; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0;">
-            <div style="background-color: #581c87; color: white; padding: 6px 10px; font-size: 9px; font-weight: 800; text-transform: uppercase;">2. DADOS DO CONTRATADO (EMPRESA)</div>
-            <div style="padding: 10px; font-size: 11px; background-color: #fafafa; line-height: 1.5;">
-              <div><strong>Empresa/Nome:</strong> ${nomeEmpresaExibir}</div>
-              <div><strong>CPF/CNPJ:</strong> ${cpfCnpjEmpresaExibir}</div>
-              ${enderecoPerfil ? `<div><strong>Endereço:</strong> ${enderecoPerfil}</div>` : ''}
-            </div>
-          </div>
-        </div>
+            <td style="width: 50%; vertical-align: top; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; padding: 0;">
+              <div style="background-color: #581c87; color: white; padding: 6px 10px; font-size: 9px; font-weight: bold; text-transform: uppercase;">2. DADOS DO CONTRATADO (EMPRESA)</div>
+              <div style="padding: 10px; font-size: 11px; background-color: #fafafa; line-height: 1.5;">
+                <div><strong>Empresa/Nome:</strong> ${nomeEmpresaExibir}</div>
+                <div><strong>CPF/CNPJ:</strong> ${cpfCnpjEmpresaExibir}</div>
+                ${enderecoPerfil ? `<div><strong>Endereço:</strong> ${enderecoPerfil}</div>` : ''}
+              </div>
+            </td>
+          </tr>
+        </table>
 
         <!-- BLOCO EVENTO E VALOR -->
-        <div style="border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0; margin-bottom: 15px;">
-          <div style="background-color: #581c87; color: white; padding: 6px 10px; font-size: 9px; font-weight: 800; text-transform: uppercase;">3. DADOS DO EVENTO E VALOR COMBINADO</div>
+        <div style="border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; margin-bottom: 15px;">
+          <div style="background-color: #581c87; color: white; padding: 6px 10px; font-size: 9px; font-weight: bold; text-transform: uppercase;">3. DADOS DO EVENTO E VALOR COMBINADO</div>
           <div style="padding: 10px; font-size: 11px; background-color: #fafafa; line-height: 1.6;">
             <div><strong>Tipo de Evento:</strong> ${contrato.tipoEvento || 'Não informado'}</div>
             <div><strong>Data do Evento:</strong> ${dataEventoFormatada}</div>
@@ -509,32 +521,49 @@ export default function App() {
         </div>
 
         <!-- CLÁUSULAS -->
-        <div style="border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0; margin-bottom: 35px;">
-          <div style="background-color: #581c87; color: white; padding: 6px 10px; font-size: 9px; font-weight: 800; text-transform: uppercase;">4. CLÁUSULAS E TERMOS DE SERVIÇO</div>
+        <div style="border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; margin-bottom: 30px;">
+          <div style="background-color: #581c87; color: white; padding: 6px 10px; font-size: 9px; font-weight: bold; text-transform: uppercase;">4. CLÁUSULAS E TERMOS DE SERVIÇO</div>
           <div style="padding: 12px; background-color: #fafafa;">
             ${clausulasFormatadas}
           </div>
         </div>
 
         <!-- ASSINATURAS -->
-        <div style="display: flex; justify-content: space-between; gap: 40px; margin-top: 40px; page-break-inside: avoid;">
-          <div style="flex: 1; text-align: center;">
-            <div style="border-top: 1px solid #cbd5e1; margin-bottom: 6px;"></div>
-            <div style="font-size: 11px; font-weight: 800; color: #1e293b;">${cli?.nome || 'Cliente'}</div>
-            <div style="font-size: 8px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">ASSINATURA DO CLIENTE</div>
-          </div>
-          <div style="flex: 1; text-align: center;">
-            <div style="border-top: 1px solid #cbd5e1; margin-bottom: 6px;"></div>
-            <div style="font-size: 11px; font-weight: 800; color: #1e293b;">${nomeEmpresaExibir}</div>
-            <div style="font-size: 8px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">ASSINATURA DA EMPRESA (CONTRATADO)</div>
-          </div>
-        </div>
+        <table style="width: 100%; margin-top: 30px; page-break-inside: avoid;">
+          <tr>
+            <td style="width: 45%; text-align: center; vertical-align: bottom;">
+              <div style="border-top: 1px solid #cbd5e1; margin-bottom: 6px;"></div>
+              <div style="font-size: 11px; font-weight: bold; color: #1e293b;">${cli?.nome || 'Cliente'}</div>
+              <div style="font-size: 8px; font-weight: bold; color: #94a3b8; text-transform: uppercase;">ASSINATURA DO CLIENTE</div>
+            </td>
+            <td style="width: 10%;"></td>
+            <td style="width: 45%; text-align: center; vertical-align: bottom;">
+              <div style="border-top: 1px solid #cbd5e1; margin-bottom: 6px;"></div>
+              <div style="font-size: 11px; font-weight: bold; color: #1e293b;">${nomeEmpresaExibir}</div>
+              <div style="font-size: 8px; font-weight: bold; color: #94a3b8; text-transform: uppercase;">ASSINATURA DA EMPRESA (CONTRATADO)</div>
+            </td>
+          </tr>
+        </table>
 
       </div>
     `;
 
-    const opcoes = { margin: 8, filename: `Contrato_${cli?.nome || 'Cliente'}.pdf`, html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'a4', orientation: 'portrait' } };
-    if ((window as any).html2pdf) { (window as any).html2pdf().from(elemento).set(opcoes).save(); }
+    document.body.appendChild(elemento);
+
+    const opcoes = { 
+      margin: 10, 
+      filename: `Contrato_${cli?.nome || 'Cliente'}.pdf`, 
+      html2canvas: { scale: 2, useCORS: true, logging: false }, 
+      jsPDF: { format: 'a4', orientation: 'portrait' } 
+    };
+
+    if ((window as any).html2pdf) { 
+      (window as any).html2pdf().from(elemento).set(opcoes).save().then(() => {
+        document.body.removeChild(elemento);
+      }); 
+    } else {
+      document.body.removeChild(elemento);
+    }
   };
 
   const enviarContratoWhatsapp = (contrato: any) => {
@@ -1001,6 +1030,7 @@ export default function App() {
     } catch (e) { alert("E-mail ou senha incorretos!"); }
   };
 
+  // --- CONFIRMAÇÃO DE EXCLUSÃO CORRIGIDA PARA CONTRATOS ---
   const confirmarExcluir = async (tipo: string, id: string) => {
     if (window.confirm(`Excluir ${tipo}?`)) {
       let colecao = "";
@@ -1013,7 +1043,14 @@ export default function App() {
       else if (tipo === 'fornecedor') colecao = "fornecedores";
       else if (tipo === 'contrato') colecao = "contratos";
 
-      await deleteDoc(doc(db, colecao, id));
+      if (colecao && id) {
+        try {
+          await deleteDoc(doc(db, colecao, id));
+          alert("Item excluído com sucesso!");
+        } catch (error) {
+          alert("Erro ao excluir do banco de dados.");
+        }
+      }
     }
   };
 
@@ -1938,7 +1975,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ABA NOVA: GERENCIADOR DE CONTRATOS */}
+        {/* ABA GERENCIADOR DE CONTRATOS */}
         {activeTab === 'contratos' && (
           <div className="space-y-6 pt-2 w-full animate-fadeIn">
             <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
@@ -2048,7 +2085,7 @@ export default function App() {
                       
                       <button onClick={() => enviarContratoWhatsapp(c)} className="p-2 bg-emerald-50 text-emerald-600 rounded-xl"><MessageCircle size={16}/></button>
                       
-                      <button onClick={() => confirmarExcluir('contrato', c.id)} className="p-2 text-red-300"><Trash2 size={16}/></button>
+                      <button onClick={() => confirmarExcluir('contrato', c.id)} className="p-2 text-red-400 hover:text-red-600 transition-colors"><Trash2 size={16}/></button>
                     </div>
                   </div>
                 );
