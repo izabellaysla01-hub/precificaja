@@ -3,69 +3,69 @@ import { initializeApp } from "firebase/app";
 import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { getFirestore, collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc, getDocs, setDoc, getDoc } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2, Menu, Search, Settings, CheckSquare, Square, Filter, MapPin, Globe, Palette, TrendingUp, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2, Menu, Search, Settings, CheckSquare, Square, Filter, MapPin, Globe, Palette, TrendingUp, ChevronDown, ChevronUp, FileText } from 'lucide-react';
 
 const firebaseConfig = {
-  ApiKey: "AIzaSyD0BWsNm9DbGGDqiHzkdDmNdxIGdJ9tWe8",
-  AuthDomain: "precificaja-968cd.firebaseapp.com",
-  ProjectId: "precificaja-968cd",
-  StorageBucket: "precificaja-968cd.firebasestorage.app",
-  MessagingSenderId: "646149720985",
-  AppId: "1:646149720985:web:9c04001f2c6344979a2108"
+  apiKey: "AIzaSyD0BWsNm9DbGGDqiHzkdDmNdxIGdJ9tWe8",
+  authDomain: "precificaja-968cd.firebaseapp.com",
+  projectId: "precificaja-968cd",
+  storageBucket: "precificaja-968cd.firebasestorage.app",
+  messagingSenderId: "646149720985",
+  appId: "1:646149720985:web:9c04001f2c6344979a2108"
 };
 
-Const app = initializeApp(firebaseConfig);
-Const auth = getAuth(app);
-Const db = getFirestore(app);
-Const storage = getStorage(app);
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const storage = getStorage(app);
 
 // --- PALETAS PRÉ-DEFINIDAS ---
-Const PRESET_PALETTES = [
+const PRESET_PALETTES = [
   {
-    Id: 'purple_creative',
-    Nome: 'Roxo Criativo (Padrão)',
-    Primary: '#7c3aed',
-    PrimaryHover: '#6d28d9',
-    Secondary: '#f97316',
-    SecondaryHover: '#ea580c'
+    id: 'purple_creative',
+    nome: 'Roxo Criativo (Padrão)',
+    primary: '#7c3aed',
+    primaryHover: '#6d28d9',
+    secondary: '#f97316',
+    secondaryHover: '#ea580c'
   },
   {
-    Id: 'blue_corporate',
-    Nome: 'Azul Corporativo',
-    Primary: '#2563eb',
-    PrimaryHover: '#1d4ed8',
-    Secondary: '#38bdf8',
-    SecondaryHover: '#0284c7'
+    id: 'blue_corporate',
+    nome: 'Azul Corporativo',
+    primary: '#2563eb',
+    primaryHover: '#1d4ed8',
+    secondary: '#38bdf8',
+    secondaryHover: '#0284c7'
   },
   {
-    Id: 'slate_elegant',
-    Nome: 'Grafite Elegante',
-    Primary: '#334155',
-    PrimaryHover: '#1e293b',
-    Secondary: '#0ea5e9',
-    SecondaryHover: '#0284c7'
+    id: 'slate_elegant',
+    nome: 'Grafite Elegante',
+    primary: '#334155',
+    primaryHover: '#1e293b',
+    secondary: '#0ea5e9',
+    secondaryHover: '#0284c7'
   },
   {
-    Id: 'emerald_growth',
-    Nome: 'Verde Esmeralda',
-    Primary: '#059669',
-    PrimaryHover: '#047857',
-    Secondary: '#10b981',
-    SecondaryHover: '#059669'
+    id: 'emerald_growth',
+    nome: 'Verde Esmeralda',
+    primary: '#059669',
+    primaryHover: '#047857',
+    secondary: '#10b981',
+    secondaryHover: '#059669'
   }
 ];
 
 // --- TELA DE LOGIN ---
-Const Login = ({ isRegistering, setIsRegistering, email, setEmail, password, setPassword, handleAuth }: any) => {
-  Const recuperarSenha = async () => {
-    If (!email) return alert("Digite seu e-mail primeiro para eu te mandar o link!");
-    Try {
-      Await sendPasswordResetEmail(auth, email);
-      Alert("Enviamos um link para o seu e-mail!");
+const Login = ({ isRegistering, setIsRegistering, email, setEmail, password, setPassword, handleAuth }: any) => {
+  const recuperarSenha = async () => {
+    if (!email) return alert("Digite seu e-mail primeiro para eu te mandar o link!");
+    try {
+      await sendPasswordResetEmail(auth, email);
+      alert("Enviamos um link para o seu e-mail!");
     } catch (e) { alert("E-mail não encontrado ou inválido."); }
   };
 
-  Return (
+  return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
       <div className="bg-white p-8 rounded-[40px] shadow-xl w-full max-w-md text-center border border-slate-100">
         <h1 className="text-3xl font-black text-purple-700 mb-2 font-sans">PrecificaJá 🚀</h1>
@@ -80,397 +80,397 @@ Const Login = ({ isRegistering, setIsRegistering, email, setEmail, password, set
   );
 };
 
-Export default function App() {
-  Const [user, setUser] = useState<any>(null);
-  Const [loading, setLoading] = useState(true);
-  Const [isMenuOpen, setIsMenuOpen] = useState(false);
+export default function App() {
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   
-  Const [idLojaPublica, setIdLojaPublica] = useState<string | null>(null);
-  Const [produtosPublicos, setProdutosPublicos] = useState<any[]>([]);
-  Const [carregandoPublico, setCarregandoPublico] = useState(false);
-  Const [carrinho, setCarrinho] = useState<{ [key: string]: number }>({});
-  Const [nomeComprador, setNomeComprador] = useState('');
-  Const [zapDaLojaPublica, setZapDaLojaPublica] = useState('');
+  const [idLojaPublica, setIdLojaPublica] = useState<string | null>(null);
+  const [produtosPublicos, setProdutosPublicos] = useState<any[]>([]);
+  const [carregandoPublico, setCarregandoPublico] = useState(false);
+  const [carrinho, setCarrinho] = useState<{ [key: string]: number }>({});
+  const [nomeComprador, setNomeComprador] = useState('');
+  const [zapDaLojaPublica, setZapDaLojaPublica] = useState('');
 
   // Estados para Filtro na Vitrine Pública do Cliente
-  Const [filtroVitrineSelecionado, setFiltroVitrineSelecionado] = useState('Todos');
-  Const [isMenuFiltroVitrineOpen, setIsMenuFiltroVitrineOpen] = useState(false);
+  const [filtroVitrineSelecionado, setFiltroVitrineSelecionado] = useState('Todos');
+  const [isMenuFiltroVitrineOpen, setIsMenuFiltroVitrineOpen] = useState(false);
 
-  Const [activeTab, useStateActiveTab] = useState<'inicio' | 'materiais' | 'criar' | 'pedidos' | 'clientes' | 'catalogo' | 'balcao' | 'financeiro' | 'perfil' | 'anotacoes' | 'fornecedores' | 'contratos'>('inicio');
+  const [activeTab, useStateActiveTab] = useState<'inicio' | 'materiais' | 'criar' | 'pedidos' | 'clientes' | 'catalogo' | 'balcao' | 'financeiro' | 'perfil' | 'anotacoes' | 'fornecedores' | 'contratos'>('inicio');
   
   // Sub-aba interna para a seção financeira
-  Const [subAbaFinanceiro, setSubAbaFinanceiro] = useState<'geral' | 'impressao' | 'equipamentos' | 'historico'>('geral');
+  const [subAbaFinanceiro, setSubAbaFinanceiro] = useState<'geral' | 'impressao' | 'equipamentos' | 'historico'>('geral');
 
   // Estados do Histórico Financeiro Avançado
-  Const [mesFiltroHistorico, setMesFiltroHistorico] = useState<string>(String(new Date().getMonth() + 1));
-  Const [anoFiltroHistorico, setAnoFiltroHistorico] = useState<string>(String(new Date().getFullYear()));
-  Const [mesExpandido, setMesExpandido] = useState<string | null>(null);
+  const [mesFiltroHistorico, setMesFiltroHistorico] = useState<string>(String(new Date().getMonth() + 1));
+  const [anoFiltroHistorico, setAnoFiltroHistorico] = useState<string>(String(new Date().getFullYear()));
+  const [mesExpandido, setMesExpandido] = useState<string | null>(null);
 
-  Const [materiais, setMaterials] = useState<any[]>([]);
-  Const [pedidos, setPedidos] = useState<any[]>([]);
-  Const [clientes, setClientes] = useState<any[]>([]);
-  Const [produtos, setProdutos] = useState<any[]>([]);
-  Const [equipamentos, setEquipamentos] = useState<any[]>([]);
-  Const [anotacoes, setAnotacoes] = useState<any[]>([]);
-  Const [contratos, setContratos] = useState<any[]>([]);
+  const [materiais, setMaterials] = useState<any[]>([]);
+  const [pedidos, setPedidos] = useState<any[]>([]);
+  const [clientes, setClientes] = useState<any[]>([]);
+  const [produtos, setProdutos] = useState<any[]>([]);
+  const [equipamentos, setEquipamentos] = useState<any[]>([]);
+  const [anotacoes, setAnotacoes] = useState<any[]>([]);
+  const [contratos, setContratos] = useState<any[]>([]);
   
   // Estados para Categorias Dinâmicas e Fornecedores
-  Const [categoriasProd, setCategoriasProd] = useState<any[]>([]);
-  Const [categoriasForn, setCategoriasForn] = useState<any[]>([]);
-  Const [fornecedores, setFornecedores] = useState<any[]>([]);
+  const [categoriasProd, setCategoriasProd] = useState<any[]>([]);
+  const [categoriasForn, setCategoriasForn] = useState<any[]>([]);
+  const [fornecedores, setFornecedores] = useState<any[]>([]);
 
-  Const [pesquisaMateriais, setPesquisaMateriais] = useState('');
-  Const [pesquisaFornecedores, setPesquisaFornecedores] = useState('');
-  Const [filtroFornSelecionado, setFiltroFornSelecionado] = useState('Todos');
+  const [pesquisaMateriais, setPesquisaMateriais] = useState('');
+  const [pesquisaFornecedores, setPesquisaFornecedores] = useState('');
+  const [filtroFornSelecionado, setFiltroFornSelecionado] = useState('Todos');
 
-  Const [pedidoEditandoId, setPedidoEditandoId] = useState<string | null>(null);
-  Const [mostrarSeletorCatalogo, setMostrarSeletorCatalogo] = useState(false);
+  const [pedidoEditandoId, setPedidoEditandoId] = useState<string | null>(null);
+  const [mostrarSeletorCatalogo, setMostrarSeletorCatalogo] = useState(false);
 
-  Const [filtroStatusPedido, setFiltroStatusPedido] = useState<'Pendente' | 'Vendido' | 'Cancelado'>('Pendente');
-  Const [isDuplicando, setIsDuplicando] = useState(false);
+  const [filtroStatusPedido, setFiltroStatusPedido] = useState<'Pendente' | 'Vendido' | 'Cancelado'>('Pendente');
+  const [isDuplicando, setIsDuplicando] = useState(false);
 
-  Const [diaSelecionadoAgenda, setDiaSelecionadoAgenda] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [diaSelecionadoAgenda, setDiaSelecionadoAgenda] = useState<string>(new Date().toISOString().split('T')[0]);
 
   // Modo de Cálculo ('peca' = por unidade, 'lote' = valor total do lote rateado)
-  Const [modoCalculo, setModoCalculo] = useState<'peca' | 'lote'>('peca');
+  const [modoCalculo, setModoCalculo] = useState<'peca' | 'lote'>('peca');
 
-  Const [nomeProd, setNomeProd] = useState('');
-  Const [detalhamentoPed, setDetalhamentoPed] = useState(''); 
-  Const [qtdPed, setQtdPed] = useState('1');
-  Const [matsNoPed, setMatsNoPed] = useState<any[]>([]);
-  Const [vHora, setVHora] = useState('9');
-  Const [tGasto, setTGasto] = useState('60');
-  Const [custos, setCustos] = useState({ embalagem: '0', impressao: '0', energia: '0', outros: '0' });
-  Const [equipamentosSelecionados, setEquipamentosSelecionados] = useState<string[]>([]);
-  Const [lucro, setLucro] = useState('100');
-  Const [desconto, setDesconto] = useState('0');
-  Const [prazo, setPrazo] = useState('');
-  Const [clienteSel, setClienteSel] = useState('');
-  Const [precoManual, setPrecoManual] = useState<string | null>(null);
-  Const [docObsPedido, setDocObsPedido] = useState('');
+  const [nomeProd, setNomeProd] = useState('');
+  const [detalhamentoPed, setDetalhamentoPed] = useState(''); 
+  const [qtdPed, setQtdPed] = useState('1');
+  const [matsNoPed, setMatsNoPed] = useState<any[]>([]);
+  const [vHora, setVHora] = useState('9');
+  const [tGasto, setTGasto] = useState('60');
+  const [custos, setCustos] = useState({ embalagem: '0', impressao: '0', energia: '0', outros: '0' });
+  const [equipamentosSelecionados, setEquipamentosSelecionados] = useState<string[]>([]);
+  const [lucro, setLucro] = useState('100');
+  const [desconto, setDesconto] = useState('0');
+  const [prazo, setPrazo] = useState('');
+  const [clienteSel, setClienteSel] = useState('');
+  const [precoManual, setPrecoManual] = useState<string | null>(null);
+  const [docObsPedido, setDocObsPedido] = useState('');
 
   // Estado para armazenar o valor alterado pelo usuário na calculadora
-  Const [precoFinalDigitado, setPrecoFinalDigitado] = useState<string>('0.00');
+  const [precoFinalDigitado, setPrecoFinalDigitado] = useState<string>('0.00');
 
-  Const [email, setEmail] = useState('');
-  Const [password, setPassword] = useState('');
-  Const [isRegistering, setIsRegistering] = useState(false);
-  Const [novoMat, setNovoMat] = useState({ id: '', nome: '', valor: '', qtd: '1', unidade: 'un', qtdAtual: '0', qtdMinima: '0' });
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [novoMat, setNovoMat] = useState({ id: '', nome: '', valor: '', qtd: '1', unidade: 'un', qtdAtual: '0', qtdMinima: '0' });
     
-  Const [novoCli, setNovoCli] = useState({ id: '', nome: '', zap: '', email: '', endereco: '', cpfCnpj: '' });
-  Const [novaAnotacao, setNovaAnotacao] = useState({ id: '', titulo: '', conteudo: '', dataPrazo: new Date().toISOString().split('T')[0] });
+  const [novoCli, setNovoCli] = useState({ id: '', nome: '', zap: '', email: '', endereco: '', cpfCnpj: '' });
+  const [novaAnotacao, setNovaAnotacao] = useState({ id: '', titulo: '', conteudo: '', dataPrazo: new Date().toISOString().split('T')[0] });
   
   // Estados de Cadastro Atualizados com Categorias
-  Const [novoProdCatalogo, setNovoProdCatalogo] = useState<{id: string, nome: string, precoVenda: string, urlImagem: string, categorias: string[]}>({ id: '', nome: '', precoVenda: '', urlImagem: '', categorias: [] });
-  Const [inputNovaCategoriaProd, setInputNovaCategoriaProd] = useState('');
-  Const [mostrarInputNovaCatProd, setMostrarInputNovaCatProd] = useState(false);
+  const [novoProdCatalogo, setNovoProdCatalogo] = useState<{id: string, nome: string, precoVenda: string, urlImagem: string, categorias: string[]}>({ id: '', nome: '', precoVenda: '', urlImagem: '', categorias: [] });
+  const [inputNovaCategoriaProd, setInputNovaCategoriaProd] = useState('');
+  const [mostrarInputNovaCatProd, setMostrarInputNovaCatProd] = useState(false);
 
   // Estados de Cadastro para Fornecedores
-  Const [novoFornecedor, setNovoFornecedor] = useState<{id: string, nome: string, site: string, whatsapp: string, endereco: string, categorias: string[]}>({ id: '', nome: '', site: '', whatsapp: '', endereco: '', categorias: [] });
-  Const [inputNovaCategoriaForn, setInputNovaCategoriaForn] = useState('');
-  Const [mostrarInputNovaCatForn, setMostrarInputNovaCatForn] = useState(false);
+  const [novoFornecedor, setNovoFornecedor] = useState<{id: string, nome: string, site: string, whatsapp: string, endereco: string, categorias: string[]}>({ id: '', nome: '', site: '', whatsapp: '', endereco: '', categorias: [] });
+  const [inputNovaCategoriaForn, setInputNovaCategoriaForn] = useState('');
+  const [mostrarInputNovaCatForn, setMostrarInputNovaCatForn] = useState(false);
 
-  Const [zapDonaConta, setZapDonaConta] = useState('');
-  Const [subindoImagem, setSubindoImagem] = useState(false);
+  const [zapDonaConta, setZapDonaConta] = useState('');
+  const [subindoImagem, setSubindoImagem] = useState(false);
 
   // --- NOVOS DADOS DO PERFIL DA LOJA (PARA CONTRATOS E ORÇAMENTOS) ---
-  Const [nomeLojaPerfil, setNomeLojaPerfil] = useState('');
-  Const [nomeFantasiaPerfil, setNomeFantasiaPerfil] = useState('');
-  Const [cpfCnpjPerfil, setCpfCnpjPerfil] = useState('');
-  Const [telefonePerfil, setTelefonePerfil] = useState('');
-  Const [emailPerfil, setEmailPerfil] = useState('');
-  Const [cepPerfil, setCepPerfil] = useState('');
-  Const [enderecoPerfil, setEnderecoPerfil] = useState('');
-  Const [cidadePerfil, setCidadePerfil] = useState('');
-  Const [estadoPerfil, setEstadoPerfil] = useState('');
-  Const [dadosBancariosPerfil, setDadosBancariosPerfil] = useState('');
-  Const [logoLojaPerfil, setLogoLojaPerfil] = useState('');
-  Const [subindoLogo, setSubindoLogo] = useState(false);
+  const [nomeLojaPerfil, setNomeLojaPerfil] = useState('');
+  const [nomeFantasiaPerfil, setNomeFantasiaPerfil] = useState('');
+  const [cpfCnpjPerfil, setCpfCnpjPerfil] = useState('');
+  const [telefonePerfil, setTelefonePerfil] = useState('');
+  const [emailPerfil, setEmailPerfil] = useState('');
+  const [cepPerfil, setCepPerfil] = useState('');
+  const [enderecoPerfil, setEnderecoPerfil] = useState('');
+  const [cidadePerfil, setCidadePerfil] = useState('');
+  const [estadoPerfil, setEstadoPerfil] = useState('');
+  const [dadosBancariosPerfil, setDadosBancariosPerfil] = useState('');
+  const [logoLojaPerfil, setLogoLojaPerfil] = useState('');
+  const [subindoLogo, setSubindoLogo] = useState(false);
 
   // --- ESTADOS DA ABA CONTRATOS ---
-  Const [novoContrato, setNovoContrato] = useState({
-    Id: '',
-    ClienteId: '',
-    TipoEvento: '',
-    DataEvento: '',
-    LocalEvento: '',
-    ValorTotal: '',
-    Clausulas: `1. DAS PARTES E DO OBJETO\nO presente contrato estabelece os termos para a prestação dos serviços/produtos contratados.\n\n2. DO PAGAMENTO E CONFIRMAÇÃO\nO serviço será iniciado ou reservado mediante confirmação do pagamento acordado entre as partes.\n\n3. DAS CONDIÇÕES DE ENTREGA E CANCELAMENTO\nA entrega ou execução ocorrerá na data e local combinados. Em caso de cancelamento por parte do cliente, aplicar-se-ão os termos acordados prévia e formalmente.`
+  const [novoContrato, setNovoContrato] = useState({
+    id: '',
+    clienteId: '',
+    tipoEvento: '',
+    dataEvento: '',
+    localEvento: '',
+    valorTotal: '',
+    clausulas: `1. DAS PARTES E DO OBJETO\nO presente contrato estabelece os termos para a prestação dos serviços/produtos contratados.\n\n2. DO PAGAMENTO E CONFIRMAÇÃO\nO serviço será iniciado ou reservado mediante confirmação do pagamento acordado entre as partes.\n\n3. DAS CONDIÇÕES DE ENTREGA E CANCELAMENTO\nA entrega ou execução ocorrerá na data e local combinados. Em caso de cancelamento por parte do cliente, aplicar-se-ão os termos acordados prévia e formalmente.`
   });
 
   // --- ESTADO DE TEMA E CORES ---
-  Const [themeColors, setThemeColors] = useState({
-    Primary: '#7c3aed',
-    PrimaryHover: '#6d28d9',
-    Secondary: '#f97316',
-    SecondaryHover: '#ea580c'
+  const [themeColors, setThemeColors] = useState({
+    primary: '#7c3aed',
+    primaryHover: '#6d28d9',
+    secondary: '#f97316',
+    secondaryHover: '#ea580c'
   });
 
-  Const [financasFixo, setFinancasFixo] = useState({ salario: '0', aluguel: '0', internet: '0', luz: '0', outros: '0', diasTrabalho: '20', horasDia: '8' });
-  Const [novoEquipamento, setNovoEquipamento] = useState({ id: '', nome: '', valorPago: '', durabilidadeAnos: '2' });
+  const [financasFixo, setFinancasFixo] = useState({ salario: '0', aluguel: '0', internet: '0', luz: '0', outros: '0', diasTrabalho: '20', horasDia: '8' });
+  const [novoEquipamento, setNovoEquipamento] = useState({ id: '', nome: '', valorPago: '', durabilidadeAnos: '2' });
 
   // --- ESTADOS PARA A CALCULADORA DE IMPRESSÃO ---
-  Const [precoTinta, setPrecoTinta] = useState('62');
-  Const [unidadeTinta, setUnidadeTinta] = useState('Garrafinha');
-  Const [qtdCores, setQtdCores] = useState('4');
-  Const [paginasConjunto, setPaginasConjunto] = useState('1500');
+  const [precoTinta, setPrecoTinta] = useState('62');
+  const [unidadeTinta, setUnidadeTinta] = useState('Garrafinha');
+  const [qtdCores, setQtdCores] = useState('4');
+  const [paginasConjunto, setPaginasConjunto] = useState('1500');
 
-  Const [carrinhoInterno, setCarrinhoInterno] = useState<{ [key: string]: number }>({});
-  Const [clienteBalcao, setClienteBalcao] = useState('');
-  Const [nomeKitBalcao, setNomeKitBalcao] = useState('');
-  Const [prazoBalcao, setPrazoBalcao] = useState('');
+  const [carrinhoInterno, setCarrinhoInterno] = useState<{ [key: string]: number }>({});
+  const [clienteBalcao, setClienteBalcao] = useState('');
+  const [nomeKitBalcao, setNomeKitBalcao] = useState('');
+  const [prazoBalcao, setPrazoBalcao] = useState('');
 
-  Const setActiveTab = (tab: any) => {
-    MustActiveTab(tab);
-    SetIsMenuOpen(false);
+  const setActiveTab = (tab: any) => {
+    useStateActiveTab(tab);
+    setIsMenuOpen(false);
   };
 
-  Const custoPorPaginaCalculado = useMemo(() => {
-    Const preco = Number(precoTinta) || 0;
-    Const cores = Number(qtdCores) || 0;
-    Const paginas = Number(paginasConjunto) || 1;
-    Return paginas > 0 ? (cores * preco) / paginas : 0;
+  const custoPorPaginaCalculado = useMemo(() => {
+    const preco = Number(precoTinta) || 0;
+    const cores = Number(qtdCores) || 0;
+    const paginas = Number(paginasConjunto) || 1;
+    return paginas > 0 ? (cores * preco) / paginas : 0;
   }, [precoTinta, qtdCores, paginasConjunto]);
 
-  Const formatarMoedaLocal = (valor: number) => {
-    Return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const formatarMoedaLocal = (valor: number) => {
+    return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   };
 
-  UseEffect(() => {
-    Const params = new URLSearchParams(window.location.search);
-    Const lojaId = params.get('loja');
-    If (lojaId) {
-      SetIdLojaPublica(lojaId);
-      SetCarregandoPublico(true);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const lojaId = params.get('loja');
+    if (lojaId) {
+      setIdLojaPublica(lojaId);
+      setCarregandoPublico(true);
       
-      GetDoc(doc(db, "configuracoes_loja", lojaId)).then(docSnap => {
-        If(docSnap.exists()) {
-          Const data = docSnap.data();
-          SetZapDaLojaPublica(data.whatsapp || '');
-          If (data.themeColors) setThemeColors(data.themeColors);
+      getDoc(doc(db, "configuracoes_loja", lojaId)).then(docSnap => {
+        if(docSnap.exists()) {
+          const data = docSnap.data();
+          setZapDaLojaPublica(data.whatsapp || '');
+          if (data.themeColors) setThemeColors(data.themeColors);
         }
       });
 
-      Const qCats = query(collection(db, "categorias_produtos"), where("userId", "==", lojaId));
-      GetDocs(qCats).then(snapshot => {
-        SetCategoriasProd(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+      const qCats = query(collection(db, "categorias_produtos"), where("userId", "==", lojaId));
+      getDocs(qCats).then(snapshot => {
+        setCategoriasProd(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
       });
 
-      Const q = query(collection(db, "produtos"), where("userId", "==", lojaId));
-      GetDocs(q).then(snapshot => {
-        SetProdutosPublicos(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
-        SetCarregandoPublico(false);
+      const q = query(collection(db, "produtos"), where("userId", "==", lojaId));
+      getDocs(q).then(snapshot => {
+        setProdutosPublicos(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+        setCarregandoPublico(false);
       }).catch(() => setCarregandoPublico(false));
     }
     
-    Return onAuthStateChanged(auth, u => {
-      SetUser(u);
-      If (u) {
-        GetDoc(doc(db, "configuracoes_loja", u.uid)).then(docSnap => {
-          If(docSnap.exists()) {
-            Const data = docSnap.data();
-            SetZapDonaConta(data.whatsapp || '');
-            SetNomeLojaPerfil(data.nomeLoja || '');
-            SetNomeFantasiaPerfil(data.nomeFantasia || '');
-            SetCpfCnpjPerfil(data.cpfCnpj || '');
-            SetTelefonePerfil(data.telefone || '');
-            SetEmailPerfil(data.email || '');
-            SetCepPerfil(data.cep || '');
-            SetEnderecoPerfil(data.endereco || '');
-            SetCidadePerfil(data.cidade || '');
-            SetEstadoPerfil(data.estado || '');
-            SetDadosBancariosPerfil(data.dadosBancarios || '');
-            SetLogoLojaPerfil(data.logoUrl || '');
-            If (data.themeColors) setThemeColors(data.themeColors);
+    return onAuthStateChanged(auth, u => {
+      setUser(u);
+      if (u) {
+        getDoc(doc(db, "configuracoes_loja", u.uid)).then(docSnap => {
+          if(docSnap.exists()) {
+            const data = docSnap.data();
+            setZapDonaConta(data.whatsapp || '');
+            setNomeLojaPerfil(data.nomeLoja || '');
+            setNomeFantasiaPerfil(data.nomeFantasia || '');
+            setCpfCnpjPerfil(data.cpfCnpj || '');
+            setTelefonePerfil(data.telefone || '');
+            setEmailPerfil(data.email || '');
+            setCepPerfil(data.cep || '');
+            setEnderecoPerfil(data.endereco || '');
+            setCidadePerfil(data.cidade || '');
+            setEstadoPerfil(data.estado || '');
+            setDadosBancariosPerfil(data.dadosBancarios || '');
+            setLogoLojaPerfil(data.logoUrl || '');
+            if (data.themeColors) setThemeColors(data.themeColors);
           }
         });
       } else {
-        SetMaterials([]);
-        SetPedidos([]);
-        SetClientes([]);
-        SetProdutos([]);
-        SetEquipamentos([]);
-        SetAnotacoes([]);
-        SetContratos([]);
+        setMaterials([]);
+        setPedidos([]);
+        setClientes([]);
+        setProdutos([]);
+        setEquipamentos([]);
+        setAnotacoes([]);
+        setContratos([]);
       }
-      SetLoading(false);
+      setLoading(false);
     }); 
   }, []);
   
-  UseEffect(() => {
-    Const script = document.createElement('script');
-    Script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
-    Script.async = true;
-    Document.body.appendChild(script);
-    Return () => { document.body.removeChild(script); };
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+    script.async = true;
+    document.body.appendChild(script);
+    return () => { document.body.removeChild(script); };
   }, []);
 
-  UseEffect(() => {
-    If (user && !idLojaPublica) {
-      Const qMaterials = query(collection(db, "materiais"), where("userId", "==", user.uid));
-      Const unsubMaterials = onSnapshot(qMaterials, s => setMaterials(s.docs.map(d => ({ id: d.id, ...d.data() }))));
+  useEffect(() => {
+    if (user && !idLojaPublica) {
+      const qMaterials = query(collection(db, "materiais"), where("userId", "==", user.uid));
+      const unsubMaterials = onSnapshot(qMaterials, s => setMaterials(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
-      Const qPedidos = query(collection(db, "pedidos"), where("userId", "==", user.uid));
-      Const unsubPedidos = onSnapshot(qPedidos, s => setPedidos(s.docs.map(d => ({ id: d.id, ...d.data() }))));
+      const qPedidos = query(collection(db, "pedidos"), where("userId", "==", user.uid));
+      const unsubPedidos = onSnapshot(qPedidos, s => setPedidos(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
-      Const qClientes = query(collection(db, "clientes"), where("userId", "==", user.uid));
-      Const unsubClientes = onSnapshot(qClientes, s => setClientes(s.docs.map(d => ({ id: d.id, ...d.data() }))));
+      const qClientes = query(collection(db, "clientes"), where("userId", "==", user.uid));
+      const unsubClientes = onSnapshot(qClientes, s => setClientes(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
-      Const qProdutos = query(collection(db, "produtos"), where("userId", "==", user.uid));
-      Const unsubProdutos = onSnapshot(qProdutos, s => setProdutos(s.docs.map(d => ({ id: d.id, ...d.data() }))));
+      const qProdutos = query(collection(db, "produtos"), where("userId", "==", user.uid));
+      const unsubProdutos = onSnapshot(qProdutos, s => setProdutos(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
-      Const qAnotacoes = query(collection(db, "anotacoes"), where("userId", "==", user.uid));
-      Const unsubAnotacoes = onSnapshot(qAnotacoes, s => setAnotacoes(s.docs.map(d => ({ id: d.id, ...d.data() }))));
+      const qAnotacoes = query(collection(db, "anotacoes"), where("userId", "==", user.uid));
+      const unsubAnotacoes = onSnapshot(qAnotacoes, s => setAnotacoes(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
-      Const qContratos = query(collection(db, "contratos"), where("userId", "==", user.uid));
-      Const unsubContratos = onSnapshot(qContratos, s => setContratos(s.docs.map(d => ({ id: d.id, ...d.data() }))));
+      const qContratos = query(collection(db, "contratos"), where("userId", "==", user.uid));
+      const unsubContratos = onSnapshot(qContratos, s => setContratos(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
-      Const qCatsProd = query(collection(db, "categorias_produtos"), where("userId", "==", user.uid));
-      Const unsubCatsProd = onSnapshot(qCatsProd, s => {
-        If(s.docs.length === 0 && categoriasProd.length === 0) {
-          Const padroes = ["🖨️ Sublimação", "✂️ Papelaria Personalizada", "🎁 Personalizados", "💕 Datas Comemorativas"];
-          Padroes.forEach(async (cat) => {
-            Await addDoc(collection(db, "categorias_produtos"), { nome: cat, userId: user.uid });
+      const qCatsProd = query(collection(db, "categorias_produtos"), where("userId", "==", user.uid));
+      const unsubCatsProd = onSnapshot(qCatsProd, s => {
+        if(s.docs.length === 0 && categoriasProd.length === 0) {
+          const padroes = ["🖨️ Sublimação", "✂️ Papelaria Personalizada", "🎁 Personalizados", "💕 Datas Comemorativas"];
+          padroes.forEach(async (cat) => {
+            await addDoc(collection(db, "categorias_produtos"), { nome: cat, userId: user.uid });
           });
         }
-        SetCategoriasProd(s.docs.map(d => ({ id: d.id, ...d.data() })));
+        setCategoriasProd(s.docs.map(d => ({ id: d.id, ...d.data() })));
       });
 
-      Const qCatsForn = query(collection(db, "categorias_fornecedores"), where("userId", "==", user.uid));
-      Const unsubCatsForn = onSnapshot(qCatsForn, s => {
-        If(s.docs.length === 0 && categoriasForn.length === 0) {
-          Const padroesForn = ["🖨️ Insumos de Sublimação", "✂️ Papelaria e Papéis", "📦 Embalagens e Caixas", "🎁 Brindes e Acrílicos"];
-          PadroesForn.forEach(async (cat) => {
-            Await addDoc(collection(db, "categorias_fornecedores"), { nome: cat, userId: user.uid });
+      const qCatsForn = query(collection(db, "categorias_fornecedores"), where("userId", "==", user.uid));
+      const unsubCatsForn = onSnapshot(qCatsForn, s => {
+        if(s.docs.length === 0 && categoriasForn.length === 0) {
+          const padroesForn = ["🖨️ Insumos de Sublimação", "✂️ Papelaria e Papéis", "📦 Embalagens e Caixas", "🎁 Brindes e Acrílicos"];
+          padroesForn.forEach(async (cat) => {
+            await addDoc(collection(db, "categorias_fornecedores"), { nome: cat, userId: user.uid });
           });
         }
-        SetCategoriasForn(s.docs.map(d => ({ id: d.id, ...d.data() })));
+        setCategoriasForn(s.docs.map(d => ({ id: d.id, ...d.data() })));
       });
 
-      Const qFornecedores = query(collection(db, "fornecedores"), where("userId", "==", user.uid));
-      Const unsubFornecedores = onSnapshot(qFornecedores, s => setFornecedores(s.docs.map(d => ({ id: d.id, ...d.data() }))));
+      const qFornecedores = query(collection(db, "fornecedores"), where("userId", "==", user.uid));
+      const unsubFornecedores = onSnapshot(qFornecedores, s => setFornecedores(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
-      Const qConfigFin = doc(db, "configuracoes_financeiras", user.uid);
-      GetDoc(qConfigFin).then(snap => {
-        If (snap.exists()) {
-          Const dadosFin = snap.data() as any;
-          SetFinancasFixo(dadosFin);
+      const qConfigFin = doc(db, "configuracoes_financeiras", user.uid);
+      getDoc(qConfigFin).then(snap => {
+        if (snap.exists()) {
+          const dadosFin = snap.data() as any;
+          setFinancasFixo(dadosFin);
           
-          If (dadosFin.precoTinta) setPrecoTinta(dadosFin.precoTinta);
-          If (dadosFin.unidadeTinta) setUnidadeTinta(dadosFin.unidadeTinta);
-          If (dadosFin.qtdCores) setQtdCores(dadosFin.qtdCores);
-          If (dadosFin.paginasConjunto) setPaginasConjunto(dadosFin.paginasConjunto);
+          if (dadosFin.precoTinta) setPrecoTinta(dadosFin.precoTinta);
+          if (dadosFin.unidadeTinta) setUnidadeTinta(dadosFin.unidadeTinta);
+          if (dadosFin.qtdCores) setQtdCores(dadosFin.qtdCores);
+          if (dadosFin.paginasConjunto) setPaginasConjunto(dadosFin.paginasConjunto);
           
-          If (dadosFin.custoPorPaginaCalculado) {
-            SetCustos(prev => ({ ...prev, impressao: Number(dadosFin.custoPorPaginaCalculado).toFixed(2) }));
+          if (dadosFin.custoPorPaginaCalculado) {
+            setCustos(prev => ({ ...prev, impressao: Number(dadosFin.custoPorPaginaCalculado).toFixed(2) }));
           }
 
-          Const dias = Number(dadosFin.diasTrabalho || 20);
-          Const horas = Number(dadosFin.horasDia || 8);
-          Const totalHorasMes = dias * horas || 160;
-          Const salario = Number(dadosFin.salario || 0);
-          Const custosMes = Number(dadosFin.aluguel || 0) + Number(dadosFin.internet || 0) + Number(dadosFin.luz || 0) + Number(dadosFin.outros || 0);
+          const dias = Number(dadosFin.diasTrabalho || 20);
+          const horas = Number(dadosFin.horasDia || 8);
+          const totalHorasMes = dias * horas || 160;
+          const salario = Number(dadosFin.salario || 0);
+          const custosMes = Number(dadosFin.aluguel || 0) + Number(dadosFin.internet || 0) + Number(dadosFin.luz || 0) + Number(dadosFin.outros || 0);
           
-          If (salario + custosMes > 0) {
-            Const fontHoraCalculada = (salario + custosMes) / totalHorasMes;
-            SetVHora(fontHoraCalculada.toFixed(2));
+          if (salario + custosMes > 0) {
+            const fontHoraCalculada = (salario + custosMes) / totalHorasMes;
+            setVHora(fontHoraCalculada.toFixed(2));
           }
         }
       });
 
-      Const qEquipamentos = query(collection(db, "equipamentos"), where("userId", "==", user.uid));
-      Const unsubEquipamentos = onSnapshot(qEquipamentos, s => setEquipamentos(s.docs.map(d => ({ id: d.id, ...d.data() }))));
+      const qEquipamentos = query(collection(db, "equipamentos"), where("userId", "==", user.uid));
+      const unsubEquipamentos = onSnapshot(qEquipamentos, s => setEquipamentos(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
-      Return () => {
-        UnsubMaterials();
-        UnsubPedidos();
-        UnsubClientes();
-        UnsubProdutos();
-        UnsubEquipamentos();
-        UnsubAnotacoes();
-        UnsubContratos();
-        UnsubCatsProd();
-        UnsubCatsForn();
-        UnsubFornecedores();
+      return () => {
+        unsubMaterials();
+        unsubPedidos();
+        unsubClientes();
+        unsubProdutos();
+        unsubEquipamentos();
+        unsubAnotacoes();
+        unsubContratos();
+        unsubCatsProd();
+        unsubCatsForn();
+        unsubFornecedores();
       };
     }
   }, [user, idLojaPublica]);
 
-  Const linkDoCatalogoDestaCliente = useMemo(() => {
-    If (!user) return '';
-    Return `${window.location.origin}${window.location.pathname}?loja=${user.uid}`;
+  const linkDoCatalogoDestaCliente = useMemo(() => {
+    if (!user) return '';
+    return `${window.location.origin}${window.location.pathname}?loja=${user.uid}`;
   }, [user]);
 
-  Const copiarLinkCatalogo = () => {
-    Navigator.clipboard.writeText(linkDoCatalogoDestaCliente);
-    Alert("Link do seu catálogo copiado! 🔗🚀");
+  const copiarLinkCatalogo = () => {
+    navigator.clipboard.writeText(linkDoCatalogoDestaCliente);
+    alert("Link do seu catálogo copiado! 🔗🚀");
   };
 
-  Const proximosSeteDias = useMemo(() => {
-    Const dias = [];
-    Const nomesDias = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
-    Const nomesMeses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+  const proximosSeteDias = useMemo(() => {
+    const dias = [];
+    const nomesDias = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+    const nomesMeses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
     
-    For (let i = 0; i < 7; i++) {
-      Const d = new Date();
-      D.setDate(d.getDate() + i);
+    for (let i = 0; i < 7; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() + i);
       
-      Const ano = d.getFullYear();
-      Const mes = String(d.getMonth() + 1).padStart(2, '0');
-      Const diaNum = String(d.getDate()).padStart(2, '0');
-      Const stringData = `${ano}-${mes}-${diaNum}`;
+      const ano = d.getFullYear();
+      const mes = String(d.getMonth() + 1).padStart(2, '0');
+      const diaNum = String(d.getDate()).padStart(2, '0');
+      const stringData = `${ano}-${mes}-${diaNum}`;
       
-      Dias.push({
-        StringData,
-        DiaNumero: d.getDate(),
-        DiaSemanaTexto: nomesDias[d.getDay()],
-        MesTexto: nomesMeses[d.getMonth()]
+      dias.push({
+        stringData,
+        diaNumero: d.getDate(),
+        diaSemanaTexto: nomesDias[d.getDay()],
+        mesTexto: nomesMeses[d.getMonth()]
       });
     }
-    Return dias;
+    return dias;
   }, []);
 
-  Const anotacoesDoDiaSelecionado = useMemo(() => {
-    Return anotacoes.filter(a => a.dataPrazo === diaSelecionadoAgenda && !a.concluido);
+  const anotacoesDoDiaSelecionado = useMemo(() => {
+    return anotacoes.filter(a => a.dataPrazo === diaSelecionadoAgenda && !a.concluido);
   }, [anotacoes, diaSelecionadoAgenda]);
 
-  Const toggleStatusAnotacao = async (id: string, valorAtual: boolean) => {
-    Await updateDoc(doc(db, "anotacoes", id), { concluido: !valorAtual });
+  const toggleStatusAnotacao = async (id: string, valorAtual: boolean) => {
+    await updateDoc(doc(db, "anotacoes", id), { concluido: !valorAtual });
   };
 
   // --- GERADOR DE PDF DE CONTRATO COMPATÍVEL COM O MODELO DA FOTO ---
-  Const gerarPDFContrato = (contrato: any) => {
-    Const cli = clientes.find(c => c.id === contrato.clienteId);
-    Const dataEmissao = contrato.dataEmissao || new Date().toLocaleDateString('pt-BR');
-    Const dataEventoFormatada = contrato.dataEvento ? New Date(contrato.dataEvento + 'T00:00:00').toLocaleDateString('pt-BR') : 'Não informado';
+  const gerarPDFContrato = (contrato: any) => {
+    const cli = clientes.find(c => c.id === contrato.clienteId);
+    const dataEmissao = contrato.dataEmissao || new Date().toLocaleDateString('pt-BR');
+    const dataEventoFormatada = contrato.dataEvento ? new Date(contrato.dataEvento + 'T00:00:00').toLocaleDateString('pt-BR') : 'Não informado';
     
-    Const nomeEmpresaExibir = nomeFantasiaPerfil || nomeLojaPerfil || 'Empresa Contratada';
-    Const cpfCnpjEmpresaExibir = cpfCnpjPerfil || 'Não informado';
+    const nomeEmpresaExibir = nomeFantasiaPerfil || nomeLojaPerfil || 'Empresa Contratada';
+    const cpfCnpjEmpresaExibir = cpfCnpjPerfil || 'Não informado';
 
-    Const clausulasFormatadas = (contrato.clausulas || '').split('\n\n').map((bloco: string) => {
-      Const linhas = bloco.split('\n');
-      Const titulo = linhas[0] || '';
-      Const corpo = linhas.slice(1).join('<br>') || '';
-      Return `
+    const clausulasFormatadas = (contrato.clausulas || '').split('\n\n').map((bloco: string) => {
+      const linhas = bloco.split('\n');
+      const titulo = linhas[0] || '';
+      const corpo = linhas.slice(1).join('<br>') || '';
+      return `
         <div style="margin-bottom: 12px;">
-          <div style="font-[700]; font-size: 11px; color: #4b0082; text-transform: uppercase;">${titulo}</div>
+          <div style="font-weight: 700; font-size: 11px; color: #4b0082; text-transform: uppercase;">${titulo}</div>
           <div style="font-size: 11px; color: #4a5568; margin-top: 2px; line-height: 1.3;">${corpo || titulo}</div>
         </div>
       `;
     }).join('');
 
-    Const elemento = document.createElement('div');
-    Elemento.innerHTML = `
+    const elemento = document.createElement('div');
+    elemento.innerHTML = `
       <div style="padding: 30px; font-family: system-ui, -apple-system, sans-serif; color: #2d3748; max-width: 750px; margin: 0 auto; background: #fff;">
         
         <!-- CABEÇALHO -->
         <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
           <div>
-            <h1 style="color: #4c1d95; margin: 0; font-size: 22px; font-weight: 900; tracking-tight: -0.5px;">CONTRATO DE PRESTAÇÃO DE SERVIÇOS</h1>
-            <p style="color: #94a3b8; font-size: 10px; font-weight: 700; uppercase: uppercase; margin: 3px 0 0 0;">DOCUMENTO COMERCIAL E TERMOS DE ACORDO</p>
+            <h1 style="color: #4c1d95; margin: 0; font-size: 22px; font-weight: 900; letter-spacing: -0.5px;">CONTRATO DE PRESTAÇÃO DE SERVIÇOS</h1>
+            <p style="color: #94a3b8; font-size: 10px; font-weight: 700; text-transform: uppercase; margin: 3px 0 0 0;">DOCUMENTO COMERCIAL E TERMOS DE ACORDO</p>
           </div>
           <div style="background-color: #f8fafc; padding: 6px 12px; border-radius: 8px; border: 1px solid #e2e8f0; text-align: right;">
-            <span style="font-size: 8px; font-weight: 800; color: #64748b; uppercase: uppercase; display: block;">DATA DE EMISSÃO</span>
+            <span style="font-size: 8px; font-weight: 800; color: #64748b; text-transform: uppercase; display: block;">DATA DE EMISSÃO</span>
             <span style="font-size: 11px; font-weight: 800; color: #4c1d95; display: block;">${dataEmissao}</span>
           </div>
         </div>
@@ -521,34 +521,34 @@ Export default function App() {
           <div style="flex: 1; text-align: center;">
             <div style="border-top: 1px solid #cbd5e1; margin-bottom: 6px;"></div>
             <div style="font-size: 11px; font-weight: 800; color: #1e293b;">${cli?.nome || 'Cliente'}</div>
-            <div style="font-size: 8px; font-weight: 700; color: #94a3b8; uppercase: uppercase;">ASSINATURA DO CLIENTE</div>
+            <div style="font-size: 8px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">ASSINATURA DO CLIENTE</div>
           </div>
           <div style="flex: 1; text-align: center;">
             <div style="border-top: 1px solid #cbd5e1; margin-bottom: 6px;"></div>
             <div style="font-size: 11px; font-weight: 800; color: #1e293b;">${nomeEmpresaExibir}</div>
-            <div style="font-size: 8px; font-weight: 700; color: #94a3b8; uppercase: uppercase;">ASSINATURA DA EMPRESA (CONTRATADO)</div>
+            <div style="font-size: 8px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">ASSINATURA DA EMPRESA (CONTRATADO)</div>
           </div>
         </div>
 
       </div>
     `;
 
-    Const opcoes = { margin: 8, filename: `Contrato_${cli?.nome || 'Cliente'}.pdf`, html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'a4', orientation: 'portrait' } };
-    If ((window as any).html2pdf) { (window as any).html2pdf().from(elemento).set(opcoes).save(); }
+    const opcoes = { margin: 8, filename: `Contrato_${cli?.nome || 'Cliente'}.pdf`, html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'a4', orientation: 'portrait' } };
+    if ((window as any).html2pdf) { (window as any).html2pdf().from(elemento).set(opcoes).save(); }
   };
 
-  Const enviarContratoWhatsapp = (contrato: any) => {
-    Const cli = clientes.find(c => c.id === contrato.clienteId);
-    Const fone = cli?.zap ? Cli.zap.replace(/\D/g, '') : '';
-    Const msg = `*CONTRATO DE PRESTAÇÃO DE SERVIÇOS*%0A---%0A*Cliente:* ${cli?.nome || 'Cliente'}%0A*Evento:* ${contrato.tipoEvento || 'Serviço'}%0A*Data:* ${contrato.dataEvento || 'A combinar'}%0A*Valor Total:* R$ ${Number(contrato.valorTotal || 0).toFixed(2)}%0A---%0AOlá! Segue o resumo do nosso contrato. Acabo de baixar o PDF formal em anexo para você!🏼`;
-    Window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
+  const enviarContratoWhatsapp = (contrato: any) => {
+    const cli = clientes.find(c => c.id === contrato.clienteId);
+    const fone = cli?.zap ? cli.zap.replace(/\D/g, '') : '';
+    const msg = `*CONTRATO DE PRESTAÇÃO DE SERVIÇOS*%0A---%0A*Cliente:* ${cli?.nome || 'Cliente'}%0A*Evento:* ${contrato.tipoEvento || 'Serviço'}%0A*Data:* ${contrato.dataEvento || 'A combinar'}%0A*Valor Total:* R$ ${Number(contrato.valorTotal || 0).toFixed(2)}%0A---%0AOlá! Segue o resumo do nosso contrato. Acabo de baixar o PDF formal em anexo para você! 🙌🏼`;
+    window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
   };
 
-  Const dispararPdfAutomaticoCliente = (nomeCliente: string, itens: any[], total: number) => {
-    Const elemento = document.createElement('div');
-    Const dataEmissao = new Date().toLocaleDateString('pt-BR');
+  const dispararPdfAutomaticoCliente = (nomeCliente: string, itens: any[], total: number) => {
+    const elemento = document.createElement('div');
+    const dataEmissao = new Date().toLocaleDateString('pt-BR');
     
-    Const linesHtml = itens.map(p => `
+    const linesHtml = itens.map(p => `
       <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px; page-break-inside: avoid; break-inside: avoid;">
         <td style="padding: 15px 5px; font-weight: bold; color: #1e293b; text-align: left;">${p.nome}</td>
         <td style="padding: 15px 5px; text-align: center; color: #475569;">${p.qtd}</td>
@@ -557,7 +557,7 @@ Export default function App() {
       </tr>
     `).join('');
 
-    Elemento.innerHTML = `
+    elemento.innerHTML = `
       <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto;">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px;">
           <div>
@@ -605,275 +605,275 @@ Export default function App() {
       </div>
     `;
 
-    Const opcoes = { margin: 10, filename: `Pedido_${nomeCliente.replace(/\s+/g, '_')}.pdf`, html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'a4', orientation: 'portrait' }, pagebreak: { mode: ['avoid-all', 'css'] } };
-    If ((window as any).html2pdf) { (window as any).html2pdf().from(elemento).set(opcoes).save(); }
+    const opcoes = { margin: 10, filename: `Pedido_${nomeCliente.replace(/\s+/g, '_')}.pdf`, html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'a4', orientation: 'portrait' }, pagebreak: { mode: ['avoid-all', 'css'] } };
+    if ((window as any).html2pdf) { (window as any).html2pdf().from(elemento).set(opcoes).save(); }
   };
 
-  Const finalizarPedidoPublicoWhatsapp = () => {
-    If (!nomeComprador.trim()) return alert("Por favor, digite seu nome antes de enviar!");
-    Const itensSelecionados = produtosPublicosFiltrados.filter(p => carrinho[p.id] > 0);
-    If (itensSelecionados.length === 0) return alert("Seu carrinho está vazio!");
+  const finalizarPedidoPublicoWhatsapp = () => {
+    if (!nomeComprador.trim()) return alert("Por favor, digite seu nome antes de enviar!");
+    const itensSelecionados = produtosPublicosFiltrados.filter(p => carrinho[p.id] > 0);
+    if (itensSelecionados.length === 0) return alert("Seu carrinho está vazio!");
 
-    Let textPedido = `*NOVO PEDIDO VIA CATÁLOGO DE VENDAS*%0A`;
-    TextPedido += `---%0A`;
-    TextPedido += `*Cliente:* ${nomeComprador.trim()}%0A%0A`;
-    TextPedido += `*Itens do Pedido:*%0A`;
+    let textPedido = `*NOVO PEDIDO VIA CATÁLOGO DE VENDAS*%0A`;
+    textPedido += `---%0A`;
+    textPedido += `*Cliente:* ${nomeComprador.trim()}%0A%0A`;
+    textPedido += `*Itens do Pedido:*%0A`;
     
-    Let totalGeral = 0;
-    Const listaParaPdf: any[] = [];
+    let totalGeral = 0;
+    const listaParaPdf: any[] = [];
 
-    ItensSelecionados.forEach(p => {
-      Const qtd = carrinho[p.id];
-      Const sub = Number(p.precoVenda) * qtd;
-      TotalGeral += sub;
-      TextPedido += `• ${qtd}x _${p.nome}_ — R$ ${sub.toFixed(2)}%0A`;
-      ListaParaPdf.push({ nome: p.nome, qtd: qtd, precoVenda: p.precoVenda });
+    itensSelecionados.forEach(p => {
+      const qtd = carrinho[p.id];
+      const sub = Number(p.precoVenda) * qtd;
+      totalGeral += sub;
+      textPedido += `• ${qtd}x _${p.nome}_ — R$ ${sub.toFixed(2)}%0A`;
+      listaParaPdf.push({ nome: p.nome, qtd: qtd, precoVenda: p.precoVenda });
     });
 
-    TextPedido += `---%0A`;
-    TextPedido += `*VALOR TOTAL:* R$ ${totalGeral.toFixed(2)}%0A`;
-    TextPedido += `---%0A`;
-    TextPedido += `Aguardo a conversa para acertar os detalhes! 🙌`;
+    textPedido += `---%0A`;
+    textPedido += `*VALOR TOTAL:* R$ ${totalGeral.toFixed(2)}%0A`;
+    textPedido += `---%0A`;
+    textPedido += `Aguardo a conversa para acertar os detalhes! 🙌`;
 
-    DispararPdfAutomaticoCliente(nomeComprador.trim(), listaParaPdf, totalGeral);
+    dispararPdfAutomaticoCliente(nomeComprador.trim(), listaParaPdf, totalGeral);
 
-    Const numeroLimpo = zapDaLojaPublica.replace(/\D/g, '');
-    If (numeroLimpo) { window.open(`https://wa.me/55${numeroLimpo}?text=${textPedido}`, '_blank'); } 
-    Else { window.open(`https://wa.me/?text=${textPedido}`, '_blank'); }
+    const numeroLimpo = zapDaLojaPublica.replace(/\D/g, '');
+    if (numeroLimpo) { window.open(`https://wa.me/55${numeroLimpo}?text=${textPedido}`, '_blank'); } 
+    else { window.open(`https://wa.me/?text=${textPedido}`, '_blank'); }
   };
 
-  Const lancarVendaBalcaoInterno = async () => {
-    Const itensNoCarrinho = produtos.filter(p => carrinhoInterno[p.id] > 0);
-    If (itensNoCarrinho.length === 0) return alert("Selecione ao menos 1 item com + e - no balcão!");
+  const lancarVendaBalcaoInterno = async () => {
+    const itensNoCarrinho = produtos.filter(p => carrinhoInterno[p.id] > 0);
+    if (itensNoCarrinho.length === 0) return alert("Selecione ao menos 1 item com + e - no balcão!");
     
-    Let stringNomeCombo = "";
-    Let totalGeral = 0;
-    Const arrayItensSalvar: any[] = [];
+    let stringNomeCombo = "";
+    let totalGeral = 0;
+    const arrayItensSalvar: any[] = [];
     
-    ItensNoCarrinho.forEach((p, idx) => {
-      Const qtd = carrinhoInterno[p.id];
-      TotalGeral += Number(p.precoVenda) * qtd;
-      StringNomeCombo += `${qtd}x ${p.nome}${idx < itensNoCarrinho.length - 1 ? '\n' : ''}`;
+    itensNoCarrinho.forEach((p, idx) => {
+      const qtd = carrinhoInterno[p.id];
+      totalGeral += Number(p.precoVenda) * qtd;
+      stringNomeCombo += `${qtd}x ${p.nome}${idx < itensNoCarrinho.length - 1 ? '\n' : ''}`;
       
-      ArrayItensSalvar.push({
-        Nome: p.nome,
-        Qtd: qtd,
-        PrecoVenda: Number(p.precoVenda)
+      arrayItensSalvar.push({
+        nome: p.nome,
+        qtd: qtd,
+        precoVenda: Number(p.precoVenda)
       });
     });
 
-    Const nomeFinalDoRegistro = nomeKitBalcao.trim() ? NomeKitBalcao.trim() : stringNomeCombo;
-    Const prazoFinalVenda = prazoBalcao ? PrazoBalcao : new Date().toISOString().split('T')[0];
+    const nomeFinalDoRegistro = nomeKitBalcao.trim() ? nomeKitBalcao.trim() : stringNomeCombo;
+    const prazoFinalVenda = prazoBalcao ? prazoBalcao : new Date().toISOString().split('T')[0];
 
-    Try {
-      Await addDoc(collection(db, "pedidos"), {
-        NomeProd: nomeFinalDoRegistro,
-        Preco: totalGeral.toFixed(2),
-        ClienteId: clienteBalcao,
-        Prazo: prazoFinalVenda,
-        QtdPed: "1",
-        VHora: "0",
-        TGasto: "0",
-        Custos: { embalagem: '0', impressao: '0', energia: '0', outros: '0' },
-        Lucro: "0",
-        Desconto: "0",
-        UserId: user.uid,
-        PrecoManual: totalGeral.toFixed(2),
-        ObsPedido: "",
-        Data: new Date().toLocaleDateString('pt-BR'),
-        Status: 'Pendente',
-        ItensCombo: arrayItensSalvar,
-        ModoCalculo: 'peca'
+    try {
+      await addDoc(collection(db, "pedidos"), {
+        nomeProd: nomeFinalDoRegistro,
+        preco: totalGeral.toFixed(2),
+        clienteId: clienteBalcao,
+        prazo: prazoFinalVenda,
+        qtdPed: "1",
+        vHora: "0",
+        tGasto: "0",
+        custos: { embalagem: '0', impressao: '0', energia: '0', outros: '0' },
+        lucro: "0",
+        desconto: "0",
+        userId: user.uid,
+        precoManual: totalGeral.toFixed(2),
+        obsPedido: "",
+        data: new Date().toLocaleDateString('pt-BR'),
+        status: 'Pendente',
+        itensCombo: arrayItensSalvar,
+        modoCalculo: 'peca'
       });
 
-      SetCarrinhoInterno({});
-      SetClienteBalcao('');
-      SetNomeKitBalcao('');
-      SetPrazoBalcao('');
-      Alert("Combo lançado com sucesso no Histórico! 🚀");
-      SetActiveTab('pedidos');
+      setCarrinhoInterno({});
+      setClienteBalcao('');
+      setNomeKitBalcao('');
+      setPrazoBalcao('');
+      alert("Combo lançado com sucesso no Histórico! 🚀");
+      setActiveTab('pedidos');
     } catch {
-      Alert("Erro ao lançar venda no balcão.");
+      alert("Erro ao lançar venda no balcão.");
     }
   };
 
   // --- DASHBOARD METRICS ---
-  Const dashboardMetrics = useMemo(() => {
-    Const agora = new Date();
-    Const mesAtual = agora.getMonth() + 1;
-    Const anoAtual = agora.getFullYear();
+  const dashboardMetrics = useMemo(() => {
+    const agora = new Date();
+    const mesAtual = agora.getMonth() + 1;
+    const anoAtual = agora.getFullYear();
 
-    Const pedidosDoMes = pedidos.filter(p => {
-      Const isVendido = p.status === 'Vendido 💰' || p.status === 'Vendido';
-      If (!isVendido || !p.data) return false;
+    const pedidosDoMes = pedidos.filter(p => {
+      const isVendido = p.status === 'Vendido 💰' || p.status === 'Vendido';
+      if (!isVendido || !p.data) return false;
 
-      Const partes = p.data.split('/');
-      If (partes.length === 3) {
-        Const mesPedido = Number(partes[1]);
-        Const anoPedido = Number(partes[2]);
-        Return mesPedido === mesAtual && anoPedido === anoAtual;
+      const partes = p.data.split('/');
+      if (partes.length === 3) {
+        const mesPedido = Number(partes[1]);
+        const anoPedido = Number(partes[2]);
+        return mesPedido === mesAtual && anoPedido === anoAtual;
       }
-      Return false;
+      return false;
     });
 
-    Const faturamentoMes = pedidosDoMes.reduce((acc, p) => acc + Number(p.preco || 0), 0);
-    Const pendentesCount = pedidos.filter(p => p.status === 'Pendente' || !p.status).length;
-    Const estoqueCriticoCount = materiais.filter(m => Number(m.qtdAtual || 0) <= Number(m.qtdMinima || 0)).length;
+    const faturamentoMes = pedidosDoMes.reduce((acc, p) => acc + Number(p.preco || 0), 0);
+    const pendentesCount = pedidos.filter(p => p.status === 'Pendente' || !p.status).length;
+    const estoqueCriticoCount = materiais.filter(m => Number(m.qtdAtual || 0) <= Number(m.qtdMinima || 0)).length;
 
-    Return { 
-      Faturamento: faturamentoMes.toFixed(2), 
-      Pendentes: pendentesCount, 
-      Criticos: estoqueCriticoCount, 
-      TotalClientes: clientes.length 
+    return { 
+      faturamento: faturamentoMes.toFixed(2), 
+      pendentes: pendentesCount, 
+      criticos: estoqueCriticoCount, 
+      totalClientes: clientes.length 
     };
   }, [pedidos, materiais, clientes]);
 
-  Const historicoFinanceiroMensal = useMemo(() => {
-    Const agrupado: { [key: string]: { total: number; qtd: number; mesAnoTexto: string; itensVendidos: any[] } } = {};
-    Const nomesMeses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+  const historicoFinanceiroMensal = useMemo(() => {
+    const agrupado: { [key: string]: { total: number; qtd: number; mesAnoTexto: string; itensVendidos: any[] } } = {};
+    const nomesMeses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
-    Pedidos.forEach(p => {
-      Const isVendido = p.status === 'Vendido 💰' || p.status === 'Vendido';
-      If (!isVendido || !p.data) return;
+    pedidos.forEach(p => {
+      const isVendido = p.status === 'Vendido 💰' || p.status === 'Vendido';
+      if (!isVendido || !p.data) return;
 
-      Const partes = p.data.split('/');
-      If (partes.length === 3) {
-        Const mes = Number(partes[1]);
-        Const ano = Number(partes[2]);
-        Const chave = `${ano}-${String(mes).padStart(2, '0')}`;
-        Const nomeMesTexto = `${nomesMeses[mes - 1]} / ${ano}`;
+      const partes = p.data.split('/');
+      if (partes.length === 3) {
+        const mes = Number(partes[1]);
+        const ano = Number(partes[2]);
+        const chave = `${ano}-${String(mes).padStart(2, '0')}`;
+        const nomeMesTexto = `${nomesMeses[mes - 1]} / ${ano}`;
 
-        If (!agrupado[chave]) {
-          Agrupado[chave] = { total: 0, qtd: 0, mesAnoTexto: nomeMesTexto, itensVendidos: [] };
+        if (!agrupado[chave]) {
+          agrupado[chave] = { total: 0, qtd: 0, mesAnoTexto: nomeMesTexto, itensVendidos: [] };
         }
 
-        Agrupado[chave].total += Number(p.preco || 0);
-        Agrupado[chave].qtd += 1;
-        Agrupado[chave].itensVendidos.push(p);
+        agrupado[chave].total += Number(p.preco || 0);
+        agrupado[chave].qtd += 1;
+        agrupado[chave].itensVendidos.push(p);
       }
     });
 
-    Return Object.keys(agrupado)
+    return Object.keys(agrupado)
       .sort((a, b) => b.localeCompare(a))
       .map(chave => ({
-        Chave,
+        chave,
         ...agrupado[chave]
       }));
   }, [pedidos]);
 
-  Const historicoFiltradoPorData = useMemo(() => {
-    If (mesFiltroHistorico === 'Todos' && anoFiltroHistorico === 'Todos') {
-      Return historicoFinanceiroMensal;
+  const historicoFiltradoPorData = useMemo(() => {
+    if (mesFiltroHistorico === 'Todos' && anoFiltroHistorico === 'Todos') {
+      return historicoFinanceiroMensal;
     }
 
-    Return historicoFinanceiroMensal.filter(item => {
-      Const [ano, mes] = item.chave.split('-');
-      Const matchMes = mesFiltroHistorico === 'Todos' || Number(mes) === Number(mesFiltroHistorico);
-      Const matchAno = anoFiltroHistorico === 'Todos' || Number(ano) === Number(anoFiltroHistorico);
-      Return matchMes && matchAno;
+    return historicoFinanceiroMensal.filter(item => {
+      const [ano, mes] = item.chave.split('-');
+      const matchMes = mesFiltroHistorico === 'Todos' || Number(mes) === Number(mesFiltroHistorico);
+      const matchAno = anoFiltroHistorico === 'Todos' || Number(ano) === Number(anoFiltroHistorico);
+      return matchMes && matchAno;
     });
   }, [historicoFinanceiroMensal, mesFiltroHistorico, anoFiltroHistorico]);
 
-  Const resumenFinanceiro = useMemo(() => {
-    Const qtdNum = Math.max(1, Number(qtdPed) || 1);
+  const resumenFinanceiro = useMemo(() => {
+    const qtdNum = Math.max(1, Number(qtdPed) || 1);
 
-    If (precoManual !== null) {
-      Const baseVal = Number(precoManual || 0);
-      Const totalCatalogo = modoCalculo === 'peca' ? BaseVal * qtdNum : baseVal;
-      Const semDesconto = totalCatalogo - Number(desconto || 0);
-      Const custoPecaUnitario = modoCalculo === 'peca' ? BaseVal : baseVal / qtdNum;
+    if (precoManual !== null) {
+      const baseVal = Number(precoManual || 0);
+      const totalCatalogo = modoCalculo === 'peca' ? baseVal * qtdNum : baseVal;
+      const semDesconto = totalCatalogo - Number(desconto || 0);
+      const custoPecaUnitario = modoCalculo === 'peca' ? baseVal : baseVal / qtdNum;
 
-      Return { 
-        Materiais: "0.00", 
-        MaoObra: "0.00", 
-        Extras: "0.00", 
-        Deprec: "0.00", 
-        CustoPeca: custoPecaUnitario.toFixed(2), 
-        LucroLivre: "0.00", 
-        Final: isNaN(semDesconto) ? "0.00" : semDesconto.toFixed(2) 
+      return { 
+        materiais: "0.00", 
+        maoObra: "0.00", 
+        extras: "0.00", 
+        deprec: "0.00", 
+        custoPeca: custoPecaUnitario.toFixed(2), 
+        lucroLivre: "0.00", 
+        final: isNaN(semDesconto) ? "0.00" : semDesconto.toFixed(2) 
       };
     }
 
-    Const totalMaterials = matsNoPed.reduce((acc, m) => acc + ((Number(m.valor || 0) / Number(m.qtd || 1)) * Number(m.qtdUsada || 0)), 0);
-    Const totalMaoObra = (Number(vHora || 0) / 60) * Number(tGasto || 0);
-    Const totalExtras = Number(custos.embalagem || 0) + Number(custos.impressao || 0) + Number(custos.energia || 0) + Number(custos.outros || 0);
+    const totalMaterials = matsNoPed.reduce((acc, m) => acc + ((Number(m.valor || 0) / Number(m.qtd || 1)) * Number(m.qtdUsada || 0)), 0);
+    const totalMaoObra = (Number(vHora || 0) / 60) * Number(tGasto || 0);
+    const totalExtras = Number(custos.embalagem || 0) + Number(custos.impressao || 0) + Number(custos.energia || 0) + Number(custos.outros || 0);
     
-    Let totalDesgasteMaquinas = 0;
-    Const dias = Number(financasFixo.diasTrabalho || 20);
-    Const horas = Number(financasFixo.horasDia || 8);
-    Const totalHorasMes = dias * horas || 160;
-    Const tempoEmHoras = Number(tGasto || 0) / 60;
+    let totalDesgasteMaquinas = 0;
+    const dias = Number(financasFixo.diasTrabalho || 20);
+    const horas = Number(financasFixo.horasDia || 8);
+    const totalHorasMes = dias * horas || 160;
+    const tempoEmHoras = Number(tGasto || 0) / 60;
 
-    EquipamentosSelecionados.forEach(idEquip => {
-      Const eq = equipamentos.find(e => e.id === idEquip);
-      If (eq) {
-        Const valorEquip = Number(eq.valorPago || 0);
-        Const mesesVida = Number(eq.durabilidadeAnos || 2) * 12;
-        Const custoHoraEquip = (valorEquip / mesesVida) / totalHorasMes;
-        TotalDesgasteMaquinas += custoHoraEquip * tempoEmHoras;
+    equipamentosSelecionados.forEach(idEquip => {
+      const eq = equipamentos.find(e => e.id === idEquip);
+      if (eq) {
+        const valorEquip = Number(eq.valorPago || 0);
+        const mesesVida = Number(eq.durabilidadeAnos || 2) * 12;
+        const custoHoraEquip = (valorEquip / mesesVida) / totalHorasMes;
+        totalDesgasteMaquinas += custoHoraEquip * tempoEmHoras;
       }
     });
 
-    Const custoTotalBasePeca = totalMaterials + totalMaoObra + totalExtras + totalDesgasteMaquinas;
+    const custoTotalBasePeca = totalMaterials + totalMaoObra + totalExtras + totalDesgasteMaquinas;
     
-    Let custoTotalInvestido = 0;
-    Let valorLucroLivre = 0;
-    Let precoFinalCalculado = 0;
+    let custoTotalInvestido = 0;
+    let valorLucroLivre = 0;
+    let precoFinalCalculado = 0;
 
-    If (modoCalculo === 'peca') {
-      CustoTotalInvestido = custoTotalBasePeca * qtdNum;
-      ValorLucroLivre = custoTotalInvestido * (Number(lucro || 0) / 100);
-      PrecoFinalCalculado = (custoTotalInvestido + valorLucroLivre) - Number(desconto || 0);
+    if (modoCalculo === 'peca') {
+      custoTotalInvestido = custoTotalBasePeca * qtdNum;
+      valorLucroLivre = custoTotalInvestido * (Number(lucro || 0) / 100);
+      precoFinalCalculado = (custoTotalInvestido + valorLucroLivre) - Number(desconto || 0);
     } else {
-      CustoTotalInvestido = custoTotalBasePeca;
-      ValorLucroLivre = custoTotalInvestido * (Number(lucro || 0) / 100);
-      PrecoFinalCalculado = (custoTotalInvestido + valorLucroLivre) - Number(desconto || 0);
+      custoTotalInvestido = custoTotalBasePeca;
+      valorLucroLivre = custoTotalInvestido * (Number(lucro || 0) / 100);
+      precoFinalCalculado = (custoTotalInvestido + valorLucroLivre) - Number(desconto || 0);
     }
 
-    Const custoUnitarioExibicao = modoCalculo === 'peca' ? CustoTotalBasePeca : (custoTotalBasePeca / qtdNum);
+    const custoUnitarioExibicao = modoCalculo === 'peca' ? custoTotalBasePeca : (custoTotalBasePeca / qtdNum);
 
-    Return { 
-      Materiais: totalMaterials.toFixed(2), 
-      MaoObra: totalMaoObra.toFixed(2), 
-      Extras: totalExtras.toFixed(2), 
-      Deprec: totalDesgasteMaquinas.toFixed(2), 
-      CustoPeca: custoUnitarioExibicao.toFixed(2), 
-      LucroLivre: valorLucroLivre.toFixed(2), 
-      Final: isNaN(precoFinalCalculado) ? "0.00" : precoFinalCalculado.toFixed(2) 
+    return { 
+      materiais: totalMaterials.toFixed(2), 
+      maoObra: totalMaoObra.toFixed(2), 
+      extras: totalExtras.toFixed(2), 
+      deprec: totalDesgasteMaquinas.toFixed(2), 
+      custoPeca: custoUnitarioExibicao.toFixed(2), 
+      lucroLivre: valorLucroLivre.toFixed(2), 
+      final: isNaN(precoFinalCalculado) ? "0.00" : precoFinalCalculado.toFixed(2) 
     };
   }, [matsNoPed, vHora, tGasto, custos, lucro, qtdPed, desconto, precoManual, equipamentos, equipamentosSelecionados, financasFixo, modoCalculo]);
 
-  UseEffect(() => {
-    SetPrecoFinalDigitado(resumenFinanceiro.final);
+  useEffect(() => {
+    setPrecoFinalDigitado(resumenFinanceiro.final);
   }, [resumenFinanceiro.final]);
 
-  Const enviarZap = (p: any) => {
-    Const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
-    Const dataP = p.prazo ? New Date(p.prazo).toLocaleDateString('pt-BR') : 'A combinar';
-    Const msg = `*RESUMO ORÇAMENTO*%0A---%0A*Cliente:* ${cli?.nome || 'Cliente'}%0A*Produto:* %0A${p.nomeProd}%0A*Qtd:* ${p.qtdPed || 1} un%0A*Prazo:* ${dataP}%0A*VALOR TOTAL:* R$ ${p.preco}%0A---%0AObrigado!`;
-    Const fone = cli?.zap ? Cli.zap.replace(/\D/g, '') : '';
-    Window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
+  const enviarZap = (p: any) => {
+    const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
+    const dataP = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combinar';
+    const msg = `*RESUMO ORÇAMENTO*%0A---%0A*Cliente:* ${cli?.nome || 'Cliente'}%0A*Produto:* %0A${p.nomeProd}%0A*Qtd:* ${p.qtdPed || 1} un%0A*Prazo:* ${dataP}%0A*VALOR TOTAL:* R$ ${p.preco}%0A---%0AObrigado!`;
+    const fone = cli?.zap ? cli.zap.replace(/\D/g, '') : '';
+    window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
   };
 
-  Const gerarPDF = (p: any) => {
-    Const idDoCliente = p.clienteId || p.clienteSel || '';
-    Const cli = clientes.find(c => c.id === idDoCliente);
+  const gerarPDF = (p: any) => {
+    const idDoCliente = p.clienteId || p.clienteSel || '';
+    const cli = clientes.find(c => c.id === idDoCliente);
     
-    Const dataEmissao = p.data || new Date().toLocaleDateString('pt-BR');
-    Const hoje = new Date(); hoje.setDate(hoje.getDate() + 7);
-    Const dataValidade = hoje.toLocaleDateString('pt-BR');
-    Const dataPrazo = p.prazo ? New Date(p.prazo + 'T00:00:00').toLocaleDateString('pt-BR') : 'A combinar';
-    Const totalNum = Number(p.preco || 0);
+    const dataEmissao = p.data || new Date().toLocaleDateString('pt-BR');
+    const hoje = new Date(); hoje.setDate(hoje.getDate() + 7);
+    const dataValidade = hoje.toLocaleDateString('pt-BR');
+    const dataPrazo = p.prazo ? new Date(p.prazo + 'T00:00:00').toLocaleDateString('pt-BR') : 'A combinar';
+    const totalNum = Number(p.preco || 0);
 
-    Let htmlLinhasTabela = '';
+    let htmlLinhasTabela = '';
 
-    If (p.itensCombo && Array.isArray(p.itensCombo) && p.itensCombo.length > 0) {
-      HtmlLinhasTabela = p.itensCombo.map((item: any) => {
-        Const qtd = Number(item.qtd || 1);
-        Const precoVenda = Number(item.precoVenda || 0);
-        Const subtotal = qtd * precoVenda;
+    if (p.itensCombo && Array.isArray(p.itensCombo) && p.itensCombo.length > 0) {
+      htmlLinhasTabela = p.itensCombo.map((item: any) => {
+        const qtd = Number(item.qtd || 1);
+        const precoVenda = Number(item.precoVenda || 0);
+        const subtotal = qtd * precoVenda;
         
-        Return `
+        return `
           <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px; page-break-inside: avoid; break-inside: avoid;">
             <td style="padding: 15px 5px; font-weight: bold; color: #1e293b; text-align: left;">${item.nome}</td>
             <td style="padding: 15px 5px; text-align: center; color: #475569;">${qtd}</td>
@@ -883,17 +883,17 @@ Export default function App() {
         `;
       }).join('');
     } 
-    Else {
-      Const textoProduto = String(p.nomeProd || 'Produto Não Informado');
-      Const quantidadeItem = Number(p.qtdPed || 1);
-      Const unitario = p.precoManual ? Number(p.precoManual) : (totalNum / quantidadeItem);
+    else {
+      const textoProduto = String(p.nomeProd || 'Produto Não Informado');
+      const quantidadeItem = Number(p.qtdPed || 1);
+      const unitario = p.precoManual ? Number(p.precoManual) : (totalNum / quantidadeItem);
 
-      Let htmlDetalhamentoKit = '';
-      If (p.detalhamentoPed && p.detalhamentoPed.trim()) {
-        Const listaItens = p.detalhamentoPed.split('\n').filter((l: string) => l.trim() !== '');
-        Const lisHtml = listaItens.map((i: string) => `<li style="margin-bottom: 3px;">${i.replace(/^[\s•*-]+/, '')}</li>`).join('');
+      let htmlDetalhamentoKit = '';
+      if (p.detalhamentoPed && p.detalhamentoPed.trim()) {
+        const listaItens = p.detalhamentoPed.split('\n').filter((l: string) => l.trim() !== '');
+        const lisHtml = listaItens.map((i: string) => `<li style="margin-bottom: 3px;">${i.replace(/^[\s•*-]+/, '')}</li>`).join('');
         
-        HtmlDetalhamentoKit = `
+        htmlDetalhamentoKit = `
           <div style="margin-top: 8px; padding: 10px 12px; background-color: #fcfaff; border-left: 3px solid ${themeColors.primary}; border-radius: 6px;">
             <div style="font-size: 11px; font-weight: bold; color: ${themeColors.primary}; margin-bottom: 4px; text-transform: uppercase; tracking-wide: 0.5px;">Composição / Itens Incluso no Kit:</div>
             <ul style="margin: 0; padding-left: 18px; font-size: 12px; color: #475569; line-height: 1.4;">
@@ -903,7 +903,7 @@ Export default function App() {
         `;
       }
 
-      HtmlLinhasTabela = `
+      htmlLinhasTabela = `
         <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px; page-break-inside: avoid; break-inside: avoid;">
           <td style="padding: 15px 5px; font-weight: bold; color: #1e293b; text-align: left; vertical-align: top;">
             <div style="font-size: 15px; font-weight: 800; color: #1e293b;">${textoProduto}</div>
@@ -916,11 +916,11 @@ Export default function App() {
       `;
     }
 
-    Const cabecalhoNomeHtml = nomeLojaPerfil ? NomeLojaPerfil : "PrecificaJá";
-    Const cabecalhoLogoHtml = logoLojaPerfil ? `<img src="${logoLojaPerfil}" style="max-height: 70px; max-width: 160px; object-fit: contain; display: block;"/>` : '';
+    const cabecalhoNomeHtml = nomeLojaPerfil ? nomeLojaPerfil : "PrecificaJá";
+    const cabecalhoLogoHtml = logoLojaPerfil ? `<img src="${logoLojaPerfil}" style="max-height: 70px; max-width: 160px; object-fit: contain; display: block;"/>` : '';
 
-    Const elemento = document.createElement('div');
-    Elemento.innerHTML = `
+    const elemento = document.createElement('div');
+    elemento.innerHTML = `
       <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto;">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px; gap: 20px;">
           <div style="flex-shrink: 0; display: flex; align-items: center;">
@@ -990,244 +990,244 @@ Export default function App() {
       </div>
     `;
     
-    Const opcoes = { margin: [10, 10, 10, 10], filename: `Pedido_${p.id || 'Venda'}.pdf`, html2canvas: { scale: 2, useCORS: true, scrollY: 0 }, jsPDF: { format: 'a4', orientation: 'portrait' }, pagebreak: { mode: ['avoid-all', 'css'] } };
+    const opcoes = { margin: [10, 10, 10, 10], filename: `Pedido_${p.id || 'Venda'}.pdf`, html2canvas: { scale: 2, useCORS: true, scrollY: 0 }, jsPDF: { format: 'a4', orientation: 'portrait' }, pagebreak: { mode: ['avoid-all', 'css'] } };
     (window as any).html2pdf().from(elemento).set(opcoes).save();
   };
 
-  Const handleAuth = async () => {
-    Try {
-      If (isRegistering) await createUserWithEmailAndPassword(auth, email, password);
-      Else await signInWithEmailAndPassword(auth, email, password);
+  const handleAuth = async () => {
+    try {
+      if (isRegistering) await createUserWithEmailAndPassword(auth, email, password);
+      else await signInWithEmailAndPassword(auth, email, password);
     } catch (e) { alert("E-mail ou senha incorretos!"); }
   };
 
-  Const confirmarExcluir = async (tipo: string, id: string) => {
-    If (window.confirm(`Excluir ${tipo}?`)) {
-      Let colecao = "";
-      If (tipo === 'pedido') colecao = "pedidos";
-      Else if (tipo === 'cliente') colecao = "clientes";
-      Else if (tipo === 'produto') colecao = "produtos";
-      Else if (tipo === 'equipamento') colecao = "equipamentos";
-      Else if (tipo === 'material') colecao = "materiais";
-      Else if (tipo === 'anotacao') colecao = "anotacoes";
-      Else if (tipo === 'fornecedor') colecao = "fornecedores";
-      Else if (tipo === 'contrato') colecao = "contratos";
+  const confirmarExcluir = async (tipo: string, id: string) => {
+    if (window.confirm(`Excluir ${tipo}?`)) {
+      let colecao = "";
+      if (tipo === 'pedido') colecao = "pedidos";
+      else if (tipo === 'cliente') colecao = "clientes";
+      else if (tipo === 'produto') colecao = "produtos";
+      else if (tipo === 'equipamento') colecao = "equipamentos";
+      else if (tipo === 'material') colecao = "materiais";
+      else if (tipo === 'anotacao') colecao = "anotacoes";
+      else if (tipo === 'fornecedor') colecao = "fornecedores";
+      else if (tipo === 'contrato') colecao = "contratos";
 
-      Await deleteDoc(doc(db, colecao, id));
+      await deleteDoc(doc(db, colecao, id));
     }
   };
 
-  Const confirmarVendaPedido = async (pedido: any) => {
-    If (pedido.materiaisUsados && pedido.materiaisUsados.length > 0) {
-      For (const m of pedido.materiaisUsados) {
-        Const matDoBanco = materiais.find(item => item.id === m.id);
-        If (matDoBanco) {
-          Const estoqueFiscal = Number(matDoBanco.qtdAtual || 0);
-          Const gastoTotal = Number(m.qtdUsada || 0) * Number(pedido.qtdPed || 1);
-          Await updateDoc(doc(db, "materiais", m.id), { qtdAtual: Math.max(0, estoqueFiscal - gastoTotal) });
+  const confirmarVendaPedido = async (pedido: any) => {
+    if (pedido.materiaisUsados && pedido.materiaisUsados.length > 0) {
+      for (const m of pedido.materiaisUsados) {
+        const matDoBanco = materiais.find(item => item.id === m.id);
+        if (matDoBanco) {
+          const estoqueFiscal = Number(matDoBanco.qtdAtual || 0);
+          const gastoTotal = Number(m.qtdUsada || 0) * Number(pedido.qtdPed || 1);
+          await updateDoc(doc(db, "materiais", m.id), { qtdAtual: Math.max(0, estoqueFiscal - gastoTotal) });
         }
       }
     } 
     
-    Const textoVenda = String(pedido.nomeProd || '');
-    If (textoVenda.includes('x ')) {
-      Const partesItens = textoVenda.split(/\n| \+ /);
-      For (const parte of partesItens) {
-        Const regexMatch = parte.trim().match(/^(\d+)x\s+(.+)$/i);
-        If (regexMatch) {
-          Const qtdVendida = Number(regexMatch[1]);
-          Const nomeProdutoTexto = regexMatch[2].trim().toLowerCase();
-          Const materialCorrespondente = materiais.find(m => nomeProdutoTexto.includes(m.nome.toLowerCase()) || m.nome.toLowerCase().includes(nomeProdutoTexto));
-          If (materialCorrespondente) {
-            Const estoqueAtual = Number(materialCorrespondente.qtdAtual || 0);
-            Const novoEstoque = Math.max(0, estoqueAtual - qtdVendida);
-            Await updateDoc(doc(db, "materiais", materialCorrespondente.id), { qtdAtual: novoEstoque });
+    const textoVenda = String(pedido.nomeProd || '');
+    if (textoVenda.includes('x ')) {
+      const partesItens = textoVenda.split(/\n| \+ /);
+      for (const parte of partesItens) {
+        const regexMatch = parte.trim().match(/^(\d+)x\s+(.+)$/i);
+        if (regexMatch) {
+          const qtdVendida = Number(regexMatch[1]);
+          const nomeProdutoTexto = regexMatch[2].trim().toLowerCase();
+          const materialCorrespondente = materiais.find(m => nomeProdutoTexto.includes(m.nome.toLowerCase()) || m.nome.toLowerCase().includes(nomeProdutoTexto));
+          if (materialCorrespondente) {
+            const estoqueAtual = Number(materialCorrespondente.qtdAtual || 0);
+            const novoEstoque = Math.max(0, estoqueAtual - qtdVendida);
+            await updateDoc(doc(db, "materiais", materialCorrespondente.id), { qtdAtual: novoEstoque });
           }
         }
       }
     }
-    Await updateDoc(doc(db, "pedidos", pedido.id), { status: 'Vendido 💰' });
-    Alert("Venda confirmada!");
+    await updateDoc(doc(db, "pedidos", pedido.id), { status: 'Vendido 💰' });
+    alert("Venda confirmada!");
   };
 
-  Const cancelarPedidoSemExcluir = async (id: string) => {
-    If (window.confirm("Deseja realmente mover este orçamento para os cancelados?")) {
-      Await updateDoc(doc(db, "pedidos", id), { status: 'Cancelado ❌' });
-      Alert("Pedido cancelado!");
+  const cancelarPedidoSemExcluir = async (id: string) => {
+    if (window.confirm("Deseja realmente mover este orçamento para os cancelados?")) {
+      await updateDoc(doc(db, "pedidos", id), { status: 'Cancelado ❌' });
+      alert("Pedido cancelado!");
     }
   };
 
-  Const handleUploadImagem = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    Const file = e.target.files?.[0];
-    If (!file || !user) return;
-    SetSubindoImagem(true);
-    Try {
-      Const nomeArquivo = `${user.uid}_${Date.now()}_${file.name}`;
-      Const imagemRef = ref(storage, `produtos/${nomeArquivo}`);
-      Await uploadBytes(imagemRef, file);
-      Const urlDisponivel = await getDownloadURL(imagemRef);
-      SetNovoProdCatalogo(prev => ({ ...prev, urlImagem: urlDisponivel }));
-      Alert("Foto carregada com sucesso! 📸");
+  const handleUploadImagem = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    setSubindoImagem(true);
+    try {
+      const nomeArquivo = `${user.uid}_${Date.now()}_${file.name}`;
+      const imagemRef = ref(storage, `produtos/${nomeArquivo}`);
+      await uploadBytes(imagemRef, file);
+      const urlDisponivel = await getDownloadURL(imagemRef);
+      setNovoProdCatalogo(prev => ({ ...prev, urlImagem: urlDisponivel }));
+      alert("Foto carregada com sucesso! 📸");
     } catch (error) { alert("Erro ao subir a foto!"); } 
-    Finally { setSubindoImagem(false); }
+    finally { setSubindoImagem(false); }
   };
 
-  Const handleUploadLogo = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    Const file = e.target.files?.[0];
-    If (!file || !user) return;
-    SetSubindoLogo(true);
-    Try {
-      Const nomeArquivo = `logo_${user.uid}_${Date.now()}_${file.name}`;
-      Const logoRef = ref(storage, `logos/${nomeArquivo}`);
-      Await uploadBytes(logoRef, file);
-      Const urlDisponivel = await getDownloadURL(logoRef);
-      SetLogoLojaPerfil(urlDisponivel);
-      Alert("Logo carregado com sucesso! Salve o perfil para aplicar. 📸");
+  const handleUploadLogo = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    setSubindoLogo(true);
+    try {
+      const nomeArquivo = `logo_${user.uid}_${Date.now()}_${file.name}`;
+      const logoRef = ref(storage, `logos/${nomeArquivo}`);
+      await uploadBytes(logoRef, file);
+      const urlDisponivel = await getDownloadURL(logoRef);
+      setLogoLojaPerfil(urlDisponivel);
+      alert("Logo carregado com sucesso! Salve o perfil para aplicar. 📸");
     } catch (error) { alert("Erro ao subir o logo!"); }
-    Finally { setSubindoLogo(false); }
+    finally { setSubindoLogo(false); }
   };
 
-  Const limparCalculadora = () => {
-    SetNomeProd(''); setDetalhamentoPed(''); setQtdPed('1'); setMatsNoPed([]); setVHora('9'); setTGasto('60');
-    SetCustos({ embalagem: '0', impressao: custoPorPaginaCalculado.toFixed(2), energia: '0', outros: '0' });
-    SetEquipamentosSelecionados([]);
-    SetLucro('100'); setDesconto('0'); setPrazo(''); setClienteSel('');
-    SetPedidoEditandoId(null); setPrecoManual(null); setDocObsPedido('');
-    SetIsDuplicando(false);
-    SetModoCalculo('peca');
-    SetPrecoFinalDigitado('0.00');
+  const limparCalculadora = () => {
+    setNomeProd(''); setDetalhamentoPed(''); setQtdPed('1'); setMatsNoPed([]); setVHora('9'); setTGasto('60');
+    setCustos({ embalagem: '0', impressao: custoPorPaginaCalculado.toFixed(2), energia: '0', outros: '0' });
+    setEquipamentosSelecionados([]);
+    setLucro('100'); setDesconto('0'); setPrazo(''); setClienteSel('');
+    setPedidoEditandoId(null); setPrecoManual(null); setDocObsPedido('');
+    setIsDuplicando(false);
+    setModoCalculo('peca');
+    setPrecoFinalDigitado('0.00');
   };
 
-  Const carregarPedidoParaEdicao = (p: any) => {
-    SetIsDuplicando(false);
-    SetPedidoEditandoId(p.id); setNomeProd(p.nomeProd || ''); setDetalhamentoPed(p.detalhamentoPed || ''); setQtdPed(p.qtdPed || '1'); setVHora(p.vHora || '9'); setTGasto(p.tGasto || '60');
-    SetCustos(p.custos || { embalagem: '0', impressao: '0', energia: '0', outros: '0' });
-    SetLucro(p.lucro || '100'); setDesconto(p.desconto || '0'); setPrazo(p.prazo || ''); setClienteSel(p.clienteId || '');
-    SetPrecoManual(p.precoManual || null); setDocObsPedido(p.obsPedido || '');
-    SetEquipamentosSelecionados(p.equipamentosSelecionados || []);
-    SetModoCalculo(p.modoCalculo || 'peca');
+  const carregarPedidoParaEdicao = (p: any) => {
+    setIsDuplicando(false);
+    setPedidoEditandoId(p.id); setNomeProd(p.nomeProd || ''); setDetalhamentoPed(p.detalhamentoPed || ''); setQtdPed(p.qtdPed || '1'); setVHora(p.vHora || '9'); setTGasto(p.tGasto || '60');
+    setCustos(p.custos || { embalagem: '0', impressao: '0', energia: '0', outros: '0' });
+    setLucro(p.lucro || '100'); setDesconto(p.desconto || '0'); setPrazo(p.prazo || ''); setClienteSel(p.clienteId || '');
+    setPrecoManual(p.precoManual || null); setDocObsPedido(p.obsPedido || '');
+    setEquipamentosSelecionados(p.equipamentosSelecionados || []);
+    setModoCalculo(p.modoCalculo || 'peca');
 
-    If (p.materiaisUsados && p.materiaisUsados.length > 0) {
-      Const listaReconstruida = p.materiaisUsados.map((mSalvo: any) => {
-        Const matDoArmario = materiais.find(item => item.id === mSalvo.id);
-        Return { id: mSalvo.id, nome: matDoArmario ? MatDoArmario.nome : mSalvo.nome, qtdUsada: Number(mSalvo.qtdUsada || 1), valor: matDoArmario ? Number(matDoArmario.valor) : Number(mSalvo.valor || 0), qtd: matDoArmario ? Number(matDoArmario.qtd) : Number(mSalvo.qtd || 1), unidade: matDoArmario ? MatDoArmario.unidade : (mSalvo.unidade || 'un') };
+    if (p.materiaisUsados && p.materiaisUsados.length > 0) {
+      const listaReconstruida = p.materiaisUsados.map((mSalvo: any) => {
+        const matDoArmario = materiais.find(item => item.id === mSalvo.id);
+        return { id: mSalvo.id, nome: matDoArmario ? matDoArmario.nome : mSalvo.nome, qtdUsada: Number(mSalvo.qtdUsada || 1), valor: matDoArmario ? Number(matDoArmario.valor) : Number(mSalvo.valor || 0), qtd: matDoArmario ? Number(matDoArmario.qtd) : Number(mSalvo.qtd || 1), unidade: matDoArmario ? matDoArmario.unidade : (mSalvo.unidade || 'un') };
       });
-      SetMatsNoPed(listaReconstruida);
+      setMatsNoPed(listaReconstruida);
     } else { setMatsNoPed([]); }
     
-    SetPrecoFinalDigitado(p.preco || '0.00');
-    SetActiveTab('criar');
+    setPrecoFinalDigitado(p.preco || '0.00');
+    setActiveTab('criar');
   };
 
-  Const handleDuplicarOrcamento = (p: any) => {
-    SetPedidoEditandoId(null); 
-    SetIsDuplicando(true);
-    SetNomeProd(`${p.nomeProd} (Cópia)`); 
-    SetDetalhamentoPed(p.detalhamentoPed || '');
-    SetQtdPed(p.qtdPed || '1'); 
-    SetVHora(p.vHora || '9'); 
-    SetTGasto(p.tGasto || '60');
-    SetCustos(p.custos || { embalagem: '0', impressao: '0', energia: '0', outros: '0' });
-    SetLucro(p.lucro || '100'); 
-    SetDesconto(p.desconto || '0'); 
-    SetPrazo(p.prazo || ''); 
-    SetClienteSel(''); 
-    SetPrecoManual(p.precoManual || null); 
-    SetDocObsPedido(p.obsPedido || '');
-    SetEquipamentosSelecionados(p.equipamentosSelecionados || []);
-    SetModoCalculo(p.modoCalculo || 'peca');
+  const handleDuplicarOrcamento = (p: any) => {
+    setPedidoEditandoId(null); 
+    setIsDuplicando(true);
+    setNomeProd(`${p.nomeProd} (Cópia)`); 
+    setDetalhamentoPed(p.detalhamentoPed || '');
+    setQtdPed(p.qtdPed || '1'); 
+    setVHora(p.vHora || '9'); 
+    setTGasto(p.tGasto || '60');
+    setCustos(p.custos || { embalagem: '0', impressao: '0', energia: '0', outros: '0' });
+    setLucro(p.lucro || '100'); 
+    setDesconto(p.desconto || '0'); 
+    setPrazo(p.prazo || ''); 
+    setClienteSel(''); 
+    setPrecoManual(p.precoManual || null); 
+    setDocObsPedido(p.obsPedido || '');
+    setEquipamentosSelecionados(p.equipamentosSelecionados || []);
+    setModoCalculo(p.modoCalculo || 'peca');
 
-    If (p.materiaisUsados && p.materiaisUsados.length > 0) {
-      Const listaReconstruida = p.materiaisUsados.map((mSalvo: any) => {
-        Const matDoArmario = materiais.find(item => item.id === mSalvo.id);
-        Return { id: mSalvo.id, nome: matDoArmario ? MatDoArmario.nome : mSalvo.nome, qtdUsada: Number(mSalvo.qtdUsada || 1), valor: matDoArmario ? Number(matDoArmario.valor) : Number(mSalvo.valor || 0), qtd: matDoArmario ? Number(matDoArmario.qtd) : Number(mSalvo.qtd || 1), unidade: matDoArmario ? MatDoArmario.unidade : (mSalvo.unidade || 'un') };
+    if (p.materiaisUsados && p.materiaisUsados.length > 0) {
+      const listaReconstruida = p.materiaisUsados.map((mSalvo: any) => {
+        const matDoArmario = materiais.find(item => item.id === mSalvo.id);
+        return { id: mSalvo.id, nome: matDoArmario ? matDoArmario.nome : mSalvo.nome, qtdUsada: Number(mSalvo.qtdUsada || 1), valor: matDoArmario ? Number(matDoArmario.valor) : Number(mSalvo.valor || 0), qtd: matDoArmario ? Number(matDoArmario.qtd) : Number(mSalvo.qtd || 1), unidade: matDoArmario ? matDoArmario.unidade : (mSalvo.unidade || 'un') };
       });
-      SetMatsNoPed(listaReconstruida);
+      setMatsNoPed(listaReconstruida);
     } else { setMatsNoPed([]); }
     
-    SetPrecoFinalDigitado(p.preco || '0.00');
-    SetActiveTab('criar');
-    Alert("Orçamento duplicado com sucesso! Defina o cliente e salve. ✨");
+    setPrecoFinalDigitado(p.preco || '0.00');
+    setActiveTab('criar');
+    alert("Orçamento duplicado com sucesso! Defina o cliente e salve. ✨");
   };
 
-  Const venderItemDiretoDoCatalogo = (prod: any) => {
-    LimparCalculadora(); setNomeProd(prod.nome); setPrecoManual(prod.precoVenda); setActiveTab('criar');
+  const venderItemDiretoDoCatalogo = (prod: any) => {
+    limparCalculadora(); setNomeProd(prod.nome); setPrecoManual(prod.precoVenda); setActiveTab('criar');
   };
 
-  Const toggleEquipamento = (id: string) => {
-    If (equipamentosSelecionados.includes(id)) {
-      SetEquipamentosSelecionados(equipamentosSelecionados.filter(item => item !== id));
+  const toggleEquipamento = (id: string) => {
+    if (equipamentosSelecionados.includes(id)) {
+      setEquipamentosSelecionados(equipamentosSelecionados.filter(item => item !== id));
     } else {
-      SetEquipamentosSelecionados([...equipamentosSelecionados, id]);
+      setEquipamentosSelecionados([...equipamentosSelecionados, id]);
     }
   };
 
-  Const toggleCategoriaNoProduto = (catNome: string) => {
-    Const jaTem = novoProdCatalogo.categorias?.includes(catNome) || false;
-    If(jaTem) {
-      SetNovoProdCatalogo({...novoProdCatalogo, categorias: novoProdCatalogo.categorias.filter(c => c !== catNome)});
+  const toggleCategoriaNoProduto = (catNome: string) => {
+    const jaTem = novoProdCatalogo.categorias?.includes(catNome) || false;
+    if(jaTem) {
+      setNovoProdCatalogo({...novoProdCatalogo, categorias: novoProdCatalogo.categorias.filter(c => c !== catNome)});
     } else {
-      SetNovoProdCatalogo({...novoProdCatalogo, categorias: [...(novoProdCatalogo.categorias || []), catNome]});
+      setNovoProdCatalogo({...novoProdCatalogo, categorias: [...(novoProdCatalogo.categorias || []), catNome]});
     }
   };
 
-  Const toggleCategoriaNoFornecedor = (catNome: string) => {
-    Const jaTem = novoFornecedor.categorias?.includes(catNome) || false;
-    If(jaTem) {
-      SetNovoFornecedor({...novoFornecedor, categorias: novoFornecedor.categorias.filter(c => c !== catNome)});
+  const toggleCategoriaNoFornecedor = (catNome: string) => {
+    const jaTem = novoFornecedor.categorias?.includes(catNome) || false;
+    if(jaTem) {
+      setNovoFornecedor({...novoFornecedor, categorias: novoFornecedor.categorias.filter(c => c !== catNome)});
     } else {
-      SetNovoFornecedor({...novoFornecedor, categorias: [...(novoFornecedor.categorias || []), catNome]});
+      setNovoFornecedor({...novoFornecedor, categorias: [...(novoFornecedor.categorias || []), catNome]});
     }
   };
 
-  Const materiaisFiltrados = useMemo(() => {
-    Return materiais.filter(m => 
-      M.nome?.toLowerCase().includes(pesquisaMateriais.toLowerCase())
+  const materiaisFiltrados = useMemo(() => {
+    return materiais.filter(m => 
+      m.nome?.toLowerCase().includes(pesquisaMateriais.toLowerCase())
     );
   }, [materiais, pesquisaMateriais]);
 
-  Const produtosPublicosFiltrados = useMemo(() => {
-    If (filtroVitrineSelecionado === 'Todos') return produtosPublicos;
-    Return produtosPublicos.filter(p => p.categorias && p.categorias.includes(filtroVitrineSelecionado));
+  const produtosPublicosFiltrados = useMemo(() => {
+    if (filtroVitrineSelecionado === 'Todos') return produtosPublicos;
+    return produtosPublicos.filter(p => p.categorias && p.categorias.includes(filtroVitrineSelecionado));
   }, [produtosPublicos, filtroVitrineSelecionado]);
 
-  Const proveedoresFiltrados = useMemo(() => {
-    Return fornecedores.filter(f => {
-      Const matchNome = f.nome?.toLowerCase().includes(pesquisaFornecedores.toLowerCase());
-      Const matchCat = filtroFornSelecionado === 'Todos' ? True : (f.categorias && f.categorias.includes(filtroFornSelecionado));
-      Return matchNome && matchCat;
+  const proveedoresFiltrados = useMemo(() => {
+    return fornecedores.filter(f => {
+      const matchNome = f.nome?.toLowerCase().includes(pesquisaFornecedores.toLowerCase());
+      const matchCat = filtroFornSelecionado === 'Todos' ? true : (f.categorias && f.categorias.includes(filtroFornSelecionado));
+      return matchNome && matchCat;
     });
   }, [fornecedores, pesquisaFornecedores, filtroFornSelecionado]);
 
-  Const pedidosFiltradosPorStatus = useMemo(() => {
-    Return pedidos.filter(p => {
-      Const st = p.status || 'Pendente';
-      If (filtroStatusPedido === 'Vendido') return st.includes('Vendido');
-      If (filtroStatusPedido === 'Cancelado') return st.includes('Cancelado');
-      Return st === 'Pendente';
+  const pedidosFiltradosPorStatus = useMemo(() => {
+    return pedidos.filter(p => {
+      const st = p.status || 'Pendente';
+      if (filtroStatusPedido === 'Vendido') return st.includes('Vendido');
+      if (filtroStatusPedido === 'Cancelado') return st.includes('Cancelado');
+      return st === 'Pendente';
     });
   }, [pedidos, filtroStatusPedido]);
 
-  If (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando o PrecificaJá... 🚀</div>;
+  if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando o PrecificaJá... 🚀</div>;
 
-  If (!user && !idLojaPublica) {
-    Return (
+  if (!user && !idLojaPublica) {
+    return (
       <Login 
-        IsRegistering={isRegistering} setIsRegistering={setIsRegistering}
-        Email={email} setEmail={setEmail} password={password} setPassword={setPassword}
-        HandleAuth={handleAuth}
+        isRegistering={isRegistering} setIsRegistering={setIsRegistering}
+        email={email} setEmail={setEmail} password={password} setPassword={setPassword}
+        handleAuth={handleAuth}
       />
     );
   }
 
-  If (idLojaPublica) {
-    If (carregandoPublico) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando Vitrine... 🛍️</div>;
-    Const totalCarrinho = Object.keys(carrinho).reduce((acc, id) => {
-      Const prod = produtosPublicos.find(p => p.id === id);
-      Return acc + (prod ? Number(prod.precoVenda) * carrinho[id] : 0);
+  if (idLojaPublica) {
+    if (carregandoPublico) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando Vitrine... 🛍️</div>;
+    const totalCarrinho = Object.keys(carrinho).reduce((acc, id) => {
+      const prod = produtosPublicos.find(p => p.id === id);
+      return acc + (prod ? Number(prod.precoVenda) * carrinho[id] : 0);
     }, 0);
 
-    Return (
+    return (
       <div className="min-h-screen bg-slate-50 pb-40 font-sans text-slate-700 w-full relative">
         <header className="bg-white p-4 flex justify-between items-center shadow-sm border-b sticky top-0 z-50">
           <div className="relative">
@@ -1258,8 +1258,8 @@ Export default function App() {
 
           <div className="grid grid-cols-1 gap-4">
             {produtosPublicosFiltrados.map(p => {
-              Const qtdNoCarinho = carrinho[p.id] || 0;
-              Return (
+              const qtdNoCarinho = carrinho[p.id] || 0;
+              return (
                 <div key={p.id} className="bg-white p-4 rounded-[35px] border shadow-sm flex gap-4 items-center">
                   <div className="w-24 h-24 rounded-2xl bg-slate-100 overflow-hidden flex items-center justify-center text-slate-300 shrink-0">
                     {p.urlImagem ? <img src={p.urlImagem} alt={p.nome} className="w-full h-full object-cover" /> : <ImageIcon size={30} />}
@@ -1298,7 +1298,7 @@ Export default function App() {
     );
   }
 
-  Const renderCalculadoraForm = () => (
+  const renderCalculadoraForm = () => (
     <div className="bg-white p-6 rounded-[35px] shadow-xl border mt-2 w-full">
       {(pedidoEditandoId || isDuplicando) && (
         <div className="bg-amber-50 border border-amber-200 p-4 rounded-3xl mb-6 flex justify-between items-center animate-pulse w-full">
@@ -1326,28 +1326,28 @@ Export default function App() {
         </label>
         <div className="grid grid-cols-2 gap-1 p-1 bg-slate-100 rounded-xl w-full">
           <button
-            Type="button"
-            OnClick={() => setModoCalculo('peca')}
-            Style={{ 
-              BackgroundColor: modoCalculo === 'peca' ? ThemeColors.primary : 'transparent', 
-              Color: modoCalculo === 'peca' ? '#ffffff' : '#64748b'
+            type="button"
+            onClick={() => setModoCalculo('peca')}
+            style={{ 
+              backgroundColor: modoCalculo === 'peca' ? themeColors.primary : 'transparent', 
+              color: modoCalculo === 'peca' ? '#ffffff' : '#64748b'
             }}
-            ClassName={`py-2 px-3 rounded-lg font-bold text-xs transition-all text-center ${
-              ModoCalculo === 'peca' ? 'shadow-sm' : ''
+            className={`py-2 px-3 rounded-lg font-bold text-xs transition-all text-center ${
+              modoCalculo === 'peca' ? 'shadow-sm' : ''
             }`}
           >
             Por Peça
           </button>
 
           <button
-            Type="button"
-            OnClick={() => setModoCalculo('lote')}
-            Style={{ 
-              BackgroundColor: modoCalculo === 'lote' ? ThemeColors.primary : 'transparent', 
-              Color: modoCalculo === 'lote' ? '#ffffff' : '#64748b'
+            type="button"
+            onClick={() => setModoCalculo('lote')}
+            style={{ 
+              backgroundColor: modoCalculo === 'lote' ? themeColors.primary : 'transparent', 
+              color: modoCalculo === 'lote' ? '#ffffff' : '#64748b'
             }}
-            ClassName={`py-2 px-3 rounded-lg font-bold text-xs transition-all text-center ${
-              ModoCalculo === 'lote' ? 'shadow-sm' : ''
+            className={`py-2 px-3 rounded-lg font-bold text-xs transition-all text-center ${
+              modoCalculo === 'lote' ? 'shadow-sm' : ''
             }`}
           >
             Por Lote
@@ -1392,10 +1392,10 @@ Export default function App() {
           Detalhamento dos Itens - Opcional
          </label>
          <textarea 
-           Placeholder="Escreva em tópicos o que compõe o kit para sair detalhado no PDF...&#10;Ex:&#10;10 topos de docinho&#10;5 topos de pote&#10;1 cordão de papel de mesa" 
-           ClassName="w-full p-4 bg-slate-50 rounded-2xl outline-none text-xs font-semibold border border-transparent focus:border-purple-400 resize-none h-24" 
-           Value={detalhamentoPed} 
-           OnChange={e => setDetalhamentoPed(e.target.value)} 
+           placeholder="Escreva em tópicos o que compõe o kit para sair detalhado no PDF...&#10;Ex:&#10;10 topos de docinho&#10;5 topos de pote&#10;1 cordão de papel de mesa" 
+           className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-xs font-semibold border border-transparent focus:border-purple-400 resize-none h-24" 
+           value={detalhamentoPed} 
+           onChange={e => setDetalhamentoPed(e.target.value)} 
          />
       </div>
 
@@ -1446,9 +1446,9 @@ Export default function App() {
               <label style={{ color: themeColors.primary }} className="text-[10px] font-bold uppercase ml-1 block mb-1">🛠️ Equipamentos Ativos neste Orçamento</label>
               <div className="flex flex-wrap gap-2 w-full">
                 {equipamentos.map(eq => {
-                  Const selecionado = equipamentosSelecionados.includes(eq.id);
-                  Return (
-                    <button key={eq.id} type="button" onClick={() => toggleEquipamento(eq.id)} style={{ backgroundColor: selecionado ? ThemeColors.primary : undefined, borderColor: selecionado ? ThemeColors.primary : undefined }} className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${selecionado ? 'text-white shadow-md' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-purple-300'}`}>
+                  const selecionado = equipamentosSelecionados.includes(eq.id);
+                  return (
+                    <button key={eq.id} type="button" onClick={() => toggleEquipamento(eq.id)} style={{ backgroundColor: selecionado ? themeColors.primary : undefined, borderColor: selecionado ? themeColors.primary : undefined }} className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${selecionado ? 'text-white shadow-md' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-purple-300'}`}>
                       {eq.nome}
                     </button>
                   );
@@ -1532,13 +1532,13 @@ Export default function App() {
             <div style={{ borderColor: themeColors.secondary }} className="flex items-center gap-1.5 border-2 rounded-2xl px-3 py-1 bg-orange-50/20 focus-within:border-purple-600 transition-all">
               <span style={{ color: themeColors.secondary }} className="font-black text-2xl">R$</span>
               <input 
-                Id="precoFinalInput"
-                Type="number" 
-                Step="0.01" 
-                Style={{ color: themeColors.secondary }}
-                ClassName="bg-transparent font-black text-3xl tracking-tighter outline-none w-32 text-right"
-                Value={precoFinalDigitado}
-                OnChange={e => setPrecoFinalDigitado(e.target.value)}
+                id="precoFinalInput"
+                type="number" 
+                step="0.01" 
+                style={{ color: themeColors.secondary }}
+                className="bg-transparent font-black text-3xl tracking-tighter outline-none w-32 text-right"
+                value={precoFinalDigitado}
+                onChange={e => setPrecoFinalDigitado(e.target.value)}
               />
             </div>
           </div>
@@ -1546,43 +1546,43 @@ Export default function App() {
 
         <div className="w-full pt-2 flex justify-center">
           <button 
-            Style={{ backgroundColor: themeColors.secondary }}
-            OnClick={async () => {
-             If(!nomeProd) return alert("Digite o nome do produto!");
+            style={{ backgroundColor: themeColors.secondary }}
+            onClick={async () => {
+             if(!nomeProd) return alert("Digite o nome do produto!");
              
-             Const precoFinalSalvar = Number(precoFinalDigitado || 0).toFixed(2);
+             const precoFinalSalvar = Number(precoFinalDigitado || 0).toFixed(2);
              
-             Const dadosPedido = { 
-               NomeProd, 
-               DetalhamentoPed, 
-               Preco: precoFinalSalvar, 
-               ClienteId: clienteSel, 
-               Prazo, 
-               QtdPed, 
-               VHora, 
-               TGasto, 
-               Custos, 
-               Lucro, 
-               Desconto, 
-               UserId: user.uid, 
-               PrecoManual: precoManual, 
-               ObsPedido: docObsPedido, 
-               EquipamentosSelecionados, 
-               ModoCalculo,
-               MateriaisUsados: precoManual ? [] : matsNoPed.map(m => ({ id: m.id, nome: m.nome, qtdUsada: Number(m.qtdUsada || 1) })) 
+             const dadosPedido = { 
+               nomeProd, 
+               detalhamentoPed, 
+               preco: precoFinalSalvar, 
+               clienteId: clienteSel, 
+               prazo, 
+               qtdPed, 
+               vHora, 
+               tGasto, 
+               custos, 
+               lucro, 
+               desconto, 
+               userId: user.uid, 
+               precoManual: precoManual, 
+               obsPedido: docObsPedido, 
+               equipamentosSelecionados, 
+               modoCalculo,
+               materiaisUsados: precoManual ? [] : matsNoPed.map(m => ({ id: m.id, nome: m.nome, qtdUsada: Number(m.qtdUsada || 1) })) 
              };
              
-             Try {
-               If (pedidoEditandoId) await updateDoc(doc(db, "pedidos", pedidoEditandoId), dadosPedido);
-               Else await addDoc(collection(db, "pedidos"), { ...dadosPedido, data: new Date().toLocaleDateString('pt-BR'), status: 'Pendente', userId: user.uid });
+             try {
+               if (pedidoEditandoId) await updateDoc(doc(db, "pedidos", pedidoEditandoId), dadosPedido);
+               else await addDoc(collection(db, "pedidos"), { ...dadosPedido, data: new Date().toLocaleDateString('pt-BR'), status: 'Pendente', userId: user.uid });
                
-               GerarPDF({nomeProd, detalhamentoPed, preco: precoFinalSalvar, clienteId: clienteSel, prazo, qtdPed, obsPedido: docObsPedido});
+               gerarPDF({nomeProd, detalhamentoPed, preco: precoFinalSalvar, clienteId: clienteSel, prazo, qtdPed, obsPedido: docObsPedido});
                
-               LimparCalculadora(); 
-               SetActiveTab('pedidos'); 
-               Alert("Orçamento salvo e PDF gerado com sucesso! 🚀");
+               limparCalculadora(); 
+               setActiveTab('pedidos'); 
+               alert("Orçamento salvo e PDF gerado com sucesso! 🚀");
              } catch (error) {
-               Alert("Erro ao salvar dados.");
+               alert("Erro ao salvar dados.");
              }
           }} className="w-full max-w-xs hover:opacity-90 text-white font-black py-4 rounded-[26px] uppercase text-xs shadow-lg transition-transform active:scale-95 tracking-widest text-center">
             Salvar e Gerar PDF
@@ -1592,7 +1592,7 @@ Export default function App() {
     </div>
   );
 
-  Return (
+  return (
     <div className="min-h-screen bg-slate-50 pb-32 font-sans text-slate-700 w-full relative overflow-x-hidden">
       
       {/* MENU HAMBÚRGUER LATERAL COMPLETO */}
@@ -1604,22 +1604,22 @@ Export default function App() {
               <button onClick={() => setIsMenuOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={22}/></button>
             </div>
             <nav className="flex flex-col gap-1">
-              <button onClick={() => setActiveTab('inicio')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'inicio' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'inicio' ? ThemeColors.primary : undefined }}><Home size={16}/> Início</button>
-              <button onClick={() => setActiveTab('criar')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'criar' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'criar' ? ThemeColors.primary : undefined }}><Plus size={16}/> Orçar</button>
-              <button onClick={() => setActiveTab('contratos')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'contratos' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'contratos' ? ThemeColors.primary : undefined }}><FileText size={16}/> Contratos</button>
+              <button onClick={() => setActiveTab('inicio')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'inicio' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'inicio' ? themeColors.primary : undefined }}><Home size={16}/> Início</button>
+              <button onClick={() => setActiveTab('criar')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'criar' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'criar' ? themeColors.primary : undefined }}><Plus size={16}/> Orçar</button>
+              <button onClick={() => setActiveTab('contratos')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'contratos' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'contratos' ? themeColors.primary : undefined }}><FileText size={16}/> Contratos</button>
               
-              <button onClick={() => setActiveTab('perfil')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'perfil' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'perfil' ? ThemeColors.primary : undefined }}><Settings size={16}/> Perfil da Loja</button>
-              <button onClick={() => setActiveTab('anotacoes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'anotacoes' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'anotacoes' ? ThemeColors.primary : undefined }}><Calendar size={16}/> Agenda / Tarefas </button>
+              <button onClick={() => setActiveTab('perfil')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'perfil' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'perfil' ? themeColors.primary : undefined }}><Settings size={16}/> Perfil da Loja</button>
+              <button onClick={() => setActiveTab('anotacoes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'anotacoes' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'anotacoes' ? themeColors.primary : undefined }}><Calendar size={16}/> Agenda / Tarefas </button>
 
-              <button onClick={() => { setActiveTab('financeiro'); setSubAbaFinanceiro('geral'); }} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'financeiro' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'financeiro' ? ThemeColors.primary : undefined }}><Calculator size={16}/> Configurações de Custos</button>
-              <button onClick={() => setActiveTab('pedidos')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'pedidos' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'pedidos' ? ThemeColors.primary : undefined }}><History size={16}/> Histórico de Orçamentos</button>
-              <button onClick={() => setActiveTab('balcao')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'balcao' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'balcao' ? ThemeColors.primary : undefined }}><ShoppingCart size={16}/> Balcão de Vendas Rápido</button>
-              <button onClick={() => setActiveTab('catalogo')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'catalogo' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'catalogo' ? ThemeColors.primary : undefined }}><BookOpen size={16}/> Meu Catálogo Visual</button>
+              <button onClick={() => { setActiveTab('financeiro'); setSubAbaFinanceiro('geral'); }} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'financeiro' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'financeiro' ? themeColors.primary : undefined }}><Calculator size={16}/> Configurações de Custos</button>
+              <button onClick={() => setActiveTab('pedidos')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'pedidos' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'pedidos' ? themeColors.primary : undefined }}><History size={16}/> Histórico de Orçamentos</button>
+              <button onClick={() => setActiveTab('balcao')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'balcao' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'balcao' ? themeColors.primary : undefined }}><ShoppingCart size={16}/> Balcão de Vendas Rápido</button>
+              <button onClick={() => setActiveTab('catalogo')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'catalogo' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'catalogo' ? themeColors.primary : undefined }}><BookOpen size={16}/> Meu Catálogo Visual</button>
               
-              <button onClick={() => setActiveTab('fornecedores')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'fornecedores' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'fornecedores' ? ThemeColors.primary : undefined }}><Globe size={16}/> Biblioteca Fornecedores </button>
+              <button onClick={() => setActiveTab('fornecedores')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'fornecedores' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'fornecedores' ? themeColors.primary : undefined }}><Globe size={16}/> Biblioteca Fornecedores </button>
               
-              <button onClick={() => setActiveTab('materiais')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'materiais' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'materiais' ? ThemeColors.primary : undefined }}><Package size={16}/> Armário / Insumos</button>
-              <button onClick={() => setActiveTab('clientes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'clientes' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'clientes' ? ThemeColors.primary : undefined }}><User size={16}/> Meus Clientes</button>
+              <button onClick={() => setActiveTab('materiais')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'materiais' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'materiais' ? themeColors.primary : undefined }}><Package size={16}/> Armário / Insumos</button>
+              <button onClick={() => setActiveTab('clientes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'clientes' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'clientes' ? themeColors.primary : undefined }}><User size={16}/> Meus Clientes</button>
             </nav>
           </div>
           <button onClick={() => signOut(auth)} className="w-full text-red-500 bg-red-50 p-4 rounded-xl text-xs font-black uppercase flex items-center justify-center gap-1.5"><LogOut size={16}/> Sair</button>
@@ -1648,8 +1648,8 @@ Export default function App() {
             </div>
 
             <div onClick={() => { limparCalculadora(); setActiveTab('criar'); }} 
-                 Style={{ backgroundColor: themeColors.secondary }}
-                 ClassName="p-6 rounded-[35px] shadow-md cursor-pointer active:scale-95 transition-all text-white flex justify-between items-center w-full">
+                 style={{ backgroundColor: themeColors.secondary }}
+                 className="p-6 rounded-[35px] shadow-md cursor-pointer active:scale-95 transition-all text-white flex justify-between items-center w-full">
               <div>
                 <p className="text-xs font-bold uppercase tracking-widest text-white/80">Calculadora Integrada</p>
                 <h3 className="text-xl font-black mt-0.5 tracking-tight">Novo Orçamento Rápido 🚀</h3>
@@ -1669,19 +1669,19 @@ Export default function App() {
               
               <div className="flex justify-between gap-1 overflow-x-auto pb-1 scrollbar-none w-full">
                 {proximosSeteDias.map((dia) => {
-                  Const isActive = diaSelecionadoAgenda === dia.stringData;
-                  Return (
+                  const isActive = diaSelecionadoAgenda === dia.stringData;
+                  return (
                     <div 
-                      Key={dia.stringData} 
-                      OnClick={() => setDiaSelecionadoAgenda(dia.stringData)}
-                      ClassName="flex flex-col items-center gap-1 cursor-pointer min-w-[46px] select-none"
+                      key={dia.stringData} 
+                      onClick={() => setDiaSelecionadoAgenda(dia.stringData)}
+                      className="flex flex-col items-center gap-1 cursor-pointer min-w-[46px] select-none"
                     >
-                      <span style={{ color: isActive ? ThemeColors.secondary : undefined }} className={`text-[10px] font-bold ${!isActive ? 'text-slate-400' : 'font-extrabold'}`}>
+                      <span style={{ color: isActive ? themeColors.secondary : undefined }} className={`text-[10px] font-bold ${!isActive ? 'text-slate-400' : 'font-extrabold'}`}>
                         {dia.diaSemanaTexto}
                       </span>
                       <div 
-                        Style={{ backgroundColor: isActive ? ThemeColors.secondary : undefined, borderColor: isActive ? ThemeColors.secondary : undefined }}
-                        ClassName={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-black transition-all border ${isActive ? 'text-white shadow-md scale-105' : 'bg-slate-50 text-slate-700 border-slate-100'}`}>
+                        style={{ backgroundColor: isActive ? themeColors.secondary : undefined, borderColor: isActive ? themeColors.secondary : undefined }}
+                        className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-black transition-all border ${isActive ? 'text-white shadow-md scale-105' : 'bg-slate-50 text-slate-700 border-slate-100'}`}>
                         {dia.diaNumero}
                       </div>
                     </div>
@@ -1832,15 +1832,15 @@ Export default function App() {
                 <div className="grid grid-cols-2 gap-2 mb-4">
                   {PRESET_PALETTES.map(preset => (
                     <button
-                      Key={preset.id}
-                      Type="button"
-                      OnClick={() => setThemeColors({
-                        Primary: preset.primary,
-                        PrimaryHover: preset.primaryHover,
-                        Secondary: preset.secondary,
-                        SecondaryHover: preset.secondaryHover
+                      key={preset.id}
+                      type="button"
+                      onClick={() => setThemeColors({
+                        primary: preset.primary,
+                        primaryHover: preset.primaryHover,
+                        secondary: preset.secondary,
+                        secondaryHover: preset.secondaryHover
                       })}
-                      ClassName="p-3 rounded-2xl border text-left flex flex-col gap-2 transition-all border-slate-100 bg-slate-50 hover:border-slate-300"
+                      className="p-3 rounded-2xl border text-left flex flex-col gap-2 transition-all border-slate-100 bg-slate-50 hover:border-slate-300"
                     >
                       <div className="flex items-center gap-2">
                         <div className="w-4 h-4 rounded-full shadow-sm" style={{ backgroundColor: preset.primary }} />
@@ -1856,25 +1856,25 @@ Export default function App() {
                     <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Cor Primária</label>
                     <div className="flex items-center gap-2 bg-white p-2 rounded-xl border">
                       <input 
-                        Type="color" 
-                        Value={themeColors.primary} 
-                        OnChange={e => setThemeColors(prev => ({ 
+                        type="color" 
+                        value={themeColors.primary} 
+                        onChange={e => setThemeColors(prev => ({ 
                           ...prev, 
-                          Primary: e.target.value, 
-                          PrimaryHover: e.target.value 
+                          primary: e.target.value, 
+                          primaryHover: e.target.value 
                         }))}
-                        ClassName="w-10 h-10 rounded-lg border-0 cursor-pointer bg-transparent"
+                        className="w-10 h-10 rounded-lg border-0 cursor-pointer bg-transparent"
                       />
                       <input 
-                        Type="text"
-                        Value={themeColors.primary}
-                        OnChange={e => setThemeColors(prev => ({ 
+                        type="text"
+                        value={themeColors.primary}
+                        onChange={e => setThemeColors(prev => ({ 
                           ...prev, 
-                          Primary: e.target.value, 
-                          PrimaryHover: e.target.value 
+                          primary: e.target.value, 
+                          primaryHover: e.target.value 
                         }))}
-                        ClassName="w-full text-xs font-mono font-bold uppercase outline-none"
-                        MaxLength={7}
+                        className="w-full text-xs font-mono font-bold uppercase outline-none"
+                        maxLength={7}
                       />
                     </div>
                   </div>
@@ -1883,25 +1883,25 @@ Export default function App() {
                     <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Cor Secundária</label>
                     <div className="flex items-center gap-2 bg-white p-2 rounded-xl border">
                       <input 
-                        Type="color" 
-                        Value={themeColors.secondary} 
-                        OnChange={e => setThemeColors(prev => ({ 
+                        type="color" 
+                        value={themeColors.secondary} 
+                        onChange={e => setThemeColors(prev => ({ 
                           ...prev, 
-                          Secondary: e.target.value, 
-                          SecondaryHover: e.target.value 
+                          secondary: e.target.value, 
+                          secondaryHover: e.target.value 
                         }))}
-                        ClassName="w-10 h-10 rounded-lg border-0 cursor-pointer bg-transparent"
+                        className="w-10 h-10 rounded-lg border-0 cursor-pointer bg-transparent"
                       />
                       <input 
-                        Type="text"
-                        Value={themeColors.secondary}
-                        OnChange={e => setThemeColors(prev => ({ 
+                        type="text"
+                        value={themeColors.secondary}
+                        onChange={e => setThemeColors(prev => ({ 
                           ...prev, 
-                          Secondary: e.target.value, 
-                          SecondaryHover: e.target.value 
+                          secondary: e.target.value, 
+                          secondaryHover: e.target.value 
                         }))}
-                        ClassName="w-full text-xs font-mono font-bold uppercase outline-none"
-                        MaxLength={7}
+                        className="w-full text-xs font-mono font-bold uppercase outline-none"
+                        maxLength={7}
                       />
                     </div>
                   </div>
@@ -1909,27 +1909,27 @@ Export default function App() {
               </div>
 
               <button 
-                Style={{ backgroundColor: themeColors.primary }}
-                OnClick={async () => {
-                Try {
-                  Await setDoc(doc(db, "configuracoes_loja", user.uid), {
-                    NomeLoja: nomeLojaPerfil.trim(),
-                    NomeFantasia: nomeFantasiaPerfil.trim(),
-                    CpfCnpj: cpfCnpjPerfil.trim(),
-                    Telefone: telefonePerfil.trim(),
-                    Email: emailPerfil.trim(),
-                    Cep: cepPerfil.trim(),
-                    Endereco: enderecoPerfil.trim(),
-                    Cidade: cidadePerfil.trim(),
-                    Estado: estadoPerfil.trim(),
-                    DadosBancarios: dadosBancariosPerfil.trim(),
-                    LogoUrl: logoLojaPerfil,
-                    ThemeColors: themeColors
+                style={{ backgroundColor: themeColors.primary }}
+                onClick={async () => {
+                try {
+                  await setDoc(doc(db, "configuracoes_loja", user.uid), {
+                    nomeLoja: nomeLojaPerfil.trim(),
+                    nomeFantasia: nomeFantasiaPerfil.trim(),
+                    cpfCnpj: cpfCnpjPerfil.trim(),
+                    telefone: telefonePerfil.trim(),
+                    email: emailPerfil.trim(),
+                    cep: cepPerfil.trim(),
+                    endereco: enderecoPerfil.trim(),
+                    cidade: cidadePerfil.trim(),
+                    estado: estadoPerfil.trim(),
+                    dadosBancarios: dadosBancariosPerfil.trim(),
+                    logoUrl: logoLojaPerfil,
+                    themeColors: themeColors
                   }, { merge: true });
-                  Alert("Perfil e dados da empresa salvos com sucesso! 🚀");
-                  SetActiveTab('inicio');
+                  alert("Perfil e dados da empresa salvos com sucesso! 🚀");
+                  setActiveTab('inicio');
                 } catch {
-                  Alert("Erro ao salvar as configurações da empresa.");
+                  alert("Erro ao salvar as configurações da empresa.");
                 }
               }} className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md transition-all" disabled={subindoLogo}>
                 Salvar Configurações da Marca
@@ -1988,34 +1988,34 @@ Export default function App() {
               </div>
 
               <button 
-                Style={{ backgroundColor: themeColors.primary }}
-                OnClick={async () => {
-                If (!novoContrato.clienteId || !novoContrato.valorTotal) return alert("Selecione o cliente e o valor total!");
+                style={{ backgroundColor: themeColors.primary }}
+                onClick={async () => {
+                if (!novoContrato.clienteId || !novoContrato.valorTotal) return alert("Selecione o cliente e o valor total!");
                 
-                Const dadosContrato = {
-                  ClienteId: novoContrato.clienteId,
-                  TipoEvento: novoContrato.tipoEvento,
-                  DataEvento: novoContrato.dataEvento,
-                  LocalEvento: novoContrato.localEvento,
-                  ValorTotal: novoContrato.valorTotal,
-                  Clausulas: novoContrato.clausulas,
-                  DataEmissao: new Date().toLocaleDateString('pt-BR'),
-                  UserId: user.uid
+                const dadosContrato = {
+                  clienteId: novoContrato.clienteId,
+                  tipoEvento: novoContrato.tipoEvento,
+                  dataEvento: novoContrato.dataEvento,
+                  localEvento: novoContrato.localEvento,
+                  valorTotal: novoContrato.valorTotal,
+                  clausulas: novoContrato.clausulas,
+                  dataEmissao: new Date().toLocaleDateString('pt-BR'),
+                  userId: user.uid
                 };
 
-                Try {
-                  If (novoContrato.id) {
-                    Await updateDoc(doc(db, "contratos", novoContrato.id), dadosContrato);
-                    Alert("Contrato atualizado com sucesso!");
+                try {
+                  if (novoContrato.id) {
+                    await updateDoc(doc(db, "contratos", novoContrato.id), dadosContrato);
+                    alert("Contrato atualizado com sucesso!");
                   } else {
-                    Await addDoc(collection(db, "contratos"), dadosContrato);
-                    Alert("Contrato gerado com sucesso!");
+                    await addDoc(collection(db, "contratos"), dadosContrato);
+                    alert("Contrato gerado com sucesso!");
                   }
 
-                  GerarPDFContrato(dadosContrato);
-                  SetNovoContrato({ id: '', clienteId: '', tipoEvento: '', dataEvento: '', localEvento: '', valorTotal: '', clausulas: novoContrato.clausulas });
+                  gerarPDFContrato(dadosContrato);
+                  setNovoContrato({ id: '', clienteId: '', tipoEvento: '', dataEvento: '', localEvento: '', valorTotal: '', clausulas: novoContrato.clausulas });
                 } catch {
-                  Alert("Erro ao salvar o contrato.");
+                  alert("Erro ao salvar o contrato.");
                 }
               }} className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md">
                 {novoContrato.id ? 'Salvar Alterações do Contrato' : 'Salvar e Gerar PDF do Contrato 📄'}
@@ -2025,8 +2025,8 @@ Export default function App() {
             <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider ml-2">Seus Contratos Emitidos</h3>
             <div className="space-y-3 w-full">
               {contratos.map(c => {
-                Const cli = clientes.find(item => item.id === c.clienteId);
-                Return (
+                const cli = clientes.find(item => item.id === c.clienteId);
+                return (
                   <div key={c.id} className="bg-white p-5 rounded-[30px] border shadow-sm flex flex-col gap-3 w-full">
                     <div className="flex justify-between items-start w-full">
                       <div>
@@ -2080,16 +2080,16 @@ Export default function App() {
               <textarea placeholder="Escreva informações extras ou observações aqui..." className="w-full p-4 bg-slate-50 rounded-2xl mb-6 outline-none border focus:border-purple-400 resize-none h-16 text-sm font-semibold" value={novaAnotacao.conteudo} onChange={e => setNovaAnotacao({...novaAnotacao, conteudo: e.target.value})} />
               
               <button 
-                Style={{ backgroundColor: themeColors.secondary }}
-                OnClick={async () => {
-                If(!novaAnotacao.titulo) return alert("Sua tarefa precisa de uma descrição básica!");
-                Const dadosNota = { titulo: novaAnotacao.titulo, conteudo: novaAnotacao.conteudo || '', dataPrazo: novaAnotacao.dataPrazo, concluido: false, userId: user.uid, dataCriacao: new Date().toLocaleDateString('pt-BR') };
+                style={{ backgroundColor: themeColors.secondary }}
+                onClick={async () => {
+                if(!novaAnotacao.titulo) return alert("Sua tarefa precisa de uma descrição básica!");
+                const dadosNota = { titulo: novaAnotacao.titulo, conteudo: novaAnotacao.conteudo || '', dataPrazo: novaAnotacao.dataPrazo, concluido: false, userId: user.uid, dataCriacao: new Date().toLocaleDateString('pt-BR') };
                 
-                If (novaAnotacao.id) await updateDoc(doc(db, "anotacoes", novaAnotacao.id), dadosNota);
-                Else await addDoc(collection(db, "anotacoes"), dadosNota);
+                if (novaAnotacao.id) await updateDoc(doc(db, "anotacoes", novaAnotacao.id), dadosNota);
+                else await addDoc(collection(db, "anotacoes"), dadosNota);
                 
-                SetNovaAnotacao({ id: '', titulo: '', conteudo: '', dataPrazo: new Date().toISOString().split('T')[0] });
-                Alert("Agendado com sucesso! 📅✨");
+                setNovaAnotacao({ id: '', titulo: '', conteudo: '', dataPrazo: new Date().toISOString().split('T')[0] });
+                alert("Agendado com sucesso! 📅✨");
               }} className="w-full hover:opacity-90 text-white p-5 rounded-2xl font-black uppercase text-xs shadow-md">
                 {novaAnotacao.id ? 'Atualizar Compromisso' : 'Agendar Tarefa'}
               </button>
@@ -2098,8 +2098,8 @@ Export default function App() {
             <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider ml-2 mt-4">Lista Geral de Pendências</h3>
             <div className="grid grid-cols-1 gap-3 w-full">
               {anotacoes.map(item => {
-                Const dataFormatada = item.dataPrazo ? Item.dataPrazo.split('-').reverse().slice(0, 2).join('/') : '';
-                Return (
+                const dataFormatada = item.dataPrazo ? item.dataPrazo.split('-').reverse().slice(0, 2).join('/') : '';
+                return (
                   <div key={item.id} className={`bg-white p-5 rounded-3xl border shadow-sm w-full flex flex-col gap-2 relative ${item.concluido ? 'opacity-50' : ''}`}>
                     <div className="flex justify-between items-start anonymity-wrapper w-full">
                       <div className="flex items-start gap-3 flex-1 min-w-0">
@@ -2133,10 +2133,10 @@ Export default function App() {
         {activeTab === 'financeiro' && (
           <div className="space-y-6 pt-2 w-full">
             <div className="flex bg-slate-100 p-1.5 rounded-2xl gap-1 w-full border flex-wrap">
-              <button onClick={() => setSubAbaFinanceiro('geral')} style={{ color: subAbaFinanceiro === 'geral' ? ThemeColors.primary : undefined }} className={`flex-1 min-w-[70px] py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${subAbaFinanceiro === 'geral' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>Geral</button>
-              <button onClick={() => setSubAbaFinanceiro('impressao')} style={{ color: subAbaFinanceiro === 'impressao' ? ThemeColors.primary : undefined }} className={`flex-1 min-w-[70px] py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${subAbaFinanceiro === 'impressao' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>Impressão 🖨️</button>
-              <button onClick={() => setSubAbaFinanceiro('equipamentos')} style={{ color: subAbaFinanceiro === 'equipamentos' ? ThemeColors.primary : undefined }} className={`flex-1 min-w-[70px] py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${subAbaFinanceiro === 'equipamentos' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>Máquinas</button>
-              <button onClick={() => setSubAbaFinanceiro('historico')} style={{ color: subAbaFinanceiro === 'historico' ? ThemeColors.primary : undefined }} className={`flex-1 min-w-[70px] py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${subAbaFinanceiro === 'historico' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>Histórico 📊</button>
+              <button onClick={() => setSubAbaFinanceiro('geral')} style={{ color: subAbaFinanceiro === 'geral' ? themeColors.primary : undefined }} className={`flex-1 min-w-[70px] py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${subAbaFinanceiro === 'geral' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>Geral</button>
+              <button onClick={() => setSubAbaFinanceiro('impressao')} style={{ color: subAbaFinanceiro === 'impressao' ? themeColors.primary : undefined }} className={`flex-1 min-w-[70px] py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${subAbaFinanceiro === 'impressao' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>Impressão 🖨️</button>
+              <button onClick={() => setSubAbaFinanceiro('equipamentos')} style={{ color: subAbaFinanceiro === 'equipamentos' ? themeColors.primary : undefined }} className={`flex-1 min-w-[70px] py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${subAbaFinanceiro === 'equipamentos' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>Máquinas</button>
+              <button onClick={() => setSubAbaFinanceiro('historico')} style={{ color: subAbaFinanceiro === 'historico' ? themeColors.primary : undefined }} className={`flex-1 min-w-[70px] py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${subAbaFinanceiro === 'historico' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>Histórico 📊</button>
             </div>
 
             {subAbaFinanceiro === 'geral' && (
@@ -2184,15 +2184,15 @@ Export default function App() {
                 </div>
 
                 <button 
-                  Style={{ backgroundColor: themeColors.primary }}
-                  OnClick={async () => {
-                  Await setDoc(doc(db, "configuracoes_financeiras", user.uid), financasFixo, { merge: true });
+                  style={{ backgroundColor: themeColors.primary }}
+                  onClick={async () => {
+                  await setDoc(doc(db, "configuracoes_financeiras", user.uid), financasFixo, { merge: true });
                   
-                  Const totalHoras = Number(financasFixo.diasTrabalho || 20) * Number(financasFixo.horasDia || 8);
-                  Const intentCustos = Number(financasFixo.salario || 0) + Number(financasFixo.aluguel || 0) + Number(financasFixo.internet || 0) + Number(financasFixo.luz || 0) + Number(financasFixo.outros || 0);
-                  If (intentCustos > 0) setVHora((intentCustos / totalHoras).toFixed(2));
+                  const totalHoras = Number(financasFixo.diasTrabalho || 20) * Number(financasFixo.horasDia || 8);
+                  const intentCustos = Number(financasFixo.salario || 0) + Number(financasFixo.aluguel || 0) + Number(financasFixo.internet || 0) + Number(financasFixo.luz || 0) + Number(financasFixo.outros || 0);
+                  if (intentCustos > 0) setVHora((intentCustos / totalHoras).toFixed(2));
                   
-                  Alert("Custos salvos com sucesso! O valor sugerido para a hora foi atualizado na calculadora. 🎉");
+                  alert("Custos salvos com sucesso! O valor sugerido para a hora foi atualizado na calculadora. 🎉");
                 }} className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md">
                   Salvar Configurações Fixas
                 </button>
@@ -2271,21 +2271,21 @@ Export default function App() {
                 </div>
 
                 <button 
-                  Style={{ backgroundColor: themeColors.secondary }}
-                  OnClick={async () => {
-                  Try {
-                    Await setDoc(doc(db, "configuracoes_financeiras", user.uid), {
-                      PrecoTinta,
-                      UnidadeTinta,
-                      QtdCores,
-                      PaginasConjunto,
-                      CustoPorPaginaCalculado: custoPorPaginaCalculado.toFixed(4)
+                  style={{ backgroundColor: themeColors.secondary }}
+                  onClick={async () => {
+                  try {
+                    await setDoc(doc(db, "configuracoes_financeiras", user.uid), {
+                      precoTinta,
+                      unidadeTinta,
+                      qtdCores,
+                      paginasConjunto,
+                      custoPorPaginaCalculado: custoPorPaginaCalculado.toFixed(4)
                     }, { merge: true });
                     
-                    SetCustos(prev => ({ ...prev, impressao: custoPorPaginaCalculado.toFixed(2) }));
-                    Alert("Subcategoria de Impressão gravada! Taxa vinculada com sucesso à calculadora de orçamento. 🚀");
+                    setCustos(prev => ({ ...prev, impressao: custoPorPaginaCalculado.toFixed(2) }));
+                    alert("Subcategoria de Impressão gravada! Taxa vinculada com sucesso à calculadora de orçamento. 🚀");
                   } catch {
-                    Alert("Erro ao salvar dados de impressão.");
+                    alert("Erro ao salvar dados de impressão.");
                   }
                 }} className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md mt-4 transition-colors">
                   Salvar Subcategoria de Custo
@@ -2319,14 +2319,14 @@ Export default function App() {
                   </div>
 
                   <button 
-                    Style={{ backgroundColor: themeColors.secondary }}
-                    OnClick={async () => {
-                    If(!novoEquipamento.nome || !novoEquipamento.valorPago) return alert("Preencha o nome e o preço do equipamento!");
-                    Const d = { nome: novoEquipamento.nome, valorPago: Number(novoEquipamento.valorPago), durabilidadeAnos: Number(novoEquipamento.durabilidadeAnos), userId: user.uid };
-                    If (novoEquipamento.id) await updateDoc(doc(db, "equipamentos", novoEquipamento.id), d);
-                    Else await addDoc(collection(db, "equipamentos"), d);
-                    SetNovoEquipamento({ id: '', nome: '', valorPago: '', durabilidadeAnos: '2' });
-                    Alert("Equipamento salvo!");
+                    style={{ backgroundColor: themeColors.secondary }}
+                    onClick={async () => {
+                    if(!novoEquipamento.nome || !novoEquipamento.valorPago) return alert("Preencha o nome e o preço do equipamento!");
+                    const d = { nome: novoEquipamento.nome, valorPago: Number(novoEquipamento.valorPago), durabilidadeAnos: Number(novoEquipamento.durabilidadeAnos), userId: user.uid };
+                    if (novoEquipamento.id) await updateDoc(doc(db, "equipamentos", novoEquipamento.id), d);
+                    else await addDoc(collection(db, "equipamentos"), d);
+                    setNovoEquipamento({ id: '', nome: '', valorPago: '', durabilidadeAnos: '2' });
+                    alert("Equipamento salvo!");
                   }} className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md">
                     Salvar Equipamento
                   </button>
@@ -2335,10 +2335,10 @@ Export default function App() {
                 <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider ml-2">Equipamentos Cadastrados</h3>
                 <div className="space-y-2 w-full">
                   {equipamentos.map(eq => {
-                    Const meses = Number(eq.durabilidadeAnos || 2) * 12;
-                    Const totalHoras = Number(financasFixo.diasTrabalho || 20) * Number(financasFixo.horasDia || 8);
-                    Const descHora = (Number(eq.valorPago || 0) / meses) / totalHoras;
-                    Return (
+                    const meses = Number(eq.durabilidadeAnos || 2) * 12;
+                    const totalHoras = Number(financasFixo.diasTrabalho || 20) * Number(financasFixo.horasDia || 8);
+                    const descHora = (Number(eq.valorPago || 0) / meses) / totalHoras;
+                    return (
                       <div key={eq.id} className="bg-white p-4 rounded-3xl flex justify-between items-center border shadow-sm w-full">
                         <div>
                           <p className="font-bold text-slate-800">{eq.nome}</p>
@@ -2368,9 +2368,9 @@ Export default function App() {
                   <div>
                     <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Mês de Referência</label>
                     <select 
-                      ClassName="w-full p-2.5 bg-white rounded-xl text-xs font-bold border outline-none text-slate-700" 
-                      Value={mesFiltroHistorico} 
-                      OnChange={e => setMesFiltroHistorico(e.target.value)}
+                      className="w-full p-2.5 bg-white rounded-xl text-xs font-bold border outline-none text-slate-700" 
+                      value={mesFiltroHistorico} 
+                      onChange={e => setMesFiltroHistorico(e.target.value)}
                     >
                       <option value="Todos">📅 Todos os Meses</option>
                       <option value="1">Janeiro</option>
@@ -2391,9 +2391,9 @@ Export default function App() {
                   <div>
                     <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Ano de Referência</label>
                     <select 
-                      ClassName="w-full p-2.5 bg-white rounded-xl text-xs font-bold border outline-none text-slate-700" 
-                      Value={anoFiltroHistorico} 
-                      OnChange={e => setAnoFiltroHistorico(e.target.value)}
+                      className="w-full p-2.5 bg-white rounded-xl text-xs font-bold border outline-none text-slate-700" 
+                      value={anoFiltroHistorico} 
+                      onChange={e => setAnoFiltroHistorico(e.target.value)}
                     >
                       <option value="Todos">🗓️ Todos os Anos</option>
                       <option value="2026">2026</option>
@@ -2405,12 +2405,12 @@ Export default function App() {
 
                 <div className="space-y-3 pt-2">
                   {historicoFiltradoPorData.map(item => {
-                    Const isExpanded = mesExpandido === item.chave;
-                    Return (
+                    const isExpanded = mesExpandido === item.chave;
+                    return (
                       <div key={item.chave} className="bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden transition-all">
                         <div 
-                          OnClick={() => setMesExpandido(isExpanded ? Null : item.chave)}
-                          ClassName="p-4 flex justify-between items-center cursor-pointer hover:bg-slate-100/80 transition-colors select-none"
+                          onClick={() => setMesExpandido(isExpanded ? null : item.chave)}
+                          className="p-4 flex justify-between items-center cursor-pointer hover:bg-slate-100/80 transition-colors select-none"
                         >
                           <div>
                             <p className="font-black text-slate-800 text-sm uppercase tracking-wide flex items-center gap-1.5">
@@ -2438,8 +2438,8 @@ Export default function App() {
                             
                             <div className="space-y-2">
                               {item.itensVendidos.map((p: any, idx: number) => {
-                                Const cli = clientes.find(c => c.id === p.clienteId);
-                                Return (
+                                const cli = clientes.find(c => c.id === p.clienteId);
+                                return (
                                   <div key={idx} className="bg-slate-50 p-3 rounded-xl border flex justify-between items-center text-xs">
                                     <div className="min-w-0 flex-1 pr-2">
                                       <p className="font-bold text-slate-800 break-words whitespace-pre-line">{p.nomeProd}</p>
@@ -2492,11 +2492,11 @@ Export default function App() {
                 <div className="flex gap-2 w-full">
                   <input placeholder="Ex: 21983858055" className="flex-1 p-2.5 bg-black/20 text-white rounded-xl text-xs font-bold border border-purple-500/30 outline-none" value={zapDonaConta} onChange={e => setZapDonaConta(e.target.value)} />
                   <button 
-                    Style={{ backgroundColor: themeColors.secondary }}
-                    OnClick={async () => {
-                    If(!zapDonaConta.trim()) return alert("Digite o número!");
-                    Try { await setDoc(doc(db, "configuracoes_loja", user.uid), { whatsapp: zapDonaConta.trim() }, { merge: true }); alert("WhatsApp salvo!"); } 
-                    Catch { alert("Erro ao salvar."); }
+                    style={{ backgroundColor: themeColors.secondary }}
+                    onClick={async () => {
+                    if(!zapDonaConta.trim()) return alert("Digite o número!");
+                    try { await setDoc(doc(db, "configuracoes_loja", user.uid), { whatsapp: zapDonaConta.trim() }, { merge: true }); alert("WhatsApp salvo!"); } 
+                    catch { alert("Erro ao salvar."); }
                   }} className="text-white text-xs font-black uppercase px-4 rounded-xl shadow hover:opacity-90">Salvar</button>
                 </div>
               </div>
@@ -2513,10 +2513,10 @@ Export default function App() {
               <div className="w-full">
                 <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Nome do Kit / Combo (Opcional)</label>
                 <input 
-                  Placeholder="Ex: Kit Dia dos Namorados, Kit Casal..." 
-                  ClassName="w-full p-3.5 bg-slate-800/80 rounded-xl text-xs font-bold text-white border border-slate-700 outline-none focus:border-purple-400"
-                  Value={nomeKitBalcao}
-                  OnChange={e => setNomeKitBalcao(e.target.value)}
+                  placeholder="Ex: Kit Dia dos Namorados, Kit Casal..." 
+                  className="w-full p-3.5 bg-slate-800/80 rounded-xl text-xs font-bold text-white border border-slate-700 outline-none focus:border-purple-400"
+                  value={nomeKitBalcao}
+                  onChange={e => setNomeKitBalcao(e.target.value)}
                 />
               </div>
               
@@ -2531,17 +2531,17 @@ Export default function App() {
               <div className="w-full">
                 <label style={{ color: themeColors.secondary }} className="text-[10px] font-bold uppercase ml-1 block mb-1">Prazo de Entrega do Combo</label>
                 <input 
-                  Type="date" 
-                  ClassName="w-full p-3.5 bg-slate-800/80 rounded-xl text-xs font-bold text-white border border-slate-700 outline-none focus:border-purple-400 block"
-                  Value={prazoBalcao} 
-                  OnChange={e => setPrazoBalcao(e.target.value)} 
+                  type="date" 
+                  className="w-full p-3.5 bg-slate-800/80 rounded-xl text-xs font-bold text-white border border-slate-700 outline-none focus:border-purple-400 block"
+                  value={prazoBalcao} 
+                  onChange={e => setPrazoBalcao(e.target.value)} 
                 />
               </div>
 
               <div className="bg-slate-800/40 border border-slate-800 p-3 rounded-2xl space-y-2 max-h-64 overflow-y-auto">
                 {produtos.map(p => {
-                  Const qtdInterna = carrinhoInterno[p.id] || 0;
-                  Return (
+                  const qtdInterna = carrinhoInterno[p.id] || 0;
+                  return (
                     <div key={p.id} className="flex justify-between items-center bg-slate-900/60 p-2.5 rounded-xl border border-slate-800/80">
                       <span className="text-xs font-bold truncate max-w-[180px] text-slate-200">{p.nome}</span>
                       <div className="flex items-center gap-2.5">
@@ -2556,8 +2556,8 @@ Export default function App() {
               </div>
 
               <button 
-                Style={{ backgroundColor: themeColors.secondary }}
-                OnClick={lancarVendaBalcaoInterno} className="w-full hover:opacity-90 text-white p-4 rounded-xl text-xs font-black uppercase tracking-wider shadow-lg transition-transform active:scale-95">
+                style={{ backgroundColor: themeColors.secondary }}
+                onClick={lancarVendaBalcaoInterno} className="w-full hover:opacity-90 text-white p-4 rounded-xl text-xs font-black uppercase tracking-wider shadow-lg transition-transform active:scale-95">
                 Lançar Combo no Histórico 🚀
               </button>
             </div>
@@ -2605,9 +2605,9 @@ Export default function App() {
                 <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Categorias do Produto (Selecione Múltiplas)</label>
                 <div className="flex flex-wrap gap-2 mb-2">
                   {categoriasProd.map(cat => {
-                    Const marcado = novoProdCatalogo.categorias?.includes(cat.nome) || false;
-                    Return (
-                      <button key={cat.id} type="button" onClick={() => toggleCategoriaNoProduto(cat.nome)} style={{ backgroundColor: marcado ? ThemeColors.primary : undefined, borderColor: marcado ? ThemeColors.primary : undefined }} className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${marcado ? 'text-white shadow-sm' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-purple-300'}`}>
+                    const marcado = novoProdCatalogo.categorias?.includes(cat.nome) || false;
+                    return (
+                      <button key={cat.id} type="button" onClick={() => toggleCategoriaNoProduto(cat.nome)} style={{ backgroundColor: marcado ? themeColors.primary : undefined, borderColor: marcado ? themeColors.primary : undefined }} className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${marcado ? 'text-white shadow-sm' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-purple-300'}`}>
                         {cat.nome}
                       </button>
                     );
@@ -2620,23 +2620,23 @@ Export default function App() {
                   <div className="flex gap-2 items-center bg-slate-50 p-2.5 rounded-2xl border border-dashed border-purple-200 mt-2 animate-fadeIn">
                     <input placeholder="Ex: 🎨 Brindes Luxo" className="flex-1 bg-white p-2.5 rounded-xl text-xs font-bold outline-none border" value={inputNovaCategoriaProd} onChange={e => setInputNovaCategoriaProd(e.target.value)} />
                     <button type="button" onClick={async () => {
-                      If(!inputNovaCategoriaProd.trim()) return setMostrarInputNovaCatProd(false);
-                      Await addDoc(collection(db, "categorias_produtos"), { nome: inputNovaCategoriaProd.trim(), userId: user.uid });
-                      SetInputNovaCategoriaProd(''); setMostrarInputNovaCatProd(false);
+                      if(!inputNovaCategoriaProd.trim()) return setMostrarInputNovaCatProd(false);
+                      await addDoc(collection(db, "categorias_produtos"), { nome: inputNovaCategoriaProd.trim(), userId: user.uid });
+                      setInputNovaCategoriaProd(''); setMostrarInputNovaCatProd(false);
                     }} style={{ backgroundColor: themeColors.primary }} className="text-white text-xs font-black px-4 py-2.5 rounded-xl uppercase shadow-sm">OK</button>
                   </div>
                 )}
               </div>
 
               <button 
-                Style={{ backgroundColor: themeColors.primary }}
-                OnClick={async () => {
-                If(!novoProdCatalogo.nome || !novoProdCatalogo.precoVenda) return alert("Preencha o nome e o preço!");
-                Const d = { nome: novoProdCatalogo.nome, precoVenda: Number(novoProdCatalogo.precoVenda), urlImagem: novoProdCatalogo.urlImagem || '', categorias: novoProdCatalogo.categorias || [], userId: user.uid };
-                If (novoProdCatalogo.id) await updateDoc(doc(db, "produtos", novoProdCatalogo.id), d);
-                Else await addDoc(collection(db, "produtos"), d);
-                SetNovoProdCatalogo({ id: '', nome: '', precoVenda: '', urlImagem: '', categorias: [] });
-                Alert("Produto salvo no catálogo!");
+                style={{ backgroundColor: themeColors.primary }}
+                onClick={async () => {
+                if(!novoProdCatalogo.nome || !novoProdCatalogo.precoVenda) return alert("Preencha o nome e o preço!");
+                const d = { nome: novoProdCatalogo.nome, precoVenda: Number(novoProdCatalogo.precoVenda), urlImagem: novoProdCatalogo.urlImagem || '', categorias: novoProdCatalogo.categorias || [], userId: user.uid };
+                if (novoProdCatalogo.id) await updateDoc(doc(db, "produtos", novoProdCatalogo.id), d);
+                else await addDoc(collection(db, "produtos"), d);
+                setNovoProdCatalogo({ id: '', nome: '', precoVenda: '', urlImagem: '', categorias: [] });
+                alert("Produto salvo no catálogo!");
               }} className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md" disabled={subindoImagem}>
                 {novoProdCatalogo.id ? 'Salvar Alterações 📝' : 'Salvar no Catálogo 📖'}
               </button>
@@ -2696,9 +2696,9 @@ Export default function App() {
                 <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Categorias do Fornecedor</label>
                 <div className="flex flex-wrap gap-2 mb-2">
                   {categoriasForn.map(cat => {
-                    Const marcado = novoFornecedor.categorias?.includes(cat.nome) || false;
-                    Return (
-                      <button key={cat.id} type="button" onClick={() => toggleCategoriaNoFornecedor(cat.nome)} style={{ backgroundColor: marcado ? ThemeColors.primary : undefined, borderColor: marcado ? ThemeColors.primary : undefined }} className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${marcado ? 'text-white shadow-sm' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-purple-300'}`}>
+                    const marcado = novoFornecedor.categorias?.includes(cat.nome) || false;
+                    return (
+                      <button key={cat.id} type="button" onClick={() => toggleCategoriaNoFornecedor(cat.nome)} style={{ backgroundColor: marcado ? themeColors.primary : undefined, borderColor: marcado ? themeColors.primary : undefined }} className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${marcado ? 'text-white shadow-sm' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-purple-300'}`}>
                         {cat.nome}
                       </button>
                     );
@@ -2711,25 +2711,25 @@ Export default function App() {
                   <div className="flex gap-2 items-center bg-slate-50 p-2.5 rounded-2xl border border-dashed border-purple-200 mt-2 animate-fadeIn">
                     <input placeholder="Ex: 🧵 Fitas e Cordões" className="flex-1 bg-white p-2.5 rounded-xl text-xs font-bold outline-none border" value={inputNovaCategoriaForn} onChange={e => setInputNovaCategoriaForn(e.target.value)} />
                     <button type="button" onClick={async () => {
-                      If(!inputNovaCategoriaForn.trim()) return setMostrarInputNovaCatForn(false);
-                      Await addDoc(collection(db, "categorias_fornecedores"), { nome: inputNovaCategoriaForn.trim(), userId: user.uid });
-                      SetInputNovaCategoriaForn(''); setMostrarInputNovaCatForn(false);
+                      if(!inputNovaCategoriaForn.trim()) return setMostrarInputNovaCatForn(false);
+                      await addDoc(collection(db, "categorias_fornecedores"), { nome: inputNovaCategoriaForn.trim(), userId: user.uid });
+                      setInputNovaCategoriaForn(''); setMostrarInputNovaCatForn(false);
                     }} style={{ backgroundColor: themeColors.primary }} className="text-white text-xs font-black px-4 py-2.5 rounded-xl uppercase shadow-sm">OK</button>
                   </div>
                 )}
               </div>
 
               <button 
-                Style={{ backgroundColor: themeColors.secondary }}
-                OnClick={async () => {
-                If(!novoFornecedor.nome) return alert("Digite o nome do fornecedor!");
-                Const d = { nome: novoFornecedor.nome, site: novoFornecedor.site, whatsapp: novoFornecedor.whatsapp, endereco: novoFornecedor.endereco, categorias: novoFornecedor.categorias || [], userId: user.uid };
+                style={{ backgroundColor: themeColors.secondary }}
+                onClick={async () => {
+                if(!novoFornecedor.nome) return alert("Digite o nome do fornecedor!");
+                const d = { nome: novoFornecedor.nome, site: novoFornecedor.site, whatsapp: novoFornecedor.whatsapp, endereco: novoFornecedor.endereco, categorias: novoFornecedor.categorias || [], userId: user.uid };
                 
-                If (novoFornecedor.id) await updateDoc(doc(db, "fornecedores", novoFornecedor.id), d);
-                Else await addDoc(collection(db, "fornecedores"), d);
+                if (novoFornecedor.id) await updateDoc(doc(db, "fornecedores", novoFornecedor.id), d);
+                else await addDoc(collection(db, "fornecedores"), d);
                 
-                SetNovoFornecedor({ id: '', nome: '', site: '', whatsapp: '', endereco: '', categorias: [] });
-                Alert("Fornecedor cadastrado com sucesso! 📦🎉");
+                setNovoFornecedor({ id: '', nome: '', site: '', whatsapp: '', endereco: '', categorias: [] });
+                alert("Fornecedor cadastrado com sucesso! 📦🎉");
               }} className="w-full hover:opacity-90 text-white p-5 rounded-2xl font-black uppercase text-xs shadow-md">
                 {novoFornecedor.id ? 'Atualizar Fornecedor' : 'Salvar Fornecedor'}
               </button>
@@ -2741,9 +2741,9 @@ Export default function App() {
                 <input type="text" placeholder="Pesquisar por nome do fornecedor..." value={pesquisaFornecedores} onChange={e => setPesquisaFornecedores(e.target.value)} className="w-full p-4 pl-11 bg-white rounded-2xl border border-slate-200 outline-none text-sm font-medium focus:border-purple-500 transition-colors shadow-sm" />
               </div>
               <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-none w-full">
-                <button onClick={() => setFiltroFornSelecionado('Todos')} style={{ backgroundColor: filtroFornSelecionado === 'Todos' ? ThemeColors.primary : undefined, borderColor: filtroFornSelecionado === 'Todos' ? ThemeColors.primary : undefined }} className={`px-3 py-1.5 text-xs font-bold shrink-0 rounded-xl border ${filtroFornSelecionado === 'Todos' ? 'text-white' : 'bg-white text-slate-500'}`}>🌍 Todos</button>
+                <button onClick={() => setFiltroFornSelecionado('Todos')} style={{ backgroundColor: filtroFornSelecionado === 'Todos' ? themeColors.primary : undefined, borderColor: filtroFornSelecionado === 'Todos' ? themeColors.primary : undefined }} className={`px-3 py-1.5 text-xs font-bold shrink-0 rounded-xl border ${filtroFornSelecionado === 'Todos' ? 'text-white' : 'bg-white text-slate-500'}`}>🌍 Todos</button>
                 {categoriasForn.map(cat => (
-                  <button key={cat.id} onClick={() => setFiltroFornSelecionado(cat.nome)} style={{ backgroundColor: filtroFornSelecionado === cat.nome ? ThemeColors.primary : undefined, borderColor: filtroFornSelecionado === cat.nome ? ThemeColors.primary : undefined }} className={`px-3 py-1.5 text-xs font-bold shrink-0 rounded-xl border ${filtroFornSelecionado === cat.nome ? 'text-white' : 'bg-white text-slate-500'}`}>{cat.nome}</button>
+                  <button key={cat.id} onClick={() => setFiltroFornSelecionado(cat.nome)} style={{ backgroundColor: filtroFornSelecionado === cat.nome ? themeColors.primary : undefined, borderColor: filtroFornSelecionado === cat.nome ? themeColors.primary : undefined }} className={`px-3 py-1.5 text-xs font-bold shrink-0 rounded-xl border ${filtroFornSelecionado === cat.nome ? 'text-white' : 'bg-white text-slate-500'}`}>{cat.nome}</button>
                 ))}
               </div>
             </div>
@@ -2771,7 +2771,7 @@ Export default function App() {
                   
                   <div className="flex gap-2 border-t pt-3 w-full justify-end">
                     {f.site && (
-                      <button onClick={() => window.open(f.site.startsWith('http') ? F.site : `https://${f.site}`, '_blank')} className="flex items-center gap-1 text-xs font-black uppercase bg-blue-50 text-blue-600 px-3 py-2 rounded-xl active:scale-95 transition-transform"><Globe size={13}/> Site</button>
+                      <button onClick={() => window.open(f.site.startsWith('http') ? f.site : `https://${f.site}`, '_blank')} className="flex items-center gap-1 text-xs font-black uppercase bg-blue-50 text-blue-600 px-3 py-2 rounded-xl active:scale-95 transition-transform"><Globe size={13}/> Site</button>
                     )}
                     {f.whatsapp && (
                       <button onClick={() => window.open(`https://wa.me/55${f.whatsapp.replace(/\D/g, '')}`, '_blank')} className="flex items-center gap-1 text-xs font-black uppercase bg-emerald-50 text-emerald-600 px-3 py-2 rounded-xl active:scale-95 transition-transform"><MessageCircle size={13}/> WhatsApp</button>
@@ -2798,15 +2798,15 @@ Export default function App() {
             </div>
 
             <div className="flex bg-slate-100 p-1.5 rounded-2xl gap-1 w-full mb-4 border">
-              <button onClick={() => setFiltroStatusPedido('Pendente')} style={{ color: filtroStatusPedido === 'Pendente' ? ThemeColors.primary : undefined }} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${filtroStatusPedido === 'Pendente' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>Pendentes ⏳</button>
+              <button onClick={() => setFiltroStatusPedido('Pendente')} style={{ color: filtroStatusPedido === 'Pendente' ? themeColors.primary : undefined }} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${filtroStatusPedido === 'Pendente' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>Pendentes ⏳</button>
               <button onClick={() => setFiltroStatusPedido('Vendido')} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${filtroStatusPedido === 'Vendido' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400'}`}>Vendidos 💰</button>
               <button onClick={() => setFiltroStatusPedido('Cancelado')} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${filtroStatusPedido === 'Cancelado' ? 'bg-white text-red-500 shadow-sm' : 'text-slate-400'}`}>Cancelados ❌</button>
             </div>
 
             {pedidosFiltradosPorStatus.map(p => {
-               Const cli = clientes.find(c => c.id === p.clienteId);
-               Const statusAtual = p.status || 'Pendente';
-               Return (
+               const cli = clientes.find(c => c.id === p.clienteId);
+               const statusAtual = p.status || 'Pendente';
+               return (
                  <div key={p.id} className="bg-white p-5 rounded-[30px] shadow-sm flex flex-col gap-3 border w-full">
                    <div className="flex justify-between items-center w-full">
                      <div>
@@ -2895,14 +2895,14 @@ Export default function App() {
                 </select>
               </div>
               <button 
-                Style={{ backgroundColor: themeColors.secondary }}
-                OnClick={async () => {
-                If(!novoMat.nome) return alert("Digite o nome do insumo!");
-                Const d = { nome: novoMat.nome, valor: Number(novoMat.valor), qtd: Number(novoMat.qtd), unidade: novoMat.unidade, qtdAtual: Number(novoMat.qtdAtual || 0), qtdMinima: Number(novoMat.qtdMinima || 0), userId: user.uid };
-                If (novoMat.id) await updateDoc(doc(db, "materiais", novoMat.id), d);
-                Else await addDoc(collection(db, "materiais"), d);
-                SetNovoMat({ id: '', nome: '', valor: '', qtd: '1', unidade: 'un', qtdAtual: '0', qtdMinima: '0' });
-                Alert("Material Salvo!");
+                style={{ backgroundColor: themeColors.secondary }}
+                onClick={async () => {
+                if(!novoMat.nome) return alert("Digite o nome do insumo!");
+                const d = { nome: novoMat.nome, valor: Number(novoMat.valor), qtd: Number(novoMat.qtd), unidade: novoMat.unidade, qtdAtual: Number(novoMat.qtdAtual || 0), qtdMinima: Number(novoMat.qtdMinima || 0), userId: user.uid };
+                if (novoMat.id) await updateDoc(doc(db, "materiais", novoMat.id), d);
+                else await addDoc(collection(db, "materiais"), d);
+                setNovoMat({ id: '', nome: '', valor: '', qtd: '1', unidade: 'un', qtdAtual: '0', qtdMinima: '0' });
+                alert("Material Salvo!");
               }} className="w-full hover:opacity-90 text-white p-5 rounded-2xl font-black uppercase text-xs">
                 {novoMat.id ? 'Atualizar Insumo' : 'Salvar no Armário'}
               </button>
@@ -2910,22 +2910,22 @@ Export default function App() {
 
             <div className="relative w-full mb-2">
               <Search 
-                Size={18} 
-                ClassName="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" 
+                size={18} 
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" 
               />
               <input
-                Type="text"
-                Placeholder="Pesquisar material no armário..."
-                Value={pesquisaMateriais}
-                OnChange={e => setPesquisaMateriais(e.target.value)}
-                ClassName="w-full p-4 pl-11 bg-white rounded-2xl border border-slate-200 outline-none text-sm font-medium focus:border-purple-500 transition-colors shadow-sm"
+                type="text"
+                placeholder="Pesquisar material no armário..."
+                value={pesquisaMateriais}
+                onChange={e => setPesquisaMateriais(e.target.value)}
+                className="w-full p-4 pl-11 bg-white rounded-2xl border border-slate-200 outline-none text-sm font-medium focus:border-purple-500 transition-colors shadow-sm"
               />
             </div>
 
             {materiaisFiltrados.map(m => {
-              Const estaAcabando = Number(m.qtdAtual || 0) <= Number(m.qtdMinima || 0);
-              Const valorUnitarioCalculado = Number(m.qtd || 1) > 0 ? (Number(m.valor || 0) / Number(m.qtd || 1)).toFixed(2) : "0.00";
-              Return (
+              const estaAcabando = Number(m.qtdAtual || 0) <= Number(m.qtdMinima || 0);
+              const valorUnitarioCalculado = Number(m.qtd || 1) > 0 ? (Number(m.valor || 0) / Number(m.qtd || 1)).toFixed(2) : "0.00";
+              return (
                 <div key={m.id} className="bg-white p-5 rounded-3xl flex justify-between items-center border w-full mb-2 shadow-sm">
                   <div>
                     <p className="font-bold text-slate-800">{estaAcabando ? '🔴' : '🟢'} {m.nome}</p>
@@ -2970,24 +2970,24 @@ Export default function App() {
               <textarea placeholder="Rua, Número, Bairro, Cidade, CEP..." className="w-full p-4 bg-slate-50 rounded-2xl mb-6 outline-none border focus:border-purple-400 resize-none h-20 font-medium text-sm" value={novoCli.endereco || ''} onChange={e => setNovoCli({...novoCli, endereco: e.target.value})} />
 
               <button 
-                Style={{ backgroundColor: themeColors.secondary }}
-                OnClick={async () => {
-                If(!novoCli.nome) return alert("Digite o nome do cliente!");
+                style={{ backgroundColor: themeColors.secondary }}
+                onClick={async () => {
+                if(!novoCli.nome) return alert("Digite o nome do cliente!");
                 
-                Const dadosCliente = { 
-                  Nome: novoCli.nome, 
-                  Zap: novoCli.zap, 
-                  Email: novoCli.email || '', 
-                  Endereco: novoCli.endereco || '', 
-                  CpfCnpj: novoCli.cpfCnpj || '',
-                  UserId: user.uid 
+                const dadosCliente = { 
+                  nome: novoCli.nome, 
+                  zap: novoCli.zap, 
+                  email: novoCli.email || '', 
+                  endereco: novoCli.endereco || '', 
+                  cpfCnpj: novoCli.cpfCnpj || '',
+                  userId: user.uid 
                 };
 
-                If(novoCli.id) await updateDoc(doc(db, "clientes", novoCli.id), dadosCliente);
-                Else await addDoc(collection(db, "clientes"), dadosCliente);
+                if(novoCli.id) await updateDoc(doc(db, "clientes", novoCli.id), dadosCliente);
+                else await addDoc(collection(db, "clientes"), dadosCliente);
                 
-                SetNovoCli({ id: '', nome: '', zap: '', email: '', endereco: '', cpfCnpj: '' }); 
-                Alert("Cadastro do cliente salvo com sucesso! 🎉");
+                setNovoCli({ id: '', nome: '', zap: '', email: '', endereco: '', cpfCnpj: '' }); 
+                alert("Cadastro do cliente salvo com sucesso! 🎉");
               }} className="w-full hover:opacity-90 text-white p-5 rounded-2xl font-black uppercase text-xs">Salvar Cliente</button>
             </div>
             {clientes.map(c => (
@@ -3014,19 +3014,19 @@ Export default function App() {
       {/* MENU INFERIOR FIXO */}
       <div className="fixed bottom-0 left-0 right-0 flex justify-center p-4 z-30 bg-transparent pointer-events-none">
         <div className="bg-white shadow-[0_-10px_30px_rgba(0,0,0,0.06)] rounded-[28px] flex justify-around items-center px-4 h-16 w-full max-w-xl pointer-events-auto border">
-          <button onClick={() => setActiveTab('inicio')} style={{ color: activeTab === 'inicio' ? ThemeColors.secondary : undefined }} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab !== 'inicio' ? 'text-slate-300' : ''}`}>
+          <button onClick={() => setActiveTab('inicio')} style={{ color: activeTab === 'inicio' ? themeColors.secondary : undefined }} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab !== 'inicio' ? 'text-slate-300' : ''}`}>
             <Home size={22} className={activeTab === 'inicio' ? 'stroke-[2.5]' : 'stroke-[2]'} />
             <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Início</span>
           </button>
-          <button onClick={() => setActiveTab('criar')} style={{ color: activeTab === 'criar' ? ThemeColors.secondary : undefined }} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab !== 'criar' ? 'text-slate-300' : ''}`}>
+          <button onClick={() => setActiveTab('criar')} style={{ color: activeTab === 'criar' ? themeColors.secondary : undefined }} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab !== 'criar' ? 'text-slate-300' : ''}`}>
             <Plus size={22} className={activeTab === 'criar' ? 'stroke-[3]' : 'stroke-[2]'} />
             <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Orçar</span>
           </button>
-          <button onClick={() => setActiveTab('contratos')} style={{ color: activeTab === 'contratos' ? ThemeColors.secondary : undefined }} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab !== 'contratos' ? 'text-slate-300' : ''}`}>
+          <button onClick={() => setActiveTab('contratos')} style={{ color: activeTab === 'contratos' ? themeColors.secondary : undefined }} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab !== 'contratos' ? 'text-slate-300' : ''}`}>
             <FileText size={22} className={activeTab === 'contratos' ? 'stroke-[2.5]' : 'stroke-[2]'} />
             <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Contratos</span>
           </button>
-          <button onClick={() => setActiveTab('pedidos')} style={{ color: activeTab === 'pedidos' ? ThemeColors.secondary : undefined }} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab !== 'pedidos' ? 'text-slate-300' : ''}`}>
+          <button onClick={() => setActiveTab('pedidos')} style={{ color: activeTab === 'pedidos' ? themeColors.secondary : undefined }} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab !== 'pedidos' ? 'text-slate-300' : ''}`}>
             <History size={22} className={activeTab === 'pedidos' ? 'stroke-[2.5]' : 'stroke-[2]'} />
             <span className="text-[9px] font-bold mt-1 uppercase tracking-wider">Histórico</span>
           </button>
