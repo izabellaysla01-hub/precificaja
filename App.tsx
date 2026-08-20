@@ -310,6 +310,7 @@ export default function App() {
       const qAnotacoes = query(collection(db, "anotacoes"), where("userId", "==", user.uid));
       const unsubAnotacoes = onSnapshot(qAnotacoes, s => setAnotacoes(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
+      // Mapeamento explícito do ID do contrato
       const qContratos = query(collection(db, "contratos"), where("userId", "==", user.uid));
       const unsubContratos = onSnapshot(qContratos, s => setContratos(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
@@ -426,7 +427,7 @@ export default function App() {
     await updateDoc(doc(db, "anotacoes", id), { concluido: !valorAtual });
   };
 
-  // --- GERADOR DE PDF DE CONTRATO CORRIGIDO PARA MOBILE E VERCEL ---
+  // --- GERADOR DE PDF DE CONTRATO (SISTEMA DE OVERLAY VISÍVEL PARA IMPEDIR PÁGINA EM BRANCO EM DISPOSITIVOS MÓVEIS) ---
   const gerarPDFContrato = (contrato: any) => {
     const cli = clientes.find(c => c.id === contrato.clienteId);
     const dataEmissao = contrato.dataEmissao || new Date().toLocaleDateString('pt-BR');
@@ -447,92 +448,104 @@ export default function App() {
       `;
     }).join('');
 
+    // Overlay visível temporário para renderização do canvas
+    const overlay = document.createElement('div');
+    overlay.style.position = "fixed";
+    overlay.style.top = "0";
+    overlay.style.left = "0";
+    overlay.style.width = "100vw";
+    overlay.style.height = "100vh";
+    overlay.style.backgroundColor = "rgba(255,255,255,0.98)";
+    overlay.style.zIndex = "99999";
+    overlay.style.overflow = "auto";
+    overlay.style.display = "flex";
+    overlay.style.justifyContent = "center";
+    overlay.style.padding = "20px";
+
     const elemento = document.createElement('div');
     elemento.style.width = "700px";
-    elemento.style.padding = "25px";
+    elemento.style.padding = "30px";
     elemento.style.backgroundColor = "#ffffff";
     elemento.style.color = "#2d3748";
     elemento.style.fontFamily = "Arial, sans-serif";
-    elemento.style.position = "absolute";
-    elemento.style.left = "-9999px";
-    elemento.style.top = "0";
+    elemento.style.boxShadow = "0 10px 25px rgba(0,0,0,0.1)";
+    elemento.style.borderRadius = "12px";
 
     elemento.innerHTML = `
       <div style="width: 100%; box-sizing: border-box;">
-        <table style="width: 100%; margin-bottom: 20px;">
-          <tr>
-            <td style="text-align: left; vertical-align: top;">
-              <h1 style="color: #581c87; margin: 0; font-size: 20px; font-weight: 900;">CONTRATO DE PRESTAÇÃO DE SERVIÇOS</h1>
-              <p style="color: #94a3b8; font-size: 10px; font-weight: bold; text-transform: uppercase; margin: 4px 0 0 0;">DOCUMENTO COMERCIAL E TERMOS DE ACORDO</p>
-            </td>
-            <td style="text-align: right; vertical-align: top; width: 180px;">
-              <div style="background-color: #f8fafc; padding: 6px 12px; border-radius: 8px; border: 1px solid #e2e8f0; text-align: center;">
-                <span style="font-size: 8px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">DATA DE EMISSÃO</span>
-                <span style="font-size: 11px; font-weight: bold; color: #581c87; display: block; margin-top: 2px;">${dataEmissao}</span>
-              </div>
-            </td>
-          </tr>
-        </table>
-
-        <table style="width: 100%; border-collapse: separate; border-spacing: 10px; margin-bottom: 15px; margin-left: -10px;">
-          <tr>
-            <td style="width: 50%; vertical-align: top; border-radius: 8px; border: 1px solid #e2e8f0; padding: 0; background-color: #fafafa;">
-              <div style="background-color: #581c87; color: #ffffff; padding: 6px 10px; font-size: 9px; font-weight: bold; text-transform: uppercase;">1. DADOS DO CONTRATANTE (CLIENTE)</div>
-              <div style="padding: 10px; font-size: 11px; line-height: 1.5;">
-                <div><strong>Nome:</strong> ${cli?.nome || 'Não informado'}</div>
-                <div><strong>CPF/CNPJ:</strong> ${cli?.cpfCnpj || 'Não informado'}</div>
-                <div><strong>Endereço:</strong> ${cli?.endereco || 'Não informado'}</div>
-              </div>
-            </td>
-
-            <td style="width: 50%; vertical-align: top; border-radius: 8px; border: 1px solid #e2e8f0; padding: 0; background-color: #fafafa;">
-              <div style="background-color: #581c87; color: #ffffff; padding: 6px 10px; font-size: 9px; font-weight: bold; text-transform: uppercase;">2. DADOS DO CONTRATADO (EMPRESA)</div>
-              <div style="padding: 10px; font-size: 11px; line-height: 1.5;">
-                <div><strong>Empresa/Nome:</strong> ${nomeEmpresaExibir}</div>
-                <div><strong>CPF/CNPJ:</strong> ${cpfCnpjEmpresaExibir}</div>
-                ${enderecoPerfil ? `<div><strong>Endereço:</strong> ${enderecoPerfil}</div>` : ''}
-              </div>
-            </td>
-          </tr>
-        </table>
-
-        <div style="border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 15px; background-color: #fafafa; overflow: hidden;">
-          <div style="background-color: #581c87; color: #ffffff; padding: 6px 10px; font-size: 9px; font-weight: bold; text-transform: uppercase;">3. DADOS DO EVENTO E VALOR COMBINADO</div>
-          <div style="padding: 10px; font-size: 11px; line-height: 1.6;">
-            <div><strong>Tipo de Evento:</strong> ${contrato.tipoEvento || 'Não informado'}</div>
-            <div><strong>Data do Evento:</strong> ${dataEventoFormatada}</div>
-            <div><strong>Local do Evento:</strong> ${contrato.localEvento || 'Não informado'}</div>
-            <div style="color: #581c87; font-size: 13px; font-weight: 900; margin-top: 4px;">Valor Total dos Serviços: R$ ${Number(contrato.valorTotal || 0).toFixed(2)}</div>
-            ${dadosBancariosPerfil ? `<div style="margin-top: 6px; font-size: 10px; color: #475569; background-color: #f1f5f9; padding: 6px; border-radius: 6px;"><strong>Dados para Pagamento:</strong> ${dadosBancariosPerfil}</div>` : ''}
+        
+        <!-- CABEÇALHO DO CONTRATO -->
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; border-bottom: 2px solid #f1f5f9; padding-bottom: 15px;">
+          <div>
+            <h1 style="color: #581c87; margin: 0; font-size: 22px; font-weight: 900;">CONTRATO DE PRESTAÇÃO DE SERVIÇOS</h1>
+            <p style="color: #94a3b8; font-size: 10px; font-weight: bold; text-transform: uppercase; margin: 4px 0 0 0;">DOCUMENTO COMERCIAL E TERMOS DE ACORDO</p>
+          </div>
+          <div style="background-color: #f8fafc; padding: 8px 14px; border-radius: 8px; border: 1px solid #e2e8f0; text-align: right;">
+            <span style="font-size: 8px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block;">DATA DE EMISSÃO</span>
+            <span style="font-size: 12px; font-weight: bold; color: #581c87; display: block; margin-top: 2px;">${dataEmissao}</span>
           </div>
         </div>
 
-        <div style="border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 30px; background-color: #fafafa; overflow: hidden;">
-          <div style="background-color: #581c87; color: #ffffff; padding: 6px 10px; font-size: 9px; font-weight: bold; text-transform: uppercase;">4. CLÁUSULAS E TERMOS DE SERVIÇO</div>
+        <!-- BLOCOS DE DADOS DAS PARTES -->
+        <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+          <div style="flex: 1; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; background-color: #fafafa;">
+            <div style="background-color: #581c87; color: #ffffff; padding: 8px 10px; font-size: 9px; font-weight: bold; text-transform: uppercase;">1. DADOS DO CONTRATANTE (CLIENTE)</div>
+            <div style="padding: 12px; font-size: 11px; line-height: 1.5;">
+              <div><strong>Nome:</strong> ${cli?.nome || 'Não informado'}</div>
+              <div><strong>CPF/CNPJ:</strong> ${cli?.cpfCnpj || 'Não informado'}</div>
+              <div><strong>Endereço:</strong> ${cli?.endereco || 'Não informado'}</div>
+            </div>
+          </div>
+
+          <div style="flex: 1; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; background-color: #fafafa;">
+            <div style="background-color: #581c87; color: #ffffff; padding: 8px 10px; font-size: 9px; font-weight: bold; text-transform: uppercase;">2. DADOS DO CONTRATADO (EMPRESA)</div>
+            <div style="padding: 12px; font-size: 11px; line-height: 1.5;">
+              <div><strong>Empresa/Nome:</strong> ${nomeEmpresaExibir}</div>
+              <div><strong>CPF/CNPJ:</strong> ${cpfCnpjEmpresaExibir}</div>
+              ${enderecoPerfil ? `<div><strong>Endereço:</strong> ${enderecoPerfil}</div>` : ''}
+            </div>
+          </div>
+        </div>
+
+        <!-- BLOCO EVENTO E VALOR COMBINADO -->
+        <div style="border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; margin-bottom: 15px; background-color: #fafafa;">
+          <div style="background-color: #581c87; color: #ffffff; padding: 8px 10px; font-size: 9px; font-weight: bold; text-transform: uppercase;">3. DADOS DO EVENTO E VALOR COMBINADO</div>
+          <div style="padding: 12px; font-size: 11px; line-height: 1.6;">
+            <div><strong>Tipo de Evento:</strong> ${contrato.tipoEvento || 'Não informado'}</div>
+            <div><strong>Data do Evento:</strong> ${dataEventoFormatada}</div>
+            <div><strong>Local do Evento:</strong> ${contrato.localEvento || 'Não informado'}</div>
+            <div style="color: #581c87; font-size: 14px; font-weight: 900; margin-top: 6px;">Valor Total dos Serviços: R$ ${Number(contrato.valorTotal || 0).toFixed(2)}</div>
+            ${dadosBancariosPerfil ? `<div style="margin-top: 8px; font-size: 10px; color: #475569; background-color: #f1f5f9; padding: 8px; border-radius: 6px;"><strong>Dados para Pagamento:</strong> ${dadosBancariosPerfil}</div>` : ''}
+          </div>
+        </div>
+
+        <!-- CLÁUSULAS E TERMOS -->
+        <div style="border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; margin-bottom: 30px; background-color: #fafafa;">
+          <div style="background-color: #581c87; color: #ffffff; padding: 8px 10px; font-size: 9px; font-weight: bold; text-transform: uppercase;">4. CLÁUSULAS E TERMOS DE SERVIÇO</div>
           <div style="padding: 12px;">
             ${clausulasFormatadas}
           </div>
         </div>
 
-        <table style="width: 100%; margin-top: 30px; page-break-inside: avoid;">
-          <tr>
-            <td style="width: 45%; text-align: center; vertical-align: bottom;">
-              <div style="border-top: 1px solid #cbd5e1; margin-bottom: 6px;"></div>
-              <div style="font-size: 11px; font-weight: bold; color: #1e293b;">${cli?.nome || 'Cliente'}</div>
-              <div style="font-size: 8px; font-weight: bold; color: #94a3b8; text-transform: uppercase;">ASSINATURA DO CLIENTE</div>
-            </td>
-            <td style="width: 10%;"></td>
-            <td style="width: 45%; text-align: center; vertical-align: bottom;">
-              <div style="border-top: 1px solid #cbd5e1; margin-bottom: 6px;"></div>
-              <div style="font-size: 11px; font-weight: bold; color: #1e293b;">${nomeEmpresaExibir}</div>
-              <div style="font-size: 8px; font-weight: bold; color: #94a3b8; text-transform: uppercase;">ASSINATURA DA EMPRESA (CONTRATADO)</div>
-            </td>
-          </tr>
-        </table>
+        <!-- ASSINATURAS -->
+        <div style="display: flex; justify-content: space-between; gap: 40px; margin-top: 40px; page-break-inside: avoid;">
+          <div style="flex: 1; text-align: center;">
+            <div style="border-top: 1px solid #cbd5e1; margin-bottom: 6px;"></div>
+            <div style="font-size: 11px; font-weight: bold; color: #1e293b;">${cli?.nome || 'Cliente'}</div>
+            <div style="font-size: 8px; font-weight: bold; color: #94a3b8; text-transform: uppercase;">ASSINATURA DO CLIENTE</div>
+          </div>
+          <div style="flex: 1; text-align: center;">
+            <div style="border-top: 1px solid #cbd5e1; margin-bottom: 6px;"></div>
+            <div style="font-size: 11px; font-weight: bold; color: #1e293b;">${nomeEmpresaExibir}</div>
+            <div style="font-size: 8px; font-weight: bold; color: #94a3b8; text-transform: uppercase;">ASSINATURA DA EMPRESA (CONTRATADO)</div>
+          </div>
+        </div>
+
       </div>
     `;
 
-    document.body.appendChild(elemento);
+    overlay.appendChild(elemento);
+    document.body.appendChild(overlay);
 
     setTimeout(() => {
       const opcoes = { 
@@ -544,12 +557,14 @@ export default function App() {
 
       if ((window as any).html2pdf) { 
         (window as any).html2pdf().from(elemento).set(opcoes).save().then(() => {
-          if (document.body.contains(elemento)) document.body.removeChild(elemento);
+          if (document.body.contains(overlay)) document.body.removeChild(overlay);
+        }).catch(() => {
+          if (document.body.contains(overlay)) document.body.removeChild(overlay);
         }); 
       } else {
-        if (document.body.contains(elemento)) document.body.removeChild(elemento);
+        if (document.body.contains(overlay)) document.body.removeChild(overlay);
       }
-    }, 250);
+    }, 400);
   };
 
   const enviarContratoWhatsapp = (contrato: any) => {
@@ -712,20 +727,54 @@ export default function App() {
     }
   };
 
-  // --- EXCLUSÃO DIRETA DE CONTRATOS ---
-  const excluirContratoDireto = async (id: string) => {
-    if (!id) return alert("Erro ao identificar o contrato.");
-    if (window.confirm("Deseja realmente excluir este contrato?")) {
-      try {
-        await deleteDoc(doc(db, "contratos", id));
+  // --- EXCLUSÃO DE CONTRATOS COM DUPLA BUSCA (POR ID E FALLBACK POR CONTEÚDO PARA ANTESTES) ---
+  const excluirContratoInteligente = async (contratoItem: any) => {
+    if (!window.confirm("Deseja realmente excluir este contrato?")) return;
+
+    try {
+      if (contratoItem.id) {
+        await deleteDoc(doc(db, "contratos", contratoItem.id));
         alert("Contrato excluído com sucesso! 🗑️");
-      } catch (e) {
-        alert("Erro ao excluir o contrato do Firebase.");
+        return;
+      }
+
+      // Se for um item antigo gravado sem id na lista local
+      const q = query(
+        collection(db, "contratos"), 
+        where("userId", "==", user.uid),
+        where("clienteId", "==", contratoItem.clienteId || '')
+      );
+      const snapshot = await getDocs(q);
+      
+      if (!snapshot.empty) {
+        snapshot.docs.forEach(async (d) => {
+          await deleteDoc(doc(db, "contratos", d.id));
+        });
+        alert("Contrato antigo excluído do banco! 🗑️");
+      } else {
+        alert("Não foi possível encontrar a referência do contrato no banco.");
+      }
+    } catch (e) {
+      alert("Erro ao tentar excluir contrato.");
+    }
+  };
+
+  // --- APAGAR TODOS OS CONTRATOS DE TESTE DE UMA SÓ VEZ ---
+  const zerarTodosContratos = async () => {
+    if (window.confirm("Tem certeza que deseja APAGAR TODOS OS CONTRATOS salvos para zerar os testes?")) {
+      try {
+        const q = query(collection(db, "contratos"), where("userId", "==", user.uid));
+        const snap = await getDocs(q);
+        snap.docs.forEach(async (d) => {
+          await deleteDoc(doc(db, "contratos", d.id));
+        });
+        alert("Todos os contratos de teste foram removidos! ✨");
+      } catch {
+        alert("Erro ao zerar contratos.");
       }
     }
   };
 
-  // --- CONFIRMAÇÃO DE EXCLUSÃO DE OUTROS ITENS ---
   const confirmarExcluir = async (tipo: string, id: string) => {
     if (!id) return;
     if (window.confirm(`Tem certeza de que deseja excluir este ${tipo}?`)) {
@@ -737,7 +786,6 @@ export default function App() {
       else if (tipo === 'material') colecao = "materiais";
       else if (tipo === 'anotacao') colecao = "anotacoes";
       else if (tipo === 'fornecedor') colecao = "fornecedores";
-      else if (tipo === 'contrato') colecao = "contratos";
 
       if (colecao) {
         try {
@@ -1977,9 +2025,17 @@ export default function App() {
         {activeTab === 'contratos' && (
           <div className="space-y-6 pt-2 w-full animate-fadeIn">
             <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
-              <h2 style={{ color: themeColors.primary }} className="font-bold mb-4 flex items-center gap-2 uppercase text-xs tracking-widest">
-                <FileText size={18}/> {novoContrato.id ? '✏️ Editando Contrato' : 'Gerar Novo Contrato'}
-              </h2>
+              <div className="flex justify-between items-center mb-4">
+                <h2 style={{ color: themeColors.primary }} className="font-bold flex items-center gap-2 uppercase text-xs tracking-widest">
+                  <FileText size={18}/> {novoContrato.id ? '✏️ Editando Contrato' : 'Gerar Novo Contrato'}
+                </h2>
+
+                {contratos.length > 0 && (
+                  <button onClick={zerarTodosContratos} className="text-[10px] bg-red-50 text-red-500 hover:bg-red-100 px-3 py-1.5 rounded-xl font-bold uppercase tracking-wider transition-all">
+                    Zerar Todos
+                  </button>
+                )}
+              </div>
 
               {novoContrato.id && (
                 <button onClick={() => setNovoContrato({ id: '', clienteId: '', tipoEvento: '', dataEvento: '', localEvento: '', valorTotal: '', clausulas: novoContrato.clausulas })} className="text-[10px] bg-slate-100 text-slate-600 px-3 py-1.5 rounded-xl font-bold uppercase tracking-wide mb-4 block">Cancelar Edição ❌</button>
@@ -2059,10 +2115,10 @@ export default function App() {
 
             <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider ml-2">Seus Contratos Emitidos</h3>
             <div className="space-y-3 w-full">
-              {contratos.map(c => {
+              {contratos.map((c, idx) => {
                 const cli = clientes.find(item => item.id === c.clienteId);
                 return (
-                  <div key={c.id} className="bg-white p-5 rounded-[30px] border shadow-sm flex flex-col gap-3 w-full">
+                  <div key={c.id || idx} className="bg-white p-5 rounded-[30px] border shadow-sm flex flex-col gap-3 w-full">
                     <div className="flex justify-between items-start w-full">
                       <div>
                         <span style={{ color: themeColors.primary }} className="text-[10px] font-black uppercase tracking-wider block">CONTRATO DE PRESTAÇÃO DE SERVIÇOS</span>
@@ -2075,7 +2131,7 @@ export default function App() {
                     </div>
 
                     <div className="flex justify-end gap-1 border-t pt-3 w-full">
-                      <button onClick={() => setNovoContrato({ id: c.id, clienteId: c.clienteId, tipoEvento: c.tipoEvento || '', dataEvento: c.dataEvento || '', localEvento: c.localEvento || '', valorTotal: c.valorTotal || '', clausulas: c.clausulas || novoContrato.clausulas })} style={{ color: themeColors.primary }} className="p-2 bg-purple-50 rounded-xl"><Edit2 size={16}/></button>
+                      <button onClick={() => setNovoContrato({ id: c.id || '', clienteId: c.clienteId, tipoEvento: c.tipoEvento || '', dataEvento: c.dataEvento || '', localEvento: c.localEvento || '', valorTotal: c.valorTotal || '', clausulas: c.clausulas || novoContrato.clausulas })} style={{ color: themeColors.primary }} className="p-2 bg-purple-50 rounded-xl"><Edit2 size={16}/></button>
                       
                       <button onClick={() => setNovoContrato({ id: '', clienteId: c.clienteId, tipoEvento: `${c.tipoEvento} (Cópia)`, dataEvento: c.dataEvento || '', localEvento: c.localEvento || '', valorTotal: c.valorTotal || '', clausulas: c.clausulas || novoContrato.clausulas })} title="Duplicar Contrato" className="p-2 bg-blue-50 text-blue-600 rounded-xl"><Copy size={16}/></button>
                       
@@ -2083,7 +2139,7 @@ export default function App() {
                       
                       <button onClick={() => enviarContratoWhatsapp(c)} className="p-2 bg-emerald-50 text-emerald-600 rounded-xl"><MessageCircle size={16}/></button>
                       
-                      <button onClick={() => excluirContratoDireto(c.id)} className="p-2 text-red-500 hover:text-red-700 transition-colors"><Trash2 size={16}/></button>
+                      <button onClick={() => excluirContratoInteligente(c)} className="p-2 text-red-500 hover:text-red-700 transition-colors"><Trash2 size={16}/></button>
                     </div>
                   </div>
                 );
