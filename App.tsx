@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { initializeApp } from "firebase/app";
 import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { getFirestore, collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc, getDocs, setDoc, getDoc } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2, Menu, Search, Settings, CheckSquare, Square, Filter, MapPin, Globe, Palette, TrendingUp, ChevronDown, ChevronUp, FileText } from 'lucide-react';
+import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2, Menu, Search, Settings, CheckSquare, Square, Filter, MapPin, Globe, Palette, TrendingUp, ChevronDown, ChevronUp, FileText, Check } from 'lucide-react';
 
 const firebaseConfig = {
   apiKey: "AIzaSyD0BWsNm9DbGGDqiHzkdDmNdxIGdJ9tWe8",
@@ -57,7 +57,7 @@ const PRESET_PALETTES = [
 
 // --- COMPONENTE: PAD DE ASSINATURA (canvas touch/mouse) ---
 const SignaturePad = ({ onSave, corTraco = '#1e293b' }: { onSave: (dataUrl: string) => void; corTraco?: string }) => {
-  const canvasRef = React.useRef<HTMLCanvasElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [desenhando, setDesenhando] = useState(false);
   const [temTraco, setTemTraco] = useState(false);
 
@@ -128,7 +128,7 @@ const SignaturePad = ({ onSave, corTraco = '#1e293b' }: { onSave: (dataUrl: stri
       <div className="border-2 border-dashed border-slate-300 rounded-2xl bg-slate-50 overflow-hidden">
         <canvas
           ref={canvasRef}
-          className="w-full h-48 touch-none bg-white"
+          className="w-full h-48 touch-none bg-white cursor-crosshair"
           onMouseDown={iniciarTraco}
           onMouseMove={desenhar}
           onMouseUp={pararTraco}
@@ -141,7 +141,7 @@ const SignaturePad = ({ onSave, corTraco = '#1e293b' }: { onSave: (dataUrl: stri
       <p className="text-[10px] text-slate-400 text-center mt-1">Desenhe sua assinatura acima com o dedo ou mouse</p>
       <div className="flex gap-2 mt-3">
         <button type="button" onClick={limpar} className="flex-1 bg-slate-100 text-slate-600 font-bold text-xs uppercase py-3 rounded-xl">Limpar</button>
-        <button type="button" onClick={salvar} className="flex-1 bg-emerald-500 text-white font-bold text-xs uppercase py-3 rounded-xl">Confirmar Assinatura</button>
+        <button type="button" onClick={salvar} className="flex-1 bg-emerald-500 text-white font-bold text-xs uppercase py-3 rounded-xl shadow-md">Confirmar e Assinar ✍️</button>
       </div>
     </div>
   );
@@ -187,12 +187,13 @@ export default function App() {
   const [filtroVitrineSelecionado, setFiltroVitrineSelecionado] = useState('Todos');
   const [isMenuFiltroVitrineOpen, setIsMenuFiltroVitrineOpen] = useState(false);
 
-  // --- NOVO: ASSINATURA DIGITAL ---
+  // --- ASSINATURA DIGITAL ---
   const [assinaturaLojaUrl, setAssinaturaLojaUrl] = useState('');
   const [mostrarPadAssinaturaLoja, setMostrarPadAssinaturaLoja] = useState(false);
   const [idContratoParaAssinar, setIdContratoParaAssinar] = useState<string | null>(null);
   const [contratoParaAssinar, setContratoParaAssinar] = useState<any>(null);
   const [clienteDoContratoAssinar, setClienteDoContratoAssinar] = useState<any>(null);
+  const [empresaDoContratoAssinar, setEmpresaDoContratoAssinar] = useState<any>(null);
   const [carregandoAssinatura, setCarregandoAssinatura] = useState(false);
   const [assinaturaEnviada, setAssinaturaEnviada] = useState(false);
 
@@ -337,13 +338,25 @@ export default function App() {
         if (docSnap.exists()) {
           const dadosContrato = { id: docSnap.id, ...docSnap.data() } as any;
           setContratoParaAssinar(dadosContrato);
+
           if (dadosContrato.clienteId) {
             const cliSnap = await getDoc(doc(db, "clientes", dadosContrato.clienteId));
             if (cliSnap.exists()) setClienteDoContratoAssinar({ id: cliSnap.id, ...cliSnap.data() });
           }
+
+          if (dadosContrato.userId) {
+            const empSnap = await getDoc(doc(db, "configuracoes_loja", dadosContrato.userId));
+            if (empSnap.exists()) {
+              const dadosEmp = empSnap.data();
+              setEmpresaDoContratoAssinar(dadosEmp);
+              if (dadosEmp.assinaturaUrl) setAssinaturaLojaUrl(dadosEmp.assinaturaUrl);
+              if (dadosEmp.themeColors) setThemeColors(dadosEmp.themeColors);
+            }
+          }
         }
         setCarregandoAssinatura(false);
-      }).catch(() => setCarregandoAssinatura(false));
+        setLoading(false);
+      }).catch(() => { setCarregandoAssinatura(false); setLoading(false); });
       return;
     }
 
@@ -368,7 +381,9 @@ export default function App() {
       getDocs(q).then(snapshot => {
         setProdutosPublicos(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
         setCarregandoPublico(false);
-      }).catch(() => setCarregandoPublico(false));
+        setLoading(false);
+      }).catch(() => { setCarregandoPublico(false); setLoading(false); });
+      return;
     }
     
     return onAuthStateChanged(auth, u => {
@@ -394,13 +409,7 @@ export default function App() {
           }
         });
       } else {
-        setMaterials([]);
-        setPedidos([]);
-        setClientes([]);
-        setProdutos([]);
-        setEquipamentos([]);
-        setAnotacoes([]);
-        setContratos([]);
+        setMaterials([]); setPedidos([]); setClientes([]); setProdutos([]); setEquipamentos([]); setAnotacoes([]); setContratos([]);
       }
       setLoading(false);
     }); 
@@ -415,7 +424,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (user && !idLojaPublica) {
+    if (user && !idLojaPublica && !idContratoParaAssinar) {
       const qMaterials = query(collection(db, "materiais"), where("userId", "==", user.uid));
       const unsubMaterials = onSnapshot(qMaterials, s => setMaterials(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
@@ -431,7 +440,6 @@ export default function App() {
       const qAnotacoes = query(collection(db, "anotacoes"), where("userId", "==", user.uid));
       const unsubAnotacoes = onSnapshot(qAnotacoes, s => setAnotacoes(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
-      // Mapeamento explícito do ID do contrato
       const qContratos = query(collection(db, "contratos"), where("userId", "==", user.uid));
       const unsubContratos = onSnapshot(qContratos, s => setContratos(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
@@ -492,19 +500,10 @@ export default function App() {
       const unsubEquipamentos = onSnapshot(qEquipamentos, s => setEquipamentos(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
       return () => {
-        unsubMaterials();
-        unsubPedidos();
-        unsubClientes();
-        unsubProdutos();
-        unsubEquipamentos();
-        unsubAnotacoes();
-        unsubContratos();
-        unsubCatsProd();
-        unsubCatsForn();
-        unsubFornecedores();
+        unsubMaterials(); unsubPedidos(); unsubClientes(); unsubProdutos(); unsubEquipamentos(); unsubAnotacoes(); unsubContratos(); unsubCatsProd(); unsubCatsForn(); unsubFornecedores();
       };
     }
-  }, [user, idLojaPublica]);
+  }, [user, idLojaPublica, idContratoParaAssinar]);
 
   const linkDoCatalogoDestaCliente = useMemo(() => {
     if (!user) return '';
@@ -516,7 +515,6 @@ export default function App() {
     alert("Link do seu catálogo copiado! 🔗🚀");
   };
 
-  // --- NOVO: gera o link público de assinatura de um contrato específico ---
   const gerarLinkAssinaturaContrato = (contratoId: string) => {
     return `${window.location.origin}${window.location.pathname}?assinar=${contratoId}`;
   };
@@ -526,7 +524,6 @@ export default function App() {
     alert("Link de assinatura copiado! Envie para o cliente assinar pelo celular dele. ✍️🔗");
   };
 
-  // --- NOVO: salva a assinatura desenhada da EMPRESA (perfil) ---
   const salvarAssinaturaLoja = async (dataUrl: string) => {
     if (!user) return;
     try {
@@ -543,7 +540,6 @@ export default function App() {
     }
   };
 
-  // --- NOVO: salva a assinatura desenhada do CLIENTE (tela pública ?assinar=) ---
   const salvarAssinaturaCliente = async (dataUrl: string) => {
     if (!idContratoParaAssinar) return;
     try {
@@ -569,14 +565,11 @@ export default function App() {
     for (let i = 0; i < 7; i++) {
       const d = new Date();
       d.setDate(d.getDate() + i);
-      
       const ano = d.getFullYear();
       const mes = String(d.getMonth() + 1).padStart(2, '0');
       const diaNum = String(d.getDate()).padStart(2, '0');
-      const stringData = `${ano}-${mes}-${diaNum}`;
-      
       dias.push({
-        stringData,
+        stringData: `${ano}-${mes}-${diaNum}`,
         diaNumero: d.getDate(),
         diaSemanaTexto: nomesDias[d.getDay()],
         mesTexto: nomesMeses[d.getMonth()]
@@ -593,14 +586,14 @@ export default function App() {
     await updateDoc(doc(db, "anotacoes", id), { concluido: !valorAtual });
   };
 
-    // --- GERADOR DE PDF DE CONTRATO (AJUSTADO PARA INCLUIR ASSINATURAS DIGITAIS) ---
+  // --- GERADOR DE PDF DE CONTRATO (SISTEMA COM AMBAS AS ASSINATURAS IMAGENS) ---
   const gerarPDFContrato = (contrato: any) => {
     const cli = clientes.find(c => c.id === contrato.clienteId) || clienteDoContratoAssinar;
     const dataEmissao = contrato.dataEmissao || new Date().toLocaleDateString('pt-BR');
     const dataEventoFormatada = contrato.dataEvento ? new Date(contrato.dataEvento + 'T00:00:00').toLocaleDateString('pt-BR') : 'Não informado';
     
-    const nomeEmpresaExibir = nomeFantasiaPerfil || nomeLojaPerfil || 'Empresa Contratada';
-    const cpfCnpjEmpresaExibir = cpfCnpjPerfil || 'Não informado';
+    const nomeEmpresaExibir = empresaDoContratoAssinar?.nomeFantasia || empresaDoContratoAssinar?.nomeLoja || nomeFantasiaPerfil || nomeLojaPerfil || 'Empresa Contratada';
+    const cpfCnpjEmpresaExibir = empresaDoContratoAssinar?.cpfCnpj || cpfCnpjPerfil || 'Não informado';
 
     const clausulasFormatadas = (contrato.clausulas || '').split('\n\n').map((bloco: string) => {
       const linhas = bloco.split('\n');
@@ -614,7 +607,6 @@ export default function App() {
       `;
     }).join('');
 
-    // Blocos de assinatura: se já existe imagem desenhada, usa ela. Senão, deixa em branco pra assinar à mão.
     const imgAssinaturaCliente = contrato.assinaturaClienteUrl
       ? `<img src="${contrato.assinaturaClienteUrl}" style="height:55px; object-fit:contain; display:block; margin:0 auto;" />`
       : `<div style="height:55px;"></div>`;
@@ -647,7 +639,7 @@ export default function App() {
             ${cli?.endereco ? `<p style="margin: 4px 0 0 0; color: #64748b;"><strong>Endereço:</strong> ${cli.endereco}</p>` : ''}
             <div style="border-top: 1px dashed #cbd5e1; margin: 8px 0;"></div>
             <p style="margin: 0;"><strong>CONTRATADO (EMPRESA):</strong> ${nomeEmpresaExibir} — <strong>CPF/CNPJ:</strong> ${cpfCnpjEmpresaExibir}</p>
-            ${enderecoPerfil ? `<p style="margin: 4px 0 0 0; color: #64748b;"><strong>Endereço:</strong> ${enderecoPerfil}</p>` : ''}
+            ${empresaDoContratoAssinar?.endereco || enderecoPerfil ? `<p style="margin: 4px 0 0 0; color: #64748b;"><strong>Endereço:</strong> ${empresaDoContratoAssinar?.endereco || enderecoPerfil}</p>` : ''}
           </div>
         </div>
 
@@ -658,7 +650,7 @@ export default function App() {
             <p style="margin: 0;"><strong>Serviço / Evento:</strong> ${contrato.tipoEvento || 'Não informado'}</p>
             <p style="margin: 4px 0 0 0;"><strong>Data do Evento:</strong> ${dataEventoFormatada} — <strong>Local:</strong> ${contrato.localEvento || 'Não informado'}</p>
             <p style="margin: 6px 0 0 0; font-size: 13px; color: ${themeColors.primary}; font-weight: 900;">Valor Total Combinado: R$ ${Number(contrato.valorTotal || 0).toFixed(2)}</p>
-            ${dadosBancariosPerfil ? `<p style="margin: 6px 0 0 0; font-size: 10px; color: #64748b; background-color: #ffffff; padding: 6px 8px; border-radius: 6px; border: 1px solid #e2e8f0;"><strong>Dados para Pagamento:</strong> ${dadosBancariosPerfil}</p>` : ''}
+            ${empresaDoContratoAssinar?.dadosBancarios || dadosBancariosPerfil ? `<p style="margin: 6px 0 0 0; font-size: 10px; color: #64748b; background-color: #ffffff; padding: 6px 8px; border-radius: 6px; border: 1px solid #e2e8f0;"><strong>Dados para Pagamento:</strong> ${empresaDoContratoAssinar?.dadosBancarios || dadosBancariosPerfil}</p>` : ''}
           </div>
         </div>
 
@@ -669,7 +661,7 @@ export default function App() {
           ${clausulasFormatadas}
         </div>
 
-        <!-- ASSINATURAS (com imagem desenhada, se já assinado digitalmente) -->
+        <!-- ASSINATURAS -->
         <div style="display: flex; justify-content: space-between; gap: 40px; margin-top: 60px; padding-top: 20px; page-break-inside: avoid; break-inside: avoid;">
           <div style="flex: 1; text-align: center;">
             ${imgAssinaturaCliente}
@@ -706,7 +698,7 @@ export default function App() {
     const fone = cli?.zap ? cli.zap.replace(/\D/g, '') : '';
     const linkAssinatura = contrato.id ? gerarLinkAssinaturaContrato(contrato.id) : '';
     const jaAssinado = !!contrato.assinaturaClienteUrl;
-    const msg = `*CONTRATO DE PRESTAÇÃO DE SERVIÇOS*%0A---%0A*Cliente:* ${cli?.nome || 'Cliente'}%0A*Evento:* ${contrato.tipoEvento || 'Serviço'}%0A*Data:* ${contrato.dataEvento || 'A combinar'}%0A*Valor Total:* R$ ${Number(contrato.valorTotal || 0).toFixed(2)}%0A---%0AOlá! Segue o resumo do nosso contrato. Acabo de baixar o PDF formal em anexo para você! 🙌🏼${(!jaAssinado && linkAssinatura) ? `%0A%0A✍️ Para assinar digitalmente, acesse:%0A${encodeURIComponent(linkAssinatura)}` : ''}`;
+    const msg = `*CONTRATO DE PRESTAÇÃO DE SERVIÇOS*%0A---%0A*Cliente:* ${cli?.nome || 'Cliente'}%0A*Evento:* ${contrato.tipoEvento || 'Serviço'}%0A*Data:* ${contrato.dataEvento || 'A combinar'}%0A*Valor Total:* R$ ${Number(contrato.valorTotal || 0).toFixed(2)}%0A---%0AOlá! Segue o resumo do nosso contrato. Acabo de baixar o PDF formal em anexo para você! 🙌🏼${(!jaAssinado && linkAssinatura) ? `%0A%0A✍️ Para ler as cláusulas e assinar digitalmente, acesse:%0A${encodeURIComponent(linkAssinatura)}` : ''}`;
     window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
   };
 
@@ -863,7 +855,6 @@ export default function App() {
     }
   };
 
-  // --- EXCLUSÃO DE CONTRATOS COM DUPLA BUSCA (POR ID E FALLBACK POR CONTEÚDO PARA ANTESTES) ---
   const excluirContratoInteligente = async (contratoItem: any) => {
     if (!window.confirm("Deseja realmente excluir este contrato?")) return;
 
@@ -874,7 +865,6 @@ export default function App() {
         return;
       }
 
-      // Se for um item antigo gravado sem id na lista local
       const q = query(
         collection(db, "contratos"), 
         where("userId", "==", user.uid),
@@ -895,7 +885,6 @@ export default function App() {
     }
   };
 
-  // --- APAGAR TODOS OS CONTRATOS DE TESTE DE UMA SÓ VEZ ---
   const zerarTodosContratos = async () => {
     if (window.confirm("Tem certeza que deseja APAGAR TODOS OS CONTRATOS salvos para zerar os testes?")) {
       try {
@@ -1274,153 +1263,6 @@ export default function App() {
     setPrecoFinalDigitado(resumenFinanceiro.final);
   }, [resumenFinanceiro.final]);
 
-  const enviarZap = (p: any) => {
-    const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
-    const dataP = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combinar';
-    const msg = `*RESUMO ORÇAMENTO*%0A---%0A*Cliente:* ${cli?.nome || 'Cliente'}%0A*Produto:* %0A${p.nomeProd}%0A*Qtd:* ${p.qtdPed || 1} un%0A*Prazo:* ${dataP}%0A*VALOR TOTAL:* R$ ${p.preco}%0A---%0AObrigado!`;
-    const fone = cli?.zap ? cli.zap.replace(/\D/g, '') : '';
-    window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
-  };
-
-  const gerarPDF = (p: any) => {
-    const idDoCliente = p.clienteId || p.clienteSel || '';
-    const cli = clientes.find(c => c.id === idDoCliente);
-    
-    const dataEmissao = p.data || new Date().toLocaleDateString('pt-BR');
-    const hoje = new Date(); hoje.setDate(hoje.getDate() + 7);
-    const dataValidade = hoje.toLocaleDateString('pt-BR');
-    const dataPrazo = p.prazo ? new Date(p.prazo + 'T00:00:00').toLocaleDateString('pt-BR') : 'A combinar';
-    const totalNum = Number(p.preco || 0);
-
-    let htmlLinhasTabela = '';
-
-    if (p.itensCombo && Array.isArray(p.itensCombo) && p.itensCombo.length > 0) {
-      htmlLinhasTabela = p.itensCombo.map((item: any) => {
-        const qtd = Number(item.qtd || 1);
-        const precoVenda = Number(item.precoVenda || 0);
-        const subtotal = qtd * precoVenda;
-        
-        return `
-          <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px; page-break-inside: avoid; break-inside: avoid;">
-            <td style="padding: 15px 5px; font-weight: bold; color: #1e293b; text-align: left;">${item.nome}</td>
-            <td style="padding: 15px 5px; text-align: center; color: #475569;">${qtd}</td>
-            <td style="padding: 15px 5px; text-align: right; color: #475569;">R$ ${precoVenda.toFixed(2)}</td>
-            <td style="padding: 15px 5px; text-align: right; font-weight: bold; color: #1e293b;">R$ ${subtotal.toFixed(2)}</td>
-          </tr>
-        `;
-      }).join('');
-    } 
-    else {
-      const textoProduto = String(p.nomeProd || 'Produto Não Informado');
-      const quantidadeItem = Number(p.qtdPed || 1);
-      const unitario = p.precoManual ? Number(p.precoManual) : (totalNum / quantidadeItem);
-
-      let htmlDetalhamentoKit = '';
-      if (p.detalhamentoPed && p.detalhamentoPed.trim()) {
-        const listaItens = p.detalhamentoPed.split('\n').filter((l: string) => l.trim() !== '');
-        const lisHtml = listaItens.map((i: string) => `<li style="margin-bottom: 3px;">${i.replace(/^[\s•*-]+/, '')}</li>`).join('');
-        
-        htmlDetalhamentoKit = `
-          <div style="margin-top: 8px; padding: 10px 12px; background-color: #fcfaff; border-left: 3px solid ${themeColors.primary}; border-radius: 6px;">
-            <div style="font-size: 11px; font-weight: bold; color: ${themeColors.primary}; margin-bottom: 4px; text-transform: uppercase; tracking-wide: 0.5px;">Composição / Itens Incluso no Kit:</div>
-            <ul style="margin: 0; padding-left: 18px; font-size: 12px; color: #475569; line-height: 1.4;">
-              ${lisHtml}
-            </ul>
-          </div>
-        `;
-      }
-
-      htmlLinhasTabela = `
-        <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px; page-break-inside: avoid; break-inside: avoid;">
-          <td style="padding: 15px 5px; font-weight: bold; color: #1e293b; text-align: left; vertical-align: top;">
-            <div style="font-size: 15px; font-weight: 800; color: #1e293b;">${textoProduto}</div>
-            ${htmlDetalhamentoKit}
-          </td>
-          <td style="padding: 15px 5px; text-align: center; color: #475569; vertical-align: top;">${quantidadeItem}</td>
-          <td style="padding: 15px 5px; text-align: right; color: #475569; vertical-align: top;">R$ ${unitario.toFixed(2)}</td>
-          <td style="padding: 15px 5px; text-align: right; font-weight: bold; color: #1e293b; vertical-align: top;">R$ ${totalNum.toFixed(2)}</td>
-        </tr>
-      `;
-    }
-
-    const cabecalhoNomeHtml = nomeLojaPerfil ? nomeLojaPerfil : "PrecificaJá";
-    const cabecalhoLogoHtml = logoLojaPerfil ? `<img src="${logoLojaPerfil}" style="max-height: 70px; max-width: 160px; object-fit: contain; display: block;"/>` : '';
-
-    const elemento = document.createElement('div');
-    elemento.innerHTML = `
-      <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto;">
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px; gap: 20px;">
-          <div style="flex-shrink: 0; display: flex; align-items: center;">
-            ${cabecalhoLogoHtml}
-          </div>
-          <div style="text-align: right; flex-grow: 1;">
-            <h1 style="color: ${themeColors.primary}; margin: 0; font-size: 24px; font-weight: 900; line-height: 1.1;">${cabecalhoNomeHtml}</h1>
-            <p style="color: #94a3b8; font-size: 11px; text-transform: uppercase; margin: 4px 0 0 0; font-weight: bold;">Documento de Orçamento Comercial</p>
-            <div style="display: inline-block; margin-top: 6px; background-color: #f8fafc; padding: 4px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
-              <span style="font-size: 11px; font-weight: bold; color: #475569;">ORÇAMENTO REF: ORC-${Math.floor(1000 + Math.random() * 9000)}</span>
-            </div>
-          </div>
-        </div>
-
-        <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Dados do Cliente</div>
-        <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 25px; border: 1px solid #f1f5f9;">
-          <p style="margin: 0; font-size: 14px;"><strong>Cliente:</strong> ${cli?.nome || 'Cliente não informado'}</p>
-          <p style="margin: 6px 0 0 0; font-size: 13px; color: #64748b;"><strong>WhatsApp:</strong> ${cli?.zap || 'Não informado'}</p>
-        </div>
-
-        <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Informações Básicas e Prazos</div>
-        <div style="display: flex; justify-content: space-between; background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 25px; border: 1px solid #f1f5f9; font-size: 13px;">
-          <div><strong>Data de Emissão:</strong><div style="margin-top: 4px; color: #64748b; font-weight: bold;">${dataEmissao}</div></div>
-          <div><strong>Validade do Orçamento:</strong><div style="margin-top: 4px; color: #ef4444; font-weight: bold;">${dataValidade} (7 dias)</div></div>
-          <div><strong>Prazo de Entrega:</strong><div style="margin-top: 4px; color: ${themeColors.primary}; font-weight: bold;">${dataPrazo}</div></div>
-        </div>
-
-        <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Produtos / Serviços Selecionados</div>
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
-          <thead>
-            <tr style="border-bottom: 2px solid #e2e8f0; text-align: left; font-size: 11px; text-transform: uppercase; color: #94a3b8;">
-              <th style="padding: 10px 5px; text-align: left;">Descrição do Item</th>
-              <th style="padding: 10px 5px; text-align: center;">Qtd</th>
-              <th style="padding: 10px 5px; text-align: right;">Preço Unit.</th>
-              <th style="padding: 10px 5px; text-align: right;">Subtotal</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${htmlLinhasTabela}
-          </tbody>
-        </table>
-
-        <div style="display: flex; flex-direction: column; align-items: flex-end; margin-bottom: 35px; padding-right: 5px; page-break-inside: avoid; break-inside: avoid;">
-          <div style="font-size: 13px; color: #64748b; margin-bottom: 5px;">Subtotal Geral: <strong>R$ ${totalNum.toFixed(2)}</strong></div>
-          <div style="background-color: ${themeColors.primary}; color: white; padding: 12px 25px; border-radius: 12px; font-size: 18px; font-weight: 900; text-align: right; min-width: 180px;">
-            <span style="font-size: 10px; font-weight: bold; text-transform: uppercase; display: block; opacity: 0.8; margin-bottom: 2px;">Total do Pedido</span>
-            R$ ${totalNum.toFixed(2)}
-          </div>
-        </div>
-
-        <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px; page-break-inside: avoid; break-inside: avoid;">Formas de Pagamento Aceitas</div>
-        <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; border: 1px solid #f1f5f9; font-size: 13px; display: flex; justify-content: space-between; margin-bottom: 15px; page-break-inside: avoid; break-inside: avoid;">
-          <div><strong>Meios disponíveis:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">PIX / CARTÃO DE CRÉDITO</div></div>
-          <div><strong>Condições comerciais:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">A combinar direto no WhatsApp da Loja</div></div>
-        </div>
-
-        ${p.obsPedido ? `
-        <div style="background-color: #f3e8ff; border: 1px solid #e9d5ff; padding: 15px; border-radius: 16px; font-size: 13px; color: #6b21a8; margin-bottom: 15px; page-break-inside: avoid; break-inside: avoid;">
-          <strong style="text-transform: uppercase; font-size: 10px; display: block; color: #a855f7; margin-bottom: 4px;">Observações Importantes:</strong>
-          ${p.obsPedido.replace(/\n/g, '<br>')}
-        </div>
-        ` : ''}
-
-        <div style="text-align: center; font-size: 11px; color: #94a3b8; margin-top: 40px; border-top: 1px dashed #e2e8f0; padding-top: 15px; page-break-inside: avoid; break-inside: avoid;">
-          Obrigado pela preferência! Caso tenha dúvidas, entre em contato pelo nosso WhatsApp.
-        </div>
-      </div>
-    `;
-    
-    const opcoes = { margin: [10, 10, 10, 10], filename: `Pedido_${p.id || 'Venda'}.pdf`, html2canvas: { scale: 2, useCORS: true, scrollY: 0 }, jsPDF: { format: 'a4', orientation: 'portrait' }, pagebreak: { mode: ['avoid-all', 'css'] } };
-    (window as any).html2pdf().from(elemento).set(opcoes).save();
-  };
-
   const handleAuth = async () => {
     try {
       if (isRegistering) await createUserWithEmailAndPassword(auth, email, password);
@@ -1430,7 +1272,7 @@ export default function App() {
 
   if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando o PrecificaJá... 🚀</div>;
 
-  // --- NOVO: TELA PÚBLICA DE ASSINATURA DO CLIENTE (?assinar=ID) ---
+  // --- TELA PÚBLICA DE LEITURA E ASSINATURA DO CLIENTE (?assinar=ID) ---
   if (idContratoParaAssinar) {
     if (carregandoAssinatura) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando contrato... ✍️</div>;
 
@@ -1443,29 +1285,58 @@ export default function App() {
     }
 
     const jaAssinadoAntes = !!contratoParaAssinar.assinaturaClienteUrl;
+    const nomeEmpresaExibir = empresaDoContratoAssinar?.nomeFantasia || empresaDoContratoAssinar?.nomeLoja || 'Empresa Contratada';
 
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="bg-white p-6 rounded-[35px] shadow-xl w-full max-w-md border border-slate-100">
-          <h1 style={{ color: themeColors.primary }} className="text-xl font-black text-center mb-1">Assinatura do Contrato ✍️</h1>
-          <p className="text-slate-400 text-[11px] text-center mb-5 uppercase font-bold tracking-widest">PrecificaJá</p>
+      <div className="min-h-screen bg-slate-50 p-4 font-sans max-w-xl mx-auto space-y-4 pb-20">
+        <header className="bg-white p-5 rounded-[30px] border shadow-sm text-center">
+          <h1 style={{ color: themeColors.primary }} className="text-xl font-black">CONTRATO DE PRESTAÇÃO DE SERVIÇOS 📄</h1>
+          <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mt-0.5">Leia os termos e assine abaixo</p>
+        </header>
 
-          <div className="bg-slate-50 rounded-2xl p-4 mb-5 text-xs space-y-1.5 border">
-            <p><strong>Cliente:</strong> {clienteDoContratoAssinar?.nome || 'Não informado'}</p>
-            <p><strong>Serviço/Evento:</strong> {contratoParaAssinar.tipoEvento || 'Não informado'}</p>
-            <p><strong>Data:</strong> {contratoParaAssinar.dataEvento || 'A combinar'}</p>
-            <p><strong>Valor Total:</strong> R$ {Number(contratoParaAssinar.valorTotal || 0).toFixed(2)}</p>
+        {/* EXIBIÇÃO COMPLETA DO CONTRATO PARA O CLIENTE LER */}
+        <div className="bg-white p-6 rounded-[30px] border shadow-sm space-y-4 text-xs text-slate-700 leading-relaxed">
+          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-2">
+            <h3 style={{ color: themeColors.primary }} className="font-bold uppercase text-[10px]">1. Identificação das Partes</h3>
+            <p><strong>CONTRATANTE:</strong> {clienteDoContratoAssinar?.nome || 'Cliente'} — <strong>CPF/CNPJ:</strong> {clienteDoContratoAssinar?.cpfCnpj || 'Não informado'}</p>
+            <p><strong>CONTRATADO:</strong> {nomeEmpresaExibir} — <strong>CPF/CNPJ:</strong> {empresaDoContratoAssinar?.cpfCnpj || 'Não informado'}</p>
           </div>
 
+          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-2">
+            <h3 style={{ color: themeColors.primary }} className="font-bold uppercase text-[10px]">2. Resumo do Evento e Valores</h3>
+            <p><strong>Serviço / Evento:</strong> {contratoParaAssinar.tipoEvento || 'Não informado'}</p>
+            <p><strong>Data:</strong> {contratoParaAssinar.dataEvento || 'A combinar'} — <strong>Local:</strong> {contratoParaAssinar.localEvento || 'Não informado'}</p>
+            <p className="text-sm font-black text-purple-700">Valor Total: R$ {Number(contratoParaAssinar.valorTotal || 0).toFixed(2)}</p>
+          </div>
+
+          <div className="space-y-3 pt-2">
+            <h3 style={{ color: themeColors.primary }} className="font-bold uppercase text-[10px]">3. Cláusulas e Termos</h3>
+            {(contratoParaAssinar.clausulas || '').split('\n\n').map((bloco: string, idx: number) => {
+              const linhas = bloco.split('\n');
+              const titulo = linhas[0] || '';
+              const corpo = linhas.slice(1).join('\n') || '';
+              return (
+                <div key={idx} className="bg-purple-50/40 p-3.5 rounded-2xl border border-purple-100/60">
+                  <p className="font-bold uppercase text-[10px] text-purple-900 mb-1">{titulo}</p>
+                  <p className="text-slate-600 whitespace-pre-line text-[11px]">{corpo || titulo}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* QUADRO DE ASSINATURA */}
+        <div className="bg-white p-5 rounded-[30px] border shadow-sm space-y-3">
           {(assinaturaEnviada || jaAssinadoAntes) ? (
             <div className="text-center py-6">
               <CheckCircle size={48} className="mx-auto text-emerald-500 mb-3" />
-              <p className="font-bold text-slate-700 text-sm">Assinatura registrada com sucesso!</p>
-              <p className="text-slate-400 text-xs mt-1">Pode fechar esta página. 🙌</p>
+              <p className="font-bold text-slate-800 text-sm">Contrato Assinado com Sucesso!</p>
+              <p className="text-slate-400 text-xs mt-1">Sua assinatura foi salva e o documento já está atualizado. 🙌🏼</p>
             </div>
           ) : (
             <>
-              <p className="text-[11px] text-slate-500 mb-2 font-semibold">Confirme lendo o contrato com quem te enviou e assine abaixo:</p>
+              <h3 style={{ color: themeColors.primary }} className="font-black uppercase text-xs tracking-wider">✍️ Sua Assinatura Digital</h3>
+              <p className="text-[11px] text-slate-400">Desenhe sua rubrica no quadro abaixo com o dedo para validar este contrato:</p>
               <SignaturePad onSave={salvarAssinaturaCliente} />
             </>
           )}
@@ -2031,15 +1902,15 @@ export default function App() {
                 )}
               </div>
 
-              {/* --- NOVO: ASSINATURA DA EMPRESA --- */}
+              {/* ASSINATURA DA EMPRESA */}
               <div className="mb-5 w-full">
-                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">✍️ Assinatura da Empresa</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">✍️ Assinatura Oficial da Empresa</label>
                 <p className="text-slate-400 text-[10px] mb-2">Desenhe uma vez e ela entra automática em todos os seus contratos.</p>
                 {assinaturaLojaUrl && !mostrarPadAssinaturaLoja ? (
                   <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col items-center gap-3">
                     <img src={assinaturaLojaUrl} alt="Assinatura salva" className="h-16 object-contain" />
                     <button onClick={() => setMostrarPadAssinaturaLoja(true)} style={{ color: themeColors.primary }} className="text-[11px] font-bold underline">
-                      Refazer assinatura
+                      Refazer minha assinatura
                     </button>
                   </div>
                 ) : (
@@ -2210,7 +2081,7 @@ export default function App() {
                 } catch {
                   alert("Erro ao salvar as configurações da empresa.");
                 }
-              }} className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md" disabled={subindoLogo}>
+              }} className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md transition-all" disabled={subindoLogo}>
                 Salvar Configurações da Marca
               </button>
             </div>
@@ -2291,16 +2162,17 @@ export default function App() {
                 };
 
                 try {
+                  let docIdSalvo = novoContrato.id;
                   if (novoContrato.id) {
                     await updateDoc(doc(db, "contratos", novoContrato.id), dadosContrato);
                     alert("Contrato atualizado com sucesso!");
-                    gerarPDFContrato({ id: novoContrato.id, ...dadosContrato });
                   } else {
-                    const refCriado = await addDoc(collection(db, "contratos"), dadosContrato);
+                    const refDoc = await addDoc(collection(db, "contratos"), dadosContrato);
+                    docIdSalvo = refDoc.id;
                     alert("Contrato gerado com sucesso!");
-                    gerarPDFContrato({ id: refCriado.id, ...dadosContrato });
                   }
 
+                  gerarPDFContrato({ id: docIdSalvo, ...dadosContrato });
                   setNovoContrato({ id: '', clienteId: '', tipoEvento: '', dataEvento: '', localEvento: '', valorTotal: '', clausulas: novoContrato.clausulas });
                 } catch {
                   alert("Erro ao salvar o contrato.");
@@ -2336,11 +2208,13 @@ export default function App() {
                       <button onClick={() => setNovoContrato({ id: c.id || '', clienteId: c.clienteId, tipoEvento: c.tipoEvento || '', dataEvento: c.dataEvento || '', localEvento: c.localEvento || '', valorTotal: c.valorTotal || '', clausulas: c.clausulas || novoContrato.clausulas })} style={{ color: themeColors.primary }} className="p-2 bg-purple-50 rounded-xl"><Edit2 size={16}/></button>
                       
                       <button onClick={() => setNovoContrato({ id: '', clienteId: c.clienteId, tipoEvento: `${c.tipoEvento} (Cópia)`, dataEvento: c.dataEvento || '', localEvento: c.localEvento || '', valorTotal: c.valorTotal || '', clausulas: c.clausulas || novoContrato.clausulas })} title="Duplicar Contrato" className="p-2 bg-blue-50 text-blue-600 rounded-xl"><Copy size={16}/></button>
-                      
-                      {c.id && !c.assinaturaClienteUrl && (
-                        <button onClick={() => copiarLinkAssinatura(c.id)} title="Copiar link de assinatura" className="p-2 bg-amber-50 text-amber-600 rounded-xl">✍️</button>
-                      )}
 
+                      {c.id && !c.assinaturaClienteUrl && (
+                        <button onClick={() => copiarLinkAssinatura(c.id)} title="Copiar link de assinatura" className="p-2 bg-amber-50 text-amber-600 rounded-xl font-bold text-xs flex items-center gap-1">
+                          ✍️ Copiar Link
+                        </button>
+                      )}
+                      
                       <button onClick={() => gerarPDFContrato(c)} style={{ color: themeColors.secondary }} className="p-2 bg-orange-50 rounded-xl"><Printer size={16}/></button>
                       
                       <button onClick={() => enviarContratoWhatsapp(c)} className="p-2 bg-emerald-50 text-emerald-600 rounded-xl"><MessageCircle size={16}/></button>
