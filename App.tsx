@@ -97,7 +97,7 @@ const SignaturePad = ({ onSave, corTraco = '#1e293b' }: { onSave: (dataUrl: stri
     const ctx = canvas.getContext('2d');
     if (ctx) ctx.scale(ratio, ratio);
 
-    redesenharTudo(); // recupera tudo que já foi desenhado, mesmo se resize aconteceu no meio do traço
+    redesenharTudo();
   };
 
   useEffect(() => {
@@ -198,7 +198,6 @@ const Login = ({ isRegistering, setIsRegistering, email, setEmail, password, set
   );
 };
 
-
 export default function App() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -227,7 +226,7 @@ export default function App() {
   
   const [subAbaFinanceiro, setSubAbaFinanceiro] = useState<'geral' | 'impressao' | 'equipamentos' | 'historico'>('geral');
 
-  const [mesFiltroHistorico, setMesFiltroHistorico] = useState<string>(String(new Date().getMonth() + 1));
+const [mesFiltroHistorico, setMesFiltroHistorico] = useState<string>(String(new Date().getMonth() + 1));
   const [anoFiltroHistorico, setAnoFiltroHistorico] = useState<string>(String(new Date().getFullYear()));
   const [mesExpandido, setMesExpandido] = useState<string | null>(null);
 
@@ -254,6 +253,7 @@ export default function App() {
   const [isDuplicando, setIsDuplicando] = useState(false);
 
   const [diaSelecionadoAgenda, setDiaSelecionadoAgenda] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [visaoAnotacoes, setVisaoAnotacoes] = useState<'agenda' | 'kanban'>('agenda');
 
   const [modoCalculo, setModoCalculo] = useState<'peca' | 'lote'>('peca');
 
@@ -341,6 +341,16 @@ export default function App() {
     setIsMenuOpen(false);
   };
 
+  const colunasKanban = [
+    { id: 'a_fazer', nome: 'A Fazer', emoji: '📋', cor: '#94a3b8' },
+    { id: 'fazendo', nome: 'Fazendo', emoji: '🔧', cor: themeColors.secondary },
+    { id: 'feito', nome: 'Feito', emoji: '✅', cor: '#10b981' },
+  ];
+
+  const moverStatusKanban = async (id: string, novoStatus: string) => {
+    await updateDoc(doc(db, "anotacoes", id), { statusKanban: novoStatus });
+  };
+
   const custoPorPaginaCalculado = useMemo(() => {
     const preco = Number(precoTinta) || 0;
     const cores = Number(qtdCores) || 0;
@@ -352,66 +362,64 @@ export default function App() {
     return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   };
 
-const comprimirImagem = (file: File, maxLargura = 300): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const escala = Math.min(1, maxLargura / img.width);
-        canvas.width = img.width * escala;
-        canvas.height = img.height * escala;
-        const ctx = canvas.getContext('2d');
-        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL('image/png', 0.8));
+  const comprimirImagem = (file: File, maxLargura = 300): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const escala = Math.min(1, maxLargura / img.width);
+          canvas.width = img.width * escala;
+          canvas.height = img.height * escala;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL('image/png', 0.8));
+        };
+        img.onerror = reject;
+        img.src = e.target?.result as string;
       };
-      img.onerror = reject;
-      img.src = e.target?.result as string;
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-};
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
 
-  
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const lojaId = params.get('loja');
     const contratoId = params.get('assinar');
 
     if (contratoId) {
-  setIdContratoParaAssinar(contratoId);
-  setCarregandoAssinatura(true);
-  setLoading(false);
-  getDoc(doc(db, "contratos", contratoId)).then(async (docSnap) => {
-    if (docSnap.exists()) {
-      const dadosContrato = { id: docSnap.id, ...docSnap.data() } as any;
-      setContratoParaAssinar(dadosContrato);
-      if (dadosContrato.clienteId) {
-        const cliSnap = await getDoc(doc(db, "clientes", dadosContrato.clienteId));
-        if (cliSnap.exists()) setClienteDoContratoAssinar({ id: cliSnap.id, ...cliSnap.data() });
-      }
-      // NOVO: carrega os dados da loja pra montar o PDF completo, com sua assinatura e logo
-      if (dadosContrato.userId) {
-        const lojaSnap = await getDoc(doc(db, "configuracoes_loja", dadosContrato.userId));
-        if (lojaSnap.exists()) {
-          const dl = lojaSnap.data() as any;
-          setNomeLojaPerfil(dl.nomeLoja || '');
-          setNomeFantasiaPerfil(dl.nomeFantasia || '');
-          setCpfCnpjPerfil(dl.cpfCnpj || '');
-          setEnderecoPerfil(dl.endereco || '');
-          setDadosBancariosPerfil(dl.dadosBancarios || '');
-          setLogoLojaPerfil(dl.logoUrl || '');
-          setAssinaturaLojaUrl(dl.assinaturaUrl || '');
-          if (dl.themeColors) setThemeColors(dl.themeColors);
+      setIdContratoParaAssinar(contratoId);
+      setCarregandoAssinatura(true);
+      setLoading(false);
+      getDoc(doc(db, "contratos", contratoId)).then(async (docSnap) => {
+        if (docSnap.exists()) {
+          const dadosContrato = { id: docSnap.id, ...docSnap.data() } as any;
+          setContratoParaAssinar(dadosContrato);
+          if (dadosContrato.clienteId) {
+            const cliSnap = await getDoc(doc(db, "clientes", dadosContrato.clienteId));
+            if (cliSnap.exists()) setClienteDoContratoAssinar({ id: cliSnap.id, ...cliSnap.data() });
+          }
+          if (dadosContrato.userId) {
+            const lojaSnap = await getDoc(doc(db, "configuracoes_loja", dadosContrato.userId));
+            if (lojaSnap.exists()) {
+              const dl = lojaSnap.data() as any;
+              setNomeLojaPerfil(dl.nomeLoja || '');
+              setNomeFantasiaPerfil(dl.nomeFantasia || '');
+              setCpfCnpjPerfil(dl.cpfCnpj || '');
+              setEnderecoPerfil(dl.endereco || '');
+              setDadosBancariosPerfil(dl.dadosBancarios || '');
+              setLogoLojaPerfil(dl.logoUrl || '');
+              setAssinaturaLojaUrl(dl.assinaturaUrl || '');
+              if (dl.themeColors) setThemeColors(dl.themeColors);
+            }
+          }
         }
-      }
+        setCarregandoAssinatura(false);
+      }).catch(() => setCarregandoAssinatura(false));
+      return;
     }
-    setCarregandoAssinatura(false);
-  }).catch(() => setCarregandoAssinatura(false));
-  return;
-}
 
     if (lojaId) {
       setIdLojaPublica(lojaId);
@@ -572,7 +580,7 @@ const comprimirImagem = (file: File, maxLargura = 300): Promise<string> => {
     }
   }, [user, idLojaPublica]);
 
-  const linkDoCatalogoDestaCliente = useMemo(() => {
+const linkDoCatalogoDestaCliente = useMemo(() => {
     if (!user) return '';
     return `${window.location.origin}${window.location.pathname}?loja=${user.uid}`;
   }, [user]);
@@ -594,36 +602,32 @@ const comprimirImagem = (file: File, maxLargura = 300): Promise<string> => {
 
   // --- NOVO: salva a assinatura desenhada da EMPRESA (perfil) ---
   const salvarAssinaturaLoja = async (dataUrl: string) => {
-  if (!user) return;
-  try {
-    setAssinaturaLojaUrl(dataUrl);
-    await setDoc(doc(db, "configuracoes_loja", user.uid), { assinaturaUrl: dataUrl }, { merge: true });
-    setMostrarPadAssinaturaLoja(false);
-    alert("Assinatura salva! Ela vai aparecer automaticamente nos seus contratos. ✍️");
-  } catch {
-    alert("Erro ao salvar assinatura.");
-  }
-};
-
+    if (!user) return;
+    try {
+      setAssinaturaLojaUrl(dataUrl);
+      await setDoc(doc(db, "configuracoes_loja", user.uid), { assinaturaUrl: dataUrl }, { merge: true });
+      setMostrarPadAssinaturaLoja(false);
+      alert("Assinatura salva! Ela vai aparecer automaticamente nos seus contratos. ✍️");
+    } catch {
+      alert("Erro ao salvar assinatura.");
+    }
+  };
 
   // --- NOVO: salva a assinatura desenhada do CLIENTE (tela pública ?assinar=) ---
   const salvarAssinaturaCliente = async (dataUrl: string) => {
-  if (!idContratoParaAssinar) return;
-  try {
-    const assinadoEm = new Date().toISOString();
-    await updateDoc(doc(db, "contratos", idContratoParaAssinar), {
-      assinaturaClienteUrl: dataUrl,
-      assinadoEm
-    });
-    // NOVO: atualiza o estado local também, senão o PDF gerado na hora sai sem a assinatura
-    setContratoParaAssinar((prev: any) => ({ ...prev, assinaturaClienteUrl: dataUrl, assinadoEm }));
-    setAssinaturaEnviada(true);
-  } catch {
-    alert("Erro ao salvar sua assinatura. Tente novamente.");
-  }
-};
-
-
+    if (!idContratoParaAssinar) return;
+    try {
+      const assinadoEm = new Date().toISOString();
+      await updateDoc(doc(db, "contratos", idContratoParaAssinar), {
+        assinaturaClienteUrl: dataUrl,
+        assinadoEm
+      });
+      setContratoParaAssinar((prev: any) => ({ ...prev, assinaturaClienteUrl: dataUrl, assinadoEm }));
+      setAssinaturaEnviada(true);
+    } catch {
+      alert("Erro ao salvar sua assinatura. Tente novamente.");
+    }
+  };
 
   const proximosSeteDias = useMemo(() => {
     const dias = [];
@@ -1054,20 +1058,19 @@ const comprimirImagem = (file: File, maxLargura = 300): Promise<string> => {
   };
 
   const handleUploadLogo = async (e: React.ChangeEvent<HTMLInputElement>) => {
-  const file = e.target.files?.[0];
-  if (!file || !user) return;
-  setSubindoLogo(true);
-  try {
-    const dataUrl = await comprimirImagem(file, 300);
-    setLogoLojaPerfil(dataUrl);
-    alert("Logo carregado com sucesso! Salve o perfil para aplicar. 📸");
-  } catch (error) {
-    alert("Erro ao subir o logo!");
-  } finally {
-    setSubindoLogo(false);
-  }
-};
-
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    setSubindoLogo(true);
+    try {
+      const dataUrl = await comprimirImagem(file, 300);
+      setLogoLojaPerfil(dataUrl);
+      alert("Logo carregado com sucesso! Salve o perfil para aplicar. 📸");
+    } catch (error) {
+      alert("Erro ao subir o logo!");
+    } finally {
+      setSubindoLogo(false);
+    }
+  };
 
   const limparCalculadora = () => {
     setNomeProd(''); setDetalhamentoPed(''); setQtdPed('1'); setMatsNoPed([]); setVHora('9'); setTGasto('60');
@@ -1427,7 +1430,7 @@ const comprimirImagem = (file: File, maxLargura = 300): Promise<string> => {
           </div>
         </div>
 
-             <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Dados do Emissor</div>
+        <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Dados do Emissor</div>
         <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 25px; border: 1px solid #f1f5f9;">
           <p style="margin: 0; font-size: 14px;"><strong>${cabecalhoNomeHtml}</strong>${cpfCnpjPerfil ? ` — CPF/CNPJ: ${cpfCnpjPerfil}` : ''}</p>
           ${enderecoPerfil ? `<p style="margin: 6px 0 0 0; font-size: 13px; color: #64748b;"><strong>Endereço:</strong> ${enderecoPerfil}${cidadePerfil ? `, ${cidadePerfil}` : ''}${estadoPerfil ? `/${estadoPerfil}` : ''}</p>` : ''}
@@ -1439,7 +1442,6 @@ const comprimirImagem = (file: File, maxLargura = 300): Promise<string> => {
           <p style="margin: 0; font-size: 14px;"><strong>Cliente:</strong> ${cli?.nome || 'Cliente não informado'}</p>
           <p style="margin: 6px 0 0 0; font-size: 13px; color: #64748b;"><strong>WhatsApp:</strong> ${cli?.zap || 'Não informado'}</p>
         </div>
-
 
         <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Informações Básicas e Prazos</div>
         <div style="display: flex; justify-content: space-between; background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 25px; border: 1px solid #f1f5f9; font-size: 13px;">
@@ -1503,7 +1505,7 @@ const comprimirImagem = (file: File, maxLargura = 300): Promise<string> => {
 
   if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando o PrecificaJá... 🚀</div>;
 
-  // --- NOVO: TELA PÚBLICA DE ASSINATURA DO CLIENTE (?assinar=ID) ---
+// --- NOVO: TELA PÚBLICA DE ASSINATURA DO CLIENTE (?assinar=ID) ---
   if (idContratoParaAssinar) {
     if (carregandoAssinatura) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando contrato... ✍️</div>;
 
@@ -1530,56 +1532,53 @@ const comprimirImagem = (file: File, maxLargura = 300): Promise<string> => {
             <p><strong>Valor Total:</strong> R$ {Number(contratoParaAssinar.valorTotal || 0).toFixed(2)}</p>
           </div>
 
-{/* TEXTO COMPLETO DO CONTRATO PARA LEITURA */}
-<div className="mb-5">
-  <p style={{ color: themeColors.primary }} className="text-[11px] font-black uppercase tracking-wider mb-2">
-    📄 Leia o contrato antes de assinar
-  </p>
-  <div className="bg-white border border-slate-200 rounded-2xl p-4 max-h-64 overflow-y-auto text-xs text-slate-700 leading-relaxed space-y-3">
-    {(contratoParaAssinar.clausulas || '').split('\n\n').map((bloco: string, idx: number) => {
-      const linhas = bloco.split('\n');
-      const titulo = linhas[0] || '';
-      const corpo = linhas.slice(1).join('\n');
-      return (
-        <div key={idx}>
-          <p style={{ color: themeColors.primary }} className="font-bold uppercase text-[10px] mb-0.5">{titulo}</p>
-        {corpo && <p className="whitespace-pre-line">{corpo}</p>}
-        </div>
-      );
-    })}
-  </div>
-</div>
+          <div className="mb-5">
+            <p style={{ color: themeColors.primary }} className="text-[11px] font-black uppercase tracking-wider mb-2">
+              📄 Leia o contrato antes de assinar
+            </p>
+            <div className="bg-white border border-slate-200 rounded-2xl p-4 max-h-64 overflow-y-auto text-xs text-slate-700 leading-relaxed space-y-3">
+              {(contratoParaAssinar.clausulas || '').split('\n\n').map((bloco: string, idx: number) => {
+                const linhas = bloco.split('\n');
+                const titulo = linhas[0] || '';
+                const corpo = linhas.slice(1).join('\n');
+                return (
+                  <div key={idx}>
+                    <p style={{ color: themeColors.primary }} className="font-bold uppercase text-[10px] mb-0.5">{titulo}</p>
+                    {corpo && <p className="whitespace-pre-line">{corpo}</p>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
 
-{/* NOVO: botão pra baixar o PDF a qualquer momento, sem precisar pedir pra você */}
-<button
-  onClick={() => gerarPDFContrato(contratoParaAssinar)}
-  style={{ borderColor: themeColors.primary, color: themeColors.primary }}
-  className="w-full border-2 font-black text-xs uppercase py-3 rounded-2xl mb-5 flex items-center justify-center gap-2 active:scale-95 transition-all"
->
-  <Printer size={16}/> Baixar Contrato em PDF
-</button>
-          
-       {(assinaturaEnviada || jaAssinadoAntes) ? (
-  <div className="text-center py-6">
-    <CheckCircle size={48} className="mx-auto text-emerald-500 mb-3" />
-    <p className="font-bold text-slate-700 text-sm">Assinatura registrada com sucesso!</p>
-    <p className="text-slate-400 text-xs mt-1">Pode fechar esta página. 🙌</p>
+          <button
+            onClick={() => gerarPDFContrato(contratoParaAssinar)}
+            style={{ borderColor: themeColors.primary, color: themeColors.primary }}
+            className="w-full border-2 font-black text-xs uppercase py-3 rounded-2xl mb-5 flex items-center justify-center gap-2 active:scale-95 transition-all"
+          >
+            <Printer size={16}/> Baixar Contrato em PDF
+          </button>
 
-    {/* NOVO */}
-    <button
-      onClick={() => gerarPDFContrato(contratoParaAssinar)}
-      style={{ backgroundColor: themeColors.primary }}
-      className="w-full text-white font-black text-xs uppercase py-3.5 rounded-2xl mt-4 flex items-center justify-center gap-2 active:scale-95 transition-all"
-    >
-      <Printer size={16}/> Baixar Contrato Assinado em PDF
-    </button>
-  </div>
-) : (
-  <>
-    <p className="text-[11px] text-slate-500 mb-2 font-semibold">Confirme lendo o contrato com quem te enviou e assine abaixo:</p>
-    <SignaturePad onSave={salvarAssinaturaCliente} />
-  </>
-)}
+          {(assinaturaEnviada || jaAssinadoAntes) ? (
+            <div className="text-center py-6">
+              <CheckCircle size={48} className="mx-auto text-emerald-500 mb-3" />
+              <p className="font-bold text-slate-700 text-sm">Assinatura registrada com sucesso!</p>
+              <p className="text-slate-400 text-xs mt-1">Pode fechar esta página. 🙌</p>
+
+              <button
+                onClick={() => gerarPDFContrato(contratoParaAssinar)}
+                style={{ backgroundColor: themeColors.primary }}
+                className="w-full text-white font-black text-xs uppercase py-3.5 rounded-2xl mt-4 flex items-center justify-center gap-2 active:scale-95 transition-all"
+              >
+                <Printer size={16}/> Baixar Contrato Assinado em PDF
+              </button>
+            </div>
+          ) : (
+            <>
+              <p className="text-[11px] text-slate-500 mb-2 font-semibold">Confirme lendo o contrato com quem te enviou e assine abaixo:</p>
+              <SignaturePad onSave={salvarAssinaturaCliente} />
+            </>
+          )}
         </div>
       </div>
     );
@@ -1902,7 +1901,7 @@ const comprimirImagem = (file: File, maxLargura = 300): Promise<string> => {
             <span className="text-base font-bold text-slate-400">R$ {resumenFinanceiro.final}</span>
           </div>
 
-          <div className="text-right flex flex-col items-end">
+  <div className="text-right flex flex-col items-end">
             <label htmlFor="precoFinalInput" style={{ color: themeColors.secondary }} className="text-[10px] font-black uppercase tracking-wider block mb-1">Preço Final Cobrado</label>
             <div style={{ borderColor: themeColors.secondary }} className="flex items-center gap-1.5 border-2 rounded-2xl px-3 py-1 bg-orange-50/20 focus-within:border-purple-600 transition-all">
               <span style={{ color: themeColors.secondary }} className="font-black text-2xl">R$</span>
@@ -2092,7 +2091,7 @@ const comprimirImagem = (file: File, maxLargura = 300): Promise<string> => {
                 <p className="text-2xl font-black text-slate-800 mt-0.5">{dashboardMetrics.pendentes}</p>
               </div>
 
-              <div onClick={() => setActiveTab('balcao')} className="bg-white p-5 rounded-[30px] border shadow-sm cursor-pointer active:scale-95 transition-all w-full">
+  <div onClick={() => setActiveTab('balcao')} className="bg-white p-5 rounded-[30px] border shadow-sm cursor-pointer active:scale-95 transition-all w-full">
                 <div style={{ color: themeColors.primary }} className="w-10 h-10 rounded-2xl bg-purple-50 flex items-center justify-center mb-3"><ShoppingCart size={20}/></div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Balcão de Vendas</p>
                 <p className="text-2xl font-black text-slate-800 mt-0.5">{produtos.length}</p>
@@ -2469,7 +2468,7 @@ const comprimirImagem = (file: File, maxLargura = 300): Promise<string> => {
           </div>
         )}
 
-        {/* TELA DE AGENDA / COMPROMISSOS COM PRAZOS */}
+{/* TELA DE AGENDA / COMPROMISSOS COM PRAZOS */}
         {activeTab === 'anotacoes' && (
           <div className="space-y-4 pt-2 w-full">
             <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
@@ -2493,8 +2492,11 @@ const comprimirImagem = (file: File, maxLargura = 300): Promise<string> => {
                 if(!novaAnotacao.titulo) return alert("Sua tarefa precisa de uma descrição básica!");
                 const dadosNota = { titulo: novaAnotacao.titulo, conteudo: novaAnotacao.conteudo || '', dataPrazo: novaAnotacao.dataPrazo, concluido: false, userId: user.uid, dataCriacao: new Date().toLocaleDateString('pt-BR') };
                 
-                if (novaAnotacao.id) await updateDoc(doc(db, "anotacoes", novaAnotacao.id), dadosNota);
-                else await addDoc(collection(db, "anotacoes"), dadosNota);
+                if (novaAnotacao.id) {
+                  await updateDoc(doc(db, "anotacoes", novaAnotacao.id), dadosNota);
+                } else {
+                  await addDoc(collection(db, "anotacoes"), { ...dadosNota, statusKanban: 'a_fazer' });
+                }
                 
                 setNovaAnotacao({ id: '', titulo: '', conteudo: '', dataPrazo: new Date().toISOString().split('T')[0] });
                 alert("Agendado com sucesso! 📅✨");
@@ -2503,37 +2505,86 @@ const comprimirImagem = (file: File, maxLargura = 300): Promise<string> => {
               </button>
             </div>
 
-            <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider ml-2 mt-4">Lista Geral de Pendências</h3>
-            <div className="grid grid-cols-1 gap-3 w-full">
-              {anotacoes.map(item => {
-                const dataFormatada = item.dataPrazo ? item.dataPrazo.split('-').reverse().slice(0, 2).join('/') : '';
-                return (
-                  <div key={item.id} className={`bg-white p-5 rounded-3xl border shadow-sm w-full flex flex-col gap-2 relative ${item.concluido ? 'opacity-50' : ''}`}>
-                    <div className="flex justify-between items-start anonymity-wrapper w-full">
-                      <div className="flex items-start gap-3 flex-1 min-w-0">
-                        <button onClick={() => toggleStatusAnotacao(item.id, item.concluido)} style={{ color: themeColors.primary }} className="mt-0.5 shrink-0">
-                          {item.concluido ? <CheckSquare size={20} /> : <Square size={20} className="text-slate-400" />}
-                        </button>
-                        <div className="min-w-0 flex-1">
-                          <h4 className={`font-black text-slate-800 text-base break-words ${item.concluido ? 'line-through text-slate-400' : ''}`}>
-                            {item.titulo}
-                          </h4>
-                          <div className="flex gap-2 mt-1 flex-wrap">
-                            <span style={{ color: themeColors.primary }} className="text-[9px] bg-purple-50 px-2 py-0.5 rounded font-black uppercase">🗓️ Prazo: {dataFormatada}</span>
-                            {item.concluido && <span className="text-[9px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded font-black uppercase">Concluído</span>}
+            <div className="flex bg-slate-100 p-1.5 rounded-2xl gap-1 w-full border">
+              <button onClick={() => setVisaoAnotacoes('agenda')} style={{ color: visaoAnotacoes === 'agenda' ? themeColors.primary : undefined }} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${visaoAnotacoes === 'agenda' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>📅 Agenda</button>
+              <button onClick={() => setVisaoAnotacoes('kanban')} style={{ color: visaoAnotacoes === 'kanban' ? themeColors.primary : undefined }} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${visaoAnotacoes === 'kanban' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>🗂️ Quadro Kanban</button>
+            </div>
+
+            {visaoAnotacoes === 'agenda' && (
+              <>
+                <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider ml-2 mt-4">Lista Geral de Pendências</h3>
+                <div className="grid grid-cols-1 gap-3 w-full">
+                  {anotacoes.map(item => {
+                    const dataFormatada = item.dataPrazo ? item.dataPrazo.split('-').reverse().slice(0, 2).join('/') : '';
+                    return (
+                      <div key={item.id} className={`bg-white p-5 rounded-3xl border shadow-sm w-full flex flex-col gap-2 relative ${item.concluido ? 'opacity-50' : ''}`}>
+                        <div className="flex justify-between items-start anonymity-wrapper w-full">
+                          <div className="flex items-start gap-3 flex-1 min-w-0">
+                            <button onClick={() => toggleStatusAnotacao(item.id, item.concluido)} style={{ color: themeColors.primary }} className="mt-0.5 shrink-0">
+                              {item.concluido ? <CheckSquare size={20} /> : <Square size={20} className="text-slate-400" />}
+                            </button>
+                            <div className="min-w-0 flex-1">
+                              <h4 className={`font-black text-slate-800 text-base break-words ${item.concluido ? 'line-through text-slate-400' : ''}`}>
+                                {item.titulo}
+                              </h4>
+                              <div className="flex gap-2 mt-1 flex-wrap">
+                                <span style={{ color: themeColors.primary }} className="text-[9px] bg-purple-50 px-2 py-0.5 rounded font-black uppercase">🗓️ Prazo: {dataFormatada}</span>
+                                {item.concluido && <span className="text-[9px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded font-black uppercase">Concluído</span>}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex gap-1 shrink-0 ml-2">
+                            <button onClick={() => setNovaAnotacao({ id: item.id, titulo: item.titulo, conteudo: item.conteudo, dataPrazo: item.dataPrazo || new Date().toISOString().split('T')[0] })} className="text-orange-400 p-2 hover:bg-orange-50 rounded-xl"><Edit2 size={16}/></button>
+                            <button onClick={() => confirmarExcluir('anotacao', item.id)} className="text-red-200 p-2 hover:bg-red-50 rounded-xl"><Trash2 size={16}/></button>
                           </div>
                         </div>
+                        {item.conteudo && <p className="text-slate-600 text-xs font-semibold bg-slate-50 p-3 rounded-2xl border whitespace-pre-line leading-relaxed">{item.conteudo}</p>}
                       </div>
-                      <div className="flex gap-1 shrink-0 ml-2">
-                        <button onClick={() => setNovaAnotacao({ id: item.id, titulo: item.titulo, conteudo: item.conteudo, dataPrazo: item.dataPrazo || new Date().toISOString().split('T')[0] })} className="text-orange-400 p-2 hover:bg-orange-50 rounded-xl"><Edit2 size={16}/></button>
-                        <button onClick={() => confirmarExcluir('anotacao', item.id)} className="text-red-200 p-2 hover:bg-red-50 rounded-xl"><Trash2 size={16}/></button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+
+            {visaoAnotacoes === 'kanban' && (
+              <div className="flex gap-3 overflow-x-auto pb-2 w-full snap-x">
+                {colunasKanban.map((coluna, idx) => {
+                  const itensDaColuna = anotacoes.filter(a => (a.statusKanban || 'a_fazer') === coluna.id && !a.concluido);
+                  return (
+                    <div key={coluna.id} className="bg-white rounded-3xl border shadow-sm p-3 min-w-[260px] w-[260px] shrink-0 snap-start">
+                      <div className="flex items-center justify-between mb-3 px-1">
+                        <span style={{ color: coluna.cor }} className="font-black text-xs uppercase tracking-wider">{coluna.emoji} {coluna.nome}</span>
+                        <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{itensDaColuna.length}</span>
+                      </div>
+                      <div className="space-y-2 max-h-[65vh] overflow-y-auto">
+                        {itensDaColuna.map(item => (
+                          <div key={item.id} className="bg-slate-50 border border-slate-100 rounded-2xl p-3">
+                            <p className="font-bold text-slate-800 text-xs break-words">{item.titulo}</p>
+                            {item.dataPrazo && (
+                              <p className="text-[10px] text-slate-400 font-semibold mt-1">🗓️ {item.dataPrazo.split('-').reverse().join('/')}</p>
+                            )}
+                            {item.conteudo && <p className="text-[10px] text-slate-500 mt-1">{item.conteudo}</p>}
+                            <div className="flex justify-between items-center mt-2 gap-1">
+                              {idx > 0 ? (
+                                <button onClick={() => moverStatusKanban(item.id, colunasKanban[idx - 1].id)} className="text-[9px] font-black uppercase bg-white border px-2 py-1 rounded-lg text-slate-500">◀ Voltar</button>
+                              ) : <span />}
+                              {idx < colunasKanban.length - 1 ? (
+                                <button onClick={() => moverStatusKanban(item.id, colunasKanban[idx + 1].id)} style={{ backgroundColor: coluna.cor }} className="text-[9px] font-black uppercase text-white px-2 py-1 rounded-lg ml-auto">Avançar ▶</button>
+                              ) : (
+                                <button onClick={() => confirmarExcluir('anotacao', item.id)} className="text-[9px] font-black uppercase text-red-400 px-2 py-1 rounded-lg ml-auto">Remover</button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                        {itensDaColuna.length === 0 && (
+                          <p className="text-center text-[10px] text-slate-300 font-bold py-6 italic">Vazio</p>
+                        )}
                       </div>
                     </div>
-                    {item.conteudo && <p className="text-slate-600 text-xs font-semibold bg-slate-50 p-3 rounded-2xl border whitespace-pre-line leading-relaxed">{item.conteudo}</p>}
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
@@ -2796,7 +2847,7 @@ const comprimirImagem = (file: File, maxLargura = 300): Promise<string> => {
                     </select>
                   </div>
 
-                  <div>
+ <div>
                     <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Ano de Referência</label>
                     <select 
                       className="w-full p-2.5 bg-white rounded-xl text-xs font-bold border outline-none text-slate-700" 
@@ -3198,7 +3249,7 @@ const comprimirImagem = (file: File, maxLargura = 300): Promise<string> => {
           </div>
         )}
 
-        {/* HISTÓRICO DE ORÇAMENTOS EXPANDIDO */}
+{/* HISTÓRICO DE ORÇAMENTOS EXPANDIDO */}
         {activeTab === 'pedidos' && (
           <div className="space-y-3 pt-2 w-full">
             <div className="flex justify-between items-center mb-1 w-full">
