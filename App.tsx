@@ -1378,11 +1378,19 @@ export default function App() {
           </div>
         </div>
 
+             <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Dados do Emissor</div>
+        <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 25px; border: 1px solid #f1f5f9;">
+          <p style="margin: 0; font-size: 14px;"><strong>${cabecalhoNomeHtml}</strong>${cpfCnpjPerfil ? ` — CPF/CNPJ: ${cpfCnpjPerfil}` : ''}</p>
+          ${enderecoPerfil ? `<p style="margin: 6px 0 0 0; font-size: 13px; color: #64748b;"><strong>Endereço:</strong> ${enderecoPerfil}${cidadePerfil ? `, ${cidadePerfil}` : ''}${estadoPerfil ? `/${estadoPerfil}` : ''}</p>` : ''}
+          ${telefonePerfil ? `<p style="margin: 6px 0 0 0; font-size: 13px; color: #64748b;"><strong>Contato:</strong> ${telefonePerfil}${emailPerfil ? ` • ${emailPerfil}` : ''}</p>` : ''}
+        </div>
+
         <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Dados do Cliente</div>
         <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 25px; border: 1px solid #f1f5f9;">
           <p style="margin: 0; font-size: 14px;"><strong>Cliente:</strong> ${cli?.nome || 'Cliente não informado'}</p>
           <p style="margin: 6px 0 0 0; font-size: 13px; color: #64748b;"><strong>WhatsApp:</strong> ${cli?.zap || 'Não informado'}</p>
         </div>
+
 
         <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Informações Básicas e Prazos</div>
         <div style="display: flex; justify-content: space-between; background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 25px; border: 1px solid #f1f5f9; font-size: 13px;">
