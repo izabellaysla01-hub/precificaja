@@ -333,22 +333,37 @@ export default function App() {
     const contratoId = params.get('assinar');
 
     if (contratoId) {
-      setIdContratoParaAssinar(contratoId);
-      setCarregandoAssinatura(true);
-      setLoading(false);
-      getDoc(doc(db, "contratos", contratoId)).then(async (docSnap) => {
-        if (docSnap.exists()) {
-          const dadosContrato = { id: docSnap.id, ...docSnap.data() } as any;
-          setContratoParaAssinar(dadosContrato);
-          if (dadosContrato.clienteId) {
-            const cliSnap = await getDoc(doc(db, "clientes", dadosContrato.clienteId));
-            if (cliSnap.exists()) setClienteDoContratoAssinar({ id: cliSnap.id, ...cliSnap.data() });
-          }
+  setIdContratoParaAssinar(contratoId);
+  setCarregandoAssinatura(true);
+  setLoading(false);
+  getDoc(doc(db, "contratos", contratoId)).then(async (docSnap) => {
+    if (docSnap.exists()) {
+      const dadosContrato = { id: docSnap.id, ...docSnap.data() } as any;
+      setContratoParaAssinar(dadosContrato);
+      if (dadosContrato.clienteId) {
+        const cliSnap = await getDoc(doc(db, "clientes", dadosContrato.clienteId));
+        if (cliSnap.exists()) setClienteDoContratoAssinar({ id: cliSnap.id, ...cliSnap.data() });
+      }
+      // NOVO: carrega os dados da loja pra montar o PDF completo, com sua assinatura e logo
+      if (dadosContrato.userId) {
+        const lojaSnap = await getDoc(doc(db, "configuracoes_loja", dadosContrato.userId));
+        if (lojaSnap.exists()) {
+          const dl = lojaSnap.data() as any;
+          setNomeLojaPerfil(dl.nomeLoja || '');
+          setNomeFantasiaPerfil(dl.nomeFantasia || '');
+          setCpfCnpjPerfil(dl.cpfCnpj || '');
+          setEnderecoPerfil(dl.endereco || '');
+          setDadosBancariosPerfil(dl.dadosBancarios || '');
+          setLogoLojaPerfil(dl.logoUrl || '');
+          setAssinaturaLojaUrl(dl.assinaturaUrl || '');
+          if (dl.themeColors) setThemeColors(dl.themeColors);
         }
-        setCarregandoAssinatura(false);
-      }).catch(() => setCarregandoAssinatura(false));
-      return;
+      }
     }
+    setCarregandoAssinatura(false);
+  }).catch(() => setCarregandoAssinatura(false));
+  return;
+}
 
     if (lojaId) {
       setIdLojaPublica(lojaId);
