@@ -427,7 +427,7 @@ export default function App() {
     await updateDoc(doc(db, "anotacoes", id), { concluido: !valorAtual });
   };
 
-      // --- GERADOR DE PDF DE CONTRATO (IDÊNTICO AO LAYOUT DO ORÇAMENTO) ---
+  // --- GERADOR DE PDF DE CONTRATO (FORMATO A4 SEM CORTE DE TEXTO) ---
   const gerarPDFContrato = (contrato: any) => {
     const cli = clientes.find(c => c.id === contrato.clienteId);
     const dataEmissao = contrato.dataEmissao || new Date().toLocaleDateString('pt-BR');
@@ -436,70 +436,76 @@ export default function App() {
     const nomeEmpresaExibir = nomeFantasiaPerfil || nomeLojaPerfil || 'Empresa Contratada';
     const cpfCnpjEmpresaExibir = cpfCnpjPerfil || 'Não informado';
 
+    // Cada cláusula vira um bloco isolado com instrução de NÃO QUEBRAR
     const clausulasFormatadas = (contrato.clausulas || '').split('\n\n').map((bloco: string) => {
       const linhas = bloco.split('\n');
       const titulo = linhas[0] || '';
       const corpo = linhas.slice(1).join('<br>') || '';
       return `
-        <div style="margin-bottom: 15px; page-break-inside: avoid; break-inside: avoid;">
-          <div style="font-weight: bold; font-size: 12px; color: ${themeColors.primary}; text-transform: uppercase;">${titulo}</div>
-          <div style="font-size: 12px; color: #475569; margin-top: 3px; line-height: 1.5;">${corpo || titulo}</div>
+        <div style="margin-bottom: 14px; page-break-inside: avoid; break-inside: avoid; -webkit-region-break-inside: avoid;">
+          <div style="font-weight: bold; font-size: 11px; color: ${themeColors.primary}; text-transform: uppercase; margin-bottom: 3px;">${titulo}</div>
+          <div style="font-size: 11px; color: #334155; line-height: 1.5; text-align: justify;">${corpo || titulo}</div>
         </div>
       `;
     }).join('');
 
     const elemento = document.createElement('div');
     elemento.innerHTML = `
-      <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto;">
+      <div style="padding: 20px 10px; font-family: Arial, sans-serif; color: #334155; max-width: 700px; margin: 0 auto; box-sizing: border-box;">
         
         <!-- CABEÇALHO -->
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 20px; page-break-inside: avoid;">
           <div>
-            <h1 style="color: ${themeColors.primary}; margin: 0; font-size: 24px; font-weight: 900;">CONTRATO DE SERVIÇOS</h1>
-            <p style="color: #94a3b8; font-size: 11px; text-transform: uppercase; margin: 4px 0 0 0; font-weight: bold;">Documento Comercial e Termos de Acordo</p>
+            <h1 style="color: ${themeColors.primary}; margin: 0; font-size: 20px; font-weight: 900; tracking-wide: -0.5px;">CONTRATO DE PRESTAÇÃO DE SERVIÇOS</h1>
+            <p style="color: #94a3b8; font-size: 10px; text-transform: uppercase; margin: 3px 0 0 0; font-weight: bold;">Documento Comercial e Termos de Acordo</p>
           </div>
-          <div style="text-align: right; background-color: #f8fafc; padding: 10px 16px; border-radius: 12px; border: 1px solid #e2e8f0;">
-            <span style="font-size: 10px; font-weight: bold; color: ${themeColors.primary}; text-transform: uppercase; display: block;">Data de Emissão</span>
-            <span style="font-size: 13px; font-weight: bold; color: #475569; display: block; margin-top: 2px;">${dataEmissao}</span>
+          <div style="text-align: right; background-color: #f8fafc; padding: 8px 12px; border-radius: 8px; border: 1px solid #e2e8f0;">
+            <span style="font-size: 8px; font-weight: bold; color: ${themeColors.primary}; text-transform: uppercase; display: block;">Data de Emissão</span>
+            <span style="font-size: 12px; font-weight: bold; color: #475569; display: block; margin-top: 2px;">${dataEmissao}</span>
           </div>
         </div>
 
         <!-- DADOS DAS PARTES -->
-        <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Identificação das Partes</div>
-        <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 25px; border: 1px solid #f1f5f9; font-size: 13px; line-height: 1.6;">
-          <p style="margin: 0;"><strong>CONTRATANTE (CLIENTE):</strong> ${cli?.nome || 'Não informado'} — <strong>CPF/CNPJ:</strong> ${cli?.cpfCnpj || 'Não informado'}</p>
-          ${cli?.endereco ? `<p style="margin: 4px 0 0 0; color: #64748b;"><strong>Endereço:</strong> ${cli.endereco}</p>` : ''}
-          <div style="border-top: 1px dashed #e2e8f0; margin: 10px 0;"></div>
-          <p style="margin: 0;"><strong>CONTRATADO (EMPRESA):</strong> ${nomeEmpresaExibir} — <strong>CPF/CNPJ:</strong> ${cpfCnpjEmpresaExibir}</p>
-          ${enderecoPerfil ? `<p style="margin: 4px 0 0 0; color: #64748b;"><strong>Endereço:</strong> ${enderecoPerfil}</p>` : ''}
+        <div style="page-break-inside: avoid; margin-bottom: 20px;">
+          <div style="background-color: ${themeColors.primary}; color: white; padding: 6px 12px; border-radius: 6px; font-size: 10px; font-weight: bold; text-transform: uppercase; margin-bottom: 8px;">1. Identificação das Partes</div>
+          <div style="background-color: #f8fafc; padding: 12px; border-radius: 10px; border: 1px solid #f1f5f9; font-size: 11px; line-height: 1.5;">
+            <p style="margin: 0;"><strong>CONTRATANTE (CLIENTE):</strong> ${cli?.nome || 'Não informado'} — <strong>CPF/CNPJ:</strong> ${cli?.cpfCnpj || 'Não informado'}</p>
+            ${cli?.endereco ? `<p style="margin: 4px 0 0 0; color: #64748b;"><strong>Endereço:</strong> ${cli.endereco}</p>` : ''}
+            <div style="border-top: 1px dashed #cbd5e1; margin: 8px 0;"></div>
+            <p style="margin: 0;"><strong>CONTRATADO (EMPRESA):</strong> ${nomeEmpresaExibir} — <strong>CPF/CNPJ:</strong> ${cpfCnpjEmpresaExibir}</p>
+            ${enderecoPerfil ? `<p style="margin: 4px 0 0 0; color: #64748b;"><strong>Endereço:</strong> ${enderecoPerfil}</p>` : ''}
+          </div>
         </div>
 
         <!-- DADOS DO EVENTO -->
-        <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Resumo do Evento e Valores</div>
-        <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 25px; border: 1px solid #f1f5f9; font-size: 13px; line-height: 1.6;">
-          <p style="margin: 0;"><strong>Serviço / Evento:</strong> ${contrato.tipoEvento || 'Não informado'}</p>
-          <p style="margin: 4px 0 0 0;"><strong>Data do Evento:</strong> ${dataEventoFormatada} — <strong>Local:</strong> ${contrato.localEvento || 'Não informado'}</p>
-          <p style="margin: 8px 0 0 0; font-size: 15px; color: ${themeColors.primary}; font-weight: 900;">Valor Total Combinado: R$ ${Number(contrato.valorTotal || 0).toFixed(2)}</p>
-          ${dadosBancariosPerfil ? `<p style="margin: 8px 0 0 0; font-size: 11px; color: #64748b; background-color: #ffffff; padding: 8px; border-radius: 8px; border: 1px solid #e2e8f0;"><strong>Dados para Pagamento:</strong> ${dadosBancariosPerfil}</p>` : ''}
+        <div style="page-break-inside: avoid; margin-bottom: 20px;">
+          <div style="background-color: ${themeColors.primary}; color: white; padding: 6px 12px; border-radius: 6px; font-size: 10px; font-weight: bold; text-transform: uppercase; margin-bottom: 8px;">2. Resumo do Evento e Valores</div>
+          <div style="background-color: #f8fafc; padding: 12px; border-radius: 10px; border: 1px solid #f1f5f9; font-size: 11px; line-height: 1.5;">
+            <p style="margin: 0;"><strong>Serviço / Evento:</strong> ${contrato.tipoEvento || 'Não informado'}</p>
+            <p style="margin: 4px 0 0 0;"><strong>Data do Evento:</strong> ${dataEventoFormatada} — <strong>Local:</strong> ${contrato.localEvento || 'Não informado'}</p>
+            <p style="margin: 6px 0 0 0; font-size: 13px; color: ${themeColors.primary}; font-weight: 900;">Valor Total Combinado: R$ ${Number(contrato.valorTotal || 0).toFixed(2)}</p>
+            ${dadosBancariosPerfil ? `<p style="margin: 6px 0 0 0; font-size: 10px; color: #64748b; background-color: #ffffff; padding: 6px 8px; border-radius: 6px; border: 1px solid #e2e8f0;"><strong>Dados para Pagamento:</strong> ${dadosBancariosPerfil}</p>` : ''}
+          </div>
         </div>
 
-        <!-- CLÁUSULAS -->
-        <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 15px;">Cláusulas e Condições Gerais</div>
-        <div style="background-color: #f8fafc; padding: 18px; border-radius: 16px; margin-bottom: 30px; border: 1px solid #f1f5f9;">
+        <!-- CLÁUSULAS (SOLTAS SEM DIV PAI ENVOLVENDO TUDO) -->
+        <div style="background-color: ${themeColors.primary}; color: white; padding: 6px 12px; border-radius: 6px; font-size: 10px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px; page-break-inside: avoid;">3. Cláusulas e Condições Gerais</div>
+        
+        <div style="margin-bottom: 20px;">
           ${clausulasFormatadas}
         </div>
 
         <!-- ASSINATURAS -->
-        <div style="display: flex; justify-content: space-between; gap: 40px; margin-top: 40px; page-break-inside: avoid; break-inside: avoid;">
+        <div style="display: flex; justify-content: space-between; gap: 40px; margin-top: 35px; page-break-inside: avoid; break-inside: avoid;">
           <div style="flex: 1; text-align: center;">
-            <div style="border-top: 1px solid #cbd5e1; margin-bottom: 6px;"></div>
-            <div style="font-size: 12px; font-weight: bold; color: #1e293b;">${cli?.nome || 'Cliente'}</div>
-            <div style="font-size: 9px; font-weight: bold; color: #94a3b8; text-transform: uppercase;">CONTRATANTE</div>
+            <div style="border-top: 1px solid #94a3b8; margin-bottom: 4px;"></div>
+            <div style="font-size: 11px; font-weight: bold; color: #1e293b;">${cli?.nome || 'Cliente'}</div>
+            <div style="font-size: 8px; font-weight: bold; color: #94a3b8; text-transform: uppercase;">CONTRATANTE</div>
           </div>
           <div style="flex: 1; text-align: center;">
-            <div style="border-top: 1px solid #cbd5e1; margin-bottom: 6px;"></div>
-            <div style="font-size: 12px; font-weight: bold; color: #1e293b;">${nomeEmpresaExibir}</div>
-            <div style="font-size: 9px; font-weight: bold; color: #94a3b8; text-transform: uppercase;">CONTRATADO</div>
+            <div style="border-top: 1px solid #94a3b8; margin-bottom: 4px;"></div>
+            <div style="font-size: 11px; font-weight: bold; color: #1e293b;">${nomeEmpresaExibir}</div>
+            <div style="font-size: 8px; font-weight: bold; color: #94a3b8; text-transform: uppercase;">CONTRATADO</div>
           </div>
         </div>
 
@@ -507,17 +513,18 @@ export default function App() {
     `;
 
     const opcoes = { 
-      margin: [10, 10, 10, 10], 
+      margin: [12, 12, 12, 12], 
       filename: `Contrato_${(cli?.nome || 'Cliente').replace(/\s+/g, '_')}.pdf`, 
       html2canvas: { scale: 2, useCORS: true, scrollY: 0 }, 
-      jsPDF: { format: 'a4', orientation: 'portrait' }, 
-      pagebreak: { mode: ['avoid-all', 'css'] } 
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }, 
+      pagebreak: { mode: ['css', 'legacy'] }
     };
 
     if ((window as any).html2pdf) { 
       (window as any).html2pdf().from(elemento).set(opcoes).save(); 
     }
   };
+
 
 
   const enviarContratoWhatsapp = (contrato: any) => {
