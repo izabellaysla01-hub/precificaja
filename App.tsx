@@ -55,6 +55,98 @@ const PRESET_PALETTES = [
   }
 ];
 
+// --- COMPONENTE: PAD DE ASSINATURA (canvas touch/mouse) ---
+const SignaturePad = ({ onSave, corTraco = '#1e293b' }: { onSave: (dataUrl: string) => void; corTraco?: string }) => {
+  const canvasRef = React.useRef<HTMLCanvasElement>(null);
+  const [desenhando, setDesenhando] = useState(false);
+  const [temTraco, setTemTraco] = useState(false);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ratio = window.devicePixelRatio || 1;
+    canvas.width = canvas.offsetWidth * ratio;
+    canvas.height = canvas.offsetHeight * ratio;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.scale(ratio, ratio);
+      ctx.lineWidth = 2.5;
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = corTraco;
+    }
+  }, [corTraco]);
+
+  const pegarPosicao = (e: React.MouseEvent | React.TouchEvent) => {
+    const canvas = canvasRef.current!;
+    const rect = canvas.getBoundingClientRect();
+    if ('touches' in e) {
+      const touch = e.touches[0];
+      return { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
+    }
+    return { x: (e as React.MouseEvent).clientX - rect.left, y: (e as React.MouseEvent).clientY - rect.top };
+  };
+
+  const iniciarTraco = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    const ctx = canvasRef.current?.getContext('2d');
+    if (!ctx) return;
+    const { x, y } = pegarPosicao(e);
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    setDesenhando(true);
+  };
+
+  const desenhar = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!desenhando) return;
+    e.preventDefault();
+    const ctx = canvasRef.current?.getContext('2d');
+    if (!ctx) return;
+    const { x, y } = pegarPosicao(e);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    setTemTraco(true);
+  };
+
+  const pararTraco = () => setDesenhando(false);
+
+  const limpar = () => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    if (canvas && ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+    setTemTraco(false);
+  };
+
+  const salvar = () => {
+    const canvas = canvasRef.current;
+    if (!canvas || !temTraco) return alert('Desenhe sua assinatura antes de salvar!');
+    const dataUrl = canvas.toDataURL('image/png');
+    onSave(dataUrl);
+  };
+
+  return (
+    <div className="w-full">
+      <div className="border-2 border-dashed border-slate-300 rounded-2xl bg-slate-50 overflow-hidden">
+        <canvas
+          ref={canvasRef}
+          className="w-full h-48 touch-none bg-white"
+          onMouseDown={iniciarTraco}
+          onMouseMove={desenhar}
+          onMouseUp={pararTraco}
+          onMouseLeave={pararTraco}
+          onTouchStart={iniciarTraco}
+          onTouchMove={desenhar}
+          onTouchEnd={pararTraco}
+        />
+      </div>
+      <p className="text-[10px] text-slate-400 text-center mt-1">Desenhe sua assinatura acima com o dedo ou mouse</p>
+      <div className="flex gap-2 mt-3">
+        <button type="button" onClick={limpar} className="flex-1 bg-slate-100 text-slate-600 font-bold text-xs uppercase py-3 rounded-xl">Limpar</button>
+        <button type="button" onClick={salvar} className="flex-1 bg-emerald-500 text-white font-bold text-xs uppercase py-3 rounded-xl">Confirmar Assinatura</button>
+      </div>
+    </div>
+  );
+};
+
 // --- TELA DE LOGIN ---
 const Login = ({ isRegistering, setIsRegistering, email, setEmail, password, setPassword, handleAuth }: any) => {
   const recuperarSenha = async () => {
@@ -94,6 +186,15 @@ export default function App() {
 
   const [filtroVitrineSelecionado, setFiltroVitrineSelecionado] = useState('Todos');
   const [isMenuFiltroVitrineOpen, setIsMenuFiltroVitrineOpen] = useState(false);
+
+  // --- NOVO: ASSINATURA DIGITAL ---
+  const [assinaturaLojaUrl, setAssinaturaLojaUrl] = useState('');
+  const [mostrarPadAssinaturaLoja, setMostrarPadAssinaturaLoja] = useState(false);
+  const [idContratoParaAssinar, setIdContratoParaAssinar] = useState<string | null>(null);
+  const [contratoParaAssinar, setContratoParaAssinar] = useState<any>(null);
+  const [clienteDoContratoAssinar, setClienteDoContratoAssinar] = useState<any>(null);
+  const [carregandoAssinatura, setCarregandoAssinatura] = useState(false);
+  const [assinaturaEnviada, setAssinaturaEnviada] = useState(false);
 
   const [activeTab, useStateActiveTab] = useState<'inicio' | 'materiais' | 'criar' | 'pedidos' | 'clientes' | 'catalogo' | 'balcao' | 'financeiro' | 'perfil' | 'anotacoes' | 'fornecedores' | 'contratos'>('inicio');
   
@@ -227,6 +328,25 @@ export default function App() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const lojaId = params.get('loja');
+    const contratoId = params.get('assinar');
+
+    if (contratoId) {
+      setIdContratoParaAssinar(contratoId);
+      setCarregandoAssinatura(true);
+      getDoc(doc(db, "contratos", contratoId)).then(async (docSnap) => {
+        if (docSnap.exists()) {
+          const dadosContrato = { id: docSnap.id, ...docSnap.data() } as any;
+          setContratoParaAssinar(dadosContrato);
+          if (dadosContrato.clienteId) {
+            const cliSnap = await getDoc(doc(db, "clientes", dadosContrato.clienteId));
+            if (cliSnap.exists()) setClienteDoContratoAssinar({ id: cliSnap.id, ...cliSnap.data() });
+          }
+        }
+        setCarregandoAssinatura(false);
+      }).catch(() => setCarregandoAssinatura(false));
+      return;
+    }
+
     if (lojaId) {
       setIdLojaPublica(lojaId);
       setCarregandoPublico(true);
@@ -269,6 +389,7 @@ export default function App() {
             setEstadoPerfil(data.estado || '');
             setDadosBancariosPerfil(data.dadosBancarios || '');
             setLogoLojaPerfil(data.logoUrl || '');
+            setAssinaturaLojaUrl(data.assinaturaUrl || '');
             if (data.themeColors) setThemeColors(data.themeColors);
           }
         });
@@ -395,6 +516,51 @@ export default function App() {
     alert("Link do seu catálogo copiado! 🔗🚀");
   };
 
+  // --- NOVO: gera o link público de assinatura de um contrato específico ---
+  const gerarLinkAssinaturaContrato = (contratoId: string) => {
+    return `${window.location.origin}${window.location.pathname}?assinar=${contratoId}`;
+  };
+
+  const copiarLinkAssinatura = (contratoId: string) => {
+    navigator.clipboard.writeText(gerarLinkAssinaturaContrato(contratoId));
+    alert("Link de assinatura copiado! Envie para o cliente assinar pelo celular dele. ✍️🔗");
+  };
+
+  // --- NOVO: salva a assinatura desenhada da EMPRESA (perfil) ---
+  const salvarAssinaturaLoja = async (dataUrl: string) => {
+    if (!user) return;
+    try {
+      const blob = await (await fetch(dataUrl)).blob();
+      const assinaturaRef = ref(storage, `assinaturas/loja_${user.uid}.png`);
+      await uploadBytes(assinaturaRef, blob);
+      const url = await getDownloadURL(assinaturaRef);
+      setAssinaturaLojaUrl(url);
+      await setDoc(doc(db, "configuracoes_loja", user.uid), { assinaturaUrl: url }, { merge: true });
+      setMostrarPadAssinaturaLoja(false);
+      alert("Assinatura salva! Ela vai aparecer automaticamente nos seus contratos. ✍️");
+    } catch {
+      alert("Erro ao salvar assinatura.");
+    }
+  };
+
+  // --- NOVO: salva a assinatura desenhada do CLIENTE (tela pública ?assinar=) ---
+  const salvarAssinaturaCliente = async (dataUrl: string) => {
+    if (!idContratoParaAssinar) return;
+    try {
+      const blob = await (await fetch(dataUrl)).blob();
+      const assinaturaRef = ref(storage, `assinaturas/cliente_${idContratoParaAssinar}.png`);
+      await uploadBytes(assinaturaRef, blob);
+      const url = await getDownloadURL(assinaturaRef);
+      await updateDoc(doc(db, "contratos", idContratoParaAssinar), {
+        assinaturaClienteUrl: url,
+        assinadoEm: new Date().toISOString()
+      });
+      setAssinaturaEnviada(true);
+    } catch {
+      alert("Erro ao salvar sua assinatura. Tente novamente.");
+    }
+  };
+
   const proximosSeteDias = useMemo(() => {
     const dias = [];
     const nomesDias = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
@@ -427,9 +593,9 @@ export default function App() {
     await updateDoc(doc(db, "anotacoes", id), { concluido: !valorAtual });
   };
 
-    // --- GERADOR DE PDF DE CONTRATO (AJUSTADO ESPAÇAMENTO DE ASSINATURA) ---
+    // --- GERADOR DE PDF DE CONTRATO (AJUSTADO PARA INCLUIR ASSINATURAS DIGITAIS) ---
   const gerarPDFContrato = (contrato: any) => {
-    const cli = clientes.find(c => c.id === contrato.clienteId);
+    const cli = clientes.find(c => c.id === contrato.clienteId) || clienteDoContratoAssinar;
     const dataEmissao = contrato.dataEmissao || new Date().toLocaleDateString('pt-BR');
     const dataEventoFormatada = contrato.dataEvento ? new Date(contrato.dataEvento + 'T00:00:00').toLocaleDateString('pt-BR') : 'Não informado';
     
@@ -447,6 +613,15 @@ export default function App() {
         </div>
       `;
     }).join('');
+
+    // Blocos de assinatura: se já existe imagem desenhada, usa ela. Senão, deixa em branco pra assinar à mão.
+    const imgAssinaturaCliente = contrato.assinaturaClienteUrl
+      ? `<img src="${contrato.assinaturaClienteUrl}" style="height:55px; object-fit:contain; display:block; margin:0 auto;" />`
+      : `<div style="height:55px;"></div>`;
+
+    const imgAssinaturaEmpresa = assinaturaLojaUrl
+      ? `<img src="${assinaturaLojaUrl}" style="height:55px; object-fit:contain; display:block; margin:0 auto;" />`
+      : `<div style="height:55px;"></div>`;
 
     const elemento = document.createElement('div');
     elemento.innerHTML = `
@@ -494,15 +669,17 @@ export default function App() {
           ${clausulasFormatadas}
         </div>
 
-        <!-- ASSINATURAS (ESPAÇAMENTO AMPLIADO) -->
-        <div style="display: flex; justify-content: space-between; gap: 40px; margin-top: 100px; padding-top: 20px; page-break-inside: avoid; break-inside: avoid;">
+        <!-- ASSINATURAS (com imagem desenhada, se já assinado digitalmente) -->
+        <div style="display: flex; justify-content: space-between; gap: 40px; margin-top: 60px; padding-top: 20px; page-break-inside: avoid; break-inside: avoid;">
           <div style="flex: 1; text-align: center;">
-            <div style="border-top: 1px solid #94a3b8; margin-bottom: 8px;"></div>
+            ${imgAssinaturaCliente}
+            <div style="border-top: 1px solid #94a3b8; margin-top: 4px; margin-bottom: 8px;"></div>
             <div style="font-size: 11px; font-weight: bold; color: #1e293b;">${cli?.nome || 'Cliente'}</div>
             <div style="font-size: 8px; font-weight: bold; color: #94a3b8; text-transform: uppercase;">CONTRATANTE</div>
           </div>
           <div style="flex: 1; text-align: center;">
-            <div style="border-top: 1px solid #94a3b8; margin-bottom: 8px;"></div>
+            ${imgAssinaturaEmpresa}
+            <div style="border-top: 1px solid #94a3b8; margin-top: 4px; margin-bottom: 8px;"></div>
             <div style="font-size: 11px; font-weight: bold; color: #1e293b;">${nomeEmpresaExibir}</div>
             <div style="font-size: 8px; font-weight: bold; color: #94a3b8; text-transform: uppercase;">CONTRATADO</div>
           </div>
@@ -527,7 +704,9 @@ export default function App() {
   const enviarContratoWhatsapp = (contrato: any) => {
     const cli = clientes.find(c => c.id === contrato.clienteId);
     const fone = cli?.zap ? cli.zap.replace(/\D/g, '') : '';
-    const msg = `*CONTRATO DE PRESTAÇÃO DE SERVIÇOS*%0A---%0A*Cliente:* ${cli?.nome || 'Cliente'}%0A*Evento:* ${contrato.tipoEvento || 'Serviço'}%0A*Data:* ${contrato.dataEvento || 'A combinar'}%0A*Valor Total:* R$ ${Number(contrato.valorTotal || 0).toFixed(2)}%0A---%0AOlá! Segue o resumo do nosso contrato. Acabo de baixar o PDF formal em anexo para você! 🙌🏼`;
+    const linkAssinatura = contrato.id ? gerarLinkAssinaturaContrato(contrato.id) : '';
+    const jaAssinado = !!contrato.assinaturaClienteUrl;
+    const msg = `*CONTRATO DE PRESTAÇÃO DE SERVIÇOS*%0A---%0A*Cliente:* ${cli?.nome || 'Cliente'}%0A*Evento:* ${contrato.tipoEvento || 'Serviço'}%0A*Data:* ${contrato.dataEvento || 'A combinar'}%0A*Valor Total:* R$ ${Number(contrato.valorTotal || 0).toFixed(2)}%0A---%0AOlá! Segue o resumo do nosso contrato. Acabo de baixar o PDF formal em anexo para você! 🙌🏼${(!jaAssinado && linkAssinatura) ? `%0A%0A✍️ Para assinar digitalmente, acesse:%0A${encodeURIComponent(linkAssinatura)}` : ''}`;
     window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
   };
 
@@ -1251,6 +1430,50 @@ export default function App() {
 
   if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando o PrecificaJá... 🚀</div>;
 
+  // --- NOVO: TELA PÚBLICA DE ASSINATURA DO CLIENTE (?assinar=ID) ---
+  if (idContratoParaAssinar) {
+    if (carregandoAssinatura) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando contrato... ✍️</div>;
+
+    if (!contratoParaAssinar) {
+      return (
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 text-center">
+          <p className="font-bold text-slate-400 text-sm">Contrato não encontrado. Peça um novo link para quem te enviou. 🙏</p>
+        </div>
+      );
+    }
+
+    const jaAssinadoAntes = !!contratoParaAssinar.assinaturaClienteUrl;
+
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="bg-white p-6 rounded-[35px] shadow-xl w-full max-w-md border border-slate-100">
+          <h1 style={{ color: themeColors.primary }} className="text-xl font-black text-center mb-1">Assinatura do Contrato ✍️</h1>
+          <p className="text-slate-400 text-[11px] text-center mb-5 uppercase font-bold tracking-widest">PrecificaJá</p>
+
+          <div className="bg-slate-50 rounded-2xl p-4 mb-5 text-xs space-y-1.5 border">
+            <p><strong>Cliente:</strong> {clienteDoContratoAssinar?.nome || 'Não informado'}</p>
+            <p><strong>Serviço/Evento:</strong> {contratoParaAssinar.tipoEvento || 'Não informado'}</p>
+            <p><strong>Data:</strong> {contratoParaAssinar.dataEvento || 'A combinar'}</p>
+            <p><strong>Valor Total:</strong> R$ {Number(contratoParaAssinar.valorTotal || 0).toFixed(2)}</p>
+          </div>
+
+          {(assinaturaEnviada || jaAssinadoAntes) ? (
+            <div className="text-center py-6">
+              <CheckCircle size={48} className="mx-auto text-emerald-500 mb-3" />
+              <p className="font-bold text-slate-700 text-sm">Assinatura registrada com sucesso!</p>
+              <p className="text-slate-400 text-xs mt-1">Pode fechar esta página. 🙌</p>
+            </div>
+          ) : (
+            <>
+              <p className="text-[11px] text-slate-500 mb-2 font-semibold">Confirme lendo o contrato com quem te enviou e assine abaixo:</p>
+              <SignaturePad onSave={salvarAssinaturaCliente} />
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   if (!user && !idLojaPublica) {
     return (
       <Login 
@@ -1808,6 +2031,22 @@ export default function App() {
                 )}
               </div>
 
+              {/* --- NOVO: ASSINATURA DA EMPRESA --- */}
+              <div className="mb-5 w-full">
+                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">✍️ Assinatura da Empresa</label>
+                <p className="text-slate-400 text-[10px] mb-2">Desenhe uma vez e ela entra automática em todos os seus contratos.</p>
+                {assinaturaLojaUrl && !mostrarPadAssinaturaLoja ? (
+                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col items-center gap-3">
+                    <img src={assinaturaLojaUrl} alt="Assinatura salva" className="h-16 object-contain" />
+                    <button onClick={() => setMostrarPadAssinaturaLoja(true)} style={{ color: themeColors.primary }} className="text-[11px] font-bold underline">
+                      Refazer assinatura
+                    </button>
+                  </div>
+                ) : (
+                  <SignaturePad onSave={salvarAssinaturaLoja} />
+                )}
+              </div>
+
               <div className="space-y-3 mb-6">
                 <div>
                   <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome Completo / Razão Social</label>
@@ -1971,7 +2210,7 @@ export default function App() {
                 } catch {
                   alert("Erro ao salvar as configurações da empresa.");
                 }
-              }} className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md transition-all" disabled={subindoLogo}>
+              }} className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md" disabled={subindoLogo}>
                 Salvar Configurações da Marca
               </button>
             </div>
@@ -2055,12 +2294,13 @@ export default function App() {
                   if (novoContrato.id) {
                     await updateDoc(doc(db, "contratos", novoContrato.id), dadosContrato);
                     alert("Contrato atualizado com sucesso!");
+                    gerarPDFContrato({ id: novoContrato.id, ...dadosContrato });
                   } else {
-                    await addDoc(collection(db, "contratos"), dadosContrato);
+                    const refCriado = await addDoc(collection(db, "contratos"), dadosContrato);
                     alert("Contrato gerado com sucesso!");
+                    gerarPDFContrato({ id: refCriado.id, ...dadosContrato });
                   }
 
-                  gerarPDFContrato(dadosContrato);
                   setNovoContrato({ id: '', clienteId: '', tipoEvento: '', dataEvento: '', localEvento: '', valorTotal: '', clausulas: novoContrato.clausulas });
                 } catch {
                   alert("Erro ao salvar o contrato.");
@@ -2081,17 +2321,26 @@ export default function App() {
                         <span style={{ color: themeColors.primary }} className="text-[10px] font-black uppercase tracking-wider block">CONTRATO DE PRESTAÇÃO DE SERVIÇOS</span>
                         <h4 className="font-bold text-slate-800 text-sm mt-0.5">{cli?.nome || 'Cliente não identificado'}</h4>
                         <p className="text-xs text-slate-500 mt-1">Evento: <strong>{c.tipoEvento || 'Não informado'}</strong> | Data: <strong>{c.dataEvento || 'A combinar'}</strong></p>
+                        {c.assinaturaClienteUrl ? (
+                          <span className="inline-block mt-2 text-[9px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded font-black uppercase">✍️ Assinado pelo cliente</span>
+                        ) : (
+                          <span className="inline-block mt-2 text-[9px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded font-black uppercase">⏳ Aguardando assinatura</span>
+                        )}
                       </div>
                       <div style={{ color: themeColors.primary }} className="font-black text-lg">
                         R$ {Number(c.valorTotal || 0).toFixed(2)}
                       </div>
                     </div>
 
-                    <div className="flex justify-end gap-1 border-t pt-3 w-full">
+                    <div className="flex justify-end gap-1 border-t pt-3 w-full flex-wrap">
                       <button onClick={() => setNovoContrato({ id: c.id || '', clienteId: c.clienteId, tipoEvento: c.tipoEvento || '', dataEvento: c.dataEvento || '', localEvento: c.localEvento || '', valorTotal: c.valorTotal || '', clausulas: c.clausulas || novoContrato.clausulas })} style={{ color: themeColors.primary }} className="p-2 bg-purple-50 rounded-xl"><Edit2 size={16}/></button>
                       
                       <button onClick={() => setNovoContrato({ id: '', clienteId: c.clienteId, tipoEvento: `${c.tipoEvento} (Cópia)`, dataEvento: c.dataEvento || '', localEvento: c.localEvento || '', valorTotal: c.valorTotal || '', clausulas: c.clausulas || novoContrato.clausulas })} title="Duplicar Contrato" className="p-2 bg-blue-50 text-blue-600 rounded-xl"><Copy size={16}/></button>
                       
+                      {c.id && !c.assinaturaClienteUrl && (
+                        <button onClick={() => copiarLinkAssinatura(c.id)} title="Copiar link de assinatura" className="p-2 bg-amber-50 text-amber-600 rounded-xl">✍️</button>
+                      )}
+
                       <button onClick={() => gerarPDFContrato(c)} style={{ color: themeColors.secondary }} className="p-2 bg-orange-50 rounded-xl"><Printer size={16}/></button>
                       
                       <button onClick={() => enviarContratoWhatsapp(c)} className="p-2 bg-emerald-50 text-emerald-600 rounded-xl"><MessageCircle size={16}/></button>
