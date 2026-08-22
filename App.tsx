@@ -5,12 +5,6 @@ import { getFirestore, collection, addDoc, onSnapshot, query, where, deleteDoc, 
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2, Menu, Search, Settings, CheckSquare, Square, Filter, MapPin, Globe, Palette, TrendingUp, ChevronDown, ChevronUp, FileText } from 'lucide-react';
 
-if (typeof window !== 'undefined') {
-  window.onerror = function(msg, url, line, col, error) {
-    alert(`ERRO CAPTURADO:\n${msg}\nLinha: ${line}\n\n${error?.stack || ''}`);
-  };
-}
-
 const firebaseConfig = {
   apiKey: "AIzaSyD0BWsNm9DbGGDqiHzkdDmNdxIGdJ9tWe8",
   authDomain: "precificaja-968cd.firebaseapp.com",
