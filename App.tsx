@@ -1482,25 +1482,43 @@ export default function App() {
       return (
         <div key={idx}>
           <p style={{ color: themeColors.primary }} className="font-bold uppercase text-[10px] mb-0.5">{titulo}</p>
-          {corpo && <p className="whitespace-pre-line">{corpo}</p>}
+        {corpo && <p className="whitespace-pre-line">{corpo}</p>}
         </div>
       );
     })}
   </div>
 </div>
+
+{/* NOVO: botão pra baixar o PDF a qualquer momento, sem precisar pedir pra você */}
+<button
+  onClick={() => gerarPDFContrato(contratoParaAssinar)}
+  style={{ borderColor: themeColors.primary, color: themeColors.primary }}
+  className="w-full border-2 font-black text-xs uppercase py-3 rounded-2xl mb-5 flex items-center justify-center gap-2 active:scale-95 transition-all"
+>
+  <Printer size={16}/> Baixar Contrato em PDF
+</button>
           
-          {(assinaturaEnviada || jaAssinadoAntes) ? (
-            <div className="text-center py-6">
-              <CheckCircle size={48} className="mx-auto text-emerald-500 mb-3" />
-              <p className="font-bold text-slate-700 text-sm">Assinatura registrada com sucesso!</p>
-              <p className="text-slate-400 text-xs mt-1">Pode fechar esta página. 🙌</p>
-            </div>
-          ) : (
-            <>
-              <p className="text-[11px] text-slate-500 mb-2 font-semibold">Confirme lendo o contrato com quem te enviou e assine abaixo:</p>
-              <SignaturePad onSave={salvarAssinaturaCliente} />
-            </>
-          )}
+       {(assinaturaEnviada || jaAssinadoAntes) ? (
+  <div className="text-center py-6">
+    <CheckCircle size={48} className="mx-auto text-emerald-500 mb-3" />
+    <p className="font-bold text-slate-700 text-sm">Assinatura registrada com sucesso!</p>
+    <p className="text-slate-400 text-xs mt-1">Pode fechar esta página. 🙌</p>
+
+    {/* NOVO */}
+    <button
+      onClick={() => gerarPDFContrato(contratoParaAssinar)}
+      style={{ backgroundColor: themeColors.primary }}
+      className="w-full text-white font-black text-xs uppercase py-3.5 rounded-2xl mt-4 flex items-center justify-center gap-2 active:scale-95 transition-all"
+    >
+      <Printer size={16}/> Baixar Contrato Assinado em PDF
+    </button>
+  </div>
+) : (
+  <>
+    <p className="text-[11px] text-slate-500 mb-2 font-semibold">Confirme lendo o contrato com quem te enviou e assine abaixo:</p>
+    <SignaturePad onSave={salvarAssinaturaCliente} />
+  </>
+)}
         </div>
       </div>
     );
