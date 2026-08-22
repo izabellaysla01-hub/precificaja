@@ -427,7 +427,7 @@ export default function App() {
     await updateDoc(doc(db, "anotacoes", id), { concluido: !valorAtual });
   };
 
-    // --- GERADOR DE PDF DE CONTRATO (OTIMIZADO PARA TELA DE CELULAR) ---
+      // --- GERADOR DE PDF DE CONTRATO (IDÊNTICO AO LAYOUT DO ORÇAMENTO) ---
   const gerarPDFContrato = (contrato: any) => {
     const cli = clientes.find(c => c.id === contrato.clienteId);
     const dataEmissao = contrato.dataEmissao || new Date().toLocaleDateString('pt-BR');
@@ -441,129 +441,82 @@ export default function App() {
       const titulo = linhas[0] || '';
       const corpo = linhas.slice(1).join('<br>') || '';
       return `
-        <div style="margin-bottom: 14px; page-break-inside: avoid;">
-          <div style="font-weight: bold; font-size: 13px; color: #581c87; text-transform: uppercase;">${titulo}</div>
-          <div style="font-size: 12px; color: #4a5568; margin-top: 4px; line-height: 1.5;">${corpo || titulo}</div>
+        <div style="margin-bottom: 15px; page-break-inside: avoid; break-inside: avoid;">
+          <div style="font-weight: bold; font-size: 12px; color: ${themeColors.primary}; text-transform: uppercase;">${titulo}</div>
+          <div style="font-size: 12px; color: #475569; margin-top: 3px; line-height: 1.5;">${corpo || titulo}</div>
         </div>
       `;
     }).join('');
 
-    // Container overlay
-    const overlay = document.createElement('div');
-    overlay.style.position = "fixed";
-    overlay.style.top = "0";
-    overlay.style.left = "0";
-    overlay.style.width = "100vw";
-    overlay.style.height = "100vh";
-    overlay.style.backgroundColor = "rgba(0,0,0,0.5)";
-    overlay.style.zIndex = "99999";
-    overlay.style.overflow = "auto";
-    overlay.style.display = "flex";
-    overlay.style.justifyContent = "center";
-    overlay.style.padding = "10px";
-
-    // Elemento ajustado para proporção mobile (100% da largura útil sem overflow lateral)
     const elemento = document.createElement('div');
-    elemento.style.width = "100%";
-    elemento.style.maxWidth = "400px"; // Proporção exata da tela de celular
-    elemento.style.padding = "18px";
-    elemento.style.backgroundColor = "#ffffff";
-    elemento.style.color = "#2d3748";
-    elemento.style.fontFamily = "Arial, sans-serif";
-    elemento.style.boxSizing = "border-box";
-
     elemento.innerHTML = `
-      <div style="width: 100%; box-sizing: border-box;">
+      <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto;">
         
-        <!-- CABEÇALHO DO CONTRATO -->
-        <div style="margin-bottom: 16px; border-bottom: 2px solid #f1f5f9; padding-bottom: 12px;">
-          <h1 style="color: #581c87; margin: 0; font-size: 18px; font-weight: 900; line-height: 1.2;">CONTRATO DE PRESTAÇÃO DE SERVIÇOS</h1>
-          <p style="color: #94a3b8; font-size: 9px; font-weight: bold; text-transform: uppercase; margin: 4px 0 8px 0;">DOCUMENTO COMERCIAL E TERMOS DE ACORDO</p>
-          <div style="background-color: #f8fafc; padding: 6px 10px; border-radius: 8px; border: 1px solid #e2e8f0; display: inline-block;">
-            <span style="font-size: 8px; font-weight: bold; color: #64748b; text-transform: uppercase;">EMISSÃO: </span>
-            <span style="font-size: 11px; font-weight: bold; color: #581c87;">${dataEmissao}</span>
+        <!-- CABEÇALHO -->
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 25px;">
+          <div>
+            <h1 style="color: ${themeColors.primary}; margin: 0; font-size: 24px; font-weight: 900;">CONTRATO DE SERVIÇOS</h1>
+            <p style="color: #94a3b8; font-size: 11px; text-transform: uppercase; margin: 4px 0 0 0; font-weight: bold;">Documento Comercial e Termos de Acordo</p>
+          </div>
+          <div style="text-align: right; background-color: #f8fafc; padding: 10px 16px; border-radius: 12px; border: 1px solid #e2e8f0;">
+            <span style="font-size: 10px; font-weight: bold; color: ${themeColors.primary}; text-transform: uppercase; display: block;">Data de Emissão</span>
+            <span style="font-size: 13px; font-weight: bold; color: #475569; display: block; margin-top: 2px;">${dataEmissao}</span>
           </div>
         </div>
 
-        <!-- BLOCOS DE DADOS DAS PARTES -->
-        <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px;">
-          <div style="border-radius: 10px; border: 1px solid #e2e8f0; overflow: hidden; background-color: #fafafa;">
-            <div style="background-color: #581c87; color: #ffffff; padding: 6px 10px; font-size: 10px; font-weight: bold; text-transform: uppercase;">1. DADOS DO CONTRATANTE (CLIENTE)</div>
-            <div style="padding: 10px; font-size: 12px; line-height: 1.5;">
-              <div><strong>Nome:</strong> ${cli?.nome || 'Não informado'}</div>
-              <div><strong>CPF/CNPJ:</strong> ${cli?.cpfCnpj || 'Não informado'}</div>
-              <div><strong>Endereço:</strong> ${cli?.endereco || 'Não informado'}</div>
-            </div>
-          </div>
-
-          <div style="border-radius: 10px; border: 1px solid #e2e8f0; overflow: hidden; background-color: #fafafa;">
-            <div style="background-color: #581c87; color: #ffffff; padding: 6px 10px; font-size: 10px; font-weight: bold; text-transform: uppercase;">2. DADOS DO CONTRATADO (EMPRESA)</div>
-            <div style="padding: 10px; font-size: 12px; line-height: 1.5;">
-              <div><strong>Empresa:</strong> ${nomeEmpresaExibir}</div>
-              <div><strong>CPF/CNPJ:</strong> ${cpfCnpjEmpresaExibir}</div>
-              ${enderecoPerfil ? `<div><strong>Endereço:</strong> ${enderecoPerfil}</div>` : ''}
-            </div>
-          </div>
+        <!-- DADOS DAS PARTES -->
+        <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Identificação das Partes</div>
+        <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 25px; border: 1px solid #f1f5f9; font-size: 13px; line-height: 1.6;">
+          <p style="margin: 0;"><strong>CONTRATANTE (CLIENTE):</strong> ${cli?.nome || 'Não informado'} — <strong>CPF/CNPJ:</strong> ${cli?.cpfCnpj || 'Não informado'}</p>
+          ${cli?.endereco ? `<p style="margin: 4px 0 0 0; color: #64748b;"><strong>Endereço:</strong> ${cli.endereco}</p>` : ''}
+          <div style="border-top: 1px dashed #e2e8f0; margin: 10px 0;"></div>
+          <p style="margin: 0;"><strong>CONTRATADO (EMPRESA):</strong> ${nomeEmpresaExibir} — <strong>CPF/CNPJ:</strong> ${cpfCnpjEmpresaExibir}</p>
+          ${enderecoPerfil ? `<p style="margin: 4px 0 0 0; color: #64748b;"><strong>Endereço:</strong> ${enderecoPerfil}</p>` : ''}
         </div>
 
-        <!-- BLOCO EVENTO E VALOR COMBINADO -->
-        <div style="border-radius: 10px; border: 1px solid #e2e8f0; overflow: hidden; margin-bottom: 14px; background-color: #fafafa;">
-          <div style="background-color: #581c87; color: #ffffff; padding: 6px 10px; font-size: 10px; font-weight: bold; text-transform: uppercase;">3. DADOS DO EVENTO E VALOR</div>
-          <div style="padding: 10px; font-size: 12px; line-height: 1.5;">
-            <div><strong>Tipo de Evento:</strong> ${contrato.tipoEvento || 'Não informado'}</div>
-            <div><strong>Data do Evento:</strong> ${dataEventoFormatada}</div>
-            <div><strong>Local:</strong> ${contrato.localEvento || 'Não informado'}</div>
-            <div style="color: #581c87; font-size: 15px; font-weight: 900; margin-top: 8px;">Valor Total: R$ ${Number(contrato.valorTotal || 0).toFixed(2)}</div>
-            ${dadosBancariosPerfil ? `<div style="margin-top: 8px; font-size: 11px; color: #475569; background-color: #f1f5f9; padding: 8px; border-radius: 6px;"><strong>Pagamento:</strong> ${dadosBancariosPerfil}</div>` : ''}
-          </div>
+        <!-- DADOS DO EVENTO -->
+        <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Resumo do Evento e Valores</div>
+        <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 25px; border: 1px solid #f1f5f9; font-size: 13px; line-height: 1.6;">
+          <p style="margin: 0;"><strong>Serviço / Evento:</strong> ${contrato.tipoEvento || 'Não informado'}</p>
+          <p style="margin: 4px 0 0 0;"><strong>Data do Evento:</strong> ${dataEventoFormatada} — <strong>Local:</strong> ${contrato.localEvento || 'Não informado'}</p>
+          <p style="margin: 8px 0 0 0; font-size: 15px; color: ${themeColors.primary}; font-weight: 900;">Valor Total Combinado: R$ ${Number(contrato.valorTotal || 0).toFixed(2)}</p>
+          ${dadosBancariosPerfil ? `<p style="margin: 8px 0 0 0; font-size: 11px; color: #64748b; background-color: #ffffff; padding: 8px; border-radius: 8px; border: 1px solid #e2e8f0;"><strong>Dados para Pagamento:</strong> ${dadosBancariosPerfil}</p>` : ''}
         </div>
 
-        <!-- CLÁUSULAS E TERMOS -->
-        <div style="border-radius: 10px; border: 1px solid #e2e8f0; overflow: hidden; margin-bottom: 20px; background-color: #fafafa;">
-          <div style="background-color: #581c87; color: #ffffff; padding: 6px 10px; font-size: 10px; font-weight: bold; text-transform: uppercase;">4. CLÁUSULAS E TERMOS</div>
-          <div style="padding: 10px;">
-            ${clausulasFormatadas}
-          </div>
+        <!-- CLÁUSULAS -->
+        <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 15px;">Cláusulas e Condições Gerais</div>
+        <div style="background-color: #f8fafc; padding: 18px; border-radius: 16px; margin-bottom: 30px; border: 1px solid #f1f5f9;">
+          ${clausulasFormatadas}
         </div>
 
         <!-- ASSINATURAS -->
-        <div style="display: flex; flex-direction: column; gap: 24px; margin-top: 30px; page-break-inside: avoid;">
-          <div style="text-align: center;">
-            <div style="border-top: 1px solid #cbd5e1; margin-bottom: 4px;"></div>
+        <div style="display: flex; justify-content: space-between; gap: 40px; margin-top: 40px; page-break-inside: avoid; break-inside: avoid;">
+          <div style="flex: 1; text-align: center;">
+            <div style="border-top: 1px solid #cbd5e1; margin-bottom: 6px;"></div>
             <div style="font-size: 12px; font-weight: bold; color: #1e293b;">${cli?.nome || 'Cliente'}</div>
-            <div style="font-size: 9px; font-weight: bold; color: #94a3b8; text-transform: uppercase;">ASSINATURA DO CLIENTE</div>
+            <div style="font-size: 9px; font-weight: bold; color: #94a3b8; text-transform: uppercase;">CONTRATANTE</div>
           </div>
-          <div style="text-align: center;">
-            <div style="border-top: 1px solid #cbd5e1; margin-bottom: 4px;"></div>
+          <div style="flex: 1; text-align: center;">
+            <div style="border-top: 1px solid #cbd5e1; margin-bottom: 6px;"></div>
             <div style="font-size: 12px; font-weight: bold; color: #1e293b;">${nomeEmpresaExibir}</div>
-            <div style="font-size: 9px; font-weight: bold; color: #94a3b8; text-transform: uppercase;">ASSINATURA DA EMPRESA</div>
+            <div style="font-size: 9px; font-weight: bold; color: #94a3b8; text-transform: uppercase;">CONTRATADO</div>
           </div>
         </div>
 
       </div>
     `;
 
-    overlay.appendChild(elemento);
-    document.body.appendChild(overlay);
+    const opcoes = { 
+      margin: [10, 10, 10, 10], 
+      filename: `Contrato_${(cli?.nome || 'Cliente').replace(/\s+/g, '_')}.pdf`, 
+      html2canvas: { scale: 2, useCORS: true, scrollY: 0 }, 
+      jsPDF: { format: 'a4', orientation: 'portrait' }, 
+      pagebreak: { mode: ['avoid-all', 'css'] } 
+    };
 
-    setTimeout(() => {
-      const opcoes = { 
-        margin: [5, 5, 5, 5], 
-        filename: `Contrato_${(cli?.nome || 'Cliente').replace(/\s+/g, '_')}.pdf`, 
-        html2canvas: { scale: 2, useCORS: true, logging: false }, 
-        jsPDF: { unit: 'mm', format: [108, 192], orientation: 'portrait' } // Proporção vertical perfeita para telas mobile (108x192mm)
-      };
-
-      if ((window as any).html2pdf) { 
-        (window as any).html2pdf().from(elemento).set(opcoes).save().then(() => {
-          if (document.body.contains(overlay)) document.body.removeChild(overlay);
-        }).catch(() => {
-          if (document.body.contains(overlay)) document.body.removeChild(overlay);
-        }); 
-      } else {
-        if (document.body.contains(overlay)) document.body.removeChild(overlay);
-      }
-    }, 400);
+    if ((window as any).html2pdf) { 
+      (window as any).html2pdf().from(elemento).set(opcoes).save(); 
+    }
   };
 
 
