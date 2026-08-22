@@ -562,15 +562,19 @@ export default function App() {
   const salvarAssinaturaCliente = async (dataUrl: string) => {
   if (!idContratoParaAssinar) return;
   try {
+    const assinadoEm = new Date().toISOString();
     await updateDoc(doc(db, "contratos", idContratoParaAssinar), {
       assinaturaClienteUrl: dataUrl,
-      assinadoEm: new Date().toISOString()
+      assinadoEm
     });
+    // NOVO: atualiza o estado local também, senão o PDF gerado na hora sai sem a assinatura
+    setContratoParaAssinar((prev: any) => ({ ...prev, assinaturaClienteUrl: dataUrl, assinadoEm }));
     setAssinaturaEnviada(true);
   } catch {
     alert("Erro ao salvar sua assinatura. Tente novamente.");
   }
 };
+
 
 
   const proximosSeteDias = useMemo(() => {
