@@ -331,19 +331,23 @@ export default function App() {
     const lojaId = params.get('loja');
     const contratoId = params.get('assinar');
 
-    if (contratoId) {
+        if (contratoId) {
       setIdContratoParaAssinar(contratoId);
       setCarregandoAssinatura(true);
+      
+      // Busca direta do contrato
       getDoc(doc(db, "contratos", contratoId)).then(async (docSnap) => {
         if (docSnap.exists()) {
           const dadosContrato = { id: docSnap.id, ...docSnap.data() } as any;
           setContratoParaAssinar(dadosContrato);
 
+          // Puxa os dados do cliente
           if (dadosContrato.clienteId) {
             const cliSnap = await getDoc(doc(db, "clientes", dadosContrato.clienteId));
             if (cliSnap.exists()) setClienteDoContratoAssinar({ id: cliSnap.id, ...cliSnap.data() });
           }
 
+          // Puxa os dados e a assinatura da sua empresa
           if (dadosContrato.userId) {
             const empSnap = await getDoc(doc(db, "configuracoes_loja", dadosContrato.userId));
             if (empSnap.exists()) {
@@ -353,10 +357,16 @@ export default function App() {
               if (dadosEmp.themeColors) setThemeColors(dadosEmp.themeColors);
             }
           }
+        } else {
+          setContratoParaAssinar(null);
         }
         setCarregandoAssinatura(false);
         setLoading(false);
-      }).catch(() => { setCarregandoAssinatura(false); setLoading(false); });
+      }).catch((err) => { 
+        console.error(err);
+        setCarregandoAssinatura(false); 
+        setLoading(false); 
+      });
       return;
     }
 
