@@ -529,38 +529,32 @@ export default function App() {
 
   // --- NOVO: salva a assinatura desenhada da EMPRESA (perfil) ---
   const salvarAssinaturaLoja = async (dataUrl: string) => {
-    if (!user) return;
-    try {
-      const blob = await (await fetch(dataUrl)).blob();
-      const assinaturaRef = ref(storage, `assinaturas/loja_${user.uid}.png`);
-      await uploadBytes(assinaturaRef, blob);
-      const url = await getDownloadURL(assinaturaRef);
-      setAssinaturaLojaUrl(url);
-      await setDoc(doc(db, "configuracoes_loja", user.uid), { assinaturaUrl: url }, { merge: true });
-      setMostrarPadAssinaturaLoja(false);
-      alert("Assinatura salva! Ela vai aparecer automaticamente nos seus contratos. ✍️");
-    } catch {
-      alert("Erro ao salvar assinatura.");
-    }
-  };
+  if (!user) return;
+  try {
+    setAssinaturaLojaUrl(dataUrl);
+    await setDoc(doc(db, "configuracoes_loja", user.uid), { assinaturaUrl: dataUrl }, { merge: true });
+    setMostrarPadAssinaturaLoja(false);
+    alert("Assinatura salva! Ela vai aparecer automaticamente nos seus contratos. ✍️");
+  } catch {
+    alert("Erro ao salvar assinatura.");
+  }
+};
+
 
   // --- NOVO: salva a assinatura desenhada do CLIENTE (tela pública ?assinar=) ---
   const salvarAssinaturaCliente = async (dataUrl: string) => {
-    if (!idContratoParaAssinar) return;
-    try {
-      const blob = await (await fetch(dataUrl)).blob();
-      const assinaturaRef = ref(storage, `assinaturas/cliente_${idContratoParaAssinar}.png`);
-      await uploadBytes(assinaturaRef, blob);
-      const url = await getDownloadURL(assinaturaRef);
-      await updateDoc(doc(db, "contratos", idContratoParaAssinar), {
-        assinaturaClienteUrl: url,
-        assinadoEm: new Date().toISOString()
-      });
-      setAssinaturaEnviada(true);
-    } catch {
-      alert("Erro ao salvar sua assinatura. Tente novamente.");
-    }
-  };
+  if (!idContratoParaAssinar) return;
+  try {
+    await updateDoc(doc(db, "contratos", idContratoParaAssinar), {
+      assinaturaClienteUrl: dataUrl,
+      assinadoEm: new Date().toISOString()
+    });
+    setAssinaturaEnviada(true);
+  } catch {
+    alert("Erro ao salvar sua assinatura. Tente novamente.");
+  }
+};
+
 
   const proximosSeteDias = useMemo(() => {
     const dias = [];
