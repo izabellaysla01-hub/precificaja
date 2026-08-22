@@ -1458,6 +1458,26 @@ export default function App() {
             <p><strong>Valor Total:</strong> R$ {Number(contratoParaAssinar.valorTotal || 0).toFixed(2)}</p>
           </div>
 
+{/* TEXTO COMPLETO DO CONTRATO PARA LEITURA */}
+<div className="mb-5">
+  <p style={{ color: themeColors.primary }} className="text-[11px] font-black uppercase tracking-wider mb-2">
+    📄 Leia o contrato antes de assinar
+  </p>
+  <div className="bg-white border border-slate-200 rounded-2xl p-4 max-h-64 overflow-y-auto text-xs text-slate-700 leading-relaxed space-y-3">
+    {(contratoParaAssinar.clausulas || '').split('\n\n').map((bloco: string, idx: number) => {
+      const linhas = bloco.split('\n');
+      const titulo = linhas[0] || '';
+      const corpo = linhas.slice(1).join('\n');
+      return (
+        <div key={idx}>
+          <p style={{ color: themeColors.primary }} className="font-bold uppercase text-[10px] mb-0.5">{titulo}</p>
+          {corpo && <p className="whitespace-pre-line">{corpo}</p>}
+        </div>
+      );
+    })}
+  </div>
+</div>
+          
           {(assinaturaEnviada || jaAssinadoAntes) ? (
             <div className="text-center py-6">
               <CheckCircle size={48} className="mx-auto text-emerald-500 mb-3" />
