@@ -427,7 +427,7 @@ export default function App() {
     await updateDoc(doc(db, "anotacoes", id), { concluido: !valorAtual });
   };
 
-  // --- GERADOR DE PDF DE CONTRATO (FORMATO A4 SEM CORTE DE TEXTO) ---
+    // --- GERADOR DE PDF DE CONTRATO (AJUSTADO ESPAÇAMENTO DE ASSINATURA) ---
   const gerarPDFContrato = (contrato: any) => {
     const cli = clientes.find(c => c.id === contrato.clienteId);
     const dataEmissao = contrato.dataEmissao || new Date().toLocaleDateString('pt-BR');
@@ -436,7 +436,6 @@ export default function App() {
     const nomeEmpresaExibir = nomeFantasiaPerfil || nomeLojaPerfil || 'Empresa Contratada';
     const cpfCnpjEmpresaExibir = cpfCnpjPerfil || 'Não informado';
 
-    // Cada cláusula vira um bloco isolado com instrução de NÃO QUEBRAR
     const clausulasFormatadas = (contrato.clausulas || '').split('\n\n').map((bloco: string) => {
       const linhas = bloco.split('\n');
       const titulo = linhas[0] || '';
@@ -456,7 +455,7 @@ export default function App() {
         <!-- CABEÇALHO -->
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 20px; page-break-inside: avoid;">
           <div>
-            <h1 style="color: ${themeColors.primary}; margin: 0; font-size: 20px; font-weight: 900; tracking-wide: -0.5px;">CONTRATO DE PRESTAÇÃO DE SERVIÇOS</h1>
+            <h1 style="color: ${themeColors.primary}; margin: 0; font-size: 20px; font-weight: 900;">CONTRATO DE PRESTAÇÃO DE SERVIÇOS</h1>
             <p style="color: #94a3b8; font-size: 10px; text-transform: uppercase; margin: 3px 0 0 0; font-weight: bold;">Documento Comercial e Termos de Acordo</p>
           </div>
           <div style="text-align: right; background-color: #f8fafc; padding: 8px 12px; border-radius: 8px; border: 1px solid #e2e8f0;">
@@ -488,22 +487,22 @@ export default function App() {
           </div>
         </div>
 
-        <!-- CLÁUSULAS (SOLTAS SEM DIV PAI ENVOLVENDO TUDO) -->
+        <!-- CLÁUSULAS -->
         <div style="background-color: ${themeColors.primary}; color: white; padding: 6px 12px; border-radius: 6px; font-size: 10px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px; page-break-inside: avoid;">3. Cláusulas e Condições Gerais</div>
         
         <div style="margin-bottom: 20px;">
           ${clausulasFormatadas}
         </div>
 
-        <!-- ASSINATURAS -->
-        <div style="display: flex; justify-content: space-between; gap: 40px; margin-top: 35px; page-break-inside: avoid; break-inside: avoid;">
+        <!-- ASSINATURAS (ESPAÇAMENTO AMPLIADO) -->
+        <div style="display: flex; justify-content: space-between; gap: 40px; margin-top: 100px; padding-top: 20px; page-break-inside: avoid; break-inside: avoid;">
           <div style="flex: 1; text-align: center;">
-            <div style="border-top: 1px solid #94a3b8; margin-bottom: 4px;"></div>
+            <div style="border-top: 1px solid #94a3b8; margin-bottom: 8px;"></div>
             <div style="font-size: 11px; font-weight: bold; color: #1e293b;">${cli?.nome || 'Cliente'}</div>
             <div style="font-size: 8px; font-weight: bold; color: #94a3b8; text-transform: uppercase;">CONTRATANTE</div>
           </div>
           <div style="flex: 1; text-align: center;">
-            <div style="border-top: 1px solid #94a3b8; margin-bottom: 4px;"></div>
+            <div style="border-top: 1px solid #94a3b8; margin-bottom: 8px;"></div>
             <div style="font-size: 11px; font-weight: bold; color: #1e293b;">${nomeEmpresaExibir}</div>
             <div style="font-size: 8px; font-weight: bold; color: #94a3b8; text-transform: uppercase;">CONTRATADO</div>
           </div>
@@ -524,8 +523,6 @@ export default function App() {
       (window as any).html2pdf().from(elemento).set(opcoes).save(); 
     }
   };
-
-
 
   const enviarContratoWhatsapp = (contrato: any) => {
     const cli = clientes.find(c => c.id === contrato.clienteId);
