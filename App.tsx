@@ -58,22 +58,53 @@ const PRESET_PALETTES = [
 // --- COMPONENTE: PAD DE ASSINATURA (canvas touch/mouse) ---
 const SignaturePad = ({ onSave, corTraco = '#1e293b' }: { onSave: (dataUrl: string) => void; corTraco?: string }) => {
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
+  const containerRef = React.useRef<HTMLDivElement>(null);
   const [desenhando, setDesenhando] = useState(false);
   const [temTraco, setTemTraco] = useState(false);
+  const tracosRef = React.useRef<{ x: number; y: number }[][]>([]);
+
+  const redesenharTudo = () => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    if (!canvas || !ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = corTraco;
+    tracosRef.current.forEach(traco => {
+      if (traco.length < 2) return;
+      ctx.beginPath();
+      ctx.moveTo(traco[0].x, traco[0].y);
+      traco.forEach(p => ctx.lineTo(p.x, p.y));
+      ctx.stroke();
+    });
+  };
+
+  const configurarCanvas = () => {
+    const canvas = canvasRef.current;
+    const container = containerRef.current;
+    if (!canvas || !container) return;
+    const ratio = window.devicePixelRatio || 1;
+    const largura = container.offsetWidth;
+    const altura = container.offsetHeight;
+    if (largura === 0 || altura === 0) return;
+
+    canvas.width = largura * ratio;
+    canvas.height = altura * ratio;
+    canvas.style.width = `${largura}px`;
+    canvas.style.height = `${altura}px`;
+
+    const ctx = canvas.getContext('2d');
+    if (ctx) ctx.scale(ratio, ratio);
+
+    redesenharTudo(); // recupera tudo que já foi desenhado, mesmo se resize aconteceu no meio do traço
+  };
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ratio = window.devicePixelRatio || 1;
-    canvas.width = canvas.offsetWidth * ratio;
-    canvas.height = canvas.offsetHeight * ratio;
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.scale(ratio, ratio);
-      ctx.lineWidth = 2.5;
-      ctx.lineCap = 'round';
-      ctx.strokeStyle = corTraco;
-    }
+    configurarCanvas();
+    const observer = new ResizeObserver(() => configurarCanvas());
+    if (containerRef.current) observer.observe(containerRef.current);
+    return () => observer.disconnect();
   }, [corTraco]);
 
   const pegarPosicao = (e: React.MouseEvent | React.TouchEvent) => {
@@ -88,31 +119,26 @@ const SignaturePad = ({ onSave, corTraco = '#1e293b' }: { onSave: (dataUrl: stri
 
   const iniciarTraco = (e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
-    const ctx = canvasRef.current?.getContext('2d');
-    if (!ctx) return;
     const { x, y } = pegarPosicao(e);
-    ctx.beginPath();
-    ctx.moveTo(x, y);
+    tracosRef.current.push([{ x, y }]);
     setDesenhando(true);
   };
 
   const desenhar = (e: React.MouseEvent | React.TouchEvent) => {
     if (!desenhando) return;
     e.preventDefault();
-    const ctx = canvasRef.current?.getContext('2d');
-    if (!ctx) return;
     const { x, y } = pegarPosicao(e);
-    ctx.lineTo(x, y);
-    ctx.stroke();
+    const tracoAtual = tracosRef.current[tracosRef.current.length - 1];
+    tracoAtual.push({ x, y });
+    redesenharTudo();
     setTemTraco(true);
   };
 
   const pararTraco = () => setDesenhando(false);
 
   const limpar = () => {
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext('2d');
-    if (canvas && ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+    tracosRef.current = [];
+    redesenharTudo();
     setTemTraco(false);
   };
 
@@ -125,10 +151,10 @@ const SignaturePad = ({ onSave, corTraco = '#1e293b' }: { onSave: (dataUrl: stri
 
   return (
     <div className="w-full">
-      <div className="border-2 border-dashed border-slate-300 rounded-2xl bg-slate-50 overflow-hidden">
+      <div ref={containerRef} className="border-2 border-dashed border-slate-300 rounded-2xl bg-slate-50 overflow-hidden w-full h-48">
         <canvas
           ref={canvasRef}
-          className="w-full h-48 touch-none bg-white"
+          className="touch-none bg-white block"
           onMouseDown={iniciarTraco}
           onMouseMove={desenhar}
           onMouseUp={pararTraco}
@@ -147,30 +173,6 @@ const SignaturePad = ({ onSave, corTraco = '#1e293b' }: { onSave: (dataUrl: stri
   );
 };
 
-// --- TELA DE LOGIN ---
-const Login = ({ isRegistering, setIsRegistering, email, setEmail, password, setPassword, handleAuth }: any) => {
-  const recuperarSenha = async () => {
-    if (!email) return alert("Digite seu e-mail primeiro para eu te mandar o link!");
-    try {
-      await sendPasswordResetEmail(auth, email);
-      alert("Enviamos um link para o seu e-mail!");
-    } catch (e) { alert("E-mail não encontrado ou inválido."); }
-  };
-
-  return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="bg-white p-8 rounded-[40px] shadow-xl w-full max-w-md text-center border border-slate-100">
-        <h1 className="text-3xl font-black text-purple-700 mb-2 font-sans">PrecificaJá 🚀</h1>
-        <p className="text-slate-400 text-xs mb-8 uppercase font-bold tracking-widest">Sua empresa lucrando mais</p>
-        <input type="email" placeholder="Seu e-mail" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none focus:ring-2 focus:ring-purple-600" value={email} onChange={e => setEmail(e.target.value)} />
-        <input type="password" placeholder="Senha" className="w-full p-4 bg-slate-50 rounded-2xl mb-2 outline-none focus:ring-2 focus:ring-purple-600" value={password} onChange={e => setPassword(e.target.value)} />
-        <button onClick={recuperarSenha} className="text-[10px] text-purple-400 font-bold uppercase mb-6 hover:text-purple-600 block w-full text-right pr-2">Esqueci minha senha</button>
-        <button onClick={handleAuth} className="w-full bg-orange-500 text-white font-bold py-4 rounded-2xl shadow-lg hover:bg-orange-600 transition-all uppercase">{isRegistering ? 'Criar Conta Grátis' : 'Entrar no App'}</button>
-        <button onClick={() => setIsRegistering(!isRegistering)} className="mt-4 text-sm text-purple-600 underline block w-full font-medium">{isRegistering ? 'Já tenho login' : 'Cadastrar novo usuário'}</button>
-      </div>
-    </div>
-  );
-};
 
 export default function App() {
   const [user, setUser] = useState<any>(null);
