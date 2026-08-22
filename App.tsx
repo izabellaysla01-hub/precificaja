@@ -333,6 +333,7 @@ export default function App() {
     if (contratoId) {
       setIdContratoParaAssinar(contratoId);
       setCarregandoAssinatura(true);
+      setLoading(false);
       getDoc(doc(db, "contratos", contratoId)).then(async (docSnap) => {
         if (docSnap.exists()) {
           const dadosContrato = { id: docSnap.id, ...docSnap.data() } as any;
