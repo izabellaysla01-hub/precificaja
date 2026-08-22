@@ -1029,19 +1029,20 @@ const comprimirImagem = (file: File, maxLargura = 300): Promise<string> => {
   };
 
   const handleUploadLogo = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !user) return;
-    setSubindoLogo(true);
-    try {
-      const nomeArquivo = `logo_${user.uid}_${Date.now()}_${file.name}`;
-      const logoRef = ref(storage, `logos/${nomeArquivo}`);
-      await uploadBytes(logoRef, file);
-      const urlDisponivel = await getDownloadURL(logoRef);
-      setLogoLojaPerfil(urlDisponivel);
-      alert("Logo carregado com sucesso! Salve o perfil para aplicar. 📸");
-    } catch (error) { alert("Erro ao subir o logo!"); }
-    finally { setSubindoLogo(false); }
-  };
+  const file = e.target.files?.[0];
+  if (!file || !user) return;
+  setSubindoLogo(true);
+  try {
+    const dataUrl = await comprimirImagem(file, 300);
+    setLogoLojaPerfil(dataUrl);
+    alert("Logo carregado com sucesso! Salve o perfil para aplicar. 📸");
+  } catch (error) {
+    alert("Erro ao subir o logo!");
+  } finally {
+    setSubindoLogo(false);
+  }
+};
+
 
   const limparCalculadora = () => {
     setNomeProd(''); setDetalhamentoPed(''); setQtdPed('1'); setMatsNoPed([]); setVHora('9'); setTGasto('60');
