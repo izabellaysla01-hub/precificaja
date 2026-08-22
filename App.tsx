@@ -327,6 +327,29 @@ export default function App() {
     return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   };
 
+const comprimirImagem = (file: File, maxLargura = 300): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const escala = Math.min(1, maxLargura / img.width);
+        canvas.width = img.width * escala;
+        canvas.height = img.height * escala;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/png', 0.8));
+      };
+      img.onerror = reject;
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
+
+  
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const lojaId = params.get('loja');
