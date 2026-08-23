@@ -58,6 +58,16 @@ const PRESET_PALETTES = [
 // --- ATUALIZAÇÕES DO APP (changelog manual) ---
 const CHANGELOG_APP = [
   {
+    data: '23/08/2026',
+    titulo: 'Kanban unificado e agenda multi-data',
+    itens: [
+      'Tarefas da Agenda agora podem repetir em várias datas de uma vez',
+      'Resumo do Kanban (A Fazer / Fazendo / Feito) na tela Início',
+      'Novo status "Em Produção" nos pedidos: mande um pedido pro Kanban com 1 clique',
+      'Confirme a venda direto pelo card do Kanban quando o pedido chegar em "Feito"'
+    ]
+  },
+  {
     data: '22/08/2026',
     titulo: 'Busca e organização',
     itens: [
@@ -265,13 +275,15 @@ const [mesFiltroHistorico, setMesFiltroHistorico] = useState<string>(String(new 
   const [pedidoEditandoId, setPedidoEditandoId] = useState<string | null>(null);
   const [mostrarSeletorCatalogo, setMostrarSeletorCatalogo] = useState(false);
 
-  const [filtroStatusPedido, setFiltroStatusPedido] = useState<'Pendente' | 'Vendido' | 'Cancelado'>('Pendente');
+  const [filtroStatusPedido, setFiltroStatusPedido] = useState<'Pendente' | 'Produção' | 'Vendido' | 'Cancelado'>('Pendente');
   const [isDuplicando, setIsDuplicando] = useState(false);
 
   const [diaSelecionadoAgenda, setDiaSelecionadoAgenda] = useState<string>(new Date().toISOString().split('T')[0]);
   const [subAbaAnotacoes, setSubAbaAnotacoes] = useState<'agenda' | 'kanban'>('agenda');
   const [itemArrastandoId, setItemArrastandoId] = useState<string | null>(null);
   const [colunaAlvoOver, setColunaAlvoOver] = useState<string | null>(null);
+  const [datasExtras, setDatasExtras] = useState<string[]>([]);
+  const [novaDataExtra, setNovaDataExtra] = useState(new Date().toISOString().split('T')[0]);
 
 
   const [modoCalculo, setModoCalculo] = useState<'peca' | 'lote'>('peca');
@@ -367,9 +379,21 @@ const [mesFiltroHistorico, setMesFiltroHistorico] = useState<string>(String(new 
     { id: 'feito', nome: 'Feito', emoji: '✅', cor: '#10b981' },
   ];
 
-  const moverStatusKanban = async (id: string, novoStatus: string) => {
-    await updateDoc(doc(db, "anotacoes", id), { statusKanban: novoStatus });
+  const moverStatusKanban = async (id: string, tipo: string, novoStatus: string) => {
+    const colecao = tipo === 'pedido' ? 'pedidos' : 'anotacoes';
+    await updateDoc(doc(db, colecao, id), { statusKanban: novoStatus });
   };
+
+  const itensDoKanban = useMemo(() => {
+    const tarefas = anotacoes.filter(a => a.apareceNoKanban && !a.concluido).map(a => ({
+      id: a.id, tipo: 'tarefa', titulo: a.titulo, conteudo: a.conteudo, dataPrazo: a.dataPrazo, statusKanban: a.statusKanban || 'a_fazer'
+    }));
+    const pedidosEmProducao = pedidos.filter(p => (p.status || '').includes('Produção')).map(p => {
+      const cli = clientes.find(c => c.id === p.clienteId);
+      return { id: p.id, tipo: 'pedido', titulo: p.nomeProd, conteudo: cli?.nome ? `Cliente: ${cli.nome}` : '', dataPrazo: p.prazo, statusKanban: p.statusKanban || 'a_fazer' };
+    });
+    return [...tarefas, ...pedidosEmProducao];
+  }, [anotacoes, pedidos, clientes]);
 
   const custoPorPaginaCalculado = useMemo(() => {
     const preco = Number(precoTinta) || 0;
@@ -1228,6 +1252,7 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
       const st = p.status || 'Pendente';
       if (filtroStatusPedido === 'Vendido') return st.includes('Vendido');
       if (filtroStatusPedido === 'Cancelado') return st.includes('Cancelado');
+      if (filtroStatusPedido === 'Produção') return st.includes('Produção');
       return st === 'Pendente';
     });
   }, [pedidos, filtroStatusPedido]);
@@ -2138,6 +2163,24 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
               </div>
             </div>
 
+            <div className="bg-white p-5 rounded-[35px] border shadow-sm w-full">
+              <div className="flex items-center justify-between mb-3 px-1">
+                <h3 style={{ color: themeColors.primary }} className="font-black uppercase text-xs tracking-wider">🗂️ Produção em Andamento</h3>
+                <button onClick={() => { setActiveTab('anotacoes'); setSubAbaAnotacoes('kanban'); }} className="text-[10px] font-bold text-slate-400">Ver tudo →</button>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {colunasKanban.map(coluna => {
+                  const qtd = itensDoKanban.filter(item => item.statusKanban === coluna.id).length;
+                  return (
+                    <div key={coluna.id} onClick={() => { setActiveTab('anotacoes'); setSubAbaAnotacoes('kanban'); }} className="bg-slate-50 rounded-2xl p-3 text-center cursor-pointer active:scale-95 transition-all">
+                      <p className="text-[9px] font-black uppercase text-slate-400 mb-1">{coluna.emoji} {coluna.nome}</p>
+                      <p style={{ color: coluna.cor }} className="text-2xl font-black">{qtd}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-4 w-full">
               <div onClick={() => setActiveTab('pedidos')} className="bg-white p-5 rounded-[30px] border shadow-sm cursor-pointer active:scale-95 transition-all w-full">
                 <div style={{ color: themeColors.secondary }} className="w-10 h-10 rounded-2xl bg-orange-50 flex items-center justify-center mb-3"><History size={20}/></div>
@@ -2564,6 +2607,26 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
             <input type="date" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm block mt-1" value={novaAnotacao.dataPrazo} onChange={e => setNovaAnotacao({...novaAnotacao, dataPrazo: e.target.value})} />
           </div>
 
+          <div className="mb-4 w-full">
+            <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">
+              Repetir também nestes dias (opcional)
+            </label>
+            <div className="flex gap-2 mb-2">
+              <input type="date" className="flex-1 p-3 bg-slate-50 rounded-xl outline-none text-xs font-bold" value={novaDataExtra} onChange={e => setNovaDataExtra(e.target.value)} />
+              <button type="button" onClick={() => { if (!datasExtras.includes(novaDataExtra)) setDatasExtras([...datasExtras, novaDataExtra]); }} style={{ backgroundColor: themeColors.primary }} className="text-white px-4 rounded-xl text-xs font-black">+ Add</button>
+            </div>
+            {datasExtras.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {datasExtras.map(d => (
+                  <span key={d} className="bg-purple-50 text-purple-700 text-[10px] font-bold px-2 py-1 rounded-lg flex items-center gap-1">
+                    {d.split('-').reverse().join('/')}
+                    <button onClick={() => setDatasExtras(datasExtras.filter(x => x !== d))}><X size={12}/></button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
           <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Detalhes Adicionais (Opcional)</label>
           <textarea placeholder="Escreva informações extras ou observações aqui..." className="w-full p-4 bg-slate-50 rounded-2xl mb-6 outline-none border focus:border-purple-400 resize-none h-16 text-sm font-semibold" value={novaAnotacao.conteudo} onChange={e => setNovaAnotacao({...novaAnotacao, conteudo: e.target.value})} />
           
@@ -2573,10 +2636,18 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
               style={{ backgroundColor: themeColors.secondary }}
               onClick={async () => {
               if(!novaAnotacao.titulo) return alert("Sua tarefa precisa de uma descrição básica!");
-              const dadosNota = { titulo: novaAnotacao.titulo, conteudo: novaAnotacao.conteudo || '', dataPrazo: novaAnotacao.dataPrazo, concluido: false, userId: user.uid, dataCriacao: new Date().toLocaleDateString('pt-BR') };
-              if (novaAnotacao.id) { await updateDoc(doc(db, "anotacoes", novaAnotacao.id), dadosNota); }
-              else { await addDoc(collection(db, "anotacoes"), { ...dadosNota, apareceNoKanban: false }); }
+              const todasAsDatas = [novaAnotacao.dataPrazo, ...datasExtras.filter(d => d !== novaAnotacao.dataPrazo)];
+              if (novaAnotacao.id) {
+                const dadosNota = { titulo: novaAnotacao.titulo, conteudo: novaAnotacao.conteudo || '', dataPrazo: novaAnotacao.dataPrazo, concluido: false, userId: user.uid, dataCriacao: new Date().toLocaleDateString('pt-BR') };
+                await updateDoc(doc(db, "anotacoes", novaAnotacao.id), dadosNota);
+              } else {
+                for (const data of todasAsDatas) {
+                  const dadosNota = { titulo: novaAnotacao.titulo, conteudo: novaAnotacao.conteudo || '', dataPrazo: data, concluido: false, userId: user.uid, dataCriacao: new Date().toLocaleDateString('pt-BR') };
+                  await addDoc(collection(db, "anotacoes"), { ...dadosNota, apareceNoKanban: false });
+                }
+              }
               setNovaAnotacao({ id: '', titulo: '', conteudo: '', dataPrazo: new Date().toISOString().split('T')[0] });
+              setDatasExtras([]);
               alert("Tarefa agendada com sucesso! 📅✨");
             }} className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-[10px] shadow-md flex flex-col items-center gap-1">
               <CheckSquare size={18}/>
@@ -2587,10 +2658,18 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
               style={{ backgroundColor: themeColors.primary }}
               onClick={async () => {
               if(!novaAnotacao.titulo) return alert("Seu pedido precisa de uma descrição básica!");
-              const dadosNota = { titulo: novaAnotacao.titulo, conteudo: novaAnotacao.conteudo || '', dataPrazo: novaAnotacao.dataPrazo, concluido: false, userId: user.uid, dataCriacao: new Date().toLocaleDateString('pt-BR') };
-              if (novaAnotacao.id) { await updateDoc(doc(db, "anotacoes", novaAnotacao.id), { ...dadosNota, apareceNoKanban: true, statusKanban: 'a_fazer' }); }
-              else { await addDoc(collection(db, "anotacoes"), { ...dadosNota, apareceNoKanban: true, statusKanban: 'a_fazer' }); }
+              const todasAsDatas = [novaAnotacao.dataPrazo, ...datasExtras.filter(d => d !== novaAnotacao.dataPrazo)];
+              if (novaAnotacao.id) {
+                const dadosNota = { titulo: novaAnotacao.titulo, conteudo: novaAnotacao.conteudo || '', dataPrazo: novaAnotacao.dataPrazo, concluido: false, userId: user.uid, dataCriacao: new Date().toLocaleDateString('pt-BR') };
+                await updateDoc(doc(db, "anotacoes", novaAnotacao.id), { ...dadosNota, apareceNoKanban: true, statusKanban: 'a_fazer' });
+              } else {
+                for (const data of todasAsDatas) {
+                  const dadosNota = { titulo: novaAnotacao.titulo, conteudo: novaAnotacao.conteudo || '', dataPrazo: data, concluido: false, userId: user.uid, dataCriacao: new Date().toLocaleDateString('pt-BR') };
+                  await addDoc(collection(db, "anotacoes"), { ...dadosNota, apareceNoKanban: true, statusKanban: 'a_fazer' });
+                }
+              }
               setNovaAnotacao({ id: '', titulo: '', conteudo: '', dataPrazo: new Date().toISOString().split('T')[0] });
+              setDatasExtras([]);
               alert("Pedido criado no Kanban com sucesso! 🗂️✨");
               setSubAbaAnotacoes('kanban');
             }} className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-[10px] shadow-md flex flex-col items-center gap-1">
@@ -2643,6 +2722,27 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
             <label style={{ color: themeColors.secondary }} className="text-[10px] font-bold uppercase ml-1">Data Limite / Prazo</label>
             <input type="date" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm block mt-1" value={novaAnotacao.dataPrazo} onChange={e => setNovaAnotacao({...novaAnotacao, dataPrazo: e.target.value})} />
           </div>
+
+          <div className="mb-4 w-full">
+            <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">
+              Repetir também nestes dias (opcional)
+            </label>
+            <div className="flex gap-2 mb-2">
+              <input type="date" className="flex-1 p-3 bg-slate-50 rounded-xl outline-none text-xs font-bold" value={novaDataExtra} onChange={e => setNovaDataExtra(e.target.value)} />
+              <button type="button" onClick={() => { if (!datasExtras.includes(novaDataExtra)) setDatasExtras([...datasExtras, novaDataExtra]); }} style={{ backgroundColor: themeColors.primary }} className="text-white px-4 rounded-xl text-xs font-black">+ Add</button>
+            </div>
+            {datasExtras.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {datasExtras.map(d => (
+                  <span key={d} className="bg-purple-50 text-purple-700 text-[10px] font-bold px-2 py-1 rounded-lg flex items-center gap-1">
+                    {d.split('-').reverse().join('/')}
+                    <button onClick={() => setDatasExtras(datasExtras.filter(x => x !== d))}><X size={12}/></button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
           <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Detalhes Adicionais (Opcional)</label>
           <textarea placeholder="Escreva informações extras ou observações aqui..." className="w-full p-4 bg-slate-50 rounded-2xl mb-6 outline-none border focus:border-purple-400 resize-none h-16 text-sm font-semibold" value={novaAnotacao.conteudo} onChange={e => setNovaAnotacao({...novaAnotacao, conteudo: e.target.value})} />
           <p className="text-[10px] font-bold text-slate-400 uppercase ml-1 mb-2">Onde isso deve aparecer?</p>
@@ -2651,10 +2751,18 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
               style={{ backgroundColor: themeColors.secondary }}
               onClick={async () => {
               if(!novaAnotacao.titulo) return alert("Sua tarefa precisa de uma descrição básica!");
-              const dadosNota = { titulo: novaAnotacao.titulo, conteudo: novaAnotacao.conteudo || '', dataPrazo: novaAnotacao.dataPrazo, concluido: false, userId: user.uid, dataCriacao: new Date().toLocaleDateString('pt-BR') };
-              if (novaAnotacao.id) { await updateDoc(doc(db, "anotacoes", novaAnotacao.id), dadosNota); }
-              else { await addDoc(collection(db, "anotacoes"), { ...dadosNota, apareceNoKanban: false }); }
+              const todasAsDatas = [novaAnotacao.dataPrazo, ...datasExtras.filter(d => d !== novaAnotacao.dataPrazo)];
+              if (novaAnotacao.id) {
+                const dadosNota = { titulo: novaAnotacao.titulo, conteudo: novaAnotacao.conteudo || '', dataPrazo: novaAnotacao.dataPrazo, concluido: false, userId: user.uid, dataCriacao: new Date().toLocaleDateString('pt-BR') };
+                await updateDoc(doc(db, "anotacoes", novaAnotacao.id), dadosNota);
+              } else {
+                for (const data of todasAsDatas) {
+                  const dadosNota = { titulo: novaAnotacao.titulo, conteudo: novaAnotacao.conteudo || '', dataPrazo: data, concluido: false, userId: user.uid, dataCriacao: new Date().toLocaleDateString('pt-BR') };
+                  await addDoc(collection(db, "anotacoes"), { ...dadosNota, apareceNoKanban: false });
+                }
+              }
               setNovaAnotacao({ id: '', titulo: '', conteudo: '', dataPrazo: new Date().toISOString().split('T')[0] });
+              setDatasExtras([]);
               alert("Tarefa agendada com sucesso! 📅✨");
               setSubAbaAnotacoes('agenda');
             }} className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-[10px] shadow-md flex flex-col items-center gap-1">
@@ -2665,10 +2773,18 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
               style={{ backgroundColor: themeColors.primary }}
               onClick={async () => {
               if(!novaAnotacao.titulo) return alert("Seu pedido precisa de uma descrição básica!");
-              const dadosNota = { titulo: novaAnotacao.titulo, conteudo: novaAnotacao.conteudo || '', dataPrazo: novaAnotacao.dataPrazo, concluido: false, userId: user.uid, dataCriacao: new Date().toLocaleDateString('pt-BR') };
-              if (novaAnotacao.id) { await updateDoc(doc(db, "anotacoes", novaAnotacao.id), { ...dadosNota, apareceNoKanban: true, statusKanban: 'a_fazer' }); }
-              else { await addDoc(collection(db, "anotacoes"), { ...dadosNota, apareceNoKanban: true, statusKanban: 'a_fazer' }); }
+              const todasAsDatas = [novaAnotacao.dataPrazo, ...datasExtras.filter(d => d !== novaAnotacao.dataPrazo)];
+              if (novaAnotacao.id) {
+                const dadosNota = { titulo: novaAnotacao.titulo, conteudo: novaAnotacao.conteudo || '', dataPrazo: novaAnotacao.dataPrazo, concluido: false, userId: user.uid, dataCriacao: new Date().toLocaleDateString('pt-BR') };
+                await updateDoc(doc(db, "anotacoes", novaAnotacao.id), { ...dadosNota, apareceNoKanban: true, statusKanban: 'a_fazer' });
+              } else {
+                for (const data of todasAsDatas) {
+                  const dadosNota = { titulo: novaAnotacao.titulo, conteudo: novaAnotacao.conteudo || '', dataPrazo: data, concluido: false, userId: user.uid, dataCriacao: new Date().toLocaleDateString('pt-BR') };
+                  await addDoc(collection(db, "anotacoes"), { ...dadosNota, apareceNoKanban: true, statusKanban: 'a_fazer' });
+                }
+              }
               setNovaAnotacao({ id: '', titulo: '', conteudo: '', dataPrazo: new Date().toISOString().split('T')[0] });
+              setDatasExtras([]);
               alert("Pedido criado no Kanban com sucesso! 🗂️✨");
             }} className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-[10px] shadow-md flex flex-col items-center gap-1">
               🗂️
@@ -2679,7 +2795,7 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
 
         <div className="flex gap-3 overflow-x-auto pb-2 w-full snap-x">
           {colunasKanban.map((coluna, idx) => {
-            const itensDaColuna = anotacoes.filter(a => a.apareceNoKanban && (a.statusKanban || 'a_fazer') === coluna.id && !a.concluido);
+            const itensDaColuna = itensDoKanban.filter(item => item.statusKanban === coluna.id);
             const estaSobreEssaColuna = colunaAlvoOver === coluna.id;
             return (
               <div 
@@ -2688,7 +2804,10 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
                 onDragLeave={() => setColunaAlvoOver(prev => prev === coluna.id ? null : prev)}
                 onDrop={(e) => {
                   e.preventDefault();
-                  if (itemArrastandoId) moverStatusKanban(itemArrastandoId, coluna.id);
+                  if (itemArrastandoId) {
+                    const itemAtual = itensDoKanban.find(x => x.id === itemArrastandoId);
+                    if (itemAtual) moverStatusKanban(itemArrastandoId, itemAtual.tipo, coluna.id);
+                  }
                   setItemArrastandoId(null);
                   setColunaAlvoOver(null);
                 }}
@@ -2702,12 +2821,15 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
                 <div className="space-y-2 max-h-[65vh] overflow-y-auto">
                   {itensDaColuna.map(item => (
                     <div 
-                      key={item.id}
+                      key={`${item.tipo}-${item.id}`}
                       draggable
                       onDragStart={() => setItemArrastandoId(item.id)}
                       onDragEnd={() => { setItemArrastandoId(null); setColunaAlvoOver(null); }}
                       className={`bg-slate-50 border border-slate-100 rounded-2xl p-3 cursor-grab active:cursor-grabbing transition-opacity ${itemArrastandoId === item.id ? 'opacity-30' : 'opacity-100'}`}
                     >
+                      <div className="flex items-center gap-1.5 mb-1">
+                        {item.tipo === 'pedido' && <span className="text-[8px] bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded font-black uppercase">💰 Pedido</span>}
+                      </div>
                       <p className="font-bold text-slate-800 text-xs break-words">{item.titulo}</p>
                       {item.dataPrazo && (
                         <p className="text-[10px] text-slate-400 font-semibold mt-1">🗓️ {item.dataPrazo.split('-').reverse().join('/')}</p>
@@ -2715,10 +2837,12 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
                       {item.conteudo && <p className="text-[10px] text-slate-500 mt-1">{item.conteudo}</p>}
                       <div className="flex justify-between items-center mt-2 gap-1">
                         {idx > 0 ? (
-                          <button onClick={() => moverStatusKanban(item.id, colunasKanban[idx - 1].id)} className="text-[9px] font-black uppercase bg-white border px-2 py-1 rounded-lg text-slate-500">◀ Voltar</button>
+                          <button onClick={() => moverStatusKanban(item.id, item.tipo, colunasKanban[idx - 1].id)} className="text-[9px] font-black uppercase bg-white border px-2 py-1 rounded-lg text-slate-500">◀ Voltar</button>
                         ) : <span />}
                         {idx < colunasKanban.length - 1 ? (
-                          <button onClick={() => moverStatusKanban(item.id, colunasKanban[idx + 1].id)} style={{ backgroundColor: coluna.cor }} className="text-[9px] font-black uppercase text-white px-2 py-1 rounded-lg ml-auto">Avançar ▶</button>
+                          <button onClick={() => moverStatusKanban(item.id, item.tipo, colunasKanban[idx + 1].id)} style={{ backgroundColor: coluna.cor }} className="text-[9px] font-black uppercase text-white px-2 py-1 rounded-lg ml-auto">Avançar ▶</button>
+                        ) : item.tipo === 'pedido' ? (
+                          <button onClick={() => { const p = pedidos.find(x => x.id === item.id); if (p) confirmarVendaPedido(p); }} className="text-[9px] font-black uppercase bg-emerald-500 text-white px-2 py-1 rounded-lg ml-auto">✅ Confirmar Venda</button>
                         ) : (
                           <button onClick={() => confirmarExcluir('anotacao', item.id)} className="text-[9px] font-black uppercase text-red-400 px-2 py-1 rounded-lg ml-auto">Remover</button>
                         )}
@@ -3409,6 +3533,7 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
 
             <div className="flex bg-slate-100 p-1.5 rounded-2xl gap-1 w-full mb-4 border">
               <button onClick={() => setFiltroStatusPedido('Pendente')} style={{ color: filtroStatusPedido === 'Pendente' ? themeColors.primary : undefined }} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${filtroStatusPedido === 'Pendente' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>Pendentes ⏳</button>
+              <button onClick={() => setFiltroStatusPedido('Produção')} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${filtroStatusPedido === 'Produção' ? 'bg-white text-purple-600 shadow-sm' : 'text-slate-400'}`}>Produção 🔧</button>
               <button onClick={() => setFiltroStatusPedido('Vendido')} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${filtroStatusPedido === 'Vendido' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400'}`}>Vendidos 💰</button>
               <button onClick={() => setFiltroStatusPedido('Cancelado')} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${filtroStatusPedido === 'Cancelado' ? 'bg-white text-red-500 shadow-sm' : 'text-slate-400'}`}>Cancelados ❌</button>
             </div>
@@ -3421,7 +3546,7 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
                    <div className="flex justify-between items-center w-full">
                      <div>
                         <p style={{ color: themeColors.primary }} className="font-black text-[10px] uppercase mb-1">
-                          {cli?.nome || 'Sem Cliente'} {p.data ? `— ${p.data}` : ''} — <span className={statusAtual.includes('Vendido') ? "text-emerald-500" : statusAtual.includes('Cancelado') ? "text-red-400" : "text-orange-400"}>{statusAtual}</span>
+                          {cli?.nome || 'Sem Cliente'} {p.data ? `— ${p.data}` : ''} — <span className={statusAtual.includes('Vendido') ? "text-emerald-500" : statusAtual.includes('Cancelado') ? "text-red-400" : statusAtual.includes('Produção') ? "text-purple-500" : "text-orange-400"}>{statusAtual}</span>
                         </p>
                         <div className="font-bold text-slate-700 text-sm whitespace-pre-line">{p.nomeProd} <span className="text-xs text-slate-400 font-normal">({p.qtdPed || 1} un)</span></div>
                         
@@ -3442,10 +3567,14 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
                    <div className="flex items-center justify-end border-t pt-2 gap-1 w-full">
                       {statusAtual === 'Pendente' && (
                         <>
-                          <button onClick={() => confirmarVendaPedido(p)} className="text-emerald-600 p-2 bg-emerald-50 rounded-xl text-xs font-bold flex items-center gap-1 mr-auto active:scale-95"><CheckCircle size={16}/> Confirmar Venda</button>
+                          <button onClick={async () => { await updateDoc(doc(db, "pedidos", p.id), { status: 'Em Produção 🔧', statusKanban: 'a_fazer' }); alert("Pedido movido pro Kanban! 🔧"); }} className="text-purple-600 p-2 bg-purple-50 rounded-xl text-xs font-bold flex items-center gap-1 mr-auto active:scale-95">🔧 Iniciar Produção</button>
+                          <button onClick={() => confirmarVendaPedido(p)} className="text-emerald-600 p-2 bg-emerald-50 rounded-xl text-xs font-bold flex items-center gap-1 active:scale-95"><CheckCircle size={16}/> Confirmar Venda</button>
                           <button onClick={() => carregarPedidoParaEdicao(p)} style={{ color: themeColors.primary }} className="p-2 bg-purple-50 rounded-xl"><Edit2 size={18}/></button>
                           <button onClick={() => cancelarPedidoSemExcluir(p.id)} title="Cancelar Orçamento" className="text-red-500 p-2 bg-red-50 rounded-xl"><X size={18}/></button>
                         </>
+                      )}
+                      {statusAtual === 'Em Produção 🔧' && (
+                        <button onClick={() => confirmarVendaPedido(p)} className="text-emerald-600 p-2 bg-emerald-50 rounded-xl text-xs font-bold flex items-center gap-1 mr-auto active:scale-95"><CheckCircle size={16}/> Confirmar Venda</button>
                       )}
                       
                       <button onClick={() => handleDuplicarOrcamento(p)} title="Duplicar este Orçamento" className="text-blue-500 p-2 bg-blue-50 rounded-xl active:scale-95 transition-transform"><Copy size={18}/></button>
