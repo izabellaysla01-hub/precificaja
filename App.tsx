@@ -2544,148 +2544,200 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
 
 {/* TELA DE AGENDA / COMPROMISSOS COM PRAZOS */}
         {activeTab === 'anotacoes' && (
-          <div className="space-y-4 pt-2 w-full">
-            <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
-              <h2 style={{ color: themeColors.primary }} className="font-bold mb-4 flex items-center gap-2"><Calendar size={20}/> Criar Nova Tarefa / Lembrete</h2>
-              <p className="text-slate-400 text-[11px] mb-4">Gerencie as pendências e compras do seu negócio por data. O que você colocar aqui alimenta o painel da sua Tela Inicial.</p>
-              
-              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">O que precisa fazer?</label>
-              <input placeholder="Ex: Comprar papel fotográfico A4 / Entregar caneca do cliente" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-bold text-sm" value={novaAnotacao.titulo} onChange={e => setNovaAnotacao({...novaAnotacao, titulo: e.target.value})} />
-              
-              <div className="mb-4 w-full">
-                <label style={{ color: themeColors.secondary }} className="text-[10px] font-bold uppercase ml-1">Data Limite / Prazo</label>
-                <input type="date" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm block mt-1" value={novaAnotacao.dataPrazo} onChange={e => setNovaAnotacao({...novaAnotacao, dataPrazo: e.target.value})} />
-              </div>
+  <div className="space-y-4 pt-2 w-full">
+    <div className="flex bg-slate-100 p-1.5 rounded-2xl gap-1 w-full border">
+      <button onClick={() => setSubAbaAnotacoes('agenda')} style={{ color: subAbaAnotacoes === 'agenda' ? themeColors.primary : undefined }} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${subAbaAnotacoes === 'agenda' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>📅 Agenda</button>
+      <button onClick={() => setSubAbaAnotacoes('kanban')} style={{ color: subAbaAnotacoes === 'kanban' ? themeColors.primary : undefined }} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${subAbaAnotacoes === 'kanban' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>🗂️ Kanban</button>
+    </div>
 
-              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Detalhes Adicionais (Opcional)</label>
-              <textarea placeholder="Escreva informações extras ou observações aqui..." className="w-full p-4 bg-slate-50 rounded-2xl mb-6 outline-none border focus:border-purple-400 resize-none h-16 text-sm font-semibold" value={novaAnotacao.conteudo} onChange={e => setNovaAnotacao({...novaAnotacao, conteudo: e.target.value})} />
-              
-              <p className="text-[10px] font-bold text-slate-400 uppercase ml-1 mb-2">Onde isso deve aparecer?</p>
-              <div className="grid grid-cols-2 gap-3">
-                <button 
-                  style={{ backgroundColor: themeColors.secondary }}
-                  onClick={async () => {
-                  if(!novaAnotacao.titulo) return alert("Sua tarefa precisa de uma descrição básica!");
-                  const dadosNota = { titulo: novaAnotacao.titulo, conteudo: novaAnotacao.conteudo || '', dataPrazo: novaAnotacao.dataPrazo, concluido: false, userId: user.uid, dataCriacao: new Date().toLocaleDateString('pt-BR') };
-                  
-                  if (novaAnotacao.id) {
-                    await updateDoc(doc(db, "anotacoes", novaAnotacao.id), dadosNota);
-                  } else {
-                    await addDoc(collection(db, "anotacoes"), { ...dadosNota, apareceNoKanban: false });
-                  }
-                  
-                  setNovaAnotacao({ id: '', titulo: '', conteudo: '', dataPrazo: new Date().toISOString().split('T')[0] });
-                  alert("Tarefa agendada com sucesso! 📅✨");
-                }} className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-[10px] shadow-md flex flex-col items-center gap-1">
-                  <CheckSquare size={18}/>
-                  {novaAnotacao.id ? 'Atualizar Tarefa' : 'Agendar Tarefa'}
-                </button>
+    {subAbaAnotacoes === 'agenda' && (
+      <div className="space-y-4 animate-fadeIn">
+        <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
+          <h2 style={{ color: themeColors.primary }} className="font-bold mb-4 flex items-center gap-2"><Calendar size={20}/> Criar Nova Tarefa / Lembrete</h2>
+          <p className="text-slate-400 text-[11px] mb-4">Gerencie as pendências e compras do seu negócio por data. O que você colocar aqui alimenta o painel da sua Tela Inicial.</p>
+          
+          <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">O que precisa fazer?</label>
+          <input placeholder="Ex: Comprar papel fotográfico A4 / Entregar caneca do cliente" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-bold text-sm" value={novaAnotacao.titulo} onChange={e => setNovaAnotacao({...novaAnotacao, titulo: e.target.value})} />
+          
+          <div className="mb-4 w-full">
+            <label style={{ color: themeColors.secondary }} className="text-[10px] font-bold uppercase ml-1">Data Limite / Prazo</label>
+            <input type="date" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm block mt-1" value={novaAnotacao.dataPrazo} onChange={e => setNovaAnotacao({...novaAnotacao, dataPrazo: e.target.value})} />
+          </div>
 
-                <button 
-                  style={{ backgroundColor: themeColors.primary }}
-                  onClick={async () => {
-                  if(!novaAnotacao.titulo) return alert("Seu pedido precisa de uma descrição básica!");
-                  const dadosNota = { titulo: novaAnotacao.titulo, conteudo: novaAnotacao.conteudo || '', dataPrazo: novaAnotacao.dataPrazo, concluido: false, userId: user.uid, dataCriacao: new Date().toLocaleDateString('pt-BR') };
-                  
-                  if (novaAnotacao.id) {
-                    await updateDoc(doc(db, "anotacoes", novaAnotacao.id), { ...dadosNota, apareceNoKanban: true, statusKanban: 'a_fazer' });
-                  } else {
-                    await addDoc(collection(db, "anotacoes"), { ...dadosNota, apareceNoKanban: true, statusKanban: 'a_fazer' });
-                  }
-                  
-                  setNovaAnotacao({ id: '', titulo: '', conteudo: '', dataPrazo: new Date().toISOString().split('T')[0] });
-                  alert("Pedido criado no Kanban com sucesso! 🗂️✨");
-                  setVisaoAnotacoes('kanban');
-                }} className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-[10px] shadow-md flex flex-col items-center gap-1">
-                  🗂️
-                  {novaAnotacao.id ? 'Atualizar e ir p/ Kanban' : 'Novo Pedido no Kanban'}
-                </button>
-              </div>
-            </div>
+          <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Detalhes Adicionais (Opcional)</label>
+          <textarea placeholder="Escreva informações extras ou observações aqui..." className="w-full p-4 bg-slate-50 rounded-2xl mb-6 outline-none border focus:border-purple-400 resize-none h-16 text-sm font-semibold" value={novaAnotacao.conteudo} onChange={e => setNovaAnotacao({...novaAnotacao, conteudo: e.target.value})} />
+          
+          <p className="text-[10px] font-bold text-slate-400 uppercase ml-1 mb-2">Onde isso deve aparecer?</p>
+          <div className="grid grid-cols-2 gap-3">
+            <button 
+              style={{ backgroundColor: themeColors.secondary }}
+              onClick={async () => {
+              if(!novaAnotacao.titulo) return alert("Sua tarefa precisa de uma descrição básica!");
+              const dadosNota = { titulo: novaAnotacao.titulo, conteudo: novaAnotacao.conteudo || '', dataPrazo: novaAnotacao.dataPrazo, concluido: false, userId: user.uid, dataCriacao: new Date().toLocaleDateString('pt-BR') };
+              if (novaAnotacao.id) { await updateDoc(doc(db, "anotacoes", novaAnotacao.id), dadosNota); }
+              else { await addDoc(collection(db, "anotacoes"), { ...dadosNota, apareceNoKanban: false }); }
+              setNovaAnotacao({ id: '', titulo: '', conteudo: '', dataPrazo: new Date().toISOString().split('T')[0] });
+              alert("Tarefa agendada com sucesso! 📅✨");
+            }} className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-[10px] shadow-md flex flex-col items-center gap-1">
+              <CheckSquare size={18}/>
+              {novaAnotacao.id ? 'Atualizar Tarefa' : 'Agendar Tarefa'}
+            </button>
 
-            <div className="flex bg-slate-100 p-1.5 rounded-2xl gap-1 w-full border">
-              <button onClick={() => setVisaoAnotacoes('agenda')} style={{ color: visaoAnotacoes === 'agenda' ? themeColors.primary : undefined }} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${visaoAnotacoes === 'agenda' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>📅 Agenda</button>
-              <button onClick={() => setVisaoAnotacoes('kanban')} style={{ color: visaoAnotacoes === 'kanban' ? themeColors.primary : undefined }} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${visaoAnotacoes === 'kanban' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>🗂️ Quadro Kanban</button>
-            </div>
+            <button 
+              style={{ backgroundColor: themeColors.primary }}
+              onClick={async () => {
+              if(!novaAnotacao.titulo) return alert("Seu pedido precisa de uma descrição básica!");
+              const dadosNota = { titulo: novaAnotacao.titulo, conteudo: novaAnotacao.conteudo || '', dataPrazo: novaAnotacao.dataPrazo, concluido: false, userId: user.uid, dataCriacao: new Date().toLocaleDateString('pt-BR') };
+              if (novaAnotacao.id) { await updateDoc(doc(db, "anotacoes", novaAnotacao.id), { ...dadosNota, apareceNoKanban: true, statusKanban: 'a_fazer' }); }
+              else { await addDoc(collection(db, "anotacoes"), { ...dadosNota, apareceNoKanban: true, statusKanban: 'a_fazer' }); }
+              setNovaAnotacao({ id: '', titulo: '', conteudo: '', dataPrazo: new Date().toISOString().split('T')[0] });
+              alert("Pedido criado no Kanban com sucesso! 🗂️✨");
+              setSubAbaAnotacoes('kanban');
+            }} className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-[10px] shadow-md flex flex-col items-center gap-1">
+              🗂️
+              {novaAnotacao.id ? 'Atualizar e ir p/ Kanban' : 'Novo Pedido no Kanban'}
+            </button>
+          </div>
+        </div>
 
-            {visaoAnotacoes === 'agenda' && (
-              <>
-                <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider ml-2 mt-4">Lista Geral de Pendências</h3>
-                <div className="grid grid-cols-1 gap-3 w-full">
-                  {anotacoes.map(item => {
-                    const dataFormatada = item.dataPrazo ? item.dataPrazo.split('-').reverse().slice(0, 2).join('/') : '';
-                    return (
-                      <div key={item.id} className={`bg-white p-5 rounded-3xl border shadow-sm w-full flex flex-col gap-2 relative ${item.concluido ? 'opacity-50' : ''}`}>
-                        <div className="flex justify-between items-start anonymity-wrapper w-full">
-                          <div className="flex items-start gap-3 flex-1 min-w-0">
-                            <button onClick={() => toggleStatusAnotacao(item.id, item.concluido)} style={{ color: themeColors.primary }} className="mt-0.5 shrink-0">
-                              {item.concluido ? <CheckSquare size={20} /> : <Square size={20} className="text-slate-400" />}
-                            </button>
-                            <div className="min-w-0 flex-1">
-                              <h4 className={`font-black text-slate-800 text-base break-words ${item.concluido ? 'line-through text-slate-400' : ''}`}>
-                                {item.titulo}
-                              </h4>
-                              <div className="flex gap-2 mt-1 flex-wrap">
-                                <span style={{ color: themeColors.primary }} className="text-[9px] bg-purple-50 px-2 py-0.5 rounded font-black uppercase">🗓️ Prazo: {dataFormatada}</span>
-                                {item.apareceNoKanban && <span className="text-[9px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded font-black uppercase">🗂️ No Kanban</span>}
-                                {item.concluido && <span className="text-[9px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded font-black uppercase">Concluído</span>}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex gap-1 shrink-0 ml-2">
-                            <button onClick={() => setNovaAnotacao({ id: item.id, titulo: item.titulo, conteudo: item.conteudo, dataPrazo: item.dataPrazo || new Date().toISOString().split('T')[0] })} className="text-orange-400 p-2 hover:bg-orange-50 rounded-xl"><Edit2 size={16}/></button>
-                            <button onClick={() => confirmarExcluir('anotacao', item.id)} className="text-red-200 p-2 hover:bg-red-50 rounded-xl"><Trash2 size={16}/></button>
-                          </div>
-                        </div>
-                        {item.conteudo && <p className="text-slate-600 text-xs font-semibold bg-slate-50 p-3 rounded-2xl border whitespace-pre-line leading-relaxed">{item.conteudo}</p>}
+        <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider ml-2">Lista Geral de Pendências</h3>
+        <div className="grid grid-cols-1 gap-3 w-full">
+          {anotacoes.map(item => {
+            const dataFormatada = item.dataPrazo ? item.dataPrazo.split('-').reverse().slice(0, 2).join('/') : '';
+            return (
+              <div key={item.id} className={`bg-white p-5 rounded-3xl border shadow-sm w-full flex flex-col gap-2 relative ${item.concluido ? 'opacity-50' : ''}`}>
+                <div className="flex justify-between items-start w-full">
+                  <div className="flex items-start gap-3 flex-1 min-w-0">
+                    <button onClick={() => toggleStatusAnotacao(item.id, item.concluido)} style={{ color: themeColors.primary }} className="mt-0.5 shrink-0">
+                      {item.concluido ? <CheckSquare size={20} /> : <Square size={20} className="text-slate-400" />}
+                    </button>
+                    <div className="min-w-0 flex-1">
+                      <h4 className={`font-black text-slate-800 text-base break-words ${item.concluido ? 'line-through text-slate-400' : ''}`}>{item.titulo}</h4>
+                      <div className="flex gap-2 mt-1 flex-wrap">
+                        <span style={{ color: themeColors.primary }} className="text-[9px] bg-purple-50 px-2 py-0.5 rounded font-black uppercase">🗓️ Prazo: {dataFormatada}</span>
+                        {item.apareceNoKanban && <span className="text-[9px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded font-black uppercase">🗂️ No Kanban</span>}
+                        {item.concluido && <span className="text-[9px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded font-black uppercase">Concluído</span>}
                       </div>
-                    );
-                  })}
+                    </div>
+                  </div>
+                  <div className="flex gap-1 shrink-0 ml-2">
+                    <button onClick={() => setNovaAnotacao({ id: item.id, titulo: item.titulo, conteudo: item.conteudo, dataPrazo: item.dataPrazo || new Date().toISOString().split('T')[0] })} className="text-orange-400 p-2 hover:bg-orange-50 rounded-xl"><Edit2 size={16}/></button>
+                    <button onClick={() => confirmarExcluir('anotacao', item.id)} className="text-red-200 p-2 hover:bg-red-50 rounded-xl"><Trash2 size={16}/></button>
+                  </div>
                 </div>
-              </>
-            )}
+                {item.conteudo && <p className="text-slate-600 text-xs font-semibold bg-slate-50 p-3 rounded-2xl border whitespace-pre-line leading-relaxed">{item.conteudo}</p>}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    )}
 
-            {visaoAnotacoes === 'kanban' && (
-              <div className="flex gap-3 overflow-x-auto pb-2 w-full snap-x">
-                {colunasKanban.map((coluna, idx) => {
-                  const itensDaColuna = anotacoes.filter(a => a.apareceNoKanban && (a.statusKanban || 'a_fazer') === coluna.id && !a.concluido);
-                  return (
-                    <div key={coluna.id} className="bg-white rounded-3xl border shadow-sm p-3 min-w-[260px] w-[260px] shrink-0 snap-start">
-                      <div className="flex items-center justify-between mb-3 px-1">
-                        <span style={{ color: coluna.cor }} className="font-black text-xs uppercase tracking-wider">{coluna.emoji} {coluna.nome}</span>
-                        <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{itensDaColuna.length}</span>
-                      </div>
-                      <div className="space-y-2 max-h-[65vh] overflow-y-auto">
-                        {itensDaColuna.map(item => (
-                          <div key={item.id} className="bg-slate-50 border border-slate-100 rounded-2xl p-3">
-                            <p className="font-bold text-slate-800 text-xs break-words">{item.titulo}</p>
-                            {item.dataPrazo && (
-                              <p className="text-[10px] text-slate-400 font-semibold mt-1">🗓️ {item.dataPrazo.split('-').reverse().join('/')}</p>
-                            )}
-                            {item.conteudo && <p className="text-[10px] text-slate-500 mt-1">{item.conteudo}</p>}
-                            <div className="flex justify-between items-center mt-2 gap-1">
-                              {idx > 0 ? (
-                                <button onClick={() => moverStatusKanban(item.id, colunasKanban[idx - 1].id)} className="text-[9px] font-black uppercase bg-white border px-2 py-1 rounded-lg text-slate-500">◀ Voltar</button>
-                              ) : <span />}
-                              {idx < colunasKanban.length - 1 ? (
-                                <button onClick={() => moverStatusKanban(item.id, colunasKanban[idx + 1].id)} style={{ backgroundColor: coluna.cor }} className="text-[9px] font-black uppercase text-white px-2 py-1 rounded-lg ml-auto">Avançar ▶</button>
-                              ) : (
-                                <button onClick={() => confirmarExcluir('anotacao', item.id)} className="text-[9px] font-black uppercase text-red-400 px-2 py-1 rounded-lg ml-auto">Remover</button>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                        {itensDaColuna.length === 0 && (
-                          <p className="text-center text-[10px] text-slate-300 font-bold py-6 italic">Vazio</p>
+    {subAbaAnotacoes === 'kanban' && (
+      <div className="space-y-4 animate-fadeIn">
+        <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
+          <h2 style={{ color: themeColors.primary }} className="font-bold mb-4 flex items-center gap-2"><Calendar size={20}/> Criar Nova Tarefa / Lembrete</h2>
+          <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">O que precisa fazer?</label>
+          <input placeholder="Ex: Comprar papel fotográfico A4 / Entregar caneca do cliente" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-bold text-sm" value={novaAnotacao.titulo} onChange={e => setNovaAnotacao({...novaAnotacao, titulo: e.target.value})} />
+          <div className="mb-4 w-full">
+            <label style={{ color: themeColors.secondary }} className="text-[10px] font-bold uppercase ml-1">Data Limite / Prazo</label>
+            <input type="date" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm block mt-1" value={novaAnotacao.dataPrazo} onChange={e => setNovaAnotacao({...novaAnotacao, dataPrazo: e.target.value})} />
+          </div>
+          <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Detalhes Adicionais (Opcional)</label>
+          <textarea placeholder="Escreva informações extras ou observações aqui..." className="w-full p-4 bg-slate-50 rounded-2xl mb-6 outline-none border focus:border-purple-400 resize-none h-16 text-sm font-semibold" value={novaAnotacao.conteudo} onChange={e => setNovaAnotacao({...novaAnotacao, conteudo: e.target.value})} />
+          <p className="text-[10px] font-bold text-slate-400 uppercase ml-1 mb-2">Onde isso deve aparecer?</p>
+          <div className="grid grid-cols-2 gap-3">
+            <button 
+              style={{ backgroundColor: themeColors.secondary }}
+              onClick={async () => {
+              if(!novaAnotacao.titulo) return alert("Sua tarefa precisa de uma descrição básica!");
+              const dadosNota = { titulo: novaAnotacao.titulo, conteudo: novaAnotacao.conteudo || '', dataPrazo: novaAnotacao.dataPrazo, concluido: false, userId: user.uid, dataCriacao: new Date().toLocaleDateString('pt-BR') };
+              if (novaAnotacao.id) { await updateDoc(doc(db, "anotacoes", novaAnotacao.id), dadosNota); }
+              else { await addDoc(collection(db, "anotacoes"), { ...dadosNota, apareceNoKanban: false }); }
+              setNovaAnotacao({ id: '', titulo: '', conteudo: '', dataPrazo: new Date().toISOString().split('T')[0] });
+              alert("Tarefa agendada com sucesso! 📅✨");
+              setSubAbaAnotacoes('agenda');
+            }} className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-[10px] shadow-md flex flex-col items-center gap-1">
+              <CheckSquare size={18}/>
+              {novaAnotacao.id ? 'Atualizar Tarefa' : 'Agendar Tarefa'}
+            </button>
+            <button 
+              style={{ backgroundColor: themeColors.primary }}
+              onClick={async () => {
+              if(!novaAnotacao.titulo) return alert("Seu pedido precisa de uma descrição básica!");
+              const dadosNota = { titulo: novaAnotacao.titulo, conteudo: novaAnotacao.conteudo || '', dataPrazo: novaAnotacao.dataPrazo, concluido: false, userId: user.uid, dataCriacao: new Date().toLocaleDateString('pt-BR') };
+              if (novaAnotacao.id) { await updateDoc(doc(db, "anotacoes", novaAnotacao.id), { ...dadosNota, apareceNoKanban: true, statusKanban: 'a_fazer' }); }
+              else { await addDoc(collection(db, "anotacoes"), { ...dadosNota, apareceNoKanban: true, statusKanban: 'a_fazer' }); }
+              setNovaAnotacao({ id: '', titulo: '', conteudo: '', dataPrazo: new Date().toISOString().split('T')[0] });
+              alert("Pedido criado no Kanban com sucesso! 🗂️✨");
+            }} className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-[10px] shadow-md flex flex-col items-center gap-1">
+              🗂️
+              {novaAnotacao.id ? 'Atualizar e ir p/ Kanban' : 'Novo Pedido no Kanban'}
+            </button>
+          </div>
+        </div>
+
+        <div className="flex gap-3 overflow-x-auto pb-2 w-full snap-x">
+          {colunasKanban.map((coluna, idx) => {
+            const itensDaColuna = anotacoes.filter(a => a.apareceNoKanban && (a.statusKanban || 'a_fazer') === coluna.id && !a.concluido);
+            const estaSobreEssaColuna = colunaAlvoOver === coluna.id;
+            return (
+              <div 
+                key={coluna.id}
+                onDragOver={(e) => { e.preventDefault(); setColunaAlvoOver(coluna.id); }}
+                onDragLeave={() => setColunaAlvoOver(prev => prev === coluna.id ? null : prev)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  if (itemArrastandoId) moverStatusKanban(itemArrastandoId, coluna.id);
+                  setItemArrastandoId(null);
+                  setColunaAlvoOver(null);
+                }}
+                style={estaSobreEssaColuna ? { borderColor: coluna.cor, boxShadow: `0 0 0 2px ${coluna.cor}` } : undefined}
+                className="bg-white rounded-3xl border shadow-sm p-3 min-w-[260px] w-[260px] shrink-0 snap-start transition-all"
+              >
+                <div className="flex items-center justify-between mb-3 px-1">
+                  <span style={{ color: coluna.cor }} className="font-black text-xs uppercase tracking-wider">{coluna.emoji} {coluna.nome}</span>
+                  <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{itensDaColuna.length}</span>
+                </div>
+                <div className="space-y-2 max-h-[65vh] overflow-y-auto">
+                  {itensDaColuna.map(item => (
+                    <div 
+                      key={item.id}
+                      draggable
+                      onDragStart={() => setItemArrastandoId(item.id)}
+                      onDragEnd={() => { setItemArrastandoId(null); setColunaAlvoOver(null); }}
+                      className={`bg-slate-50 border border-slate-100 rounded-2xl p-3 cursor-grab active:cursor-grabbing transition-opacity ${itemArrastandoId === item.id ? 'opacity-30' : 'opacity-100'}`}
+                    >
+                      <p className="font-bold text-slate-800 text-xs break-words">{item.titulo}</p>
+                      {item.dataPrazo && (
+                        <p className="text-[10px] text-slate-400 font-semibold mt-1">🗓️ {item.dataPrazo.split('-').reverse().join('/')}</p>
+                      )}
+                      {item.conteudo && <p className="text-[10px] text-slate-500 mt-1">{item.conteudo}</p>}
+                      <div className="flex justify-between items-center mt-2 gap-1">
+                        {idx > 0 ? (
+                          <button onClick={() => moverStatusKanban(item.id, colunasKanban[idx - 1].id)} className="text-[9px] font-black uppercase bg-white border px-2 py-1 rounded-lg text-slate-500">◀ Voltar</button>
+                        ) : <span />}
+                        {idx < colunasKanban.length - 1 ? (
+                          <button onClick={() => moverStatusKanban(item.id, colunasKanban[idx + 1].id)} style={{ backgroundColor: coluna.cor }} className="text-[9px] font-black uppercase text-white px-2 py-1 rounded-lg ml-auto">Avançar ▶</button>
+                        ) : (
+                          <button onClick={() => confirmarExcluir('anotacao', item.id)} className="text-[9px] font-black uppercase text-red-400 px-2 py-1 rounded-lg ml-auto">Remover</button>
                         )}
                       </div>
                     </div>
-                  );
-                })}
+                  ))}
+                  {itensDaColuna.length === 0 && (
+                    <p className="text-center text-[10px] text-slate-300 font-bold py-6 italic">Arraste um card pra cá</p>
+                  )}
+                </div>
               </div>
-            )}
-          </div>
-        )}
+            );
+          })}
+        </div>
+      </div>
+    )}
+  </div>
+)}
+
 
         {/* TELA DE CONFIGURAÇÃO DE CUSTOS FIXOS */}
         {activeTab === 'financeiro' && (
