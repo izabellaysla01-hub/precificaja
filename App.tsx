@@ -19,51 +19,20 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
 
-// --- PALETAS PRÉ-DEFINIDAS ---
 const PRESET_PALETTES = [
-  {
-    id: 'purple_creative',
-    nome: 'Roxo Criativo (Padrão)',
-    primary: '#7c3aed',
-    primaryHover: '#6d28d9',
-    secondary: '#f97316',
-    secondaryHover: '#ea580c'
-  },
-  {
-    id: 'blue_corporate',
-    nome: 'Azul Corporativo',
-    primary: '#2563eb',
-    primaryHover: '#1d4ed8',
-    secondary: '#38bdf8',
-    secondaryHover: '#0284c7'
-  },
-  {
-    id: 'slate_elegant',
-    nome: 'Grafite Elegante',
-    primary: '#334155',
-    primaryHover: '#1e293b',
-    secondary: '#0ea5e9',
-    secondaryHover: '#0284c7'
-  },
-  {
-    id: 'emerald_growth',
-    nome: 'Verde Esmeralda',
-    primary: '#059669',
-    primaryHover: '#047857',
-    secondary: '#10b981',
-    secondaryHover: '#059669'
-  }
+  { id: 'purple_creative', nome: 'Roxo Criativo (Padrão)', primary: '#7c3aed', primaryHover: '#6d28d9', secondary: '#f97316', secondaryHover: '#ea580c' },
+  { id: 'blue_corporate', nome: 'Azul Corporativo', primary: '#2563eb', primaryHover: '#1d4ed8', secondary: '#38bdf8', secondaryHover: '#0284c7' },
+  { id: 'slate_elegant', nome: 'Grafite Elegante', primary: '#334155', primaryHover: '#1e293b', secondary: '#0ea5e9', secondaryHover: '#0284c7' },
+  { id: 'emerald_growth', nome: 'Verde Esmeralda', primary: '#059669', primaryHover: '#047857', secondary: '#10b981', secondaryHover: '#059669' }
 ];
 
-// --- ATUALIZAÇÕES DO APP (changelog manual) ---
 const CHANGELOG_APP = [
   {
     data: '23/08/2026',
-    titulo: 'Kanban unificado e agenda multi-data',
+    titulo: 'Tarefas em vários dias e Kanban de pedidos',
     itens: [
-      'Tarefas da Agenda agora podem repetir em várias datas de uma vez',
-      'Resumo do Kanban (A Fazer / Fazendo / Feito) na tela Início',
-      'Novo status "Em Produção" nos pedidos: mande um pedido pro Kanban com 1 clique',
+      'Uma tarefa pode aparecer em vários dias da Agenda sem virar várias tarefas separadas',
+      'Status "Em Produção" nos pedidos: mande um pedido pro Kanban com 1 clique',
       'Confirme a venda direto pelo card do Kanban quando o pedido chegar em "Feito"'
     ]
   },
@@ -79,7 +48,6 @@ const CHANGELOG_APP = [
   }
 ];
 
-// --- COMPONENTE: PAD DE ASSINATURA (canvas touch/mouse) ---
 const SignaturePad = ({ onSave, corTraco = '#1e293b' }: { onSave: (dataUrl: string) => void; corTraco?: string }) => {
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
   const containerRef = React.useRef<HTMLDivElement>(null);
@@ -112,15 +80,12 @@ const SignaturePad = ({ onSave, corTraco = '#1e293b' }: { onSave: (dataUrl: stri
     const largura = container.offsetWidth;
     const altura = container.offsetHeight;
     if (largura === 0 || altura === 0) return;
-
     canvas.width = largura * ratio;
     canvas.height = altura * ratio;
     canvas.style.width = `${largura}px`;
     canvas.style.height = `${altura}px`;
-
     const ctx = canvas.getContext('2d');
     if (ctx) ctx.scale(ratio, ratio);
-
     redesenharTudo();
   };
 
@@ -197,7 +162,6 @@ const SignaturePad = ({ onSave, corTraco = '#1e293b' }: { onSave: (dataUrl: stri
   );
 };
 
-// --- TELA DE LOGIN ---
 const Login = ({ isRegistering, setIsRegistering, email, setEmail, password, setPassword, handleAuth }: any) => {
   const recuperarSenha = async () => {
     if (!email) return alert("Digite seu e-mail primeiro para eu te mandar o link!");
@@ -226,7 +190,7 @@ export default function App() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  
+
   const [idLojaPublica, setIdLojaPublica] = useState<string | null>(null);
   const [produtosPublicos, setProdutosPublicos] = useState<any[]>([]);
   const [carregandoPublico, setCarregandoPublico] = useState(false);
@@ -237,7 +201,6 @@ export default function App() {
   const [filtroVitrineSelecionado, setFiltroVitrineSelecionado] = useState('Todos');
   const [isMenuFiltroVitrineOpen, setIsMenuFiltroVitrineOpen] = useState(false);
 
-  // --- NOVO: ASSINATURA DIGITAL ---
   const [assinaturaLojaUrl, setAssinaturaLojaUrl] = useState('');
   const [mostrarPadAssinaturaLoja, setMostrarPadAssinaturaLoja] = useState(false);
   const [idContratoParaAssinar, setIdContratoParaAssinar] = useState<string | null>(null);
@@ -247,10 +210,10 @@ export default function App() {
   const [assinaturaEnviada, setAssinaturaEnviada] = useState(false);
 
   const [activeTab, useStateActiveTab] = useState<'inicio' | 'materiais' | 'criar' | 'pedidos' | 'clientes' | 'catalogo' | 'balcao' | 'financeiro' | 'perfil' | 'anotacoes' | 'fornecedores' | 'contratos' | 'atualizacoes' | 'suporte'>('inicio');
-  
+
   const [subAbaFinanceiro, setSubAbaFinanceiro] = useState<'geral' | 'impressao' | 'equipamentos' | 'historico'>('geral');
 
-const [mesFiltroHistorico, setMesFiltroHistorico] = useState<string>(String(new Date().getMonth() + 1));
+  const [mesFiltroHistorico, setMesFiltroHistorico] = useState<string>(String(new Date().getMonth() + 1));
   const [anoFiltroHistorico, setAnoFiltroHistorico] = useState<string>(String(new Date().getFullYear()));
   const [mesExpandido, setMesExpandido] = useState<string | null>(null);
 
@@ -261,7 +224,7 @@ const [mesFiltroHistorico, setMesFiltroHistorico] = useState<string>(String(new 
   const [equipamentos, setEquipamentos] = useState<any[]>([]);
   const [anotacoes, setAnotacoes] = useState<any[]>([]);
   const [contratos, setContratos] = useState<any[]>([]);
-  
+
   const [categoriasProd, setCategoriasProd] = useState<any[]>([]);
   const [categoriasForn, setCategoriasForn] = useState<any[]>([]);
   const [fornecedores, setFornecedores] = useState<any[]>([]);
@@ -285,11 +248,10 @@ const [mesFiltroHistorico, setMesFiltroHistorico] = useState<string>(String(new 
   const [datasExtras, setDatasExtras] = useState<string[]>([]);
   const [novaDataExtra, setNovaDataExtra] = useState(new Date().toISOString().split('T')[0]);
 
-
   const [modoCalculo, setModoCalculo] = useState<'peca' | 'lote'>('peca');
 
   const [nomeProd, setNomeProd] = useState('');
-  const [detalhamentoPed, setDetalhamentoPed] = useState(''); 
+  const [detalhamentoPed, setDetalhamentoPed] = useState('');
   const [qtdPed, setQtdPed] = useState('1');
   const [matsNoPed, setMatsNoPed] = useState<any[]>([]);
   const [vHora, setVHora] = useState('9');
@@ -309,10 +271,10 @@ const [mesFiltroHistorico, setMesFiltroHistorico] = useState<string>(String(new 
   const [password, setPassword] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
   const [novoMat, setNovoMat] = useState({ id: '', nome: '', valor: '', qtd: '1', unidade: 'un', qtdAtual: '0', qtdMinima: '0' });
-    
+
   const [novoCli, setNovoCli] = useState({ id: '', nome: '', zap: '', email: '', endereco: '', cpfCnpj: '' });
   const [novaAnotacao, setNovaAnotacao] = useState({ id: '', titulo: '', conteudo: '', dataPrazo: new Date().toISOString().split('T')[0] });
-  
+
   const [novoProdCatalogo, setNovoProdCatalogo] = useState<{id: string, nome: string, precoVenda: string, urlImagem: string, categorias: string[]}>({ id: '', nome: '', precoVenda: '', urlImagem: '', categorias: [] });
   const [inputNovaCategoriaProd, setInputNovaCategoriaProd] = useState('');
   const [mostrarInputNovaCatProd, setMostrarInputNovaCatProd] = useState(false);
@@ -384,13 +346,14 @@ const [mesFiltroHistorico, setMesFiltroHistorico] = useState<string>(String(new 
     await updateDoc(doc(db, colecao, id), { statusKanban: novoStatus });
   };
 
+  // Um card por tarefa/pedido — nunca duplica por causa de datas extras
   const itensDoKanban = useMemo(() => {
     const tarefas = anotacoes.filter(a => a.apareceNoKanban && !a.concluido).map(a => ({
-      id: a.id, tipo: 'tarefa', titulo: a.titulo, conteudo: a.conteudo, dataPrazo: a.dataPrazo, statusKanban: a.statusKanban || 'a_fazer'
+      id: a.id, tipo: 'tarefa', titulo: a.titulo, conteudo: a.conteudo, dataPrazo: a.dataPrazo, datasExtras: a.datasExtras || [], statusKanban: a.statusKanban || 'a_fazer'
     }));
     const pedidosEmProducao = pedidos.filter(p => (p.status || '').includes('Produção')).map(p => {
       const cli = clientes.find(c => c.id === p.clienteId);
-      return { id: p.id, tipo: 'pedido', titulo: p.nomeProd, conteudo: cli?.nome ? `Cliente: ${cli.nome}` : '', dataPrazo: p.prazo, statusKanban: p.statusKanban || 'a_fazer' };
+      return { id: p.id, tipo: 'pedido', titulo: p.nomeProd, conteudo: cli?.nome ? `Cliente: ${cli.nome}` : '', dataPrazo: p.prazo, datasExtras: [], statusKanban: p.statusKanban || 'a_fazer' };
     });
     return [...tarefas, ...pedidosEmProducao];
   }, [anotacoes, pedidos, clientes]);
@@ -468,7 +431,7 @@ const [mesFiltroHistorico, setMesFiltroHistorico] = useState<string>(String(new 
     if (lojaId) {
       setIdLojaPublica(lojaId);
       setCarregandoPublico(true);
-      
+
       getDoc(doc(db, "configuracoes_loja", lojaId)).then(docSnap => {
         if(docSnap.exists()) {
           const data = docSnap.data();
@@ -488,7 +451,7 @@ const [mesFiltroHistorico, setMesFiltroHistorico] = useState<string>(String(new 
         setCarregandoPublico(false);
       }).catch(() => setCarregandoPublico(false));
     }
-    
+
     return onAuthStateChanged(auth, u => {
       setUser(u);
       if (u) {
@@ -522,9 +485,9 @@ const [mesFiltroHistorico, setMesFiltroHistorico] = useState<string>(String(new 
         setContratos([]);
       }
       setLoading(false);
-    }); 
+    });
   }, []);
-  
+
   useEffect(() => {
     const script = document.createElement('script');
     script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
@@ -550,7 +513,6 @@ const [mesFiltroHistorico, setMesFiltroHistorico] = useState<string>(String(new 
       const qAnotacoes = query(collection(db, "anotacoes"), where("userId", "==", user.uid));
       const unsubAnotacoes = onSnapshot(qAnotacoes, s => setAnotacoes(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
-      // Mapeamento explícito do ID do contrato
       const qContratos = query(collection(db, "contratos"), where("userId", "==", user.uid));
       const unsubContratos = onSnapshot(qContratos, s => setContratos(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
@@ -584,12 +546,12 @@ const [mesFiltroHistorico, setMesFiltroHistorico] = useState<string>(String(new 
         if (snap.exists()) {
           const dadosFin = snap.data() as any;
           setFinancasFixo(dadosFin);
-          
+
           if (dadosFin.precoTinta) setPrecoTinta(dadosFin.precoTinta);
           if (dadosFin.unidadeTinta) setUnidadeTinta(dadosFin.unidadeTinta);
           if (dadosFin.qtdCores) setQtdCores(dadosFin.qtdCores);
           if (dadosFin.paginasConjunto) setPaginasConjunto(dadosFin.paginasConjunto);
-          
+
           if (dadosFin.custoPorPaginaCalculado) {
             setCustos(prev => ({ ...prev, impressao: Number(dadosFin.custoPorPaginaCalculado).toFixed(2) }));
           }
@@ -599,7 +561,7 @@ const [mesFiltroHistorico, setMesFiltroHistorico] = useState<string>(String(new 
           const totalHorasMes = dias * horas || 160;
           const salario = Number(dadosFin.salario || 0);
           const custosMes = Number(dadosFin.aluguel || 0) + Number(dadosFin.internet || 0) + Number(dadosFin.luz || 0) + Number(dadosFin.outros || 0);
-          
+
           if (salario + custosMes > 0) {
             const fontHoraCalculada = (salario + custosMes) / totalHorasMes;
             setVHora(fontHoraCalculada.toFixed(2));
@@ -625,7 +587,7 @@ const [mesFiltroHistorico, setMesFiltroHistorico] = useState<string>(String(new 
     }
   }, [user, idLojaPublica]);
 
-const linkDoCatalogoDestaCliente = useMemo(() => {
+  const linkDoCatalogoDestaCliente = useMemo(() => {
     if (!user) return '';
     return `${window.location.origin}${window.location.pathname}?loja=${user.uid}`;
   }, [user]);
@@ -635,7 +597,6 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
     alert("Link do seu catálogo copiado! 🔗🚀");
   };
 
-  // --- NOVO: gera o link público de assinatura de um contrato específico ---
   const gerarLinkAssinaturaContrato = (contratoId: string) => {
     return `${window.location.origin}${window.location.pathname}?assinar=${contratoId}`;
   };
@@ -645,7 +606,6 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
     alert("Link de assinatura copiado! Envie para o cliente assinar pelo celular dele. ✍️🔗");
   };
 
-  // --- NOVO: salva a assinatura desenhada da EMPRESA (perfil) ---
   const salvarAssinaturaLoja = async (dataUrl: string) => {
     if (!user) return;
     try {
@@ -658,7 +618,6 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
     }
   };
 
-  // --- NOVO: salva a assinatura desenhada do CLIENTE (tela pública ?assinar=) ---
   const salvarAssinaturaCliente = async (dataUrl: string) => {
     if (!idContratoParaAssinar) return;
     try {
@@ -678,16 +637,16 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
     const dias = [];
     const nomesDias = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
     const nomesMeses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-    
+
     for (let i = 0; i < 7; i++) {
       const d = new Date();
       d.setDate(d.getDate() + i);
-      
+
       const ano = d.getFullYear();
       const mes = String(d.getMonth() + 1).padStart(2, '0');
       const diaNum = String(d.getDate()).padStart(2, '0');
       const stringData = `${ano}-${mes}-${diaNum}`;
-      
+
       dias.push({
         stringData,
         diaNumero: d.getDate(),
@@ -698,20 +657,25 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
     return dias;
   }, []);
 
+  // CORRIGIDO: uma tarefa aparece no dia se a data bater com dataPrazo OU qualquer data extra —
+  // sem precisar duplicar o documento (evita "5 caixas milk" aparecendo no Kanban)
   const anotacoesDoDiaSelecionado = useMemo(() => {
-    return anotacoes.filter(a => a.dataPrazo === diaSelecionadoAgenda && !a.concluido);
+    return anotacoes.filter(a => {
+      if (a.concluido) return false;
+      const todasAsDatas = [a.dataPrazo, ...(a.datasExtras || [])];
+      return todasAsDatas.includes(diaSelecionadoAgenda);
+    });
   }, [anotacoes, diaSelecionadoAgenda]);
 
   const toggleStatusAnotacao = async (id: string, valorAtual: boolean) => {
     await updateDoc(doc(db, "anotacoes", id), { concluido: !valorAtual });
   };
 
-    // --- GERADOR DE PDF DE CONTRATO (AJUSTADO PARA INCLUIR ASSINATURAS DIGITAIS) ---
   const gerarPDFContrato = (contrato: any) => {
     const cli = clientes.find(c => c.id === contrato.clienteId) || clienteDoContratoAssinar;
     const dataEmissao = contrato.dataEmissao || new Date().toLocaleDateString('pt-BR');
     const dataEventoFormatada = contrato.dataEvento ? new Date(contrato.dataEvento + 'T00:00:00').toLocaleDateString('pt-BR') : 'Não informado';
-    
+
     const nomeEmpresaExibir = nomeFantasiaPerfil || nomeLojaPerfil || 'Empresa Contratada';
     const cpfCnpjEmpresaExibir = cpfCnpjPerfil || 'Não informado';
 
@@ -727,7 +691,6 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
       `;
     }).join('');
 
-    // Blocos de assinatura: se já existe imagem desenhada, usa ela. Senão, deixa em branco pra assinar à mão.
     const imgAssinaturaCliente = contrato.assinaturaClienteUrl
       ? `<img src="${contrato.assinaturaClienteUrl}" style="height:55px; object-fit:contain; display:block; margin:0 auto;" />`
       : `<div style="height:55px;"></div>`;
@@ -739,8 +702,6 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
     const elemento = document.createElement('div');
     elemento.innerHTML = `
       <div style="padding: 20px 10px; font-family: Arial, sans-serif; color: #334155; max-width: 700px; margin: 0 auto; box-sizing: border-box;">
-        
-        <!-- CABEÇALHO -->
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 20px; page-break-inside: avoid;">
           <div>
             <h1 style="color: ${themeColors.primary}; margin: 0; font-size: 20px; font-weight: 900;">CONTRATO DE PRESTAÇÃO DE SERVIÇOS</h1>
@@ -752,7 +713,6 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
           </div>
         </div>
 
-        <!-- DADOS DAS PARTES -->
         <div style="page-break-inside: avoid; margin-bottom: 20px;">
           <div style="background-color: ${themeColors.primary}; color: white; padding: 6px 12px; border-radius: 6px; font-size: 10px; font-weight: bold; text-transform: uppercase; margin-bottom: 8px;">1. Identificação das Partes</div>
           <div style="background-color: #f8fafc; padding: 12px; border-radius: 10px; border: 1px solid #f1f5f9; font-size: 11px; line-height: 1.5;">
@@ -764,7 +724,6 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
           </div>
         </div>
 
-        <!-- DADOS DO EVENTO -->
         <div style="page-break-inside: avoid; margin-bottom: 20px;">
           <div style="background-color: ${themeColors.primary}; color: white; padding: 6px 12px; border-radius: 6px; font-size: 10px; font-weight: bold; text-transform: uppercase; margin-bottom: 8px;">2. Resumo do Evento e Valores</div>
           <div style="background-color: #f8fafc; padding: 12px; border-radius: 10px; border: 1px solid #f1f5f9; font-size: 11px; line-height: 1.5;">
@@ -775,14 +734,11 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
           </div>
         </div>
 
-        <!-- CLÁUSULAS -->
         <div style="background-color: ${themeColors.primary}; color: white; padding: 6px 12px; border-radius: 6px; font-size: 10px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px; page-break-inside: avoid;">3. Cláusulas e Condições Gerais</div>
-        
         <div style="margin-bottom: 20px;">
           ${clausulasFormatadas}
         </div>
 
-        <!-- ASSINATURAS (com imagem desenhada, se já assinado digitalmente) -->
         <div style="display: flex; justify-content: space-between; gap: 40px; margin-top: 60px; padding-top: 20px; page-break-inside: avoid; break-inside: avoid;">
           <div style="flex: 1; text-align: center;">
             ${imgAssinaturaCliente}
@@ -797,20 +753,19 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
             <div style="font-size: 8px; font-weight: bold; color: #94a3b8; text-transform: uppercase;">CONTRATADO</div>
           </div>
         </div>
-
       </div>
     `;
 
-    const opcoes = { 
-      margin: [12, 12, 12, 12], 
-      filename: `Contrato_${(cli?.nome || 'Cliente').replace(/\s+/g, '_')}.pdf`, 
-      html2canvas: { scale: 2, useCORS: true, scrollY: 0 }, 
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }, 
+    const opcoes = {
+      margin: [12, 12, 12, 12],
+      filename: `Contrato_${(cli?.nome || 'Cliente').replace(/\s+/g, '_')}.pdf`,
+      html2canvas: { scale: 2, useCORS: true, scrollY: 0 },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
       pagebreak: { mode: ['css', 'legacy'] }
     };
 
-    if ((window as any).html2pdf) { 
-      (window as any).html2pdf().from(elemento).set(opcoes).save(); 
+    if ((window as any).html2pdf) {
+      (window as any).html2pdf().from(elemento).set(opcoes).save();
     }
   };
 
@@ -826,7 +781,7 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
   const dispararPdfAutomaticoCliente = (nomeCliente: string, itens: any[], total: number) => {
     const elemento = document.createElement('div');
     const dataEmissao = new Date().toLocaleDateString('pt-BR');
-    
+
     const linesHtml = itens.map(p => `
       <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px; page-break-inside: avoid; break-inside: avoid;">
         <td style="padding: 15px 5px; font-weight: bold; color: #1e293b; text-align: left;">${p.nome}</td>
@@ -848,7 +803,7 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
             <span style="font-size: 14px; font-weight: bold; color: #475569; display: block; margin-top: 2px;">${dataEmissao}</span>
           </div>
         </div>
-        
+
         <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Identificação do Comprador</div>
         <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 25px; border: 1px solid #f1f5f9;">
           <p style="margin: 0; font-size: 14px;"><strong>Cliente Final:</strong> ${nomeCliente}</p>
@@ -897,7 +852,7 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
     textPedido += `---%0A`;
     textPedido += `*Cliente:* ${nomeComprador.trim()}%0A%0A`;
     textPedido += `*Itens do Pedido:*%0A`;
-    
+
     let totalGeral = 0;
     const listaParaPdf: any[] = [];
 
@@ -917,23 +872,23 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
     dispararPdfAutomaticoCliente(nomeComprador.trim(), listaParaPdf, totalGeral);
 
     const numeroLimpo = zapDaLojaPublica.replace(/\D/g, '');
-    if (numeroLimpo) { window.open(`https://wa.me/55${numeroLimpo}?text=${textPedido}`, '_blank'); } 
+    if (numeroLimpo) { window.open(`https://wa.me/55${numeroLimpo}?text=${textPedido}`, '_blank'); }
     else { window.open(`https://wa.me/?text=${textPedido}`, '_blank'); }
   };
 
   const lancarVendaBalcaoInterno = async () => {
     const itensNoCarrinho = produtos.filter(p => carrinhoInterno[p.id] > 0);
     if (itensNoCarrinho.length === 0) return alert("Selecione ao menos 1 item com + e - no balcão!");
-    
+
     let stringNomeCombo = "";
     let totalGeral = 0;
     const arrayItensSalvar: any[] = [];
-    
+
     itensNoCarrinho.forEach((p, idx) => {
       const qtd = carrinhoInterno[p.id];
       totalGeral += Number(p.precoVenda) * qtd;
       stringNomeCombo += `${qtd}x ${p.nome}${idx < itensNoCarrinho.length - 1 ? '\n' : ''}`;
-      
+
       arrayItensSalvar.push({
         nome: p.nome,
         qtd: qtd,
@@ -976,7 +931,6 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
     }
   };
 
-  // --- EXCLUSÃO DE CONTRATOS COM DUPLA BUSCA (POR ID E FALLBACK POR CONTEÚDO PARA ANTESTES) ---
   const excluirContratoInteligente = async (contratoItem: any) => {
     if (!window.confirm("Deseja realmente excluir este contrato?")) return;
 
@@ -987,14 +941,13 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
         return;
       }
 
-      // Se for um item antigo gravado sem id na lista local
       const q = query(
-        collection(db, "contratos"), 
+        collection(db, "contratos"),
         where("userId", "==", user.uid),
         where("clienteId", "==", contratoItem.clienteId || '')
       );
       const snapshot = await getDocs(q);
-      
+
       if (!snapshot.empty) {
         snapshot.docs.forEach(async (d) => {
           await deleteDoc(doc(db, "contratos", d.id));
@@ -1008,7 +961,6 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
     }
   };
 
-  // --- APAGAR TODOS OS CONTRATOS DE TESTE DE UMA SÓ VEZ ---
   const zerarTodosContratos = async () => {
     if (window.confirm("Tem certeza que deseja APAGAR TODOS OS CONTRATOS salvos para zerar os testes?")) {
       try {
@@ -1057,8 +1009,8 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
           await updateDoc(doc(db, "materiais", m.id), { qtdAtual: Math.max(0, estoqueFiscal - gastoTotal) });
         }
       }
-    } 
-    
+    }
+
     const textoVenda = String(pedido.nomeProd || '');
     if (textoVenda.includes('x ')) {
       const partesItens = textoVenda.split(/\n| \+ /);
@@ -1098,7 +1050,7 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
       const urlDisponivel = await getDownloadURL(imagemRef);
       setNovoProdCatalogo(prev => ({ ...prev, urlImagem: urlDisponivel }));
       alert("Foto carregada com sucesso! 📸");
-    } catch (error) { alert("Erro ao subir a foto!"); } 
+    } catch (error) { alert("Erro ao subir a foto!"); }
     finally { setSubindoImagem(false); }
   };
 
@@ -1145,25 +1097,25 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
       });
       setMatsNoPed(listaReconstruida);
     } else { setMatsNoPed([]); }
-    
+
     setPrecoFinalDigitado(p.preco || '0.00');
     setActiveTab('criar');
   };
 
   const handleDuplicarOrcamento = (p: any) => {
-    setPedidoEditandoId(null); 
+    setPedidoEditandoId(null);
     setIsDuplicando(true);
-    setNomeProd(`${p.nomeProd} (Cópia)`); 
+    setNomeProd(`${p.nomeProd} (Cópia)`);
     setDetalhamentoPed(p.detalhamentoPed || '');
-    setQtdPed(p.qtdPed || '1'); 
-    setVHora(p.vHora || '9'); 
+    setQtdPed(p.qtdPed || '1');
+    setVHora(p.vHora || '9');
     setTGasto(p.tGasto || '60');
     setCustos(p.custos || { embalagem: '0', impressao: '0', energia: '0', outros: '0' });
-    setLucro(p.lucro || '100'); 
-    setDesconto(p.desconto || '0'); 
-    setPrazo(p.prazo || ''); 
-    setClienteSel(''); 
-    setPrecoManual(p.precoManual || null); 
+    setLucro(p.lucro || '100');
+    setDesconto(p.desconto || '0');
+    setPrazo(p.prazo || '');
+    setClienteSel('');
+    setPrecoManual(p.precoManual || null);
     setDocObsPedido(p.obsPedido || '');
     setEquipamentosSelecionados(p.equipamentosSelecionados || []);
     setModoCalculo(p.modoCalculo || 'peca');
@@ -1175,7 +1127,7 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
       });
       setMatsNoPed(listaReconstruida);
     } else { setMatsNoPed([]); }
-    
+
     setPrecoFinalDigitado(p.preco || '0.00');
     setActiveTab('criar');
     alert("Orçamento duplicado com sucesso! Defina o cliente e salve. ✨");
@@ -1212,7 +1164,7 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
   };
 
   const materiaisFiltrados = useMemo(() => {
-    return materiais.filter(m => 
+    return materiais.filter(m =>
       m.nome?.toLowerCase().includes(pesquisaMateriais.toLowerCase())
     );
   }, [materiais, pesquisaMateriais]);
@@ -1279,11 +1231,11 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
     const pendentesCount = pedidos.filter(p => p.status === 'Pendente' || !p.status).length;
     const estoqueCriticoCount = materiais.filter(m => Number(m.qtdAtual || 0) <= Number(m.qtdMinima || 0)).length;
 
-    return { 
-      faturamento: faturamentoMes.toFixed(2), 
-      pendentes: pendentesCount, 
-      criticos: estoqueCriticoCount, 
-      totalClientes: clientes.length 
+    return {
+      faturamento: faturamentoMes.toFixed(2),
+      pendentes: pendentesCount,
+      criticos: estoqueCriticoCount,
+      totalClientes: clientes.length
     };
   }, [pedidos, materiais, clientes]);
 
@@ -1342,21 +1294,21 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
       const semDesconto = totalCatalogo - Number(desconto || 0);
       const custoPecaUnitario = modoCalculo === 'peca' ? baseVal : baseVal / qtdNum;
 
-      return { 
-        materiais: "0.00", 
-        maoObra: "0.00", 
-        extras: "0.00", 
-        deprec: "0.00", 
-        custoPeca: custoPecaUnitario.toFixed(2), 
-        lucroLivre: "0.00", 
-        final: isNaN(semDesconto) ? "0.00" : semDesconto.toFixed(2) 
+      return {
+        materiais: "0.00",
+        maoObra: "0.00",
+        extras: "0.00",
+        deprec: "0.00",
+        custoPeca: custoPecaUnitario.toFixed(2),
+        lucroLivre: "0.00",
+        final: isNaN(semDesconto) ? "0.00" : semDesconto.toFixed(2)
       };
     }
 
     const totalMaterials = matsNoPed.reduce((acc, m) => acc + ((Number(m.valor || 0) / Number(m.qtd || 1)) * Number(m.qtdUsada || 0)), 0);
     const totalMaoObra = (Number(vHora || 0) / 60) * Number(tGasto || 0);
     const totalExtras = Number(custos.embalagem || 0) + Number(custos.impressao || 0) + Number(custos.energia || 0) + Number(custos.outros || 0);
-    
+
     let totalDesgasteMaquinas = 0;
     const dias = Number(financasFixo.diasTrabalho || 20);
     const horas = Number(financasFixo.horasDia || 8);
@@ -1374,7 +1326,7 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
     });
 
     const custoTotalBasePeca = totalMaterials + totalMaoObra + totalExtras + totalDesgasteMaquinas;
-    
+
     let custoTotalInvestido = 0;
     let valorLucroLivre = 0;
     let precoFinalCalculado = 0;
@@ -1391,14 +1343,14 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
 
     const custoUnitarioExibicao = modoCalculo === 'peca' ? custoTotalBasePeca : (custoTotalBasePeca / qtdNum);
 
-    return { 
-      materiais: totalMaterials.toFixed(2), 
-      maoObra: totalMaoObra.toFixed(2), 
-      extras: totalExtras.toFixed(2), 
-      deprec: totalDesgasteMaquinas.toFixed(2), 
-      custoPeca: custoUnitarioExibicao.toFixed(2), 
-      lucroLivre: valorLucroLivre.toFixed(2), 
-      final: isNaN(precoFinalCalculado) ? "0.00" : precoFinalCalculado.toFixed(2) 
+    return {
+      materiais: totalMaterials.toFixed(2),
+      maoObra: totalMaoObra.toFixed(2),
+      extras: totalExtras.toFixed(2),
+      deprec: totalDesgasteMaquinas.toFixed(2),
+      custoPeca: custoUnitarioExibicao.toFixed(2),
+      lucroLivre: valorLucroLivre.toFixed(2),
+      final: isNaN(precoFinalCalculado) ? "0.00" : precoFinalCalculado.toFixed(2)
     };
   }, [matsNoPed, vHora, tGasto, custos, lucro, qtdPed, desconto, precoManual, equipamentos, equipamentosSelecionados, financasFixo, modoCalculo]);
 
@@ -1417,7 +1369,7 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
   const gerarPDF = (p: any) => {
     const idDoCliente = p.clienteId || p.clienteSel || '';
     const cli = clientes.find(c => c.id === idDoCliente);
-    
+
     const dataEmissao = p.data || new Date().toLocaleDateString('pt-BR');
     const hoje = new Date(); hoje.setDate(hoje.getDate() + 7);
     const dataValidade = hoje.toLocaleDateString('pt-BR');
@@ -1431,7 +1383,7 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
         const qtd = Number(item.qtd || 1);
         const precoVenda = Number(item.precoVenda || 0);
         const subtotal = qtd * precoVenda;
-        
+
         return `
           <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px; page-break-inside: avoid; break-inside: avoid;">
             <td style="padding: 15px 5px; font-weight: bold; color: #1e293b; text-align: left;">${item.nome}</td>
@@ -1441,7 +1393,7 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
           </tr>
         `;
       }).join('');
-    } 
+    }
     else {
       const textoProduto = String(p.nomeProd || 'Produto Não Informado');
       const quantidadeItem = Number(p.qtdPed || 1);
@@ -1451,7 +1403,7 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
       if (p.detalhamentoPed && p.detalhamentoPed.trim()) {
         const listaItens = p.detalhamentoPed.split('\n').filter((l: string) => l.trim() !== '');
         const lisHtml = listaItens.map((i: string) => `<li style="margin-bottom: 3px;">${i.replace(/^[\s•*-]+/, '')}</li>`).join('');
-        
+
         htmlDetalhamentoKit = `
           <div style="margin-top: 8px; padding: 10px 12px; background-color: #fcfaff; border-left: 3px solid ${themeColors.primary}; border-radius: 6px;">
             <div style="font-size: 11px; font-weight: bold; color: ${themeColors.primary}; margin-bottom: 4px; text-transform: uppercase; tracking-wide: 0.5px;">Composição / Itens Incluso no Kit:</div>
@@ -1555,7 +1507,7 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
         </div>
       </div>
     `;
-    
+
     const opcoes = { margin: [10, 10, 10, 10], filename: `Pedido_${p.id || 'Venda'}.pdf`, html2canvas: { scale: 2, useCORS: true, scrollY: 0 }, jsPDF: { format: 'a4', orientation: 'portrait' }, pagebreak: { mode: ['avoid-all', 'css'] } };
     (window as any).html2pdf().from(elemento).set(opcoes).save();
   };
@@ -1569,7 +1521,6 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
 
   if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando o PrecificaJá... 🚀</div>;
 
-// --- NOVO: TELA PÚBLICA DE ASSINATURA DO CLIENTE (?assinar=ID) ---
   if (idContratoParaAssinar) {
     if (carregandoAssinatura) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando contrato... ✍️</div>;
 
@@ -1650,7 +1601,7 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
 
   if (!user && !idLojaPublica) {
     return (
-      <Login 
+      <Login
         isRegistering={isRegistering} setIsRegistering={setIsRegistering}
         email={email} setEmail={setEmail} password={password} setPassword={setPassword}
         handleAuth={handleAuth}
@@ -1714,7 +1665,7 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
                 </div>
               );
             })}
-            
+
             {produtosPublicosFiltrados.length === 0 && (
               <p className="text-center font-bold text-xs text-slate-400 py-12">Nenhum produto em destaque nesta categoria no momento. 🙌</p>
             )}
@@ -1766,8 +1717,8 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
           <button
             type="button"
             onClick={() => setModoCalculo('peca')}
-            style={{ 
-              backgroundColor: modoCalculo === 'peca' ? themeColors.primary : 'transparent', 
+            style={{
+              backgroundColor: modoCalculo === 'peca' ? themeColors.primary : 'transparent',
               color: modoCalculo === 'peca' ? '#ffffff' : '#64748b'
             }}
             className={`py-2 px-3 rounded-lg font-bold text-xs transition-all text-center ${
@@ -1780,8 +1731,8 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
           <button
             type="button"
             onClick={() => setModoCalculo('lote')}
-            style={{ 
-              backgroundColor: modoCalculo === 'lote' ? themeColors.primary : 'transparent', 
+            style={{
+              backgroundColor: modoCalculo === 'lote' ? themeColors.primary : 'transparent',
               color: modoCalculo === 'lote' ? '#ffffff' : '#64748b'
             }}
             className={`py-2 px-3 rounded-lg font-bold text-xs transition-all text-center ${
@@ -1829,11 +1780,11 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
          <label style={{ color: themeColors.primary }} className="text-[10px] font-bold uppercase ml-1 block mb-1">
           Detalhamento dos Itens - Opcional
          </label>
-         <textarea 
-           placeholder="Escreva em tópicos o que compõe o kit para sair detalhado no PDF...&#10;Ex:&#10;10 topos de docinho&#10;5 topos de pote&#10;1 cordão de papel de mesa" 
-           className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-xs font-semibold border border-transparent focus:border-purple-400 resize-none h-24" 
-           value={detalhamentoPed} 
-           onChange={e => setDetalhamentoPed(e.target.value)} 
+         <textarea
+           placeholder="Escreva em tópicos o que compõe o kit para sair detalhado no PDF...&#10;Ex:&#10;10 topos de docinho&#10;5 topos de pote&#10;1 cordão de papel de mesa"
+           className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-xs font-semibold border border-transparent focus:border-purple-400 resize-none h-24"
+           value={detalhamentoPed}
+           onChange={e => setDetalhamentoPed(e.target.value)}
          />
       </div>
 
@@ -1918,7 +1869,7 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
               ))}
             </div>
           </div>
-          
+
           <div className="grid grid-cols-2 gap-4 mb-4 w-full">
             <div className="w-full">
               <label style={{ color: themeColors.secondary }} className="text-[10px] font-bold uppercase ml-1">Lucro %</label>
@@ -1979,10 +1930,10 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
             <label htmlFor="precoFinalInput" style={{ color: themeColors.secondary }} className="text-[10px] font-black uppercase tracking-wider block mb-1">Preço Final Cobrado</label>
             <div style={{ borderColor: themeColors.secondary }} className="flex items-center gap-1.5 border-2 rounded-2xl px-3 py-1 bg-orange-50/20 focus-within:border-purple-600 transition-all">
               <span style={{ color: themeColors.secondary }} className="font-black text-2xl">R$</span>
-              <input 
+              <input
                 id="precoFinalInput"
-                type="number" 
-                step="0.01" 
+                type="number"
+                step="0.01"
                 style={{ color: themeColors.secondary }}
                 className="bg-transparent font-black text-3xl tracking-tighter outline-none w-32 text-right"
                 value={precoFinalDigitado}
@@ -1993,41 +1944,41 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
         </div>
 
         <div className="w-full pt-2 flex justify-center">
-          <button 
+          <button
             style={{ backgroundColor: themeColors.secondary }}
             onClick={async () => {
              if(!nomeProd) return alert("Digite o nome do produto!");
-             
+
              const precoFinalSalvar = Number(precoFinalDigitado || 0).toFixed(2);
-             
-             const dadosPedido = { 
-               nomeProd, 
-               detalhamentoPed, 
-               preco: precoFinalSalvar, 
-               clienteId: clienteSel, 
-               prazo, 
-               qtdPed, 
-               vHora, 
-               tGasto, 
-               custos, 
-               lucro, 
-               desconto, 
-               userId: user.uid, 
-               precoManual: precoManual, 
-               obsPedido: docObsPedido, 
-               equipamentosSelecionados, 
+
+             const dadosPedido = {
+               nomeProd,
+               detalhamentoPed,
+               preco: precoFinalSalvar,
+               clienteId: clienteSel,
+               prazo,
+               qtdPed,
+               vHora,
+               tGasto,
+               custos,
+               lucro,
+               desconto,
+               userId: user.uid,
+               precoManual: precoManual,
+               obsPedido: docObsPedido,
+               equipamentosSelecionados,
                modoCalculo,
-               materiaisUsados: precoManual ? [] : matsNoPed.map(m => ({ id: m.id, nome: m.nome, qtdUsada: Number(m.qtdUsada || 1) })) 
+               materiaisUsados: precoManual ? [] : matsNoPed.map(m => ({ id: m.id, nome: m.nome, qtdUsada: Number(m.qtdUsada || 1) }))
              };
-             
+
              try {
                if (pedidoEditandoId) await updateDoc(doc(db, "pedidos", pedidoEditandoId), dadosPedido);
                else await addDoc(collection(db, "pedidos"), { ...dadosPedido, data: new Date().toLocaleDateString('pt-BR'), status: 'Pendente', userId: user.uid });
-               
+
                gerarPDF({nomeProd, detalhamentoPed, preco: precoFinalSalvar, clienteId: clienteSel, prazo, qtdPed, obsPedido: docObsPedido});
-               
-               limparCalculadora(); 
-               setActiveTab('pedidos'); 
+
+               limparCalculadora();
+               setActiveTab('pedidos');
                alert("Orçamento salvo e PDF gerado com sucesso! 🚀");
              } catch (error) {
                alert("Erro ao salvar dados.");
@@ -2040,10 +1991,98 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
     </div>
   );
 
+  // Cria (ou atualiza) UMA anotação, guardando datas extras no mesmo documento —
+  // ela vai aparecer em todos os dias da Agenda, mas continua sendo 1 card só no Kanban
+  const salvarAnotacao = async (irParaKanban: boolean) => {
+    if(!novaAnotacao.titulo) return alert(irParaKanban ? "Seu pedido precisa de uma descrição básica!" : "Sua tarefa precisa de uma descrição básica!");
+    const extras = datasExtras.filter(d => d !== novaAnotacao.dataPrazo);
+
+    if (novaAnotacao.id) {
+      const dadosNota: any = { titulo: novaAnotacao.titulo, conteudo: novaAnotacao.conteudo || '', dataPrazo: novaAnotacao.dataPrazo, datasExtras: extras, concluido: false };
+      if (irParaKanban) { dadosNota.apareceNoKanban = true; dadosNota.statusKanban = 'a_fazer'; }
+      await updateDoc(doc(db, "anotacoes", novaAnotacao.id), dadosNota);
+    } else {
+      const dadosNota: any = {
+        titulo: novaAnotacao.titulo,
+        conteudo: novaAnotacao.conteudo || '',
+        dataPrazo: novaAnotacao.dataPrazo,
+        datasExtras: extras,
+        concluido: false,
+        userId: user.uid,
+        dataCriacao: new Date().toLocaleDateString('pt-BR'),
+        apareceNoKanban: irParaKanban
+      };
+      if (irParaKanban) dadosNota.statusKanban = 'a_fazer';
+      await addDoc(collection(db, "anotacoes"), dadosNota);
+    }
+
+    setNovaAnotacao({ id: '', titulo: '', conteudo: '', dataPrazo: new Date().toISOString().split('T')[0] });
+    setDatasExtras([]);
+    alert(irParaKanban ? "Pedido criado no Kanban com sucesso! 🗂️✨" : "Tarefa agendada com sucesso! 📅✨");
+    if (irParaKanban) setSubAbaAnotacoes('kanban');
+  };
+
+  const formularioTarefaKanban = (
+    <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
+      <h2 style={{ color: themeColors.primary }} className="font-bold mb-4 flex items-center gap-2"><Calendar size={20}/> Criar Nova Tarefa / Lembrete</h2>
+      <p className="text-slate-400 text-[11px] mb-4">Gerencie as pendências e compras do seu negócio por data. O que você colocar aqui alimenta o painel da sua Tela Inicial.</p>
+
+      <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">O que precisa fazer?</label>
+      <input placeholder="Ex: Comprar papel fotográfico A4 / Entregar caneca do cliente" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-bold text-sm" value={novaAnotacao.titulo} onChange={e => setNovaAnotacao({...novaAnotacao, titulo: e.target.value})} />
+
+      <div className="mb-4 w-full">
+        <label style={{ color: themeColors.secondary }} className="text-[10px] font-bold uppercase ml-1">Data Limite / Prazo</label>
+        <input type="date" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm block mt-1" value={novaAnotacao.dataPrazo} onChange={e => setNovaAnotacao({...novaAnotacao, dataPrazo: e.target.value})} />
+      </div>
+
+      <div className="mb-4 w-full">
+        <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">
+          Também aparecer nestes dias (opcional)
+        </label>
+        <p className="text-slate-400 text-[10px] mb-2">É a mesma tarefa aparecendo em vários dias da agenda — não cria tarefas repetidas.</p>
+        <div className="flex gap-2 mb-2">
+          <input type="date" className="flex-1 p-3 bg-slate-50 rounded-xl outline-none text-xs font-bold" value={novaDataExtra} onChange={e => setNovaDataExtra(e.target.value)} />
+          <button type="button" onClick={() => { if (!datasExtras.includes(novaDataExtra) && novaDataExtra !== novaAnotacao.dataPrazo) setDatasExtras([...datasExtras, novaDataExtra]); }} style={{ backgroundColor: themeColors.primary }} className="text-white px-4 rounded-xl text-xs font-black">+ Add</button>
+        </div>
+        {datasExtras.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {datasExtras.map(d => (
+              <span key={d} className="bg-purple-50 text-purple-700 text-[10px] font-bold px-2 py-1 rounded-lg flex items-center gap-1">
+                {d.split('-').reverse().join('/')}
+                <button onClick={() => setDatasExtras(datasExtras.filter(x => x !== d))}><X size={12}/></button>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Detalhes Adicionais (Opcional)</label>
+      <textarea placeholder="Escreva informações extras ou observações aqui..." className="w-full p-4 bg-slate-50 rounded-2xl mb-6 outline-none border focus:border-purple-400 resize-none h-16 text-sm font-semibold" value={novaAnotacao.conteudo} onChange={e => setNovaAnotacao({...novaAnotacao, conteudo: e.target.value})} />
+
+      <p className="text-[10px] font-bold text-slate-400 uppercase ml-1 mb-2">Onde isso deve aparecer?</p>
+      <div className="grid grid-cols-2 gap-3">
+        <button
+          style={{ backgroundColor: themeColors.secondary }}
+          onClick={() => salvarAnotacao(false)}
+          className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-[10px] shadow-md flex flex-col items-center gap-1">
+          <CheckSquare size={18}/>
+          {novaAnotacao.id ? 'Atualizar Tarefa' : 'Agendar Tarefa'}
+        </button>
+
+        <button
+          style={{ backgroundColor: themeColors.primary }}
+          onClick={() => salvarAnotacao(true)}
+          className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-[10px] shadow-md flex flex-col items-center gap-1">
+          🗂️
+          {novaAnotacao.id ? 'Atualizar e ir p/ Kanban' : 'Novo Pedido no Kanban'}
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-slate-50 pb-32 font-sans text-slate-700 w-full relative overflow-x-hidden">
-      
-      {/* MENU HAMBÚRGUER LATERAL COMPLETO */}
+
       <div className={`fixed inset-0 bg-black/40 z-50 transition-opacity duration-300 ${isMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`} onClick={() => setIsMenuOpen(false)}>
         <div className={`w-72 bg-white h-full shadow-2xl p-6 flex flex-col justify-between transition-transform duration-300 ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'}`} onClick={e => e.stopPropagation()}>
           <div className="space-y-6 overflow-y-auto max-h-[85vh] scrollbar-none">
@@ -2055,7 +2094,7 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
               <button onClick={() => setActiveTab('inicio')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'inicio' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'inicio' ? themeColors.primary : undefined }}><Home size={16}/> Início</button>
               <button onClick={() => setActiveTab('criar')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'criar' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'criar' ? themeColors.primary : undefined }}><Plus size={16}/> Orçar</button>
               <button onClick={() => setActiveTab('contratos')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'contratos' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'contratos' ? themeColors.primary : undefined }}><FileText size={16}/> Contratos</button>
-              
+
               <button onClick={() => setActiveTab('perfil')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'perfil' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'perfil' ? themeColors.primary : undefined }}><Settings size={16}/> Perfil da Loja</button>
               <button onClick={() => setActiveTab('anotacoes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'anotacoes' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'anotacoes' ? themeColors.primary : undefined }}><Calendar size={16}/> Agenda / Tarefas </button>
 
@@ -2063,9 +2102,9 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
               <button onClick={() => setActiveTab('pedidos')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'pedidos' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'pedidos' ? themeColors.primary : undefined }}><History size={16}/> Histórico de Orçamentos</button>
               <button onClick={() => setActiveTab('balcao')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'balcao' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'balcao' ? themeColors.primary : undefined }}><ShoppingCart size={16}/> Balcão de Vendas Rápido</button>
               <button onClick={() => setActiveTab('catalogo')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'catalogo' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'catalogo' ? themeColors.primary : undefined }}><BookOpen size={16}/> Meu Catálogo Visual</button>
-              
+
               <button onClick={() => setActiveTab('fornecedores')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'fornecedores' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'fornecedores' ? themeColors.primary : undefined }}><Globe size={16}/> Biblioteca Fornecedores </button>
-              
+
               <button onClick={() => setActiveTab('materiais')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'materiais' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'materiais' ? themeColors.primary : undefined }}><Package size={16}/> Armário / Insumos</button>
               <button onClick={() => setActiveTab('clientes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'clientes' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'clientes' ? themeColors.primary : undefined }}><User size={16}/> Meus Clientes</button>
 
@@ -2079,13 +2118,12 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
         </div>
       </div>
 
-      {/* HEADER PRINCIPAL */}
       <header className="bg-white p-4 flex justify-between items-center shadow-sm sticky top-0 z-40 w-full">
         <button onClick={() => setIsMenuOpen(true)} className="p-2 text-slate-700 hover:text-purple-700 transition-colors">
           <Menu size={24} />
         </button>
         <div style={{ color: themeColors.primary }} className="font-black text-lg flex items-center gap-2"><Calculator size={22}/> PrecificaJá</div>
-        <div className="w-10"></div> 
+        <div className="w-10"></div>
       </header>
 
       <div className="p-4 max-w-xl mx-auto w-full">
@@ -2100,7 +2138,7 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
               <p className="text-[11px] text-white/80 mt-2 opacity-80">📈 Vendas concluídas no mês corrente</p>
             </div>
 
-            <div onClick={() => { limparCalculadora(); setActiveTab('criar'); }} 
+            <div onClick={() => { limparCalculadora(); setActiveTab('criar'); }}
                  style={{ backgroundColor: themeColors.secondary }}
                  className="p-6 rounded-[35px] shadow-md cursor-pointer active:scale-95 transition-all text-white flex justify-between items-center w-full">
               <div>
@@ -2119,20 +2157,20 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
                 </h3>
                 <span style={{ color: themeColors.primary }} className="text-[10px] bg-purple-50 px-2 py-1 rounded-md font-bold uppercase">Mês Atual</span>
               </div>
-              
+
               <div className="flex justify-between gap-1 overflow-x-auto pb-1 scrollbar-none w-full">
                 {proximosSeteDias.map((dia) => {
                   const isActive = diaSelecionadoAgenda === dia.stringData;
                   return (
-                    <div 
-                      key={dia.stringData} 
+                    <div
+                      key={dia.stringData}
                       onClick={() => setDiaSelecionadoAgenda(dia.stringData)}
                       className="flex flex-col items-center gap-1 cursor-pointer min-w-[46px] select-none"
                     >
                       <span style={{ color: isActive ? themeColors.secondary : undefined }} className={`text-[10px] font-bold ${!isActive ? 'text-slate-400' : 'font-extrabold'}`}>
                         {dia.diaSemanaTexto}
                       </span>
-                      <div 
+                      <div
                         style={{ backgroundColor: isActive ? themeColors.secondary : undefined, borderColor: isActive ? themeColors.secondary : undefined }}
                         className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-black transition-all border ${isActive ? 'text-white shadow-md scale-105' : 'bg-slate-50 text-slate-700 border-slate-100'}`}>
                         {dia.diaNumero}
@@ -2211,7 +2249,6 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
           </div>
         )}
 
-        {/* TELA DE PERFIL DA LOJA & DADOS CADASTRAIS */}
         {activeTab === 'perfil' && (
           <div className="space-y-6 pt-2 w-full">
             <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
@@ -2238,7 +2275,6 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
                 )}
               </div>
 
-              {/* --- NOVO: ASSINATURA DA EMPRESA --- */}
               <div className="mb-5 w-full">
                 <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">✍️ Assinatura da Empresa</label>
                 <p className="text-slate-400 text-[10px] mb-2">Desenhe uma vez e ela entra automática em todos os seus contratos.</p>
@@ -2346,23 +2382,23 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
                   <div>
                     <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Cor Primária</label>
                     <div className="flex items-center gap-2 bg-white p-2 rounded-xl border">
-                      <input 
-                        type="color" 
-                        value={themeColors.primary} 
-                        onChange={e => setThemeColors(prev => ({ 
-                          ...prev, 
-                          primary: e.target.value, 
-                          primaryHover: e.target.value 
+                      <input
+                        type="color"
+                        value={themeColors.primary}
+                        onChange={e => setThemeColors(prev => ({
+                          ...prev,
+                          primary: e.target.value,
+                          primaryHover: e.target.value
                         }))}
                         className="w-10 h-10 rounded-lg border-0 cursor-pointer bg-transparent"
                       />
-                      <input 
+                      <input
                         type="text"
                         value={themeColors.primary}
-                        onChange={e => setThemeColors(prev => ({ 
-                          ...prev, 
-                          primary: e.target.value, 
-                          primaryHover: e.target.value 
+                        onChange={e => setThemeColors(prev => ({
+                          ...prev,
+                          primary: e.target.value,
+                          primaryHover: e.target.value
                         }))}
                         className="w-full text-xs font-mono font-bold uppercase outline-none"
                         maxLength={7}
@@ -2373,23 +2409,23 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
                   <div>
                     <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Cor Secundária</label>
                     <div className="flex items-center gap-2 bg-white p-2 rounded-xl border">
-                      <input 
-                        type="color" 
-                        value={themeColors.secondary} 
-                        onChange={e => setThemeColors(prev => ({ 
-                          ...prev, 
-                          secondary: e.target.value, 
-                          secondaryHover: e.target.value 
+                      <input
+                        type="color"
+                        value={themeColors.secondary}
+                        onChange={e => setThemeColors(prev => ({
+                          ...prev,
+                          secondary: e.target.value,
+                          secondaryHover: e.target.value
                         }))}
                         className="w-10 h-10 rounded-lg border-0 cursor-pointer bg-transparent"
                       />
-                      <input 
+                      <input
                         type="text"
                         value={themeColors.secondary}
-                        onChange={e => setThemeColors(prev => ({ 
-                          ...prev, 
-                          secondary: e.target.value, 
-                          secondaryHover: e.target.value 
+                        onChange={e => setThemeColors(prev => ({
+                          ...prev,
+                          secondary: e.target.value,
+                          secondaryHover: e.target.value
                         }))}
                         className="w-full text-xs font-mono font-bold uppercase outline-none"
                         maxLength={7}
@@ -2399,7 +2435,7 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
                 </div>
               </div>
 
-              <button 
+              <button
                 style={{ backgroundColor: themeColors.primary }}
                 onClick={async () => {
                 try {
@@ -2430,7 +2466,6 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
           </div>
         )}
 
-        {/* ABA GERENCIADOR DE CONTRATOS */}
         {activeTab === 'contratos' && (
           <div className="space-y-6 pt-2 w-full animate-fadeIn">
             <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
@@ -2487,11 +2522,11 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
                 </div>
               </div>
 
-              <button 
+              <button
                 style={{ backgroundColor: themeColors.primary }}
                 onClick={async () => {
                 if (!novoContrato.clienteId || !novoContrato.valorTotal) return alert("Selecione o cliente e o valor total!");
-                
+
                 const dadosContrato = {
                   clienteId: novoContrato.clienteId,
                   tipoEvento: novoContrato.tipoEvento,
@@ -2559,17 +2594,17 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
 
                     <div className="flex justify-end gap-1 border-t pt-3 w-full flex-wrap">
                       <button onClick={() => setNovoContrato({ id: c.id || '', clienteId: c.clienteId, tipoEvento: c.tipoEvento || '', dataEvento: c.dataEvento || '', localEvento: c.localEvento || '', valorTotal: c.valorTotal || '', clausulas: c.clausulas || novoContrato.clausulas })} style={{ color: themeColors.primary }} className="p-2 bg-purple-50 rounded-xl"><Edit2 size={16}/></button>
-                      
+
                       <button onClick={() => setNovoContrato({ id: '', clienteId: c.clienteId, tipoEvento: `${c.tipoEvento} (Cópia)`, dataEvento: c.dataEvento || '', localEvento: c.localEvento || '', valorTotal: c.valorTotal || '', clausulas: c.clausulas || novoContrato.clausulas })} title="Duplicar Contrato" className="p-2 bg-blue-50 text-blue-600 rounded-xl"><Copy size={16}/></button>
-                      
+
                       {c.id && !c.assinaturaClienteUrl && (
                         <button onClick={() => copiarLinkAssinatura(c.id)} title="Copiar link de assinatura" className="p-2 bg-amber-50 text-amber-600 rounded-xl">✍️</button>
                       )}
 
                       <button onClick={() => gerarPDFContrato(c)} style={{ color: themeColors.secondary }} className="p-2 bg-orange-50 rounded-xl"><Printer size={16}/></button>
-                      
+
                       <button onClick={() => enviarContratoWhatsapp(c)} className="p-2 bg-emerald-50 text-emerald-600 rounded-xl"><MessageCircle size={16}/></button>
-                      
+
                       <button onClick={() => excluirContratoInteligente(c)} className="p-2 text-red-500 hover:text-red-700 transition-colors"><Trash2 size={16}/></button>
                     </div>
                   </div>
@@ -2585,285 +2620,128 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
           </div>
         )}
 
-{/* TELA DE AGENDA / COMPROMISSOS COM PRAZOS */}
         {activeTab === 'anotacoes' && (
-  <div className="space-y-4 pt-2 w-full">
-    <div className="flex bg-slate-100 p-1.5 rounded-2xl gap-1 w-full border">
-      <button onClick={() => setSubAbaAnotacoes('agenda')} style={{ color: subAbaAnotacoes === 'agenda' ? themeColors.primary : undefined }} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${subAbaAnotacoes === 'agenda' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>📅 Agenda</button>
-      <button onClick={() => setSubAbaAnotacoes('kanban')} style={{ color: subAbaAnotacoes === 'kanban' ? themeColors.primary : undefined }} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${subAbaAnotacoes === 'kanban' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>🗂️ Kanban</button>
-    </div>
-
-    {subAbaAnotacoes === 'agenda' && (
-      <div className="space-y-4 animate-fadeIn">
-        <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
-          <h2 style={{ color: themeColors.primary }} className="font-bold mb-4 flex items-center gap-2"><Calendar size={20}/> Criar Nova Tarefa / Lembrete</h2>
-          <p className="text-slate-400 text-[11px] mb-4">Gerencie as pendências e compras do seu negócio por data. O que você colocar aqui alimenta o painel da sua Tela Inicial.</p>
-          
-          <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">O que precisa fazer?</label>
-          <input placeholder="Ex: Comprar papel fotográfico A4 / Entregar caneca do cliente" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-bold text-sm" value={novaAnotacao.titulo} onChange={e => setNovaAnotacao({...novaAnotacao, titulo: e.target.value})} />
-          
-          <div className="mb-4 w-full">
-            <label style={{ color: themeColors.secondary }} className="text-[10px] font-bold uppercase ml-1">Data Limite / Prazo</label>
-            <input type="date" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm block mt-1" value={novaAnotacao.dataPrazo} onChange={e => setNovaAnotacao({...novaAnotacao, dataPrazo: e.target.value})} />
-          </div>
-
-          <div className="mb-4 w-full">
-            <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">
-              Repetir também nestes dias (opcional)
-            </label>
-            <div className="flex gap-2 mb-2">
-              <input type="date" className="flex-1 p-3 bg-slate-50 rounded-xl outline-none text-xs font-bold" value={novaDataExtra} onChange={e => setNovaDataExtra(e.target.value)} />
-              <button type="button" onClick={() => { if (!datasExtras.includes(novaDataExtra)) setDatasExtras([...datasExtras, novaDataExtra]); }} style={{ backgroundColor: themeColors.primary }} className="text-white px-4 rounded-xl text-xs font-black">+ Add</button>
+          <div className="space-y-4 pt-2 w-full">
+            <div className="flex bg-slate-100 p-1.5 rounded-2xl gap-1 w-full border">
+              <button onClick={() => setSubAbaAnotacoes('agenda')} style={{ color: subAbaAnotacoes === 'agenda' ? themeColors.primary : undefined }} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${subAbaAnotacoes === 'agenda' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>📅 Agenda</button>
+              <button onClick={() => setSubAbaAnotacoes('kanban')} style={{ color: subAbaAnotacoes === 'kanban' ? themeColors.primary : undefined }} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${subAbaAnotacoes === 'kanban' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>🗂️ Kanban</button>
             </div>
-            {datasExtras.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {datasExtras.map(d => (
-                  <span key={d} className="bg-purple-50 text-purple-700 text-[10px] font-bold px-2 py-1 rounded-lg flex items-center gap-1">
-                    {d.split('-').reverse().join('/')}
-                    <button onClick={() => setDatasExtras(datasExtras.filter(x => x !== d))}><X size={12}/></button>
-                  </span>
-                ))}
+
+            {subAbaAnotacoes === 'agenda' && (
+              <div className="space-y-4 animate-fadeIn">
+                {formularioTarefaKanban}
+
+                <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider ml-2">Lista Geral de Pendências</h3>
+                <div className="grid grid-cols-1 gap-3 w-full">
+                  {anotacoes.map(item => {
+                    const todasAsDatas = [item.dataPrazo, ...(item.datasExtras || [])].filter(Boolean);
+                    const datasFormatadas = todasAsDatas.map((d: string) => d.split('-').reverse().slice(0, 2).join('/')).join(', ');
+                    return (
+                      <div key={item.id} className={`bg-white p-5 rounded-3xl border shadow-sm w-full flex flex-col gap-2 relative ${item.concluido ? 'opacity-50' : ''}`}>
+                        <div className="flex justify-between items-start w-full">
+                          <div className="flex items-start gap-3 flex-1 min-w-0">
+                            <button onClick={() => toggleStatusAnotacao(item.id, item.concluido)} style={{ color: themeColors.primary }} className="mt-0.5 shrink-0">
+                              {item.concluido ? <CheckSquare size={20} /> : <Square size={20} className="text-slate-400" />}
+                            </button>
+                            <div className="min-w-0 flex-1">
+                              <h4 className={`font-black text-slate-800 text-base break-words ${item.concluido ? 'line-through text-slate-400' : ''}`}>{item.titulo}</h4>
+                              <div className="flex gap-2 mt-1 flex-wrap">
+                                <span style={{ color: themeColors.primary }} className="text-[9px] bg-purple-50 px-2 py-0.5 rounded font-black uppercase">🗓️ {datasFormatadas}</span>
+                                {item.apareceNoKanban && <span className="text-[9px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded font-black uppercase">🗂️ No Kanban</span>}
+                                {item.concluido && <span className="text-[9px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded font-black uppercase">Concluído</span>}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex gap-1 shrink-0 ml-2">
+                            <button onClick={() => { setNovaAnotacao({ id: item.id, titulo: item.titulo, conteudo: item.conteudo, dataPrazo: item.dataPrazo || new Date().toISOString().split('T')[0] }); setDatasExtras(item.datasExtras || []); }} className="text-orange-400 p-2 hover:bg-orange-50 rounded-xl"><Edit2 size={16}/></button>
+                            <button onClick={() => confirmarExcluir('anotacao', item.id)} className="text-red-200 p-2 hover:bg-red-50 rounded-xl"><Trash2 size={16}/></button>
+                          </div>
+                        </div>
+                        {item.conteudo && <p className="text-slate-600 text-xs font-semibold bg-slate-50 p-3 rounded-2xl border whitespace-pre-line leading-relaxed">{item.conteudo}</p>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {subAbaAnotacoes === 'kanban' && (
+              <div className="space-y-4 animate-fadeIn">
+                {formularioTarefaKanban}
+
+                <div className="flex gap-3 overflow-x-auto pb-2 w-full snap-x">
+                  {colunasKanban.map((coluna, idx) => {
+                    const itensDaColuna = itensDoKanban.filter(item => item.statusKanban === coluna.id);
+                    const estaSobreEssaColuna = colunaAlvoOver === coluna.id;
+                    return (
+                      <div
+                        key={coluna.id}
+                        onDragOver={(e) => { e.preventDefault(); setColunaAlvoOver(coluna.id); }}
+                        onDragLeave={() => setColunaAlvoOver(prev => prev === coluna.id ? null : prev)}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          if (itemArrastandoId) {
+                            const itemAtual = itensDoKanban.find(x => x.id === itemArrastandoId);
+                            if (itemAtual) moverStatusKanban(itemArrastandoId, itemAtual.tipo, coluna.id);
+                          }
+                          setItemArrastandoId(null);
+                          setColunaAlvoOver(null);
+                        }}
+                        style={estaSobreEssaColuna ? { borderColor: coluna.cor, boxShadow: `0 0 0 2px ${coluna.cor}` } : undefined}
+                        className="bg-white rounded-3xl border shadow-sm p-3 min-w-[260px] w-[260px] shrink-0 snap-start transition-all"
+                      >
+                        <div className="flex items-center justify-between mb-3 px-1">
+                          <span style={{ color: coluna.cor }} className="font-black text-xs uppercase tracking-wider">{coluna.emoji} {coluna.nome}</span>
+                          <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{itensDaColuna.length}</span>
+                        </div>
+                        <div className="space-y-2 max-h-[65vh] overflow-y-auto">
+                          {itensDaColuna.map(item => {
+                            const datasKanban = [item.dataPrazo, ...(item.datasExtras || [])].filter(Boolean);
+                            const datasKanbanTxt = datasKanban.map((d: string) => d.split('-').reverse().join('/')).join(', ');
+                            return (
+                            <div
+                              key={`${item.tipo}-${item.id}`}
+                              draggable
+                              onDragStart={() => setItemArrastandoId(item.id)}
+                              onDragEnd={() => { setItemArrastandoId(null); setColunaAlvoOver(null); }}
+                              className={`bg-slate-50 border border-slate-100 rounded-2xl p-3 cursor-grab active:cursor-grabbing transition-opacity ${itemArrastandoId === item.id ? 'opacity-30' : 'opacity-100'}`}
+                            >
+                              <div className="flex items-center gap-1.5 mb-1">
+                                {item.tipo === 'pedido' && <span className="text-[8px] bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded font-black uppercase">💰 Pedido</span>}
+                              </div>
+                              <p className="font-bold text-slate-800 text-xs break-words">{item.titulo}</p>
+                              {datasKanbanTxt && (
+                                <p className="text-[10px] text-slate-400 font-semibold mt-1">🗓️ {datasKanbanTxt}</p>
+                              )}
+                              {item.conteudo && <p className="text-[10px] text-slate-500 mt-1">{item.conteudo}</p>}
+                              <div className="flex justify-between items-center mt-2 gap-1">
+                                {idx > 0 ? (
+                                  <button onClick={() => moverStatusKanban(item.id, item.tipo, colunasKanban[idx - 1].id)} className="text-[9px] font-black uppercase bg-white border px-2 py-1 rounded-lg text-slate-500">◀ Voltar</button>
+                                ) : <span />}
+                                {idx < colunasKanban.length - 1 ? (
+                                  <button onClick={() => moverStatusKanban(item.id, item.tipo, colunasKanban[idx + 1].id)} style={{ backgroundColor: coluna.cor }} className="text-[9px] font-black uppercase text-white px-2 py-1 rounded-lg ml-auto">Avançar ▶</button>
+                                ) : item.tipo === 'pedido' ? (
+                                  <button onClick={() => { const p = pedidos.find(x => x.id === item.id); if (p) confirmarVendaPedido(p); }} className="text-[9px] font-black uppercase bg-emerald-500 text-white px-2 py-1 rounded-lg ml-auto">✅ Confirmar Venda</button>
+                                ) : (
+                                  <button onClick={() => confirmarExcluir('anotacao', item.id)} className="text-[9px] font-black uppercase text-red-400 px-2 py-1 rounded-lg ml-auto">Remover</button>
+                                )}
+                              </div>
+                            </div>
+                            );
+                          })}
+                          {itensDaColuna.length === 0 && (
+                            <p className="text-center text-[10px] text-slate-300 font-bold py-6 italic">Arraste um card pra cá</p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>
+        )}
 
-          <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Detalhes Adicionais (Opcional)</label>
-          <textarea placeholder="Escreva informações extras ou observações aqui..." className="w-full p-4 bg-slate-50 rounded-2xl mb-6 outline-none border focus:border-purple-400 resize-none h-16 text-sm font-semibold" value={novaAnotacao.conteudo} onChange={e => setNovaAnotacao({...novaAnotacao, conteudo: e.target.value})} />
-          
-          <p className="text-[10px] font-bold text-slate-400 uppercase ml-1 mb-2">Onde isso deve aparecer?</p>
-          <div className="grid grid-cols-2 gap-3">
-            <button 
-              style={{ backgroundColor: themeColors.secondary }}
-              onClick={async () => {
-              if(!novaAnotacao.titulo) return alert("Sua tarefa precisa de uma descrição básica!");
-              const todasAsDatas = [novaAnotacao.dataPrazo, ...datasExtras.filter(d => d !== novaAnotacao.dataPrazo)];
-              if (novaAnotacao.id) {
-                const dadosNota = { titulo: novaAnotacao.titulo, conteudo: novaAnotacao.conteudo || '', dataPrazo: novaAnotacao.dataPrazo, concluido: false, userId: user.uid, dataCriacao: new Date().toLocaleDateString('pt-BR') };
-                await updateDoc(doc(db, "anotacoes", novaAnotacao.id), dadosNota);
-              } else {
-                for (const data of todasAsDatas) {
-                  const dadosNota = { titulo: novaAnotacao.titulo, conteudo: novaAnotacao.conteudo || '', dataPrazo: data, concluido: false, userId: user.uid, dataCriacao: new Date().toLocaleDateString('pt-BR') };
-                  await addDoc(collection(db, "anotacoes"), { ...dadosNota, apareceNoKanban: false });
-                }
-              }
-              setNovaAnotacao({ id: '', titulo: '', conteudo: '', dataPrazo: new Date().toISOString().split('T')[0] });
-              setDatasExtras([]);
-              alert("Tarefa agendada com sucesso! 📅✨");
-            }} className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-[10px] shadow-md flex flex-col items-center gap-1">
-              <CheckSquare size={18}/>
-              {novaAnotacao.id ? 'Atualizar Tarefa' : 'Agendar Tarefa'}
-            </button>
-
-            <button 
-              style={{ backgroundColor: themeColors.primary }}
-              onClick={async () => {
-              if(!novaAnotacao.titulo) return alert("Seu pedido precisa de uma descrição básica!");
-              const todasAsDatas = [novaAnotacao.dataPrazo, ...datasExtras.filter(d => d !== novaAnotacao.dataPrazo)];
-              if (novaAnotacao.id) {
-                const dadosNota = { titulo: novaAnotacao.titulo, conteudo: novaAnotacao.conteudo || '', dataPrazo: novaAnotacao.dataPrazo, concluido: false, userId: user.uid, dataCriacao: new Date().toLocaleDateString('pt-BR') };
-                await updateDoc(doc(db, "anotacoes", novaAnotacao.id), { ...dadosNota, apareceNoKanban: true, statusKanban: 'a_fazer' });
-              } else {
-                for (const data of todasAsDatas) {
-                  const dadosNota = { titulo: novaAnotacao.titulo, conteudo: novaAnotacao.conteudo || '', dataPrazo: data, concluido: false, userId: user.uid, dataCriacao: new Date().toLocaleDateString('pt-BR') };
-                  await addDoc(collection(db, "anotacoes"), { ...dadosNota, apareceNoKanban: true, statusKanban: 'a_fazer' });
-                }
-              }
-              setNovaAnotacao({ id: '', titulo: '', conteudo: '', dataPrazo: new Date().toISOString().split('T')[0] });
-              setDatasExtras([]);
-              alert("Pedido criado no Kanban com sucesso! 🗂️✨");
-              setSubAbaAnotacoes('kanban');
-            }} className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-[10px] shadow-md flex flex-col items-center gap-1">
-              🗂️
-              {novaAnotacao.id ? 'Atualizar e ir p/ Kanban' : 'Novo Pedido no Kanban'}
-            </button>
-          </div>
-        </div>
-
-        <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider ml-2">Lista Geral de Pendências</h3>
-        <div className="grid grid-cols-1 gap-3 w-full">
-          {anotacoes.map(item => {
-            const dataFormatada = item.dataPrazo ? item.dataPrazo.split('-').reverse().slice(0, 2).join('/') : '';
-            return (
-              <div key={item.id} className={`bg-white p-5 rounded-3xl border shadow-sm w-full flex flex-col gap-2 relative ${item.concluido ? 'opacity-50' : ''}`}>
-                <div className="flex justify-between items-start w-full">
-                  <div className="flex items-start gap-3 flex-1 min-w-0">
-                    <button onClick={() => toggleStatusAnotacao(item.id, item.concluido)} style={{ color: themeColors.primary }} className="mt-0.5 shrink-0">
-                      {item.concluido ? <CheckSquare size={20} /> : <Square size={20} className="text-slate-400" />}
-                    </button>
-                    <div className="min-w-0 flex-1">
-                      <h4 className={`font-black text-slate-800 text-base break-words ${item.concluido ? 'line-through text-slate-400' : ''}`}>{item.titulo}</h4>
-                      <div className="flex gap-2 mt-1 flex-wrap">
-                        <span style={{ color: themeColors.primary }} className="text-[9px] bg-purple-50 px-2 py-0.5 rounded font-black uppercase">🗓️ Prazo: {dataFormatada}</span>
-                        {item.apareceNoKanban && <span className="text-[9px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded font-black uppercase">🗂️ No Kanban</span>}
-                        {item.concluido && <span className="text-[9px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded font-black uppercase">Concluído</span>}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex gap-1 shrink-0 ml-2">
-                    <button onClick={() => setNovaAnotacao({ id: item.id, titulo: item.titulo, conteudo: item.conteudo, dataPrazo: item.dataPrazo || new Date().toISOString().split('T')[0] })} className="text-orange-400 p-2 hover:bg-orange-50 rounded-xl"><Edit2 size={16}/></button>
-                    <button onClick={() => confirmarExcluir('anotacao', item.id)} className="text-red-200 p-2 hover:bg-red-50 rounded-xl"><Trash2 size={16}/></button>
-                  </div>
-                </div>
-                {item.conteudo && <p className="text-slate-600 text-xs font-semibold bg-slate-50 p-3 rounded-2xl border whitespace-pre-line leading-relaxed">{item.conteudo}</p>}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    )}
-
-    {subAbaAnotacoes === 'kanban' && (
-      <div className="space-y-4 animate-fadeIn">
-        <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
-          <h2 style={{ color: themeColors.primary }} className="font-bold mb-4 flex items-center gap-2"><Calendar size={20}/> Criar Nova Tarefa / Lembrete</h2>
-          <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">O que precisa fazer?</label>
-          <input placeholder="Ex: Comprar papel fotográfico A4 / Entregar caneca do cliente" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-bold text-sm" value={novaAnotacao.titulo} onChange={e => setNovaAnotacao({...novaAnotacao, titulo: e.target.value})} />
-          <div className="mb-4 w-full">
-            <label style={{ color: themeColors.secondary }} className="text-[10px] font-bold uppercase ml-1">Data Limite / Prazo</label>
-            <input type="date" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm block mt-1" value={novaAnotacao.dataPrazo} onChange={e => setNovaAnotacao({...novaAnotacao, dataPrazo: e.target.value})} />
-          </div>
-
-          <div className="mb-4 w-full">
-            <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">
-              Repetir também nestes dias (opcional)
-            </label>
-            <div className="flex gap-2 mb-2">
-              <input type="date" className="flex-1 p-3 bg-slate-50 rounded-xl outline-none text-xs font-bold" value={novaDataExtra} onChange={e => setNovaDataExtra(e.target.value)} />
-              <button type="button" onClick={() => { if (!datasExtras.includes(novaDataExtra)) setDatasExtras([...datasExtras, novaDataExtra]); }} style={{ backgroundColor: themeColors.primary }} className="text-white px-4 rounded-xl text-xs font-black">+ Add</button>
-            </div>
-            {datasExtras.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {datasExtras.map(d => (
-                  <span key={d} className="bg-purple-50 text-purple-700 text-[10px] font-bold px-2 py-1 rounded-lg flex items-center gap-1">
-                    {d.split('-').reverse().join('/')}
-                    <button onClick={() => setDatasExtras(datasExtras.filter(x => x !== d))}><X size={12}/></button>
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Detalhes Adicionais (Opcional)</label>
-          <textarea placeholder="Escreva informações extras ou observações aqui..." className="w-full p-4 bg-slate-50 rounded-2xl mb-6 outline-none border focus:border-purple-400 resize-none h-16 text-sm font-semibold" value={novaAnotacao.conteudo} onChange={e => setNovaAnotacao({...novaAnotacao, conteudo: e.target.value})} />
-          <p className="text-[10px] font-bold text-slate-400 uppercase ml-1 mb-2">Onde isso deve aparecer?</p>
-          <div className="grid grid-cols-2 gap-3">
-            <button 
-              style={{ backgroundColor: themeColors.secondary }}
-              onClick={async () => {
-              if(!novaAnotacao.titulo) return alert("Sua tarefa precisa de uma descrição básica!");
-              const todasAsDatas = [novaAnotacao.dataPrazo, ...datasExtras.filter(d => d !== novaAnotacao.dataPrazo)];
-              if (novaAnotacao.id) {
-                const dadosNota = { titulo: novaAnotacao.titulo, conteudo: novaAnotacao.conteudo || '', dataPrazo: novaAnotacao.dataPrazo, concluido: false, userId: user.uid, dataCriacao: new Date().toLocaleDateString('pt-BR') };
-                await updateDoc(doc(db, "anotacoes", novaAnotacao.id), dadosNota);
-              } else {
-                for (const data of todasAsDatas) {
-                  const dadosNota = { titulo: novaAnotacao.titulo, conteudo: novaAnotacao.conteudo || '', dataPrazo: data, concluido: false, userId: user.uid, dataCriacao: new Date().toLocaleDateString('pt-BR') };
-                  await addDoc(collection(db, "anotacoes"), { ...dadosNota, apareceNoKanban: false });
-                }
-              }
-              setNovaAnotacao({ id: '', titulo: '', conteudo: '', dataPrazo: new Date().toISOString().split('T')[0] });
-              setDatasExtras([]);
-              alert("Tarefa agendada com sucesso! 📅✨");
-              setSubAbaAnotacoes('agenda');
-            }} className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-[10px] shadow-md flex flex-col items-center gap-1">
-              <CheckSquare size={18}/>
-              {novaAnotacao.id ? 'Atualizar Tarefa' : 'Agendar Tarefa'}
-            </button>
-            <button 
-              style={{ backgroundColor: themeColors.primary }}
-              onClick={async () => {
-              if(!novaAnotacao.titulo) return alert("Seu pedido precisa de uma descrição básica!");
-              const todasAsDatas = [novaAnotacao.dataPrazo, ...datasExtras.filter(d => d !== novaAnotacao.dataPrazo)];
-              if (novaAnotacao.id) {
-                const dadosNota = { titulo: novaAnotacao.titulo, conteudo: novaAnotacao.conteudo || '', dataPrazo: novaAnotacao.dataPrazo, concluido: false, userId: user.uid, dataCriacao: new Date().toLocaleDateString('pt-BR') };
-                await updateDoc(doc(db, "anotacoes", novaAnotacao.id), { ...dadosNota, apareceNoKanban: true, statusKanban: 'a_fazer' });
-              } else {
-                for (const data of todasAsDatas) {
-                  const dadosNota = { titulo: novaAnotacao.titulo, conteudo: novaAnotacao.conteudo || '', dataPrazo: data, concluido: false, userId: user.uid, dataCriacao: new Date().toLocaleDateString('pt-BR') };
-                  await addDoc(collection(db, "anotacoes"), { ...dadosNota, apareceNoKanban: true, statusKanban: 'a_fazer' });
-                }
-              }
-              setNovaAnotacao({ id: '', titulo: '', conteudo: '', dataPrazo: new Date().toISOString().split('T')[0] });
-              setDatasExtras([]);
-              alert("Pedido criado no Kanban com sucesso! 🗂️✨");
-            }} className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-[10px] shadow-md flex flex-col items-center gap-1">
-              🗂️
-              {novaAnotacao.id ? 'Atualizar e ir p/ Kanban' : 'Novo Pedido no Kanban'}
-            </button>
-          </div>
-        </div>
-
-        <div className="flex gap-3 overflow-x-auto pb-2 w-full snap-x">
-          {colunasKanban.map((coluna, idx) => {
-            const itensDaColuna = itensDoKanban.filter(item => item.statusKanban === coluna.id);
-            const estaSobreEssaColuna = colunaAlvoOver === coluna.id;
-            return (
-              <div 
-                key={coluna.id}
-                onDragOver={(e) => { e.preventDefault(); setColunaAlvoOver(coluna.id); }}
-                onDragLeave={() => setColunaAlvoOver(prev => prev === coluna.id ? null : prev)}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  if (itemArrastandoId) {
-                    const itemAtual = itensDoKanban.find(x => x.id === itemArrastandoId);
-                    if (itemAtual) moverStatusKanban(itemArrastandoId, itemAtual.tipo, coluna.id);
-                  }
-                  setItemArrastandoId(null);
-                  setColunaAlvoOver(null);
-                }}
-                style={estaSobreEssaColuna ? { borderColor: coluna.cor, boxShadow: `0 0 0 2px ${coluna.cor}` } : undefined}
-                className="bg-white rounded-3xl border shadow-sm p-3 min-w-[260px] w-[260px] shrink-0 snap-start transition-all"
-              >
-                <div className="flex items-center justify-between mb-3 px-1">
-                  <span style={{ color: coluna.cor }} className="font-black text-xs uppercase tracking-wider">{coluna.emoji} {coluna.nome}</span>
-                  <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{itensDaColuna.length}</span>
-                </div>
-                <div className="space-y-2 max-h-[65vh] overflow-y-auto">
-                  {itensDaColuna.map(item => (
-                    <div 
-                      key={`${item.tipo}-${item.id}`}
-                      draggable
-                      onDragStart={() => setItemArrastandoId(item.id)}
-                      onDragEnd={() => { setItemArrastandoId(null); setColunaAlvoOver(null); }}
-                      className={`bg-slate-50 border border-slate-100 rounded-2xl p-3 cursor-grab active:cursor-grabbing transition-opacity ${itemArrastandoId === item.id ? 'opacity-30' : 'opacity-100'}`}
-                    >
-                      <div className="flex items-center gap-1.5 mb-1">
-                        {item.tipo === 'pedido' && <span className="text-[8px] bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded font-black uppercase">💰 Pedido</span>}
-                      </div>
-                      <p className="font-bold text-slate-800 text-xs break-words">{item.titulo}</p>
-                      {item.dataPrazo && (
-                        <p className="text-[10px] text-slate-400 font-semibold mt-1">🗓️ {item.dataPrazo.split('-').reverse().join('/')}</p>
-                      )}
-                      {item.conteudo && <p className="text-[10px] text-slate-500 mt-1">{item.conteudo}</p>}
-                      <div className="flex justify-between items-center mt-2 gap-1">
-                        {idx > 0 ? (
-                          <button onClick={() => moverStatusKanban(item.id, item.tipo, colunasKanban[idx - 1].id)} className="text-[9px] font-black uppercase bg-white border px-2 py-1 rounded-lg text-slate-500">◀ Voltar</button>
-                        ) : <span />}
-                        {idx < colunasKanban.length - 1 ? (
-                          <button onClick={() => moverStatusKanban(item.id, item.tipo, colunasKanban[idx + 1].id)} style={{ backgroundColor: coluna.cor }} className="text-[9px] font-black uppercase text-white px-2 py-1 rounded-lg ml-auto">Avançar ▶</button>
-                        ) : item.tipo === 'pedido' ? (
-                          <button onClick={() => { const p = pedidos.find(x => x.id === item.id); if (p) confirmarVendaPedido(p); }} className="text-[9px] font-black uppercase bg-emerald-500 text-white px-2 py-1 rounded-lg ml-auto">✅ Confirmar Venda</button>
-                        ) : (
-                          <button onClick={() => confirmarExcluir('anotacao', item.id)} className="text-[9px] font-black uppercase text-red-400 px-2 py-1 rounded-lg ml-auto">Remover</button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                  {itensDaColuna.length === 0 && (
-                    <p className="text-center text-[10px] text-slate-300 font-bold py-6 italic">Arraste um card pra cá</p>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    )}
-  </div>
-)}
-
-
-        {/* TELA DE CONFIGURAÇÃO DE CUSTOS FIXOS */}
         {activeTab === 'financeiro' && (
           <div className="space-y-6 pt-2 w-full">
             <div className="flex bg-slate-100 p-1.5 rounded-2xl gap-1 w-full border flex-wrap">
@@ -2917,15 +2795,15 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
                   </div>
                 </div>
 
-                <button 
+                <button
                   style={{ backgroundColor: themeColors.primary }}
                   onClick={async () => {
                   await setDoc(doc(db, "configuracoes_financeiras", user.uid), financasFixo, { merge: true });
-                  
+
                   const totalHoras = Number(financasFixo.diasTrabalho || 20) * Number(financasFixo.horasDia || 8);
                   const intentCustos = Number(financasFixo.salario || 0) + Number(financasFixo.aluguel || 0) + Number(financasFixo.internet || 0) + Number(financasFixo.luz || 0) + Number(financasFixo.outros || 0);
                   if (intentCustos > 0) setVHora((intentCustos / totalHoras).toFixed(2));
-                  
+
                   alert("Custos salvos com sucesso! O valor sugerido para a hora foi atualizado na calculadora. 🎉");
                 }} className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md">
                   Salvar Configurações Fixas
@@ -3004,7 +2882,7 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
                   </div>
                 </div>
 
-                <button 
+                <button
                   style={{ backgroundColor: themeColors.secondary }}
                   onClick={async () => {
                   try {
@@ -3015,7 +2893,7 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
                       paginasConjunto,
                       custoPorPaginaCalculado: custoPorPaginaCalculado.toFixed(4)
                     }, { merge: true });
-                    
+
                     setCustos(prev => ({ ...prev, impressao: custoPorPaginaCalculado.toFixed(2) }));
                     alert("Subcategoria de Impressão gravada! Taxa vinculada com sucesso à calculadora de orçamento. 🚀");
                   } catch {
@@ -3052,7 +2930,7 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
                     </div>
                   </div>
 
-                  <button 
+                  <button
                     style={{ backgroundColor: themeColors.secondary }}
                     onClick={async () => {
                     if(!novoEquipamento.nome || !novoEquipamento.valorPago) return alert("Preencha o nome e o preço do equipamento!");
@@ -3101,9 +2979,9 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
                 <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-2xl border border-slate-100">
                   <div>
                     <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Mês de Referência</label>
-                    <select 
-                      className="w-full p-2.5 bg-white rounded-xl text-xs font-bold border outline-none text-slate-700" 
-                      value={mesFiltroHistorico} 
+                    <select
+                      className="w-full p-2.5 bg-white rounded-xl text-xs font-bold border outline-none text-slate-700"
+                      value={mesFiltroHistorico}
                       onChange={e => setMesFiltroHistorico(e.target.value)}
                     >
                       <option value="Todos">📅 Todos os Meses</option>
@@ -3124,9 +3002,9 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
 
  <div>
                     <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Ano de Referência</label>
-                    <select 
-                      className="w-full p-2.5 bg-white rounded-xl text-xs font-bold border outline-none text-slate-700" 
-                      value={anoFiltroHistorico} 
+                    <select
+                      className="w-full p-2.5 bg-white rounded-xl text-xs font-bold border outline-none text-slate-700"
+                      value={anoFiltroHistorico}
                       onChange={e => setAnoFiltroHistorico(e.target.value)}
                     >
                       <option value="Todos">🗓️ Todos os Anos</option>
@@ -3142,7 +3020,7 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
                     const isExpanded = mesExpandido === item.chave;
                     return (
                       <div key={item.chave} className="bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden transition-all">
-                        <div 
+                        <div
                           onClick={() => setMesExpandido(isExpanded ? null : item.chave)}
                           className="p-4 flex justify-between items-center cursor-pointer hover:bg-slate-100/80 transition-colors select-none"
                         >
@@ -3154,7 +3032,7 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
                               {item.qtd} {item.qtd === 1 ? 'venda concluída' : 'vendas concluídas'} • Clique para ver itens 🔍
                             </p>
                           </div>
-                          
+
                           <div className="flex items-center gap-3">
                             <div className="text-right">
                               <span className="text-[9px] font-black text-slate-400 uppercase block tracking-wider">Faturamento</span>
@@ -3169,7 +3047,7 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
                         {isExpanded && (
                           <div className="bg-white p-4 border-t border-slate-200 space-y-2.5 animate-fadeIn">
                             <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Relação de Peças / Combos Vendidos:</p>
-                            
+
                             <div className="space-y-2">
                               {item.itensVendidos.map((p: any, idx: number) => {
                                 const cli = clientes.find(c => c.id === p.clienteId);
@@ -3207,7 +3085,6 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
           </div>
         )}
 
-        {/* BALCÃO DE VENDAS RÁPIDO */}
         {activeTab === 'balcao' && (
           <div className="space-y-4 pt-2 w-full">
             <div style={{ backgroundColor: themeColors.primary }} className="p-5 rounded-[35px] text-white shadow-md border border-purple-900 space-y-3.5 w-full">
@@ -3225,11 +3102,11 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
                 <label className="text-[9px] font-black uppercase text-purple-200 block mb-1">📱 Seu WhatsApp de Vendas (Com DDD)</label>
                 <div className="flex gap-2 w-full">
                   <input placeholder="Ex: 21983858055" className="flex-1 p-2.5 bg-black/20 text-white rounded-xl text-xs font-bold border border-purple-500/30 outline-none" value={zapDonaConta} onChange={e => setZapDonaConta(e.target.value)} />
-                  <button 
+                  <button
                     style={{ backgroundColor: themeColors.secondary }}
                     onClick={async () => {
                     if(!zapDonaConta.trim()) return alert("Digite o número!");
-                    try { await setDoc(doc(db, "configuracoes_loja", user.uid), { whatsapp: zapDonaConta.trim() }, { merge: true }); alert("WhatsApp salvo!"); } 
+                    try { await setDoc(doc(db, "configuracoes_loja", user.uid), { whatsapp: zapDonaConta.trim() }, { merge: true }); alert("WhatsApp salvo!"); }
                     catch { alert("Erro ao salvar."); }
                   }} className="text-white text-xs font-black uppercase px-4 rounded-xl shadow hover:opacity-90">Salvar</button>
                 </div>
@@ -3246,14 +3123,14 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
 
               <div className="w-full">
                 <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Nome do Kit / Combo (Opcional)</label>
-                <input 
-                  placeholder="Ex: Kit Dia dos Namorados, Kit Casal..." 
+                <input
+                  placeholder="Ex: Kit Dia dos Namorados, Kit Casal..."
                   className="w-full p-3.5 bg-slate-800/80 rounded-xl text-xs font-bold text-white border border-slate-700 outline-none focus:border-purple-400"
                   value={nomeKitBalcao}
                   onChange={e => setNomeKitBalcao(e.target.value)}
                 />
               </div>
-              
+
               <div className="w-full">
                 <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Cliente do Balcão</label>
                 <select className="w-full p-3.5 bg-slate-800/80 rounded-xl text-xs font-bold text-white border border-slate-700 outline-none focus:border-purple-400" value={clienteBalcao} onChange={e => setClienteBalcao(e.target.value)}>
@@ -3264,11 +3141,11 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
 
               <div className="w-full">
                 <label style={{ color: themeColors.secondary }} className="text-[10px] font-bold uppercase ml-1 block mb-1">Prazo de Entrega do Combo</label>
-                <input 
-                  type="date" 
+                <input
+                  type="date"
                   className="w-full p-3.5 bg-slate-800/80 rounded-xl text-xs font-bold text-white border border-slate-700 outline-none focus:border-purple-400 block"
-                  value={prazoBalcao} 
-                  onChange={e => setPrazoBalcao(e.target.value)} 
+                  value={prazoBalcao}
+                  onChange={e => setPrazoBalcao(e.target.value)}
                 />
               </div>
 
@@ -3289,7 +3166,7 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
                 })}
               </div>
 
-              <button 
+              <button
                 style={{ backgroundColor: themeColors.secondary }}
                 onClick={lancarVendaBalcaoInterno} className="w-full hover:opacity-90 text-white p-4 rounded-xl text-xs font-black uppercase tracking-wider shadow-lg transition-transform active:scale-95">
                 Lançar Combo no Histórico 🚀
@@ -3298,14 +3175,13 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
           </div>
         )}
 
-        {/* MEU CATÁLOGO VISUAL */}
         {activeTab === 'catalogo' && (
           <div className="space-y-4 pt-2 w-full">
             <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
               <h2 style={{ color: themeColors.primary }} className="font-bold mb-4 flex items-center gap-2 uppercase text-xs tracking-widest">
                 <BookOpen size={18}/> {novoProdCatalogo.id ? '✏️ Editando Item do Catálogo' : 'Novo Item de Venda Fixa'}
               </h2>
-              
+
               {novoProdCatalogo.id && (
                 <button onClick={() => setNovoProdCatalogo({ id: '', nome: '', precoVenda: '', urlImagem: '', categorias: [] })} className="text-[10px] bg-slate-100 text-slate-600 px-3 py-1.5 rounded-xl font-bold uppercase tracking-wide mb-4 active:scale-95 transition-all block">Cancelar Modo Edição ❌</button>
               )}
@@ -3331,7 +3207,7 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
 
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome do Produto</label>
               <input placeholder="Ex: Caneca Alça Coração" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none font-medium text-sm border focus:border-purple-400" value={novoProdCatalogo.nome} onChange={e => setNovoProdCatalogo({...novoProdCatalogo, nome: e.target.value})} />
-              
+
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Preço Fixo de Venda (R$)</label>
               <input type="number" placeholder="Ex: 35.00" style={{ color: themeColors.primary }} className="w-full p-4 bg-slate-50 rounded-2xl mb-4 outline-none font-bold border focus:border-purple-400" value={novoProdCatalogo.precoVenda} onChange={e => setNovoProdCatalogo({...novoProdCatalogo, precoVenda: e.target.value})} />
 
@@ -3347,7 +3223,7 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
                     );
                   })}
                 </div>
-                
+
                 {!mostrarInputNovaCatProd ? (
                   <button type="button" onClick={() => setMostrarInputNovaCatProd(true)} style={{ color: themeColors.primary }} className="text-[10px] font-black uppercase mt-1 tracking-wider hover:underline">+ Criar Nova Categoria</button>
                 ) : (
@@ -3362,7 +3238,7 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
                 )}
               </div>
 
-              <button 
+              <button
                 style={{ backgroundColor: themeColors.primary }}
                 onClick={async () => {
                 if(!novoProdCatalogo.nome || !novoProdCatalogo.precoVenda) return alert("Preencha o nome e o preço!");
@@ -3405,24 +3281,22 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
           </div>
         )}
 
-        {/* ABA DA CALCULADORA COMPOSTA */}
         {activeTab === 'criar' && renderCalculadoraForm()}
 
-        {/* BIBLIOTECA DE FORNECEDORES COMPLETA */}
         {activeTab === 'fornecedores' && (
           <div className="space-y-4 pt-2 w-full animate-fadeIn">
             <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
               <h2 style={{ color: themeColors.primary }} className="font-bold mb-4 flex items-center gap-2 uppercase text-xs tracking-widest"><Globe size={20}/> Cadastrar Novo Fornecedor</h2>
-              
+
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome da Empresa / Distribuidora</label>
               <input placeholder="Ex: Pampa Papéis" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm" value={novoFornecedor.nome} onChange={e => setNovoFornecedor({...novoFornecedor, nome: e.target.value})} />
-              
+
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Site Oficial (Link)</label>
               <input placeholder="Ex: www.pampapapeis.com.br" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm" value={novoFornecedor.site} onChange={e => setNovoFornecedor({...novoFornecedor, site: e.target.value})} />
-              
+
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">WhatsApp com DDD</label>
               <input placeholder="Ex: 11999999999" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm" value={novoFornecedor.whatsapp} onChange={e => setNovoFornecedor({...novoFornecedor, whatsapp: e.target.value})} />
-              
+
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Endereço Físico (Cidade/Estado)</label>
               <textarea placeholder="Ex: Rua das Flores, 123 - Centro, São Paulo - SP" className="w-full p-4 bg-slate-50 rounded-2xl mb-4 outline-none border focus:border-purple-400 resize-none h-16 font-medium text-sm" value={novoFornecedor.endereco} onChange={e => setNovoFornecedor({...novoFornecedor, endereco: e.target.value})} />
 
@@ -3438,7 +3312,7 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
                     );
                   })}
                 </div>
-                
+
                 {!mostrarInputNovaCatForn ? (
                   <button type="button" onClick={() => setMostrarInputNovaCatForn(true)} style={{ color: themeColors.primary }} className="text-[10px] font-black uppercase mt-1 tracking-wider hover:underline">+ Criar Categoria de Compras</button>
                 ) : (
@@ -3453,15 +3327,15 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
                 )}
               </div>
 
-              <button 
+              <button
                 style={{ backgroundColor: themeColors.secondary }}
                 onClick={async () => {
                 if(!novoFornecedor.nome) return alert("Digite o nome do fornecedor!");
                 const d = { nome: novoFornecedor.nome, site: novoFornecedor.site, whatsapp: novoFornecedor.whatsapp, endereco: novoFornecedor.endereco, categorias: novoFornecedor.categorias || [], userId: user.uid };
-                
+
                 if (novoFornecedor.id) await updateDoc(doc(db, "fornecedores", novoFornecedor.id), d);
                 else await addDoc(collection(db, "fornecedores"), d);
-                
+
                 setNovoFornecedor({ id: '', nome: '', site: '', whatsapp: '', endereco: '', categorias: [] });
                 alert("Fornecedor cadastrado com sucesso! 📦🎉");
               }} className="w-full hover:opacity-90 text-white p-5 rounded-2xl font-black uppercase text-xs shadow-md">
@@ -3502,7 +3376,7 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
                       <button onClick={() => confirmarExcluir('fornecedor', f.id)} className="text-red-200 p-2 hover:bg-red-50 rounded-xl"><Trash2 size={16}/></button>
                     </div>
                   </div>
-                  
+
                   <div className="flex gap-2 border-t pt-3 w-full justify-end">
                     {f.site && (
                       <button onClick={() => window.open(f.site.startsWith('http') ? f.site : `https://${f.site}`, '_blank')} className="flex items-center gap-1 text-xs font-black uppercase bg-blue-50 text-blue-600 px-3 py-2 rounded-xl active:scale-95 transition-transform"><Globe size={13}/> Site</button>
@@ -3516,7 +3390,7 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
                   </div>
                 </div>
               ))}
-              
+
               {proveedoresFiltrados.length === 0 && (
                 <p className="text-center font-bold text-xs text-slate-400 py-6 italic">Nenhum fornecedor cadastrado nesta seção. 📦</p>
               )}
@@ -3524,7 +3398,6 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
           </div>
         )}
 
-{/* HISTÓRICO DE ORÇAMENTOS EXPANDIDO */}
         {activeTab === 'pedidos' && (
           <div className="space-y-3 pt-2 w-full">
             <div className="flex justify-between items-center mb-1 w-full">
@@ -3549,7 +3422,7 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
                           {cli?.nome || 'Sem Cliente'} {p.data ? `— ${p.data}` : ''} — <span className={statusAtual.includes('Vendido') ? "text-emerald-500" : statusAtual.includes('Cancelado') ? "text-red-400" : statusAtual.includes('Produção') ? "text-purple-500" : "text-orange-400"}>{statusAtual}</span>
                         </p>
                         <div className="font-bold text-slate-700 text-sm whitespace-pre-line">{p.nomeProd} <span className="text-xs text-slate-400 font-normal">({p.qtdPed || 1} un)</span></div>
-                        
+
                         {cli && (cli.zap || cli.email || cli.endereco) && (
                           <div className="mt-2 text-[11px] text-slate-400 bg-slate-50 p-2.5 rounded-xl border border-dashed border-slate-200 space-y-0.5">
                             {cli.zap && <p>📱 WhatsApp: <span className="font-semibold text-slate-600">{cli.zap}</span></p>}
@@ -3564,21 +3437,22 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
                      </div>
                      <div style={{ color: themeColors.secondary }} className="font-black text-xl shrink-0">R$ {p.preco}</div>
                    </div>
-                   <div className="flex items-center justify-end border-t pt-2 gap-1 w-full">
+
+                   {/* CORRIGIDO: linha de botões com flex-wrap (nunca corta) e Pendente só mostra
+                       "Iniciar Produção" — Confirmar Venda só aparece quando já está Em Produção */}
+                   <div className="flex items-center border-t pt-3 gap-2 w-full flex-wrap">
                       {statusAtual === 'Pendente' && (
                         <>
-                          <button onClick={async () => { await updateDoc(doc(db, "pedidos", p.id), { status: 'Em Produção 🔧', statusKanban: 'a_fazer' }); alert("Pedido movido pro Kanban! 🔧"); }} className="text-purple-600 p-2 bg-purple-50 rounded-xl text-xs font-bold flex items-center gap-1 mr-auto active:scale-95">🔧 Iniciar Produção</button>
-                          <button onClick={() => confirmarVendaPedido(p)} className="text-emerald-600 p-2 bg-emerald-50 rounded-xl text-xs font-bold flex items-center gap-1 active:scale-95"><CheckCircle size={16}/> Confirmar Venda</button>
+                          <button onClick={async () => { await updateDoc(doc(db, "pedidos", p.id), { status: 'Em Produção 🔧', statusKanban: 'a_fazer' }); alert("Pedido movido pro Kanban! 🔧"); }} className="text-purple-600 px-3 py-2 bg-purple-50 rounded-xl text-xs font-bold flex items-center gap-1 active:scale-95 mr-auto">🔧 Iniciar Produção</button>
                           <button onClick={() => carregarPedidoParaEdicao(p)} style={{ color: themeColors.primary }} className="p-2 bg-purple-50 rounded-xl"><Edit2 size={18}/></button>
                           <button onClick={() => cancelarPedidoSemExcluir(p.id)} title="Cancelar Orçamento" className="text-red-500 p-2 bg-red-50 rounded-xl"><X size={18}/></button>
                         </>
                       )}
                       {statusAtual === 'Em Produção 🔧' && (
-                        <button onClick={() => confirmarVendaPedido(p)} className="text-emerald-600 p-2 bg-emerald-50 rounded-xl text-xs font-bold flex items-center gap-1 mr-auto active:scale-95"><CheckCircle size={16}/> Confirmar Venda</button>
+                        <button onClick={() => confirmarVendaPedido(p)} className="text-emerald-600 px-3 py-2 bg-emerald-50 rounded-xl text-xs font-bold flex items-center gap-1 active:scale-95 mr-auto"><CheckCircle size={16}/> Confirmar Venda</button>
                       )}
-                      
+
                       <button onClick={() => handleDuplicarOrcamento(p)} title="Duplicar este Orçamento" className="text-blue-500 p-2 bg-blue-50 rounded-xl active:scale-95 transition-transform"><Copy size={18}/></button>
-                      
                       <button onClick={() => gerarPDF(p)} style={{ color: themeColors.secondary }} className="p-2 bg-orange-50 rounded-xl active:scale-95 transition-all"><Printer size={18}/></button>
                       <button onClick={() => enviarZap({nomeProd: p.nomeProd, preco: p.preco, clienteId: p.clienteId, prazo: p.prazo, qtdPed: p.qtdPed})} className="text-emerald-500 p-2 bg-emerald-50 rounded-xl"><MessageCircle size={18}/></button>
                       <button onClick={() => confirmarExcluir('pedido', p.id)} className="text-red-200 p-2"><Trash2 size={18}/></button>
@@ -3595,7 +3469,6 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
           </div>
         )}
 
-        {/* GERENCIAR ARMÁRIO / INSUMOS */}
         {activeTab === 'materiais' && (
           <div className="space-y-4 pt-2 w-full">
             <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
@@ -3633,7 +3506,7 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
                   <option value="cm">📐 Centímetro (cm)</option>
                 </select>
               </div>
-              <button 
+              <button
                 style={{ backgroundColor: themeColors.secondary }}
                 onClick={async () => {
                 if(!novoMat.nome) return alert("Digite o nome do insumo!");
@@ -3648,9 +3521,9 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
             </div>
 
             <div className="relative w-full mb-2">
-              <Search 
-                size={18} 
-                className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" 
+              <Search
+                size={18}
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
               />
               <input
                 type="text"
@@ -3687,45 +3560,44 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
           </div>
         )}
 
-        {/* ABA DE CLIENTES */}
         {activeTab === 'clientes' && (
            <div className="space-y-4 pt-2 w-full">
             <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
               <h2 style={{ color: themeColors.primary }} className="font-bold mb-4 flex items-center gap-2"><User size={20}/> Gerenciar Clientes</h2>
-              
+
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome Comercial / Completo</label>
               <input placeholder="Ex: Maria Silva" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm" value={novoCli.nome} onChange={e => setNovoCli({...novoCli, nome: e.target.value})} />
 
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">CPF / CNPJ do Cliente</label>
               <input placeholder="Ex: 000.000.000-00" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm" value={novoCli.cpfCnpj || ''} onChange={e => setNovoCli({...novoCli, cpfCnpj: e.target.value})} />
-              
+
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">WhatsApp com DDD</label>
               <input placeholder="Ex: 21999999999" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm" value={novoCli.zap} onChange={e => setNovoCli({...novoCli, zap: e.target.value})} />
-              
+
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">E-mail de Contato</label>
               <input type="email" placeholder="Ex: cliente@email.com" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm" value={novoCli.email || ''} onChange={e => setNovoCli({...novoCli, email: e.target.value})} />
-              
+
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Endereço de Entrega Completo</label>
               <textarea placeholder="Rua, Número, Bairro, Cidade, CEP..." className="w-full p-4 bg-slate-50 rounded-2xl mb-6 outline-none border focus:border-purple-400 resize-none h-20 font-medium text-sm" value={novoCli.endereco || ''} onChange={e => setNovoCli({...novoCli, endereco: e.target.value})} />
 
-              <button 
+              <button
                 style={{ backgroundColor: themeColors.secondary }}
                 onClick={async () => {
                 if(!novoCli.nome) return alert("Digite o nome do cliente!");
-                
-                const dadosCliente = { 
-                  nome: novoCli.nome, 
-                  zap: novoCli.zap, 
-                  email: novoCli.email || '', 
-                  endereco: novoCli.endereco || '', 
+
+                const dadosCliente = {
+                  nome: novoCli.nome,
+                  zap: novoCli.zap,
+                  email: novoCli.email || '',
+                  endereco: novoCli.endereco || '',
                   cpfCnpj: novoCli.cpfCnpj || '',
-                  userId: user.uid 
+                  userId: user.uid
                 };
 
                 if(novoCli.id) await updateDoc(doc(db, "clientes", novoCli.id), dadosCliente);
                 else await addDoc(collection(db, "clientes"), dadosCliente);
-                
-                setNovoCli({ id: '', nome: '', zap: '', email: '', endereco: '', cpfCnpj: '' }); 
+
+                setNovoCli({ id: '', nome: '', zap: '', email: '', endereco: '', cpfCnpj: '' });
                 alert("Cadastro do cliente salvo com sucesso! 🎉");
               }} className="w-full hover:opacity-90 text-white p-5 rounded-2xl font-black uppercase text-xs">Salvar Cliente</button>
             </div>
@@ -3749,7 +3621,6 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
           </div>
         )}
 
-        {/* ABA DE ATUALIZAÇÕES */}
         {activeTab === 'atualizacoes' && (
           <div className="space-y-4 pt-2 w-full">
             <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
@@ -3776,7 +3647,6 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
           </div>
         )}
 
-        {/* ABA DE SUPORTE */}
         {activeTab === 'suporte' && (
           <div className="space-y-4 pt-2 w-full">
             <div className="bg-white p-8 rounded-[40px] shadow-md border w-full text-center">
@@ -3806,7 +3676,6 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
         )}
       </div>
 
-      {/* MENU INFERIOR FIXO */}
       <div className="fixed bottom-0 left-0 right-0 flex justify-center p-4 z-30 bg-transparent pointer-events-none">
         <div className="bg-white shadow-[0_-10px_30px_rgba(0,0,0,0.06)] rounded-[28px] flex justify-around items-center px-4 h-16 w-full max-w-xl pointer-events-auto border">
           <button onClick={() => setActiveTab('inicio')} style={{ color: activeTab === 'inicio' ? themeColors.secondary : undefined }} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab !== 'inicio' ? 'text-slate-300' : ''}`}>
