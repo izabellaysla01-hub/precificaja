@@ -269,7 +269,10 @@ const [mesFiltroHistorico, setMesFiltroHistorico] = useState<string>(String(new 
   const [isDuplicando, setIsDuplicando] = useState(false);
 
   const [diaSelecionadoAgenda, setDiaSelecionadoAgenda] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [visaoAnotacoes, setVisaoAnotacoes] = useState<'agenda' | 'kanban'>('agenda');
+  const [subAbaAnotacoes, setSubAbaAnotacoes] = useState<'agenda' | 'kanban'>('agenda');
+  const [itemArrastandoId, setItemArrastandoId] = useState<string | null>(null);
+  const [colunaAlvoOver, setColunaAlvoOver] = useState<string | null>(null);
+
 
   const [modoCalculo, setModoCalculo] = useState<'peca' | 'lote'>('peca');
 
