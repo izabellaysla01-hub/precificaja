@@ -3,7 +3,7 @@ import { initializeApp } from "firebase/app";
 import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { getFirestore, collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc, getDocs, setDoc, getDoc } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2, Menu, Search, Settings, CheckSquare, Square, Filter, MapPin, Globe, Palette, TrendingUp, ChevronDown, ChevronUp, FileText } from 'lucide-react';
+import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2, Menu, Search, Settings, CheckSquare, Square, Filter, MapPin, Globe, Palette, TrendingUp, ChevronDown, ChevronUp, FileText, Megaphone, LifeBuoy } from 'lucide-react';
 
 const firebaseConfig = {
   apiKey: "AIzaSyD0BWsNm9DbGGDqiHzkdDmNdxIGdJ9tWe8",
@@ -52,6 +52,20 @@ const PRESET_PALETTES = [
     primaryHover: '#047857',
     secondary: '#10b981',
     secondaryHover: '#059669'
+  }
+];
+
+// --- ATUALIZAÇÕES DO APP (changelog manual) ---
+const CHANGELOG_APP = [
+  {
+    data: '22/08/2026',
+    titulo: 'Busca e organização',
+    itens: [
+      'Busca por nome nos Contratos',
+      'Busca por nome nos Materiais dentro da Calculadora de orçamento',
+      'Novo botão de Pedido no Kanban, separado das Tarefas soltas da Agenda',
+      'Nova aba de Atualizações e Suporte no menu'
+    ]
   }
 ];
 
@@ -222,7 +236,7 @@ export default function App() {
   const [carregandoAssinatura, setCarregandoAssinatura] = useState(false);
   const [assinaturaEnviada, setAssinaturaEnviada] = useState(false);
 
-  const [activeTab, useStateActiveTab] = useState<'inicio' | 'materiais' | 'criar' | 'pedidos' | 'clientes' | 'catalogo' | 'balcao' | 'financeiro' | 'perfil' | 'anotacoes' | 'fornecedores' | 'contratos'>('inicio');
+  const [activeTab, useStateActiveTab] = useState<'inicio' | 'materiais' | 'criar' | 'pedidos' | 'clientes' | 'catalogo' | 'balcao' | 'financeiro' | 'perfil' | 'anotacoes' | 'fornecedores' | 'contratos' | 'atualizacoes' | 'suporte'>('inicio');
   
   const [subAbaFinanceiro, setSubAbaFinanceiro] = useState<'geral' | 'impressao' | 'equipamentos' | 'historico'>('geral');
 
@@ -245,6 +259,8 @@ const [mesFiltroHistorico, setMesFiltroHistorico] = useState<string>(String(new 
   const [pesquisaMateriais, setPesquisaMateriais] = useState('');
   const [pesquisaFornecedores, setPesquisaFornecedores] = useState('');
   const [filtroFornSelecionado, setFiltroFornSelecionado] = useState('Todos');
+  const [pesquisaContratos, setPesquisaContratos] = useState('');
+  const [pesquisaMatsCalculadora, setPesquisaMatsCalculadora] = useState('');
 
   const [pedidoEditandoId, setPedidoEditandoId] = useState<string | null>(null);
   const [mostrarSeletorCatalogo, setMostrarSeletorCatalogo] = useState(false);
@@ -305,6 +321,7 @@ const [mesFiltroHistorico, setMesFiltroHistorico] = useState<string>(String(new 
   const [dadosBancariosPerfil, setDadosBancariosPerfil] = useState('');
   const [logoLojaPerfil, setLogoLojaPerfil] = useState('');
   const [subindoLogo, setSubindoLogo] = useState(false);
+  const [suporteZapPerfil, setSuporteZapPerfil] = useState('');
 
   const [novoContrato, setNovoContrato] = useState({
     id: '',
@@ -464,6 +481,7 @@ const [mesFiltroHistorico, setMesFiltroHistorico] = useState<string>(String(new 
             setDadosBancariosPerfil(data.dadosBancarios || '');
             setLogoLojaPerfil(data.logoUrl || '');
             setAssinaturaLojaUrl(data.assinaturaUrl || '');
+            setSuporteZapPerfil(data.suporteZap || data.whatsapp || '');
             if (data.themeColors) setThemeColors(data.themeColors);
           }
         });
@@ -1081,6 +1099,7 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
     setIsDuplicando(false);
     setModoCalculo('peca');
     setPrecoFinalDigitado('0.00');
+    setPesquisaMatsCalculadora('');
   };
 
   const carregarPedidoParaEdicao = (p: any) => {
@@ -1171,6 +1190,12 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
     );
   }, [materiais, pesquisaMateriais]);
 
+  const materiaisFiltradosCalculadora = useMemo(() => {
+    return materiais.filter(m =>
+      m.nome?.toLowerCase().includes(pesquisaMatsCalculadora.toLowerCase())
+    );
+  }, [materiais, pesquisaMatsCalculadora]);
+
   const produtosPublicosFiltrados = useMemo(() => {
     if (filtroVitrineSelecionado === 'Todos') return produtosPublicos;
     return produtosPublicos.filter(p => p.categorias && p.categorias.includes(filtroVitrineSelecionado));
@@ -1183,6 +1208,17 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
       return matchNome && matchCat;
     });
   }, [fornecedores, pesquisaFornecedores, filtroFornSelecionado]);
+
+  const contratosFiltrados = useMemo(() => {
+    if (!pesquisaContratos.trim()) return contratos;
+    const termo = pesquisaContratos.toLowerCase();
+    return contratos.filter(c => {
+      const cli = clientes.find(item => item.id === c.clienteId);
+      const nomeCli = cli?.nome?.toLowerCase() || '';
+      const tipoEvento = (c.tipoEvento || '').toLowerCase();
+      return nomeCli.includes(termo) || tipoEvento.includes(termo);
+    });
+  }, [contratos, clientes, pesquisaContratos]);
 
   const pedidosFiltradosPorStatus = useMemo(() => {
     return pedidos.filter(p => {
@@ -1787,9 +1823,19 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">
                {modoCalculo === 'peca' ? 'Materiais Usados (Por Peça)' : 'Materiais Usados (Para o Lote Inteiro)'}
              </label>
+             <div className="relative w-full mb-2">
+               <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+               <input
+                 type="text"
+                 placeholder="Pesquisar material..."
+                 value={pesquisaMatsCalculadora}
+                 onChange={e => setPesquisaMatsCalculadora(e.target.value)}
+                 className="w-full p-3 pl-10 bg-slate-50 rounded-2xl outline-none text-xs font-medium border border-transparent focus:border-purple-400"
+               />
+             </div>
              <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none mb-2 block border border-transparent focus:border-purple-400" onChange={e => { const m = materiais.find(item => item.id === e.target.value); if (m) setMatsNoPed([...matsNoPed, { id: m.id, nome: m.nome, valor: m.valor, qtd: m.qtd, unidade: m.unidade, qtdUsada: 1 }]); }} value="">
-                <option value="">+ Adicionar Material...</option>
-                {materiais.map(m => <option key={m.id} value={m.id}>{m.nome} ({m.unidade || 'un'})</option>)}
+                <option value="">+ Adicionar Material... ({materiaisFiltradosCalculadora.length} encontrado{materiaisFiltradosCalculadora.length === 1 ? '' : 's'})</option>
+                {materiaisFiltradosCalculadora.map(m => <option key={m.id} value={m.id}>{m.nome} ({m.unidade || 'un'})</option>)}
              </select>
              <div className="space-y-2 w-full">
                 {matsNoPed.map((m, i) => (
@@ -1994,6 +2040,11 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
               
               <button onClick={() => setActiveTab('materiais')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'materiais' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'materiais' ? themeColors.primary : undefined }}><Package size={16}/> Armário / Insumos</button>
               <button onClick={() => setActiveTab('clientes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'clientes' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'clientes' ? themeColors.primary : undefined }}><User size={16}/> Meus Clientes</button>
+
+              <div className="border-t pt-2 mt-1">
+                <button onClick={() => setActiveTab('atualizacoes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'atualizacoes' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'atualizacoes' ? themeColors.primary : undefined }}><Megaphone size={16}/> Atualizações</button>
+                <button onClick={() => setActiveTab('suporte')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'suporte' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'suporte' ? themeColors.primary : undefined }}><LifeBuoy size={16}/> Suporte</button>
+              </div>
             </nav>
           </div>
           <button onClick={() => signOut(auth)} className="w-full text-red-500 bg-red-50 p-4 rounded-xl text-xs font-black uppercase flex items-center justify-center gap-1.5"><LogOut size={16}/> Sair</button>
@@ -2210,6 +2261,11 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
                   <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Dados Bancários / Chave PIX</label>
                   <textarea placeholder="Banco: X | Agência: 0001 | Conta: 12345-6 | PIX: cnpj/e-mail/celular" className="w-full p-4 bg-slate-50 rounded-2xl font-bold text-slate-800 outline-none border focus:border-purple-400 h-20 resize-none text-xs" value={dadosBancariosPerfil} onChange={e => setDadosBancariosPerfil(e.target.value)} />
                 </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">WhatsApp de Suporte (aparece na aba Suporte)</label>
+                  <input placeholder="Ex: 21999999999" className="w-full p-4 bg-slate-50 rounded-2xl font-bold text-slate-800 outline-none border focus:border-purple-400" value={suporteZapPerfil} onChange={e => setSuporteZapPerfil(e.target.value)} />
+                </div>
               </div>
 
               <div className="border-t pt-6 mb-6">
@@ -2313,6 +2369,7 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
                     estado: estadoPerfil.trim(),
                     dadosBancarios: dadosBancariosPerfil.trim(),
                     logoUrl: logoLojaPerfil,
+                    suporteZap: suporteZapPerfil.trim(),
                     themeColors: themeColors
                   }, { merge: true });
                   alert("Perfil e dados da empresa salvos com sucesso! 🚀");
@@ -2421,8 +2478,20 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
             </div>
 
             <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider ml-2">Seus Contratos Emitidos</h3>
+
+            <div className="relative w-full">
+              <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Pesquisar por cliente ou tipo de evento..."
+                value={pesquisaContratos}
+                onChange={e => setPesquisaContratos(e.target.value)}
+                className="w-full p-4 pl-11 bg-white rounded-2xl border border-slate-200 outline-none text-sm font-medium focus:border-purple-500 transition-colors shadow-sm"
+              />
+            </div>
+
             <div className="space-y-3 w-full">
-              {contratos.map((c, idx) => {
+              {contratosFiltrados.map((c, idx) => {
                 const cli = clientes.find(item => item.id === c.clienteId);
                 return (
                   <div key={c.id || idx} className="bg-white p-5 rounded-[30px] border shadow-sm flex flex-col gap-3 w-full">
@@ -2461,8 +2530,10 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
                 );
               })}
 
-              {contratos.length === 0 && (
-                <p className="text-center font-bold text-xs text-slate-400 py-8 italic">Nenhum contrato gerado ainda. 📄</p>
+              {contratosFiltrados.length === 0 && (
+                <p className="text-center font-bold text-xs text-slate-400 py-8 italic">
+                  {contratos.length === 0 ? 'Nenhum contrato gerado ainda. 📄' : 'Nenhum contrato encontrado com essa busca. 🔍'}
+                </p>
               )}
             </div>
           </div>
@@ -2486,23 +2557,47 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Detalhes Adicionais (Opcional)</label>
               <textarea placeholder="Escreva informações extras ou observações aqui..." className="w-full p-4 bg-slate-50 rounded-2xl mb-6 outline-none border focus:border-purple-400 resize-none h-16 text-sm font-semibold" value={novaAnotacao.conteudo} onChange={e => setNovaAnotacao({...novaAnotacao, conteudo: e.target.value})} />
               
-              <button 
-                style={{ backgroundColor: themeColors.secondary }}
-                onClick={async () => {
-                if(!novaAnotacao.titulo) return alert("Sua tarefa precisa de uma descrição básica!");
-                const dadosNota = { titulo: novaAnotacao.titulo, conteudo: novaAnotacao.conteudo || '', dataPrazo: novaAnotacao.dataPrazo, concluido: false, userId: user.uid, dataCriacao: new Date().toLocaleDateString('pt-BR') };
-                
-                if (novaAnotacao.id) {
-                  await updateDoc(doc(db, "anotacoes", novaAnotacao.id), dadosNota);
-                } else {
-                  await addDoc(collection(db, "anotacoes"), { ...dadosNota, statusKanban: 'a_fazer' });
-                }
-                
-                setNovaAnotacao({ id: '', titulo: '', conteudo: '', dataPrazo: new Date().toISOString().split('T')[0] });
-                alert("Agendado com sucesso! 📅✨");
-              }} className="w-full hover:opacity-90 text-white p-5 rounded-2xl font-black uppercase text-xs shadow-md">
-                {novaAnotacao.id ? 'Atualizar Compromisso' : 'Agendar Tarefa'}
-              </button>
+              <p className="text-[10px] font-bold text-slate-400 uppercase ml-1 mb-2">Onde isso deve aparecer?</p>
+              <div className="grid grid-cols-2 gap-3">
+                <button 
+                  style={{ backgroundColor: themeColors.secondary }}
+                  onClick={async () => {
+                  if(!novaAnotacao.titulo) return alert("Sua tarefa precisa de uma descrição básica!");
+                  const dadosNota = { titulo: novaAnotacao.titulo, conteudo: novaAnotacao.conteudo || '', dataPrazo: novaAnotacao.dataPrazo, concluido: false, userId: user.uid, dataCriacao: new Date().toLocaleDateString('pt-BR') };
+                  
+                  if (novaAnotacao.id) {
+                    await updateDoc(doc(db, "anotacoes", novaAnotacao.id), dadosNota);
+                  } else {
+                    await addDoc(collection(db, "anotacoes"), { ...dadosNota, apareceNoKanban: false });
+                  }
+                  
+                  setNovaAnotacao({ id: '', titulo: '', conteudo: '', dataPrazo: new Date().toISOString().split('T')[0] });
+                  alert("Tarefa agendada com sucesso! 📅✨");
+                }} className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-[10px] shadow-md flex flex-col items-center gap-1">
+                  <CheckSquare size={18}/>
+                  {novaAnotacao.id ? 'Atualizar Tarefa' : 'Agendar Tarefa'}
+                </button>
+
+                <button 
+                  style={{ backgroundColor: themeColors.primary }}
+                  onClick={async () => {
+                  if(!novaAnotacao.titulo) return alert("Seu pedido precisa de uma descrição básica!");
+                  const dadosNota = { titulo: novaAnotacao.titulo, conteudo: novaAnotacao.conteudo || '', dataPrazo: novaAnotacao.dataPrazo, concluido: false, userId: user.uid, dataCriacao: new Date().toLocaleDateString('pt-BR') };
+                  
+                  if (novaAnotacao.id) {
+                    await updateDoc(doc(db, "anotacoes", novaAnotacao.id), { ...dadosNota, apareceNoKanban: true, statusKanban: 'a_fazer' });
+                  } else {
+                    await addDoc(collection(db, "anotacoes"), { ...dadosNota, apareceNoKanban: true, statusKanban: 'a_fazer' });
+                  }
+                  
+                  setNovaAnotacao({ id: '', titulo: '', conteudo: '', dataPrazo: new Date().toISOString().split('T')[0] });
+                  alert("Pedido criado no Kanban com sucesso! 🗂️✨");
+                  setVisaoAnotacoes('kanban');
+                }} className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-[10px] shadow-md flex flex-col items-center gap-1">
+                  🗂️
+                  {novaAnotacao.id ? 'Atualizar e ir p/ Kanban' : 'Novo Pedido no Kanban'}
+                </button>
+              </div>
             </div>
 
             <div className="flex bg-slate-100 p-1.5 rounded-2xl gap-1 w-full border">
@@ -2529,6 +2624,7 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
                               </h4>
                               <div className="flex gap-2 mt-1 flex-wrap">
                                 <span style={{ color: themeColors.primary }} className="text-[9px] bg-purple-50 px-2 py-0.5 rounded font-black uppercase">🗓️ Prazo: {dataFormatada}</span>
+                                {item.apareceNoKanban && <span className="text-[9px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded font-black uppercase">🗂️ No Kanban</span>}
                                 {item.concluido && <span className="text-[9px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded font-black uppercase">Concluído</span>}
                               </div>
                             </div>
@@ -2549,7 +2645,7 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
             {visaoAnotacoes === 'kanban' && (
               <div className="flex gap-3 overflow-x-auto pb-2 w-full snap-x">
                 {colunasKanban.map((coluna, idx) => {
-                  const itensDaColuna = anotacoes.filter(a => (a.statusKanban || 'a_fazer') === coluna.id && !a.concluido);
+                  const itensDaColuna = anotacoes.filter(a => a.apareceNoKanban && (a.statusKanban || 'a_fazer') === coluna.id && !a.concluido);
                   return (
                     <div key={coluna.id} className="bg-white rounded-3xl border shadow-sm p-3 min-w-[260px] w-[260px] shrink-0 snap-start">
                       <div className="flex items-center justify-between mb-3 px-1">
@@ -3466,6 +3562,62 @@ const linkDoCatalogoDestaCliente = useMemo(() => {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* ABA DE ATUALIZAÇÕES */}
+        {activeTab === 'atualizacoes' && (
+          <div className="space-y-4 pt-2 w-full">
+            <div className="bg-white p-8 rounded-[40px] shadow-md border w-full">
+              <h2 style={{ color: themeColors.primary }} className="font-bold mb-1 flex items-center gap-2"><Megaphone size={20}/> Atualizações do App</h2>
+              <p className="text-slate-400 text-[11px] mb-6">Fique por dentro do que já mudou no PrecificaJá.</p>
+
+              <div className="space-y-5">
+                {CHANGELOG_APP.map((versao, idx) => (
+                  <div key={idx} className="border-l-2 pl-4" style={{ borderColor: themeColors.primary }}>
+                    <span style={{ color: themeColors.primary }} className="text-[10px] font-black uppercase tracking-wider block mb-1">{versao.data}</span>
+                    <h3 className="font-bold text-slate-800 text-sm mb-2">{versao.titulo}</h3>
+                    <ul className="space-y-1.5">
+                      {versao.itens.map((item, i) => (
+                        <li key={i} className="text-xs text-slate-500 font-medium flex items-start gap-2">
+                          <span style={{ color: themeColors.secondary }} className="mt-0.5">•</span>
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ABA DE SUPORTE */}
+        {activeTab === 'suporte' && (
+          <div className="space-y-4 pt-2 w-full">
+            <div className="bg-white p-8 rounded-[40px] shadow-md border w-full text-center">
+              <div style={{ color: themeColors.primary }} className="w-16 h-16 rounded-3xl bg-purple-50 flex items-center justify-center mx-auto mb-4">
+                <LifeBuoy size={28}/>
+              </div>
+              <h2 className="font-bold text-slate-800 text-lg mb-1">Precisa de ajuda? 🙋‍♀️</h2>
+              <p className="text-slate-400 text-xs mb-6">Fale direto com a gente pelo WhatsApp para dúvidas, sugestões ou problemas no app.</p>
+
+              <button
+                onClick={() => {
+                  const numero = (suporteZapPerfil || zapDonaConta || '').replace(/\D/g, '');
+                  if (!numero) return alert("Cadastre o WhatsApp de suporte no Perfil da Loja primeiro!");
+                  window.open(`https://wa.me/55${numero}?text=${encodeURIComponent('Olá! Preciso de ajuda com o PrecificaJá 🙌')}`, '_blank');
+                }}
+                style={{ backgroundColor: themeColors.primary }}
+                className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md flex items-center justify-center gap-2"
+              >
+                <MessageCircle size={18}/> Falar no WhatsApp
+              </button>
+
+              {!(suporteZapPerfil || zapDonaConta) && (
+                <p className="text-[10px] text-amber-500 font-bold mt-3">⚠️ Nenhum WhatsApp de suporte cadastrado ainda. Vá em Perfil da Loja para adicionar.</p>
+              )}
+            </div>
           </div>
         )}
       </div>
