@@ -315,7 +315,7 @@ export default function App() {
   const [carregandoAssinatura, setCarregandoAssinatura] = useState(false);
   const [assinaturaEnviada, setAssinaturaEnviada] = useState(false);
 
-  const [activeTab, useStateActiveTab] = useState<'inicio' | 'materiais' | 'criar' | 'pedidos' | 'clientes' | 'catalogo' | 'balcao' | 'financeiro' | 'perfil' | 'anotacoes' | 'fornecedores' | 'contratos' | 'atualizacoes' | 'suporte'>('inicio');
+  const [activeTab, useStateActiveTab] = useState<'inicio' | 'materiais' | 'criar' | 'pedidos' | 'clientes' | 'catalogo' | 'balcao' | 'financeiro' | 'perfil' | 'anotacoes' | 'fornecedores' | 'contratos' | 'atualizacoes' | 'suporte' | 'comissoes'>('inicio');
 
   const [subAbaFinanceiro, setSubAbaFinanceiro] = useState<'geral' | 'impressao' | 'equipamentos' | 'historico'>('geral');
 
@@ -339,6 +339,10 @@ export default function App() {
   const [categoriasProd, setCategoriasProd] = useState<any[]>([]);
   const [categoriasForn, setCategoriasForn] = useState<any[]>([]);
   const [fornecedores, setFornecedores] = useState<any[]>([]);
+  const [canaisVenda, setCanaisVenda] = useState<any[]>([]);
+  const [novoCanal, setNovoCanal] = useState({ id: '', nome: '', comissaoPercent: '', taxaFixa: '0' });
+  const [custoTesteComissao, setCustoTesteComissao] = useState('0');
+  const [precoTesteComissao, setPrecoTesteComissao] = useState('0');
 
   const [pesquisaMateriais, setPesquisaMateriais] = useState('');
   const [pesquisaFornecedores, setPesquisaFornecedores] = useState('');
@@ -622,15 +626,28 @@ export default function App() {
     return () => { document.body.removeChild(script); };
   }, []);
 
-  // Pedidos: busca paginada (30 por vez), ordenada pelo mais recente
+  // Pedidos: busca paginada (30 por vez), ordenada pelo mais recente.
+  // Se o índice composto (userId + data) ainda não existir no Firestore, cai num fallback
+  // sem ordenação — assim o histórico NUNCA fica vazio, mesmo sem o índice configurado.
   useEffect(() => {
     if (!user || idLojaPublica) return;
     const qPedidos = query(collection(db, "pedidos"), where("userId", "==", user.uid), orderBy("data", "desc"), limit(TAMANHO_PAGINA));
-    const unsub = onSnapshot(qPedidos, s => {
-      setPedidos(s.docs.map(d => ({ id: d.id, ...d.data() })));
-      setUltimoDocPedido(s.docs[s.docs.length - 1] || null);
-      setTemMaisPedidos(s.docs.length === TAMANHO_PAGINA);
-    });
+    const unsub = onSnapshot(
+      qPedidos,
+      s => {
+        setPedidos(s.docs.map(d => ({ id: d.id, ...d.data() })));
+        setUltimoDocPedido(s.docs[s.docs.length - 1] || null);
+        setTemMaisPedidos(s.docs.length === TAMANHO_PAGINA);
+      },
+      erro => {
+        console.error("Falha na busca paginada de pedidos (provável índice ausente):", erro);
+        const qFallback = query(collection(db, "pedidos"), where("userId", "==", user.uid));
+        onSnapshot(qFallback, s2 => {
+          setPedidos(s2.docs.map(d => ({ id: d.id, ...d.data() })));
+          setTemMaisPedidos(false);
+        });
+      }
+    );
     return () => unsub();
   }, [user, idLojaPublica]);
 
@@ -670,30 +687,36 @@ export default function App() {
       const qTemplates = query(collection(db, "templates_contrato"), where("userId", "==", user.uid));
       const unsubTemplates = onSnapshot(qTemplates, s => setTemplatesContrato(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
+      // Semeia as categorias padrão SÓ UMA VEZ, via getDocs (não via onSnapshot) —
+      // evita a corrida que causava categorias duplicadas quando o Firestore respondia
+      // mais de uma vez rápido (cache + servidor) antes do estado atualizar.
       const qCatsProd = query(collection(db, "categorias_produtos"), where("userId", "==", user.uid));
-      const unsubCatsProd = onSnapshot(qCatsProd, s => {
-        if(s.docs.length === 0 && categoriasProd.length === 0) {
+      getDocs(qCatsProd).then(snap => {
+        if (snap.empty) {
           const padroes = ["🖨️ Sublimação", "✂️ Papelaria Personalizada", "🎁 Personalizados", "💕 Datas Comemorativas"];
-          padroes.forEach(async (cat) => {
-            await addDoc(collection(db, "categorias_produtos"), { nome: cat, userId: user.uid });
-          });
+          padroes.forEach(cat => addDoc(collection(db, "categorias_produtos"), { nome: cat, userId: user.uid }));
         }
+      });
+      const unsubCatsProd = onSnapshot(qCatsProd, s => {
         setCategoriasProd(s.docs.map(d => ({ id: d.id, ...d.data() })));
       });
 
       const qCatsForn = query(collection(db, "categorias_fornecedores"), where("userId", "==", user.uid));
-      const unsubCatsForn = onSnapshot(qCatsForn, s => {
-        if(s.docs.length === 0 && categoriasForn.length === 0) {
+      getDocs(qCatsForn).then(snap => {
+        if (snap.empty) {
           const padroesForn = ["🖨️ Insumos de Sublimação", "✂️ Papelaria e Papéis", "📦 Embalagens e Caixas", "🎁 Brindes e Acrílicos"];
-          padroesForn.forEach(async (cat) => {
-            await addDoc(collection(db, "categorias_fornecedores"), { nome: cat, userId: user.uid });
-          });
+          padroesForn.forEach(cat => addDoc(collection(db, "categorias_fornecedores"), { nome: cat, userId: user.uid }));
         }
+      });
+      const unsubCatsForn = onSnapshot(qCatsForn, s => {
         setCategoriasForn(s.docs.map(d => ({ id: d.id, ...d.data() })));
       });
 
       const qFornecedores = query(collection(db, "fornecedores"), where("userId", "==", user.uid));
       const unsubFornecedores = onSnapshot(qFornecedores, s => setFornecedores(s.docs.map(d => ({ id: d.id, ...d.data() }))));
+
+      const qCanaisVenda = query(collection(db, "canais_venda"), where("userId", "==", user.uid));
+      const unsubCanaisVenda = onSnapshot(qCanaisVenda, s => setCanaisVenda(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
       const qConfigFin = doc(db, "configuracoes_financeiras", user.uid);
       getDoc(qConfigFin).then(snap => {
@@ -737,6 +760,7 @@ export default function App() {
         unsubCatsProd();
         unsubCatsForn();
         unsubFornecedores();
+        unsubCanaisVenda();
       };
     }
   }, [user, idLojaPublica]);
@@ -1163,6 +1187,7 @@ export default function App() {
       else if (tipo === 'material') colecao = "materiais";
       else if (tipo === 'anotacao') colecao = "anotacoes";
       else if (tipo === 'fornecedor') colecao = "fornecedores";
+      else if (tipo === 'canal_venda') colecao = "canais_venda";
 
       if (colecao) {
         try {
@@ -1364,6 +1389,40 @@ export default function App() {
     } else {
       setNovoFornecedor({...novoFornecedor, categorias: [...(novoFornecedor.categorias || []), catNome]});
     }
+  };
+
+  // Remove categorias com nome repetido (mantém a primeira de cada nome).
+  // Não afeta produtos/fornecedores já marcados com essas categorias — só limpa a lista de seleção.
+  const limparCategoriasDuplicadas = async (tipo: 'produtos' | 'fornecedores') => {
+    const lista = tipo === 'produtos' ? categoriasProd : categoriasForn;
+    const vistos = new Set<string>();
+    const duplicadas = lista.filter(cat => {
+      if (vistos.has(cat.nome)) return true;
+      vistos.add(cat.nome);
+      return false;
+    });
+    if (duplicadas.length === 0) return showToast("Nenhuma categoria duplicada encontrada! ✨");
+    confirmar(`Encontrei ${duplicadas.length} categoria(s) duplicada(s). Remover as repetidas?`, async () => {
+      try {
+        for (const cat of duplicadas) {
+          await deleteDoc(doc(db, tipo === 'produtos' ? "categorias_produtos" : "categorias_fornecedores", cat.id));
+        }
+        showToast("Categorias duplicadas removidas! ✨");
+      } catch {
+        showToast("Erro ao remover duplicadas.", 'erro');
+      }
+    });
+  };
+
+  const excluirCategoria = (tipo: 'produtos' | 'fornecedores', cat: any) => {
+    confirmar(`Excluir a categoria "${cat.nome}"? Isso não remove ela dos itens que já usam essa categoria, só some da lista de seleção.`, async () => {
+      try {
+        await deleteDoc(doc(db, tipo === 'produtos' ? "categorias_produtos" : "categorias_fornecedores", cat.id));
+        showToast("Categoria excluída.");
+      } catch {
+        showToast("Erro ao excluir categoria.", 'erro');
+      }
+    });
   };
 
   const materiaisFiltrados = useMemo(() => {
@@ -2372,6 +2431,7 @@ export default function App() {
               <button onClick={() => setActiveTab('catalogo')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'catalogo' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'catalogo' ? themeColors.primary : undefined }}><BookOpen size={16}/> Meu Catálogo Visual</button>
 
               <button onClick={() => setActiveTab('fornecedores')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'fornecedores' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'fornecedores' ? themeColors.primary : undefined }}><Globe size={16}/> Biblioteca Fornecedores </button>
+              <button onClick={() => setActiveTab('comissoes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'comissoes' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'comissoes' ? themeColors.primary : undefined }}><Percent size={16}/> Canais de Venda</button>
 
               <button onClick={() => setActiveTab('materiais')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'materiais' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'materiais' ? themeColors.primary : undefined }}><Package size={16}/> Armário / Insumos</button>
               <button onClick={() => setActiveTab('clientes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'clientes' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'clientes' ? themeColors.primary : undefined }}><User size={16}/> Meus Clientes</button>
@@ -3603,14 +3663,20 @@ export default function App() {
               </div>
 
               <div className="mb-5 w-full">
-                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Categorias do Produto (Selecione Múltiplas)</label>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block">Categorias do Produto (Selecione Múltiplas)</label>
+                  <button type="button" onClick={() => limparCategoriasDuplicadas('produtos')} className="text-[9px] font-black uppercase text-red-400 underline shrink-0 ml-2">Limpar duplicadas</button>
+                </div>
                 <div className="flex flex-wrap gap-2 mb-2">
                   {categoriasProd.map(cat => {
                     const marcado = novoProdCatalogo.categorias?.includes(cat.nome) || false;
                     return (
-                      <button key={cat.id} type="button" onClick={() => toggleCategoriaNoProduto(cat.nome)} style={{ backgroundColor: marcado ? themeColors.primary : undefined, borderColor: marcado ? themeColors.primary : undefined }} className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${marcado ? 'text-white shadow-sm' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-purple-300'}`}>
-                        {cat.nome}
-                      </button>
+                      <div key={cat.id} className="relative">
+                        <button type="button" onClick={() => toggleCategoriaNoProduto(cat.nome)} style={{ backgroundColor: marcado ? themeColors.primary : undefined, borderColor: marcado ? themeColors.primary : undefined }} className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${marcado ? 'text-white shadow-sm' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-purple-300'}`}>
+                          {cat.nome}
+                        </button>
+                        <button type="button" onClick={(e) => { e.stopPropagation(); excluirCategoria('produtos', cat); }} className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[9px] leading-none shadow">×</button>
+                      </div>
                     );
                   })}
                 </div>
@@ -3723,14 +3789,20 @@ export default function App() {
               <textarea placeholder="Ex: Rua das Flores, 123 - Centro, São Paulo - SP" className="w-full p-4 bg-slate-50 rounded-2xl mb-4 outline-none border focus:border-purple-400 resize-none h-16 font-medium text-sm" value={novoFornecedor.endereco} onChange={e => setNovoFornecedor({...novoFornecedor, endereco: e.target.value})} />
 
               <div className="mb-6 w-full">
-                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Categorias do Fornecedor</label>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block">Categorias do Fornecedor</label>
+                  <button type="button" onClick={() => limparCategoriasDuplicadas('fornecedores')} className="text-[9px] font-black uppercase text-red-400 underline shrink-0 ml-2">Limpar duplicadas</button>
+                </div>
                 <div className="flex flex-wrap gap-2 mb-2">
                   {categoriasForn.map(cat => {
                     const marcado = novoFornecedor.categorias?.includes(cat.nome) || false;
                     return (
-                      <button key={cat.id} type="button" onClick={() => toggleCategoriaNoFornecedor(cat.nome)} style={{ backgroundColor: marcado ? themeColors.primary : undefined, borderColor: marcado ? themeColors.primary : undefined }} className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${marcado ? 'text-white shadow-sm' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-purple-300'}`}>
-                        {cat.nome}
-                      </button>
+                      <div key={cat.id} className="relative">
+                        <button type="button" onClick={() => toggleCategoriaNoFornecedor(cat.nome)} style={{ backgroundColor: marcado ? themeColors.primary : undefined, borderColor: marcado ? themeColors.primary : undefined }} className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${marcado ? 'text-white shadow-sm' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-purple-300'}`}>
+                          {cat.nome}
+                        </button>
+                        <button type="button" onClick={(e) => { e.stopPropagation(); excluirCategoria('fornecedores', cat); }} className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[9px] leading-none shadow">×</button>
+                      </div>
                     );
                   })}
                 </div>
@@ -3826,6 +3898,123 @@ export default function App() {
                 <p className="text-center font-bold text-xs text-slate-400 py-6 italic">Nenhum fornecedor cadastrado nesta seção. 📦</p>
               )}
             </div>
+          </div>
+        )}
+
+        {activeTab === 'comissoes' && (
+          <div className="space-y-4 pt-2 w-full animate-fadeIn">
+            <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
+              <h2 style={{ color: themeColors.primary }} className="font-bold mb-1 flex items-center gap-2 uppercase text-xs tracking-widest"><Percent size={18}/> {novoCanal.id ? '✏️ Editando Canal' : 'Cadastrar Canal de Venda'}</h2>
+              <p className="text-slate-400 text-[11px] mb-4">Shopee, Mercado Livre, Instagram, venda direta... cadastre a comissão de cada canal pra saber quanto sobra de lucro real em cada venda.</p>
+
+              {novoCanal.id && (
+                <button onClick={() => setNovoCanal({ id: '', nome: '', comissaoPercent: '', taxaFixa: '0' })} className="text-[10px] bg-slate-100 text-slate-600 px-3 py-1.5 rounded-xl font-bold uppercase tracking-wide mb-4 block">Cancelar Edição ❌</button>
+              )}
+
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome do Canal</label>
+              <input placeholder="Ex: Shopee, Mercado Livre, Instagram..." className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm" value={novoCanal.nome} onChange={e => setNovoCanal({...novoCanal, nome: e.target.value})} />
+
+              <div className="grid grid-cols-2 gap-3 mb-4 w-full">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Comissão (%)</label>
+                  <input type="number" placeholder="Ex: 14" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold border focus:border-purple-400" value={novoCanal.comissaoPercent} onChange={e => setNovoCanal({...novoCanal, comissaoPercent: e.target.value})} />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Taxa Fixa por Venda (R$)</label>
+                  <input type="number" placeholder="Ex: 4.00" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold border focus:border-purple-400" value={novoCanal.taxaFixa} onChange={e => setNovoCanal({...novoCanal, taxaFixa: e.target.value})} />
+                </div>
+              </div>
+
+              <button
+                disabled={!!salvando.canal}
+                style={{ backgroundColor: themeColors.secondary, opacity: salvando.canal ? 0.6 : 1 }}
+                onClick={async () => {
+                  if (salvando.canal) return;
+                  if (!novoCanal.nome || novoCanal.comissaoPercent === '') return showToast("Preencha o nome e a comissão do canal!", 'erro');
+                  setSalvando(prev => ({ ...prev, canal: true }));
+                  try {
+                    const d = { nome: novoCanal.nome, comissaoPercent: Number(novoCanal.comissaoPercent), taxaFixa: Number(novoCanal.taxaFixa || 0), userId: user.uid };
+                    if (novoCanal.id) await updateDoc(doc(db, "canais_venda", novoCanal.id), d);
+                    else await addDoc(collection(db, "canais_venda"), d);
+                    setNovoCanal({ id: '', nome: '', comissaoPercent: '', taxaFixa: '0' });
+                    showToast("Canal de venda salvo! 🚀");
+                  } catch {
+                    showToast("Erro ao salvar canal.", 'erro');
+                  } finally {
+                    setSalvando(prev => ({ ...prev, canal: false }));
+                  }
+                }}
+                className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md"
+              >
+                {salvando.canal ? 'Salvando...' : (novoCanal.id ? 'Salvar Alterações' : 'Salvar Canal')}
+              </button>
+            </div>
+
+            {canaisVenda.length > 0 && (
+              <div className="space-y-2 w-full">
+                {canaisVenda.map(c => (
+                  <div key={c.id} className="bg-white p-4 rounded-3xl flex justify-between items-center border shadow-sm w-full">
+                    <div>
+                      <p className="font-bold text-slate-800 text-sm">{c.nome}</p>
+                      <p className="text-xs text-slate-400 mt-0.5">{c.comissaoPercent}% de comissão{Number(c.taxaFixa || 0) > 0 ? ` + R$ ${Number(c.taxaFixa).toFixed(2)} fixo` : ''}</p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => setNovoCanal({ id: c.id, nome: c.nome, comissaoPercent: String(c.comissaoPercent), taxaFixa: String(c.taxaFixa || 0) })} className="text-orange-400 p-2"><Edit2 size={16}/></button>
+                      <button onClick={() => confirmarExcluir('canal_venda', c.id)} className="text-red-200 p-2"><Trash2 size={16}/></button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {canaisVenda.length > 0 && (
+              <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
+                <h2 style={{ color: themeColors.primary }} className="font-bold mb-1 flex items-center gap-2 uppercase text-xs tracking-widest"><Calculator size={18}/> Simulador de Lucro por Canal</h2>
+                <p className="text-slate-400 text-[11px] mb-4">Informe o custo do produto e o preço de venda, e veja quanto sobra de lucro em cada canal depois da comissão.</p>
+
+                <div className="grid grid-cols-2 gap-3 mb-1 w-full">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Custo do Produto (R$)</label>
+                    <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold border focus:border-purple-400" value={custoTesteComissao} onChange={e => setCustoTesteComissao(e.target.value)} />
+                  </div>
+                  <div>
+                    <label style={{ color: themeColors.secondary }} className="text-[10px] font-bold uppercase ml-1">Preço de Venda (R$)</label>
+                    <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold border focus:border-purple-400" value={precoTesteComissao} onChange={e => setPrecoTesteComissao(e.target.value)} />
+                  </div>
+                </div>
+                <button type="button" onClick={() => setCustoTesteComissao(resumenFinanceiro.custoPeca)} className="text-[10px] font-black uppercase text-purple-600 underline mb-4 block">Usar custo do último orçamento calculado</button>
+
+                <div className="space-y-2 w-full">
+                  {canaisVenda.map(c => {
+                    const preco = Number(precoTesteComissao) || 0;
+                    const custo = Number(custoTesteComissao) || 0;
+                    const valorComissao = preco * (Number(c.comissaoPercent) / 100);
+                    const taxaFixa = Number(c.taxaFixa || 0);
+                    const valorLiquido = preco - valorComissao - taxaFixa;
+                    const lucro = valorLiquido - custo;
+                    const margemSobreCusto = custo > 0 ? (lucro / custo) * 100 : 0;
+                    const lucroNegativo = lucro < 0;
+                    return (
+                      <div key={c.id} className={`p-4 rounded-2xl border w-full ${lucroNegativo ? 'bg-red-50 border-red-200' : 'bg-slate-50 border-slate-100'}`}>
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="font-black text-slate-800 text-xs uppercase">{c.nome}</span>
+                          <span className={`font-black text-sm ${lucroNegativo ? 'text-red-500' : 'text-emerald-600'}`}>R$ {lucro.toFixed(2)} {lucroNegativo ? '⚠️' : ''}</span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 text-[10px] text-slate-500">
+                          <div>Comissão: <span className="font-bold text-slate-700 block">R$ {valorComissao.toFixed(2)}</span></div>
+                          <div>Recebe líquido: <span className="font-bold text-slate-700 block">R$ {valorLiquido.toFixed(2)}</span></div>
+                          <div>Margem s/ custo: <span className={`font-bold block ${lucroNegativo ? 'text-red-500' : 'text-slate-700'}`}>{margemSobreCusto.toFixed(0)}%</span></div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {canaisVenda.length === 0 && (
+              <p className="text-center font-bold text-xs text-slate-400 py-6 italic">Cadastre seu primeiro canal de venda acima pra começar a simular. 📊</p>
+            )}
           </div>
         )}
 
@@ -3985,6 +4174,7 @@ export default function App() {
                 ? Math.floor((Date.now() - m.atualizadoEm.toDate().getTime()) / (1000 * 60 * 60 * 24))
                 : null;
               const desatualizado = diasDesdeAtualizacao !== null && diasDesdeAtualizacao > 30;
+              const semRegistroDeData = diasDesdeAtualizacao === null;
               return (
                 <div key={m.id} className="bg-white p-5 rounded-3xl flex justify-between items-center border w-full mb-2 shadow-sm">
                   <div>
@@ -3993,6 +4183,9 @@ export default function App() {
                     <p className="text-xs text-slate-500 mt-0.5">Qtd: <span style={{ color: themeColors.primary }} className="font-bold">{m.qtdAtual} {m.unidade}</span></p>
                     {desatualizado && (
                       <p className="text-[10px] text-amber-600 font-bold mt-1 bg-amber-50 inline-block px-2 py-0.5 rounded">⚠️ Preço sem atualizar há {diasDesdeAtualizacao} dias</p>
+                    )}
+                    {semRegistroDeData && (
+                      <p className="text-[10px] text-slate-400 italic mt-1">ℹ️ Ainda sem data de atualização registrada — edite este material pra começar a rastrear</p>
                     )}
                   </div>
                   <div className="flex items-center gap-1">
