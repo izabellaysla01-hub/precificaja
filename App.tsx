@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { initializeApp } from "firebase/app";
 import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
-import { getFirestore, collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc, getDocs, setDoc, getDoc } from "firebase/firestore";
+import { getFirestore, collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc, getDocs, setDoc, getDoc, Timestamp, limit, startAfter, orderBy } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2, Menu, Search, Settings, CheckSquare, Square, Filter, MapPin, Globe, Palette, TrendingUp, ChevronDown, ChevronUp, FileText, Megaphone, LifeBuoy } from 'lucide-react';
 
@@ -26,7 +26,32 @@ const PRESET_PALETTES = [
   { id: 'emerald_growth', nome: 'Verde Esmeralda', primary: '#059669', primaryHover: '#047857', secondary: '#10b981', secondaryHover: '#059669' }
 ];
 
+const TELAS_ONBOARDING = [
+  { emoji: '🚀', titulo: 'Bem-vinda ao PrecificaJá!', texto: 'Em menos de 1 minuto você monta um orçamento completo, com PDF pronto pra mandar no WhatsApp do cliente.' },
+  { emoji: '🧮', titulo: 'Passo 1: Orçar', texto: 'Toque em "Orçar", digite o nome do produto, adicione os materiais usados e o tempo gasto. O app calcula o preço sugerido automaticamente.' },
+  { emoji: '📦', titulo: 'Passo 2: Armário de Insumos', texto: 'Cadastre seus materiais uma vez só. Toda vez que for orçar, é só selecionar da lista — sem digitar preço de novo.' },
+  { emoji: '📄', titulo: 'Passo 3: PDF e WhatsApp', texto: 'Ao salvar, o app gera um PDF profissional e você pode mandar direto pro WhatsApp do cliente com 1 toque.' },
+];
+
 const CHANGELOG_APP = [
+  {
+    data: '24/08/2026',
+    titulo: 'Estabilidade, agilidade e controle financeiro',
+    itens: [
+      'Avisos e confirmações agora aparecem como notificações discretas (toasts), sem travar a tela',
+      'Botões de salvar ficam desativados durante o envio — evita duplicar pedidos, produtos e contratos com cliques repetidos',
+      'Histórico de vendas agora usa data e hora reais internamente, deixando os relatórios mais precisos',
+      'Histórico de Pedidos carrega por páginas, com botão "Carregar mais" — mais rápido pra quem já tem muitas vendas',
+      'Baixa de estoque no Balcão de Vendas agora pode usar a receita de materiais do produto, mais precisa que a busca por nome (o método antigo continua funcionando pra quem não configurar a receita)',
+      'Onboarding de boas-vindas pra quem está usando o app pela primeira vez',
+      'Novo card "Próximas Entregas" na Tela Inicial',
+      'Histórico de preços praticados por produto do catálogo',
+      'Alerta de margem de lucro abaixo do mínimo configurado ao montar um orçamento',
+      'Aviso quando um material do Armário está sem atualização de preço há muito tempo',
+      'Tarefas e pedidos do Kanban agora têm prioridade (baixa/média/alta) e destaque visual quando o prazo está perto de vencer',
+      'Templates de contrato: salve cláusulas prontas e reutilize em novos contratos'
+    ]
+  },
   {
     data: '23/08/2026',
     titulo: 'Tarefas em vários dias e Kanban de pedidos',
@@ -47,6 +72,66 @@ const CHANGELOG_APP = [
     ]
   }
 ];
+
+const Toast = ({ toast }: { toast: { msg: string; tipo: 'sucesso' | 'erro' | 'aviso' } | null }) => {
+  if (!toast) return null;
+  const cores = { sucesso: '#10b981', erro: '#ef4444', aviso: '#f59e0b' };
+  return (
+    <div
+      style={{ backgroundColor: cores[toast.tipo] }}
+      className="fixed bottom-24 left-1/2 -translate-x-1/2 text-white font-bold text-xs px-5 py-3 rounded-2xl shadow-xl z-[100] animate-fadeIn max-w-[90vw] text-center"
+    >
+      {toast.msg}
+    </div>
+  );
+};
+
+const ConfirmModal = ({ modal, onCancel, onConfirm }: { modal: { msg: string } | null; onCancel: () => void; onConfirm: () => void }) => {
+  if (!modal) return null;
+  return (
+    <div className="fixed inset-0 bg-black/50 z-[110] flex items-center justify-center p-6" onClick={onCancel}>
+      <div className="bg-white rounded-3xl p-6 max-w-sm w-full" onClick={e => e.stopPropagation()}>
+        <p className="text-sm font-bold text-slate-700 mb-5">{modal.msg}</p>
+        <div className="flex gap-3">
+          <button onClick={onCancel} className="flex-1 bg-slate-100 text-slate-600 font-bold text-xs uppercase py-3 rounded-xl">Cancelar</button>
+          <button onClick={onConfirm} className="flex-1 bg-red-500 text-white font-bold text-xs uppercase py-3 rounded-xl">Confirmar</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const OnboardingCarrossel = ({ onFinalizar }: { onFinalizar: () => void }) => {
+  const [step, setStep] = useState(0);
+  const tela = TELAS_ONBOARDING[step];
+  const ultimaTela = step === TELAS_ONBOARDING.length - 1;
+
+  return (
+    <div className="fixed inset-0 bg-white z-[200] flex flex-col items-center justify-center p-8 text-center">
+      <div className="text-6xl mb-6">{tela.emoji}</div>
+      <h2 className="text-xl font-black text-purple-700 mb-3">{tela.titulo}</h2>
+      <p className="text-slate-500 text-sm mb-10 max-w-sm">{tela.texto}</p>
+
+      <div className="flex gap-1.5 mb-8">
+        {TELAS_ONBOARDING.map((_, i) => (
+          <div key={i} className={`h-1.5 rounded-full transition-all ${i === step ? 'w-6 bg-purple-600' : 'w-1.5 bg-slate-200'}`} />
+        ))}
+      </div>
+
+      <div className="flex gap-3 w-full max-w-xs">
+        {!ultimaTela && (
+          <button onClick={onFinalizar} className="flex-1 text-slate-400 font-bold text-xs uppercase py-3">Pular</button>
+        )}
+        <button
+          onClick={() => ultimaTela ? onFinalizar() : setStep(step + 1)}
+          className="flex-1 bg-purple-600 text-white font-black text-xs uppercase py-3.5 rounded-2xl"
+        >
+          {ultimaTela ? 'Começar a Usar' : 'Próximo'}
+        </button>
+      </div>
+    </div>
+  );
+};
 
 const SignaturePad = ({ onSave, corTraco = '#1e293b' }: { onSave: (dataUrl: string) => void; corTraco?: string }) => {
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
@@ -191,6 +276,27 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
+  const [toast, setToast] = useState<{ msg: string; tipo: 'sucesso' | 'erro' | 'aviso' } | null>(null);
+  const [modalConfirm, setModalConfirm] = useState<{ msg: string; onConfirm: () => void } | null>(null);
+  const [salvando, setSalvando] = useState<{ [key: string]: boolean }>({});
+  const [mostrarOnboarding, setMostrarOnboarding] = useState(false);
+
+  const showToast = (msg: string, tipo: 'sucesso' | 'erro' | 'aviso' = 'sucesso') => {
+    setToast({ msg, tipo });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const confirmar = (msg: string, onConfirm: () => void) => {
+    setModalConfirm({ msg, onConfirm });
+  };
+
+  const finalizarOnboarding = async () => {
+    setMostrarOnboarding(false);
+    if (user) {
+      try { await setDoc(doc(db, "configuracoes_loja", user.uid), { onboardingVisto: true }, { merge: true }); } catch {}
+    }
+  };
+
   const [idLojaPublica, setIdLojaPublica] = useState<string | null>(null);
   const [produtosPublicos, setProdutosPublicos] = useState<any[]>([]);
   const [carregandoPublico, setCarregandoPublico] = useState(false);
@@ -219,11 +325,16 @@ export default function App() {
 
   const [materiais, setMaterials] = useState<any[]>([]);
   const [pedidos, setPedidos] = useState<any[]>([]);
+  const [ultimoDocPedido, setUltimoDocPedido] = useState<any>(null);
+  const [temMaisPedidos, setTemMaisPedidos] = useState(true);
+  const [carregandoMais, setCarregandoMais] = useState(false);
+  const TAMANHO_PAGINA = 30;
   const [clientes, setClientes] = useState<any[]>([]);
   const [produtos, setProdutos] = useState<any[]>([]);
   const [equipamentos, setEquipamentos] = useState<any[]>([]);
   const [anotacoes, setAnotacoes] = useState<any[]>([]);
   const [contratos, setContratos] = useState<any[]>([]);
+  const [templatesContrato, setTemplatesContrato] = useState<any[]>([]);
 
   const [categoriasProd, setCategoriasProd] = useState<any[]>([]);
   const [categoriasForn, setCategoriasForn] = useState<any[]>([]);
@@ -263,6 +374,7 @@ export default function App() {
   const [prazo, setPrazo] = useState('');
   const [clienteSel, setClienteSel] = useState('');
   const [precoManual, setPrecoManual] = useState<string | null>(null);
+  const [produtoCatalogoSelecionadoId, setProdutoCatalogoSelecionadoId] = useState<string | null>(null);
   const [docObsPedido, setDocObsPedido] = useState('');
 
   const [precoFinalDigitado, setPrecoFinalDigitado] = useState<string>('0.00');
@@ -273,9 +385,9 @@ export default function App() {
   const [novoMat, setNovoMat] = useState({ id: '', nome: '', valor: '', qtd: '1', unidade: 'un', qtdAtual: '0', qtdMinima: '0' });
 
   const [novoCli, setNovoCli] = useState({ id: '', nome: '', zap: '', email: '', endereco: '', cpfCnpj: '' });
-  const [novaAnotacao, setNovaAnotacao] = useState({ id: '', titulo: '', conteudo: '', dataPrazo: new Date().toISOString().split('T')[0] });
+  const [novaAnotacao, setNovaAnotacao] = useState({ id: '', titulo: '', conteudo: '', dataPrazo: new Date().toISOString().split('T')[0], prioridade: 'media' });
 
-  const [novoProdCatalogo, setNovoProdCatalogo] = useState<{id: string, nome: string, precoVenda: string, urlImagem: string, categorias: string[]}>({ id: '', nome: '', precoVenda: '', urlImagem: '', categorias: [] });
+  const [novoProdCatalogo, setNovoProdCatalogo] = useState<{id: string, nome: string, precoVenda: string, urlImagem: string, categorias: string[], materiaisAssociados: {id: string, nome: string, qtdUsada: number}[]}>({ id: '', nome: '', precoVenda: '', urlImagem: '', categorias: [], materiaisAssociados: [] });
   const [inputNovaCategoriaProd, setInputNovaCategoriaProd] = useState('');
   const [mostrarInputNovaCatProd, setMostrarInputNovaCatProd] = useState(false);
 
@@ -317,7 +429,7 @@ export default function App() {
     secondaryHover: '#ea580c'
   });
 
-  const [financasFixo, setFinancasFixo] = useState({ salario: '0', aluguel: '0', internet: '0', luz: '0', outros: '0', diasTrabalho: '20', horasDia: '8' });
+  const [financasFixo, setFinancasFixo] = useState({ salario: '0', aluguel: '0', internet: '0', luz: '0', outros: '0', diasTrabalho: '20', horasDia: '8', margemMinima: '30' });
   const [novoEquipamento, setNovoEquipamento] = useState({ id: '', nome: '', valorPago: '', durabilidadeAnos: '2' });
 
   const [precoTinta, setPrecoTinta] = useState('62');
@@ -329,6 +441,9 @@ export default function App() {
   const [clienteBalcao, setClienteBalcao] = useState('');
   const [nomeKitBalcao, setNomeKitBalcao] = useState('');
   const [prazoBalcao, setPrazoBalcao] = useState('');
+
+  const [historicoPrecoAberto, setHistoricoPrecoAberto] = useState<string | null>(null);
+  const [historicoPrecoDados, setHistoricoPrecoDados] = useState<any[]>([]);
 
   const setActiveTab = (tab: any) => {
     useStateActiveTab(tab);
@@ -346,14 +461,21 @@ export default function App() {
     await updateDoc(doc(db, colecao, id), { statusKanban: novoStatus });
   };
 
+  const diasRestantes = (dataPrazoStr: string) => {
+    if (!dataPrazoStr) return null;
+    const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+    const prazoData = new Date(dataPrazoStr + 'T00:00:00');
+    return Math.floor((prazoData.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
+  };
+
   // Um card por tarefa/pedido — nunca duplica por causa de datas extras
   const itensDoKanban = useMemo(() => {
     const tarefas = anotacoes.filter(a => a.apareceNoKanban && !a.concluido).map(a => ({
-      id: a.id, tipo: 'tarefa', titulo: a.titulo, conteudo: a.conteudo, dataPrazo: a.dataPrazo, datasExtras: a.datasExtras || [], statusKanban: a.statusKanban || 'a_fazer'
+      id: a.id, tipo: 'tarefa', titulo: a.titulo, conteudo: a.conteudo, dataPrazo: a.dataPrazo, datasExtras: a.datasExtras || [], statusKanban: a.statusKanban || 'a_fazer', prioridade: a.prioridade || 'media'
     }));
     const pedidosEmProducao = pedidos.filter(p => (p.status || '').includes('Produção')).map(p => {
       const cli = clientes.find(c => c.id === p.clienteId);
-      return { id: p.id, tipo: 'pedido', titulo: p.nomeProd, conteudo: cli?.nome ? `Cliente: ${cli.nome}` : '', dataPrazo: p.prazo, datasExtras: [], statusKanban: p.statusKanban || 'a_fazer' };
+      return { id: p.id, tipo: 'pedido', titulo: p.nomeProd, conteudo: cli?.nome ? `Cliente: ${cli.nome}` : '', dataPrazo: p.prazo, datasExtras: [], statusKanban: p.statusKanban || 'a_fazer', prioridade: p.prioridade || 'media' };
     });
     return [...tarefas, ...pedidosEmProducao];
   }, [anotacoes, pedidos, clientes]);
@@ -473,6 +595,9 @@ export default function App() {
             setAssinaturaLojaUrl(data.assinaturaUrl || '');
             setSuporteZapPerfil(data.suporteZap || data.whatsapp || '');
             if (data.themeColors) setThemeColors(data.themeColors);
+            if (data.onboardingVisto !== true) setMostrarOnboarding(true);
+          } else {
+            setMostrarOnboarding(true);
           }
         });
       } else {
@@ -483,6 +608,7 @@ export default function App() {
         setEquipamentos([]);
         setAnotacoes([]);
         setContratos([]);
+        setTemplatesContrato([]);
       }
       setLoading(false);
     });
@@ -496,13 +622,38 @@ export default function App() {
     return () => { document.body.removeChild(script); };
   }, []);
 
+  // Pedidos: busca paginada (30 por vez), ordenada pelo mais recente
+  useEffect(() => {
+    if (!user || idLojaPublica) return;
+    const qPedidos = query(collection(db, "pedidos"), where("userId", "==", user.uid), orderBy("data", "desc"), limit(TAMANHO_PAGINA));
+    const unsub = onSnapshot(qPedidos, s => {
+      setPedidos(s.docs.map(d => ({ id: d.id, ...d.data() })));
+      setUltimoDocPedido(s.docs[s.docs.length - 1] || null);
+      setTemMaisPedidos(s.docs.length === TAMANHO_PAGINA);
+    });
+    return () => unsub();
+  }, [user, idLojaPublica]);
+
+  const carregarMaisPedidos = async () => {
+    if (!ultimoDocPedido || carregandoMais || !user) return;
+    setCarregandoMais(true);
+    try {
+      const qMais = query(collection(db, "pedidos"), where("userId", "==", user.uid), orderBy("data", "desc"), startAfter(ultimoDocPedido), limit(TAMANHO_PAGINA));
+      const snap = await getDocs(qMais);
+      setPedidos(prev => [...prev, ...snap.docs.map(d => ({ id: d.id, ...d.data() }))]);
+      setUltimoDocPedido(snap.docs[snap.docs.length - 1] || null);
+      setTemMaisPedidos(snap.docs.length === TAMANHO_PAGINA);
+    } catch {
+      showToast("Erro ao carregar mais pedidos.", 'erro');
+    } finally {
+      setCarregandoMais(false);
+    }
+  };
+
   useEffect(() => {
     if (user && !idLojaPublica) {
       const qMaterials = query(collection(db, "materiais"), where("userId", "==", user.uid));
       const unsubMaterials = onSnapshot(qMaterials, s => setMaterials(s.docs.map(d => ({ id: d.id, ...d.data() }))));
-
-      const qPedidos = query(collection(db, "pedidos"), where("userId", "==", user.uid));
-      const unsubPedidos = onSnapshot(qPedidos, s => setPedidos(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
       const qClientes = query(collection(db, "clientes"), where("userId", "==", user.uid));
       const unsubClientes = onSnapshot(qClientes, s => setClientes(s.docs.map(d => ({ id: d.id, ...d.data() }))));
@@ -515,6 +666,9 @@ export default function App() {
 
       const qContratos = query(collection(db, "contratos"), where("userId", "==", user.uid));
       const unsubContratos = onSnapshot(qContratos, s => setContratos(s.docs.map(d => ({ id: d.id, ...d.data() }))));
+
+      const qTemplates = query(collection(db, "templates_contrato"), where("userId", "==", user.uid));
+      const unsubTemplates = onSnapshot(qTemplates, s => setTemplatesContrato(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
       const qCatsProd = query(collection(db, "categorias_produtos"), where("userId", "==", user.uid));
       const unsubCatsProd = onSnapshot(qCatsProd, s => {
@@ -545,7 +699,7 @@ export default function App() {
       getDoc(qConfigFin).then(snap => {
         if (snap.exists()) {
           const dadosFin = snap.data() as any;
-          setFinancasFixo(dadosFin);
+          setFinancasFixo(prev => ({ ...prev, ...dadosFin }));
 
           if (dadosFin.precoTinta) setPrecoTinta(dadosFin.precoTinta);
           if (dadosFin.unidadeTinta) setUnidadeTinta(dadosFin.unidadeTinta);
@@ -574,12 +728,12 @@ export default function App() {
 
       return () => {
         unsubMaterials();
-        unsubPedidos();
         unsubClientes();
         unsubProdutos();
         unsubEquipamentos();
         unsubAnotacoes();
         unsubContratos();
+        unsubTemplates();
         unsubCatsProd();
         unsubCatsForn();
         unsubFornecedores();
@@ -594,7 +748,7 @@ export default function App() {
 
   const copiarLinkCatalogo = () => {
     navigator.clipboard.writeText(linkDoCatalogoDestaCliente);
-    alert("Link do seu catálogo copiado! 🔗🚀");
+    showToast("Link do seu catálogo copiado! 🔗🚀");
   };
 
   const gerarLinkAssinaturaContrato = (contratoId: string) => {
@@ -603,7 +757,7 @@ export default function App() {
 
   const copiarLinkAssinatura = (contratoId: string) => {
     navigator.clipboard.writeText(gerarLinkAssinaturaContrato(contratoId));
-    alert("Link de assinatura copiado! Envie para o cliente assinar pelo celular dele. ✍️🔗");
+    showToast("Link de assinatura copiado! Envie para o cliente assinar pelo celular dele. ✍️🔗");
   };
 
   const salvarAssinaturaLoja = async (dataUrl: string) => {
@@ -612,9 +766,9 @@ export default function App() {
       setAssinaturaLojaUrl(dataUrl);
       await setDoc(doc(db, "configuracoes_loja", user.uid), { assinaturaUrl: dataUrl }, { merge: true });
       setMostrarPadAssinaturaLoja(false);
-      alert("Assinatura salva! Ela vai aparecer automaticamente nos seus contratos. ✍️");
+      showToast("Assinatura salva! Ela vai aparecer automaticamente nos seus contratos. ✍️");
     } catch {
-      alert("Erro ao salvar assinatura.");
+      showToast("Erro ao salvar assinatura.", 'erro');
     }
   };
 
@@ -666,6 +820,22 @@ export default function App() {
       return todasAsDatas.includes(diaSelecionadoAgenda);
     });
   }, [anotacoes, diaSelecionadoAgenda]);
+
+  // Próximas entregas: pedidos ativos com prazo nos próximos 7 dias
+  const proximasEntregas = useMemo(() => {
+    const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+    const em7dias = new Date(); em7dias.setDate(hoje.getDate() + 7);
+
+    return pedidos
+      .filter(p => {
+        if (!p.prazo) return false;
+        const st = p.status || 'Pendente';
+        if (st.includes('Vendido') || st.includes('Cancelado')) return false;
+        const dataPrazo = new Date(p.prazo + 'T00:00:00');
+        return dataPrazo >= hoje && dataPrazo <= em7dias;
+      })
+      .sort((a, b) => a.prazo.localeCompare(b.prazo));
+  }, [pedidos]);
 
   const toggleStatusAnotacao = async (id: string, valorAtual: boolean) => {
     await updateDoc(doc(db, "anotacoes", id), { concluido: !valorAtual });
@@ -877,8 +1047,9 @@ export default function App() {
   };
 
   const lancarVendaBalcaoInterno = async () => {
+    if (salvando.balcao) return;
     const itensNoCarrinho = produtos.filter(p => carrinhoInterno[p.id] > 0);
-    if (itensNoCarrinho.length === 0) return alert("Selecione ao menos 1 item com + e - no balcão!");
+    if (itensNoCarrinho.length === 0) return showToast("Selecione ao menos 1 item com + e - no balcão!", 'erro');
 
     let stringNomeCombo = "";
     let totalGeral = 0;
@@ -892,13 +1063,15 @@ export default function App() {
       arrayItensSalvar.push({
         nome: p.nome,
         qtd: qtd,
-        precoVenda: Number(p.precoVenda)
+        precoVenda: Number(p.precoVenda),
+        materiaisAssociados: p.materiaisAssociados || []
       });
     });
 
     const nomeFinalDoRegistro = nomeKitBalcao.trim() ? nomeKitBalcao.trim() : stringNomeCombo;
     const prazoFinalVenda = prazoBalcao ? prazoBalcao : new Date().toISOString().split('T')[0];
 
+    setSalvando(prev => ({ ...prev, balcao: true }));
     try {
       await addDoc(collection(db, "pedidos"), {
         nomeProd: nomeFinalDoRegistro,
@@ -915,6 +1088,7 @@ export default function App() {
         precoManual: totalGeral.toFixed(2),
         obsPedido: "",
         data: new Date().toLocaleDateString('pt-BR'),
+        dataVenda: Timestamp.now(),
         status: 'Pendente',
         itensCombo: arrayItensSalvar,
         modoCalculo: 'peca'
@@ -924,61 +1098,63 @@ export default function App() {
       setClienteBalcao('');
       setNomeKitBalcao('');
       setPrazoBalcao('');
-      alert("Combo lançado com sucesso no Histórico! 🚀");
+      showToast("Combo lançado com sucesso no Histórico! 🚀");
       setActiveTab('pedidos');
     } catch {
-      alert("Erro ao lançar venda no balcão.");
+      showToast("Erro ao lançar venda no balcão.", 'erro');
+    } finally {
+      setSalvando(prev => ({ ...prev, balcao: false }));
     }
   };
 
   const excluirContratoInteligente = async (contratoItem: any) => {
-    if (!window.confirm("Deseja realmente excluir este contrato?")) return;
+    confirmar("Deseja realmente excluir este contrato?", async () => {
+      try {
+        if (contratoItem.id) {
+          await deleteDoc(doc(db, "contratos", contratoItem.id));
+          showToast("Contrato excluído com sucesso! 🗑️");
+          return;
+        }
 
-    try {
-      if (contratoItem.id) {
-        await deleteDoc(doc(db, "contratos", contratoItem.id));
-        alert("Contrato excluído com sucesso! 🗑️");
-        return;
+        const q = query(
+          collection(db, "contratos"),
+          where("userId", "==", user.uid),
+          where("clienteId", "==", contratoItem.clienteId || '')
+        );
+        const snapshot = await getDocs(q);
+
+        if (!snapshot.empty) {
+          snapshot.docs.forEach(async (d) => {
+            await deleteDoc(doc(db, "contratos", d.id));
+          });
+          showToast("Contrato antigo excluído do banco! 🗑️");
+        } else {
+          showToast("Não foi possível encontrar a referência do contrato no banco.", 'erro');
+        }
+      } catch (e) {
+        showToast("Erro ao tentar excluir contrato.", 'erro');
       }
-
-      const q = query(
-        collection(db, "contratos"),
-        where("userId", "==", user.uid),
-        where("clienteId", "==", contratoItem.clienteId || '')
-      );
-      const snapshot = await getDocs(q);
-
-      if (!snapshot.empty) {
-        snapshot.docs.forEach(async (d) => {
-          await deleteDoc(doc(db, "contratos", d.id));
-        });
-        alert("Contrato antigo excluído do banco! 🗑️");
-      } else {
-        alert("Não foi possível encontrar a referência do contrato no banco.");
-      }
-    } catch (e) {
-      alert("Erro ao tentar excluir contrato.");
-    }
+    });
   };
 
   const zerarTodosContratos = async () => {
-    if (window.confirm("Tem certeza que deseja APAGAR TODOS OS CONTRATOS salvos para zerar os testes?")) {
+    confirmar("Tem certeza que deseja APAGAR TODOS OS CONTRATOS salvos para zerar os testes?", async () => {
       try {
         const q = query(collection(db, "contratos"), where("userId", "==", user.uid));
         const snap = await getDocs(q);
         snap.docs.forEach(async (d) => {
           await deleteDoc(doc(db, "contratos", d.id));
         });
-        alert("Todos os contratos de teste foram removidos! ✨");
+        showToast("Todos os contratos de teste foram removidos! ✨");
       } catch {
-        alert("Erro ao zerar contratos.");
+        showToast("Erro ao zerar contratos.", 'erro');
       }
-    }
+    });
   };
 
   const confirmarExcluir = async (tipo: string, id: string) => {
     if (!id) return;
-    if (window.confirm(`Tem certeza de que deseja excluir este ${tipo}?`)) {
+    confirmar(`Tem certeza de que deseja excluir este ${tipo}?`, async () => {
       let colecao = "";
       if (tipo === 'pedido') colecao = "pedidos";
       else if (tipo === 'cliente') colecao = "clientes";
@@ -991,15 +1167,16 @@ export default function App() {
       if (colecao) {
         try {
           await deleteDoc(doc(db, colecao, id));
-          alert("Item excluído com sucesso! 🗑️");
+          showToast("Item excluído com sucesso! 🗑️");
         } catch (error) {
-          alert("Erro ao excluir do banco de dados.");
+          showToast("Erro ao excluir do banco de dados.", 'erro');
         }
       }
-    }
+    });
   };
 
   const confirmarVendaPedido = async (pedido: any) => {
+    // 1. materiaisUsados (orçamento feito na calculadora) — baixa por ID, como já era
     if (pedido.materiaisUsados && pedido.materiaisUsados.length > 0) {
       for (const m of pedido.materiaisUsados) {
         const matDoBanco = materiais.find(item => item.id === m.id);
@@ -1011,32 +1188,58 @@ export default function App() {
       }
     }
 
-    const textoVenda = String(pedido.nomeProd || '');
-    if (textoVenda.includes('x ')) {
-      const partesItens = textoVenda.split(/\n| \+ /);
-      for (const parte of partesItens) {
-        const regexMatch = parte.trim().match(/^(\d+)x\s+(.+)$/i);
-        if (regexMatch) {
-          const qtdVendida = Number(regexMatch[1]);
-          const nomeProdutoTexto = regexMatch[2].trim().toLowerCase();
+    // 2. itensCombo (balcão) — usa a receita por ID quando o produto tiver uma cadastrada;
+    //    senão cai no método antigo por nome, sem quebrar quem ainda não recadastrou os produtos
+    if (pedido.itensCombo && Array.isArray(pedido.itensCombo) && pedido.itensCombo.length > 0) {
+      for (const item of pedido.itensCombo) {
+        if (item.materiaisAssociados && item.materiaisAssociados.length > 0) {
+          for (const m of item.materiaisAssociados) {
+            const matDoBanco = materiais.find(mat => mat.id === m.id);
+            if (matDoBanco) {
+              const gastoTotal = Number(m.qtdUsada || 0) * Number(item.qtd || 1);
+              await updateDoc(doc(db, "materiais", m.id), { qtdAtual: Math.max(0, Number(matDoBanco.qtdAtual || 0) - gastoTotal) });
+            }
+          }
+        } else {
+          const nomeProdutoTexto = String(item.nome || '').toLowerCase();
           const materialCorrespondente = materiais.find(m => nomeProdutoTexto.includes(m.nome.toLowerCase()) || m.nome.toLowerCase().includes(nomeProdutoTexto));
           if (materialCorrespondente) {
+            const gastoTotal = Number(item.qtd || 0);
             const estoqueAtual = Number(materialCorrespondente.qtdAtual || 0);
-            const novoEstoque = Math.max(0, estoqueAtual - qtdVendida);
-            await updateDoc(doc(db, "materiais", materialCorrespondente.id), { qtdAtual: novoEstoque });
+            await updateDoc(doc(db, "materiais", materialCorrespondente.id), { qtdAtual: Math.max(0, estoqueAtual - gastoTotal) });
+          }
+        }
+      }
+    } else {
+      // Fallback pro formato antigo de nomeProd combinado em texto livre (pedidos anteriores a itensCombo)
+      const textoVenda = String(pedido.nomeProd || '');
+      if (textoVenda.includes('x ')) {
+        const partesItens = textoVenda.split(/\n| \+ /);
+        for (const parte of partesItens) {
+          const regexMatch = parte.trim().match(/^(\d+)x\s+(.+)$/i);
+          if (regexMatch) {
+            const qtdVendida = Number(regexMatch[1]);
+            const nomeProdutoTexto = regexMatch[2].trim().toLowerCase();
+            const materialCorrespondente = materiais.find(m => nomeProdutoTexto.includes(m.nome.toLowerCase()) || m.nome.toLowerCase().includes(nomeProdutoTexto));
+            if (materialCorrespondente) {
+              const estoqueAtual = Number(materialCorrespondente.qtdAtual || 0);
+              const novoEstoque = Math.max(0, estoqueAtual - qtdVendida);
+              await updateDoc(doc(db, "materiais", materialCorrespondente.id), { qtdAtual: novoEstoque });
+            }
           }
         }
       }
     }
+
     await updateDoc(doc(db, "pedidos", pedido.id), { status: 'Vendido 💰' });
-    alert("Venda confirmada!");
+    showToast("Venda confirmada!");
   };
 
   const cancelarPedidoSemExcluir = async (id: string) => {
-    if (window.confirm("Deseja realmente mover este orçamento para os cancelados?")) {
+    confirmar("Deseja realmente mover este orçamento para os cancelados?", async () => {
       await updateDoc(doc(db, "pedidos", id), { status: 'Cancelado ❌' });
-      alert("Pedido cancelado!");
-    }
+      showToast("Pedido cancelado!");
+    });
   };
 
   const handleUploadImagem = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1049,8 +1252,8 @@ export default function App() {
       await uploadBytes(imagemRef, file);
       const urlDisponivel = await getDownloadURL(imagemRef);
       setNovoProdCatalogo(prev => ({ ...prev, urlImagem: urlDisponivel }));
-      alert("Foto carregada com sucesso! 📸");
-    } catch (error) { alert("Erro ao subir a foto!"); }
+      showToast("Foto carregada com sucesso! 📸");
+    } catch (error) { showToast("Erro ao subir a foto!", 'erro'); }
     finally { setSubindoImagem(false); }
   };
 
@@ -1061,9 +1264,9 @@ export default function App() {
     try {
       const dataUrl = await comprimirImagem(file, 300);
       setLogoLojaPerfil(dataUrl);
-      alert("Logo carregado com sucesso! Salve o perfil para aplicar. 📸");
+      showToast("Logo carregado com sucesso! Salve o perfil para aplicar. 📸");
     } catch (error) {
-      alert("Erro ao subir o logo!");
+      showToast("Erro ao subir o logo!", 'erro');
     } finally {
       setSubindoLogo(false);
     }
@@ -1074,7 +1277,7 @@ export default function App() {
     setCustos({ embalagem: '0', impressao: custoPorPaginaCalculado.toFixed(2), energia: '0', outros: '0' });
     setEquipamentosSelecionados([]);
     setLucro('100'); setDesconto('0'); setPrazo(''); setClienteSel('');
-    setPedidoEditandoId(null); setPrecoManual(null); setDocObsPedido('');
+    setPedidoEditandoId(null); setPrecoManual(null); setProdutoCatalogoSelecionadoId(null); setDocObsPedido('');
     setIsDuplicando(false);
     setModoCalculo('peca');
     setPrecoFinalDigitado('0.00');
@@ -1130,11 +1333,11 @@ export default function App() {
 
     setPrecoFinalDigitado(p.preco || '0.00');
     setActiveTab('criar');
-    alert("Orçamento duplicado com sucesso! Defina o cliente e salve. ✨");
+    showToast("Orçamento duplicado com sucesso! Defina o cliente e salve. ✨");
   };
 
   const venderItemDiretoDoCatalogo = (prod: any) => {
-    limparCalculadora(); setNomeProd(prod.nome); setPrecoManual(prod.precoVenda); setActiveTab('criar');
+    limparCalculadora(); setNomeProd(prod.nome); setPrecoManual(prod.precoVenda); setProdutoCatalogoSelecionadoId(prod.id); setActiveTab('criar');
   };
 
   const toggleEquipamento = (id: string) => {
@@ -1216,15 +1419,18 @@ export default function App() {
 
     const pedidosDoMes = pedidos.filter(p => {
       const isVendido = p.status === 'Vendido 💰' || p.status === 'Vendido';
-      if (!isVendido || !p.data) return false;
+      if (!isVendido) return false;
 
-      const partes = p.data.split('/');
-      if (partes.length === 3) {
-        const mesPedido = Number(partes[1]);
-        const anoPedido = Number(partes[2]);
-        return mesPedido === mesAtual && anoPedido === anoAtual;
+      let dataRef: Date | null = null;
+      if (p.dataVenda?.toDate) {
+        dataRef = p.dataVenda.toDate();
+      } else if (p.data) {
+        const partes = p.data.split('/');
+        if (partes.length === 3) dataRef = new Date(Number(partes[2]), Number(partes[1]) - 1, Number(partes[0]));
       }
-      return false;
+      if (!dataRef) return false;
+
+      return dataRef.getMonth() + 1 === mesAtual && dataRef.getFullYear() === anoAtual;
     });
 
     const faturamentoMes = pedidosDoMes.reduce((acc, p) => acc + Number(p.preco || 0), 0);
@@ -1245,23 +1451,30 @@ export default function App() {
 
     pedidos.forEach(p => {
       const isVendido = p.status === 'Vendido 💰' || p.status === 'Vendido';
-      if (!isVendido || !p.data) return;
+      if (!isVendido) return;
 
-      const partes = p.data.split('/');
-      if (partes.length === 3) {
-        const mes = Number(partes[1]);
-        const ano = Number(partes[2]);
-        const chave = `${ano}-${String(mes).padStart(2, '0')}`;
-        const nomeMesTexto = `${nomesMeses[mes - 1]} / ${ano}`;
-
-        if (!agrupado[chave]) {
-          agrupado[chave] = { total: 0, qtd: 0, mesAnoTexto: nomeMesTexto, itensVendidos: [] };
-        }
-
-        agrupado[chave].total += Number(p.preco || 0);
-        agrupado[chave].qtd += 1;
-        agrupado[chave].itensVendidos.push(p);
+      let mes: number | null = null;
+      let ano: number | null = null;
+      if (p.dataVenda?.toDate) {
+        const d = p.dataVenda.toDate();
+        mes = d.getMonth() + 1;
+        ano = d.getFullYear();
+      } else if (p.data) {
+        const partes = p.data.split('/');
+        if (partes.length === 3) { mes = Number(partes[1]); ano = Number(partes[2]); }
       }
+      if (!mes || !ano) return;
+
+      const chave = `${ano}-${String(mes).padStart(2, '0')}`;
+      const nomeMesTexto = `${nomesMeses[mes - 1]} / ${ano}`;
+
+      if (!agrupado[chave]) {
+        agrupado[chave] = { total: 0, qtd: 0, mesAnoTexto: nomeMesTexto, itensVendidos: [] };
+      }
+
+      agrupado[chave].total += Number(p.preco || 0);
+      agrupado[chave].qtd += 1;
+      agrupado[chave].itensVendidos.push(p);
     });
 
     return Object.keys(agrupado)
@@ -1749,7 +1962,7 @@ export default function App() {
           <p className="font-bold text-purple-700 uppercase text-[10px]">Escolha um produto pronto:</p>
           <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto w-full">
             {produtos.map(p => (
-              <div key={p.id} onClick={() => { setNomeProd(p.nome); setPrecoManual(String(p.precoVenda)); setMostrarSeletorCatalogo(false); }} className="bg-white p-2.5 rounded-xl border flex justify-between items-center cursor-pointer hover:border-purple-400 w-full">
+              <div key={p.id} onClick={() => { setNomeProd(p.nome); setPrecoManual(String(p.precoVenda)); setProdutoCatalogoSelecionadoId(p.id); setMostrarSeletorCatalogo(false); }} className="bg-white p-2.5 rounded-xl border flex justify-between items-center cursor-pointer hover:border-purple-400 w-full">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-lg bg-slate-50 overflow-hidden shrink-0 flex items-center justify-center text-slate-300">
                     {p.urlImagem ? <img src={p.urlImagem} className="w-full h-full object-cover" /> : <ImageIcon size={14}/>}
@@ -1880,6 +2093,15 @@ export default function App() {
               <input type="date" className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-xs font-bold block" value={prazo} onChange={e => setPrazo(e.target.value)} />
             </div>
           </div>
+
+          {Number(lucro) < Number(financasFixo.margemMinima || 0) && (
+            <div className="bg-red-50 border border-red-200 p-4 rounded-2xl mb-4 flex items-center gap-2 w-full">
+              <span className="text-red-500 text-lg">⚠️</span>
+              <p className="text-red-600 text-xs font-bold">
+                Sua margem de lucro ({lucro}%) está abaixo do mínimo definido ({financasFixo.margemMinima || 0}%). Considere ajustar o preço ou o percentual de lucro.
+              </p>
+            </div>
+          )}
         </>
       ) : (
         <div className="bg-orange-50 border border-orange-100 p-4 rounded-3xl mb-4 text-xs w-full">
@@ -1945,9 +2167,11 @@ export default function App() {
 
         <div className="w-full pt-2 flex justify-center">
           <button
-            style={{ backgroundColor: themeColors.secondary }}
+            disabled={!!salvando.orcamento}
+            style={{ backgroundColor: themeColors.secondary, opacity: salvando.orcamento ? 0.6 : 1 }}
             onClick={async () => {
-             if(!nomeProd) return alert("Digite o nome do produto!");
+             if (salvando.orcamento) return;
+             if(!nomeProd) return showToast("Digite o nome do produto!", 'erro');
 
              const precoFinalSalvar = Number(precoFinalDigitado || 0).toFixed(2);
 
@@ -1971,20 +2195,32 @@ export default function App() {
                materiaisUsados: precoManual ? [] : matsNoPed.map(m => ({ id: m.id, nome: m.nome, qtdUsada: Number(m.qtdUsada || 1) }))
              };
 
+             setSalvando(prev => ({ ...prev, orcamento: true }));
              try {
                if (pedidoEditandoId) await updateDoc(doc(db, "pedidos", pedidoEditandoId), dadosPedido);
-               else await addDoc(collection(db, "pedidos"), { ...dadosPedido, data: new Date().toLocaleDateString('pt-BR'), status: 'Pendente', userId: user.uid });
+               else await addDoc(collection(db, "pedidos"), { ...dadosPedido, data: new Date().toLocaleDateString('pt-BR'), dataVenda: Timestamp.now(), status: 'Pendente', userId: user.uid });
+
+               if (precoManual !== null && produtoCatalogoSelecionadoId) {
+                 try {
+                   await addDoc(collection(db, "produtos", produtoCatalogoSelecionadoId, "historicoPrecos"), {
+                     preco: Number(precoFinalSalvar),
+                     data: Timestamp.now()
+                   });
+                 } catch {}
+               }
 
                gerarPDF({nomeProd, detalhamentoPed, preco: precoFinalSalvar, clienteId: clienteSel, prazo, qtdPed, obsPedido: docObsPedido});
 
                limparCalculadora();
                setActiveTab('pedidos');
-               alert("Orçamento salvo e PDF gerado com sucesso! 🚀");
+               showToast("Orçamento salvo e PDF gerado com sucesso! 🚀");
              } catch (error) {
-               alert("Erro ao salvar dados.");
+               showToast("Erro ao salvar dados.", 'erro');
+             } finally {
+               setSalvando(prev => ({ ...prev, orcamento: false }));
              }
           }} className="w-full max-w-xs hover:opacity-90 text-white font-black py-4 rounded-[26px] uppercase text-xs shadow-lg transition-transform active:scale-95 tracking-widest text-center">
-            Salvar e Gerar PDF
+            {salvando.orcamento ? 'Salvando...' : 'Salvar e Gerar PDF'}
           </button>
         </div>
       </div>
@@ -1994,32 +2230,41 @@ export default function App() {
   // Cria (ou atualiza) UMA anotação, guardando datas extras no mesmo documento —
   // ela vai aparecer em todos os dias da Agenda, mas continua sendo 1 card só no Kanban
   const salvarAnotacao = async (irParaKanban: boolean) => {
-    if(!novaAnotacao.titulo) return alert(irParaKanban ? "Seu pedido precisa de uma descrição básica!" : "Sua tarefa precisa de uma descrição básica!");
+    if (salvando.anotacao) return;
+    if(!novaAnotacao.titulo) return showToast(irParaKanban ? "Seu pedido precisa de uma descrição básica!" : "Sua tarefa precisa de uma descrição básica!", 'erro');
     const extras = datasExtras.filter(d => d !== novaAnotacao.dataPrazo);
 
-    if (novaAnotacao.id) {
-      const dadosNota: any = { titulo: novaAnotacao.titulo, conteudo: novaAnotacao.conteudo || '', dataPrazo: novaAnotacao.dataPrazo, datasExtras: extras, concluido: false };
-      if (irParaKanban) { dadosNota.apareceNoKanban = true; dadosNota.statusKanban = 'a_fazer'; }
-      await updateDoc(doc(db, "anotacoes", novaAnotacao.id), dadosNota);
-    } else {
-      const dadosNota: any = {
-        titulo: novaAnotacao.titulo,
-        conteudo: novaAnotacao.conteudo || '',
-        dataPrazo: novaAnotacao.dataPrazo,
-        datasExtras: extras,
-        concluido: false,
-        userId: user.uid,
-        dataCriacao: new Date().toLocaleDateString('pt-BR'),
-        apareceNoKanban: irParaKanban
-      };
-      if (irParaKanban) dadosNota.statusKanban = 'a_fazer';
-      await addDoc(collection(db, "anotacoes"), dadosNota);
-    }
+    setSalvando(prev => ({ ...prev, anotacao: true }));
+    try {
+      if (novaAnotacao.id) {
+        const dadosNota: any = { titulo: novaAnotacao.titulo, conteudo: novaAnotacao.conteudo || '', dataPrazo: novaAnotacao.dataPrazo, datasExtras: extras, prioridade: novaAnotacao.prioridade || 'media', concluido: false };
+        if (irParaKanban) { dadosNota.apareceNoKanban = true; dadosNota.statusKanban = 'a_fazer'; }
+        await updateDoc(doc(db, "anotacoes", novaAnotacao.id), dadosNota);
+      } else {
+        const dadosNota: any = {
+          titulo: novaAnotacao.titulo,
+          conteudo: novaAnotacao.conteudo || '',
+          dataPrazo: novaAnotacao.dataPrazo,
+          datasExtras: extras,
+          prioridade: novaAnotacao.prioridade || 'media',
+          concluido: false,
+          userId: user.uid,
+          dataCriacao: new Date().toLocaleDateString('pt-BR'),
+          apareceNoKanban: irParaKanban
+        };
+        if (irParaKanban) dadosNota.statusKanban = 'a_fazer';
+        await addDoc(collection(db, "anotacoes"), dadosNota);
+      }
 
-    setNovaAnotacao({ id: '', titulo: '', conteudo: '', dataPrazo: new Date().toISOString().split('T')[0] });
-    setDatasExtras([]);
-    alert(irParaKanban ? "Pedido criado no Kanban com sucesso! 🗂️✨" : "Tarefa agendada com sucesso! 📅✨");
-    if (irParaKanban) setSubAbaAnotacoes('kanban');
+      setNovaAnotacao({ id: '', titulo: '', conteudo: '', dataPrazo: new Date().toISOString().split('T')[0], prioridade: 'media' });
+      setDatasExtras([]);
+      showToast(irParaKanban ? "Pedido criado no Kanban com sucesso! 🗂️✨" : "Tarefa agendada com sucesso! 📅✨");
+      if (irParaKanban) setSubAbaAnotacoes('kanban');
+    } catch {
+      showToast("Erro ao salvar tarefa.", 'erro');
+    } finally {
+      setSalvando(prev => ({ ...prev, anotacao: false }));
+    }
   };
 
   const formularioTarefaKanban = (
@@ -2033,6 +2278,19 @@ export default function App() {
       <div className="mb-4 w-full">
         <label style={{ color: themeColors.secondary }} className="text-[10px] font-bold uppercase ml-1">Data Limite / Prazo</label>
         <input type="date" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm block mt-1" value={novaAnotacao.dataPrazo} onChange={e => setNovaAnotacao({...novaAnotacao, dataPrazo: e.target.value})} />
+      </div>
+
+      <div className="mb-4 w-full">
+        <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-2">Prioridade</label>
+        <div className="grid grid-cols-3 gap-2">
+          {[{v:'baixa', l:'Baixa', c:'#94a3b8'},{v:'media', l:'Média', c:'#f59e0b'},{v:'alta', l:'Alta', c:'#ef4444'}].map(op => (
+            <button key={op.v} type="button" onClick={() => setNovaAnotacao({...novaAnotacao, prioridade: op.v})}
+              style={{ backgroundColor: novaAnotacao.prioridade === op.v ? op.c : undefined }}
+              className={`py-2.5 rounded-xl text-xs font-bold uppercase ${novaAnotacao.prioridade === op.v ? 'text-white' : 'bg-slate-100 text-slate-500'}`}>
+              {op.l}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="mb-4 w-full">
@@ -2062,19 +2320,21 @@ export default function App() {
       <p className="text-[10px] font-bold text-slate-400 uppercase ml-1 mb-2">Onde isso deve aparecer?</p>
       <div className="grid grid-cols-2 gap-3">
         <button
-          style={{ backgroundColor: themeColors.secondary }}
+          disabled={!!salvando.anotacao}
+          style={{ backgroundColor: themeColors.secondary, opacity: salvando.anotacao ? 0.6 : 1 }}
           onClick={() => salvarAnotacao(false)}
           className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-[10px] shadow-md flex flex-col items-center gap-1">
           <CheckSquare size={18}/>
-          {novaAnotacao.id ? 'Atualizar Tarefa' : 'Agendar Tarefa'}
+          {salvando.anotacao ? 'Salvando...' : (novaAnotacao.id ? 'Atualizar Tarefa' : 'Agendar Tarefa')}
         </button>
 
         <button
-          style={{ backgroundColor: themeColors.primary }}
+          disabled={!!salvando.anotacao}
+          style={{ backgroundColor: themeColors.primary, opacity: salvando.anotacao ? 0.6 : 1 }}
           onClick={() => salvarAnotacao(true)}
           className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-[10px] shadow-md flex flex-col items-center gap-1">
           🗂️
-          {novaAnotacao.id ? 'Atualizar e ir p/ Kanban' : 'Novo Pedido no Kanban'}
+          {salvando.anotacao ? 'Salvando...' : (novaAnotacao.id ? 'Atualizar e ir p/ Kanban' : 'Novo Pedido no Kanban')}
         </button>
       </div>
     </div>
@@ -2082,6 +2342,14 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 pb-32 font-sans text-slate-700 w-full relative overflow-x-hidden">
+
+      {mostrarOnboarding && <OnboardingCarrossel onFinalizar={finalizarOnboarding} />}
+      <Toast toast={toast} />
+      <ConfirmModal
+        modal={modalConfirm}
+        onCancel={() => setModalConfirm(null)}
+        onConfirm={() => { modalConfirm?.onConfirm(); setModalConfirm(null); }}
+      />
 
       <div className={`fixed inset-0 bg-black/40 z-50 transition-opacity duration-300 ${isMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`} onClick={() => setIsMenuOpen(false)}>
         <div className={`w-72 bg-white h-full shadow-2xl p-6 flex flex-col justify-between transition-transform duration-300 ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'}`} onClick={e => e.stopPropagation()}>
@@ -2149,6 +2417,29 @@ export default function App() {
                 <Calculator size={24}/>
               </div>
             </div>
+
+            {proximasEntregas.length > 0 && (
+              <div className="bg-white p-5 rounded-[35px] border shadow-sm w-full">
+                <h3 style={{ color: themeColors.primary }} className="font-black uppercase text-xs tracking-wider mb-3 flex items-center gap-1.5">
+                  <Clock size={16}/> Próximas Entregas (7 dias)
+                </h3>
+                <div className="space-y-2">
+                  {proximasEntregas.map(p => {
+                    const cli = clientes.find(c => c.id === p.clienteId);
+                    const dataFormatada = new Date(p.prazo + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+                    return (
+                      <div key={p.id} className="flex justify-between items-center bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                        <div className="min-w-0">
+                          <p className="font-bold text-slate-800 text-xs truncate">{p.nomeProd}</p>
+                          <p className="text-[10px] text-slate-400">{cli?.nome || 'Sem cliente'}</p>
+                        </div>
+                        <span style={{ color: themeColors.secondary }} className="text-xs font-black shrink-0 ml-2">{dataFormatada}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             <div className="bg-white p-5 rounded-[35px] border shadow-sm w-full space-y-4">
               <div className="flex justify-between items-center px-1">
@@ -2436,8 +2727,10 @@ export default function App() {
               </div>
 
               <button
-                style={{ backgroundColor: themeColors.primary }}
+                disabled={!!salvando.perfil}
+                style={{ backgroundColor: themeColors.primary, opacity: salvando.perfil ? 0.6 : 1 }}
                 onClick={async () => {
+                setSalvando(prev => ({ ...prev, perfil: true }));
                 try {
                   await setDoc(doc(db, "configuracoes_loja", user.uid), {
                     nomeLoja: nomeLojaPerfil.trim(),
@@ -2454,13 +2747,15 @@ export default function App() {
                     suporteZap: suporteZapPerfil.trim(),
                     themeColors: themeColors
                   }, { merge: true });
-                  alert("Perfil e dados da empresa salvos com sucesso! 🚀");
+                  showToast("Perfil e dados da empresa salvos com sucesso! 🚀");
                   setActiveTab('inicio');
                 } catch {
-                  alert("Erro ao salvar as configurações da empresa.");
+                  showToast("Erro ao salvar as configurações da empresa.", 'erro');
+                } finally {
+                  setSalvando(prev => ({ ...prev, perfil: false }));
                 }
-              }} className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md" disabled={subindoLogo}>
-                Salvar Configurações da Marca
+              }} className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md" >
+                {salvando.perfil ? 'Salvando...' : 'Salvar Configurações da Marca'}
               </button>
             </div>
           </div>
@@ -2516,16 +2811,44 @@ export default function App() {
                   </div>
                 </div>
 
+                {templatesContrato.length > 0 && (
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Usar um template salvo</label>
+                    <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold text-slate-800 border" onChange={e => {
+                      const t = templatesContrato.find(item => item.id === e.target.value);
+                      if (t) setNovoContrato(prev => ({ ...prev, clausulas: t.clausulas }));
+                    }} value="">
+                      <option value="">📄 Escolher template...</option>
+                      {templatesContrato.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
+                    </select>
+                  </div>
+                )}
+
                 <div>
                   <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Cláusulas e Termos do Contrato</label>
                   <textarea className="w-full p-4 bg-slate-50 rounded-2xl font-medium text-slate-800 outline-none border focus:border-purple-400 h-32 resize-none text-xs leading-relaxed" value={novoContrato.clausulas} onChange={e => setNovoContrato({...novoContrato, clausulas: e.target.value})} />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nomeTemplate = window.prompt("Nome do template (ex: Sublimação, Festa Infantil...)");
+                      if (!nomeTemplate) return;
+                      addDoc(collection(db, "templates_contrato"), { nome: nomeTemplate, clausulas: novoContrato.clausulas, userId: user.uid })
+                        .then(() => showToast("Template salvo! Já aparece no seletor pra próxima vez. 📄"))
+                        .catch(() => showToast("Erro ao salvar template.", 'erro'));
+                    }}
+                    className="text-[10px] font-black uppercase text-purple-600 underline mt-2 block"
+                  >
+                    💾 Salvar cláusulas atuais como template
+                  </button>
                 </div>
               </div>
 
               <button
-                style={{ backgroundColor: themeColors.primary }}
+                disabled={!!salvando.contrato}
+                style={{ backgroundColor: themeColors.primary, opacity: salvando.contrato ? 0.6 : 1 }}
                 onClick={async () => {
-                if (!novoContrato.clienteId || !novoContrato.valorTotal) return alert("Selecione o cliente e o valor total!");
+                if (salvando.contrato) return;
+                if (!novoContrato.clienteId || !novoContrato.valorTotal) return showToast("Selecione o cliente e o valor total!", 'erro');
 
                 const dadosContrato = {
                   clienteId: novoContrato.clienteId,
@@ -2538,23 +2861,26 @@ export default function App() {
                   userId: user.uid
                 };
 
+                setSalvando(prev => ({ ...prev, contrato: true }));
                 try {
                   if (novoContrato.id) {
                     await updateDoc(doc(db, "contratos", novoContrato.id), dadosContrato);
-                    alert("Contrato atualizado com sucesso!");
+                    showToast("Contrato atualizado com sucesso!");
                     gerarPDFContrato({ id: novoContrato.id, ...dadosContrato });
                   } else {
                     const refCriado = await addDoc(collection(db, "contratos"), dadosContrato);
-                    alert("Contrato gerado com sucesso!");
+                    showToast("Contrato gerado com sucesso!");
                     gerarPDFContrato({ id: refCriado.id, ...dadosContrato });
                   }
 
                   setNovoContrato({ id: '', clienteId: '', tipoEvento: '', dataEvento: '', localEvento: '', valorTotal: '', clausulas: novoContrato.clausulas });
                 } catch {
-                  alert("Erro ao salvar o contrato.");
+                  showToast("Erro ao salvar o contrato.", 'erro');
+                } finally {
+                  setSalvando(prev => ({ ...prev, contrato: false }));
                 }
               }} className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md">
-                {novoContrato.id ? 'Salvar Alterações do Contrato' : 'Salvar e Gerar PDF do Contrato 📄'}
+                {salvando.contrato ? 'Salvando...' : (novoContrato.id ? 'Salvar Alterações do Contrato' : 'Salvar e Gerar PDF do Contrato 📄')}
               </button>
             </div>
 
@@ -2653,7 +2979,7 @@ export default function App() {
                             </div>
                           </div>
                           <div className="flex gap-1 shrink-0 ml-2">
-                            <button onClick={() => { setNovaAnotacao({ id: item.id, titulo: item.titulo, conteudo: item.conteudo, dataPrazo: item.dataPrazo || new Date().toISOString().split('T')[0] }); setDatasExtras(item.datasExtras || []); }} className="text-orange-400 p-2 hover:bg-orange-50 rounded-xl"><Edit2 size={16}/></button>
+                            <button onClick={() => { setNovaAnotacao({ id: item.id, titulo: item.titulo, conteudo: item.conteudo, dataPrazo: item.dataPrazo || new Date().toISOString().split('T')[0], prioridade: item.prioridade || 'media' }); setDatasExtras(item.datasExtras || []); }} className="text-orange-400 p-2 hover:bg-orange-50 rounded-xl"><Edit2 size={16}/></button>
                             <button onClick={() => confirmarExcluir('anotacao', item.id)} className="text-red-200 p-2 hover:bg-red-50 rounded-xl"><Trash2 size={16}/></button>
                           </div>
                         </div>
@@ -2698,20 +3024,27 @@ export default function App() {
                           {itensDaColuna.map(item => {
                             const datasKanban = [item.dataPrazo, ...(item.datasExtras || [])].filter(Boolean);
                             const datasKanbanTxt = datasKanban.map((d: string) => d.split('-').reverse().join('/')).join(', ');
+                            const dias = item.dataPrazo ? diasRestantes(item.dataPrazo) : null;
+                            const perto = dias !== null && dias <= 2 && dias >= 0;
+                            const atrasado = dias !== null && dias < 0;
+                            const coresPrioridade: any = { baixa: '#94a3b8', media: '#f59e0b', alta: '#ef4444' };
                             return (
                             <div
                               key={`${item.tipo}-${item.id}`}
                               draggable
                               onDragStart={() => setItemArrastandoId(item.id)}
                               onDragEnd={() => { setItemArrastandoId(null); setColunaAlvoOver(null); }}
-                              className={`bg-slate-50 border border-slate-100 rounded-2xl p-3 cursor-grab active:cursor-grabbing transition-opacity ${itemArrastandoId === item.id ? 'opacity-30' : 'opacity-100'}`}
+                              style={{ borderLeftWidth: 4, borderLeftColor: coresPrioridade[item.prioridade || 'media'] }}
+                              className={`bg-slate-50 border border-slate-100 rounded-2xl p-3 cursor-grab active:cursor-grabbing transition-opacity ${itemArrastandoId === item.id ? 'opacity-30' : 'opacity-100'} ${(perto || atrasado) ? 'ring-1 ring-red-300' : ''}`}
                             >
                               <div className="flex items-center gap-1.5 mb-1">
                                 {item.tipo === 'pedido' && <span className="text-[8px] bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded font-black uppercase">💰 Pedido</span>}
                               </div>
                               <p className="font-bold text-slate-800 text-xs break-words">{item.titulo}</p>
                               {datasKanbanTxt && (
-                                <p className="text-[10px] text-slate-400 font-semibold mt-1">🗓️ {datasKanbanTxt}</p>
+                                <p className={`text-[10px] font-semibold mt-1 ${(perto || atrasado) ? 'text-red-500' : 'text-slate-400'}`}>
+                                  🗓️ {atrasado ? 'Atrasado' : dias === 0 ? 'Vence hoje' : datasKanbanTxt}
+                                </p>
                               )}
                               {item.conteudo && <p className="text-[10px] text-slate-500 mt-1">{item.conteudo}</p>}
                               <div className="flex justify-between items-center mt-2 gap-1">
@@ -2795,18 +3128,32 @@ export default function App() {
                   </div>
                 </div>
 
+                <div className="mt-1 mb-5">
+                  <label style={{ color: themeColors.primary }} className="text-[10px] font-bold uppercase ml-1">Margem de Lucro Mínima Aceitável (%)</label>
+                  <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-bold" value={financasFixo.margemMinima} onChange={e => setFinancasFixo({...financasFixo, margemMinima: e.target.value})} />
+                  <p className="text-[10px] text-slate-400 mt-1">Você recebe um alerta ao orçar abaixo desse percentual.</p>
+                </div>
+
                 <button
-                  style={{ backgroundColor: themeColors.primary }}
+                  disabled={!!salvando.financeiroGeral}
+                  style={{ backgroundColor: themeColors.primary, opacity: salvando.financeiroGeral ? 0.6 : 1 }}
                   onClick={async () => {
-                  await setDoc(doc(db, "configuracoes_financeiras", user.uid), financasFixo, { merge: true });
+                  setSalvando(prev => ({ ...prev, financeiroGeral: true }));
+                  try {
+                    await setDoc(doc(db, "configuracoes_financeiras", user.uid), financasFixo, { merge: true });
 
-                  const totalHoras = Number(financasFixo.diasTrabalho || 20) * Number(financasFixo.horasDia || 8);
-                  const intentCustos = Number(financasFixo.salario || 0) + Number(financasFixo.aluguel || 0) + Number(financasFixo.internet || 0) + Number(financasFixo.luz || 0) + Number(financasFixo.outros || 0);
-                  if (intentCustos > 0) setVHora((intentCustos / totalHoras).toFixed(2));
+                    const totalHoras = Number(financasFixo.diasTrabalho || 20) * Number(financasFixo.horasDia || 8);
+                    const intentCustos = Number(financasFixo.salario || 0) + Number(financasFixo.aluguel || 0) + Number(financasFixo.internet || 0) + Number(financasFixo.luz || 0) + Number(financasFixo.outros || 0);
+                    if (intentCustos > 0) setVHora((intentCustos / totalHoras).toFixed(2));
 
-                  alert("Custos salvos com sucesso! O valor sugerido para a hora foi atualizado na calculadora. 🎉");
+                    showToast("Custos salvos com sucesso! O valor sugerido para a hora foi atualizado na calculadora. 🎉");
+                  } catch {
+                    showToast("Erro ao salvar custos.", 'erro');
+                  } finally {
+                    setSalvando(prev => ({ ...prev, financeiroGeral: false }));
+                  }
                 }} className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md">
-                  Salvar Configurações Fixas
+                  {salvando.financeiroGeral ? 'Salvando...' : 'Salvar Configurações Fixas'}
                 </button>
               </div>
             )}
@@ -2883,8 +3230,10 @@ export default function App() {
                 </div>
 
                 <button
-                  style={{ backgroundColor: themeColors.secondary }}
+                  disabled={!!salvando.impressao}
+                  style={{ backgroundColor: themeColors.secondary, opacity: salvando.impressao ? 0.6 : 1 }}
                   onClick={async () => {
+                  setSalvando(prev => ({ ...prev, impressao: true }));
                   try {
                     await setDoc(doc(db, "configuracoes_financeiras", user.uid), {
                       precoTinta,
@@ -2895,12 +3244,14 @@ export default function App() {
                     }, { merge: true });
 
                     setCustos(prev => ({ ...prev, impressao: custoPorPaginaCalculado.toFixed(2) }));
-                    alert("Subcategoria de Impressão gravada! Taxa vinculada com sucesso à calculadora de orçamento. 🚀");
+                    showToast("Subcategoria de Impressão gravada! Taxa vinculada com sucesso à calculadora de orçamento. 🚀");
                   } catch {
-                    alert("Erro ao salvar dados de impressão.");
+                    showToast("Erro ao salvar dados de impressão.", 'erro');
+                  } finally {
+                    setSalvando(prev => ({ ...prev, impressao: false }));
                   }
                 }} className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md mt-4 transition-colors">
-                  Salvar Subcategoria de Custo
+                  {salvando.impressao ? 'Salvando...' : 'Salvar Subcategoria de Custo'}
                 </button>
               </div>
             )}
@@ -2931,16 +3282,25 @@ export default function App() {
                   </div>
 
                   <button
-                    style={{ backgroundColor: themeColors.secondary }}
+                    disabled={!!salvando.equipamento}
+                    style={{ backgroundColor: themeColors.secondary, opacity: salvando.equipamento ? 0.6 : 1 }}
                     onClick={async () => {
-                    if(!novoEquipamento.nome || !novoEquipamento.valorPago) return alert("Preencha o nome e o preço do equipamento!");
-                    const d = { nome: novoEquipamento.nome, valorPago: Number(novoEquipamento.valorPago), durabilidadeAnos: Number(novoEquipamento.durabilidadeAnos), userId: user.uid };
-                    if (novoEquipamento.id) await updateDoc(doc(db, "equipamentos", novoEquipamento.id), d);
-                    else await addDoc(collection(db, "equipamentos"), d);
-                    setNovoEquipamento({ id: '', nome: '', valorPago: '', durabilidadeAnos: '2' });
-                    alert("Equipamento salvo!");
+                    if (salvando.equipamento) return;
+                    if(!novoEquipamento.nome || !novoEquipamento.valorPago) return showToast("Preencha o nome e o preço do equipamento!", 'erro');
+                    setSalvando(prev => ({ ...prev, equipamento: true }));
+                    try {
+                      const d = { nome: novoEquipamento.nome, valorPago: Number(novoEquipamento.valorPago), durabilidadeAnos: Number(novoEquipamento.durabilidadeAnos), userId: user.uid };
+                      if (novoEquipamento.id) await updateDoc(doc(db, "equipamentos", novoEquipamento.id), d);
+                      else await addDoc(collection(db, "equipamentos"), d);
+                      setNovoEquipamento({ id: '', nome: '', valorPago: '', durabilidadeAnos: '2' });
+                      showToast("Equipamento salvo!");
+                    } catch {
+                      showToast("Erro ao salvar equipamento.", 'erro');
+                    } finally {
+                      setSalvando(prev => ({ ...prev, equipamento: false }));
+                    }
                   }} className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md">
-                    Salvar Equipamento
+                    {salvando.equipamento ? 'Salvando...' : 'Salvar Equipamento'}
                   </button>
                 </div>
 
@@ -3103,12 +3463,16 @@ export default function App() {
                 <div className="flex gap-2 w-full">
                   <input placeholder="Ex: 21983858055" className="flex-1 p-2.5 bg-black/20 text-white rounded-xl text-xs font-bold border border-purple-500/30 outline-none" value={zapDonaConta} onChange={e => setZapDonaConta(e.target.value)} />
                   <button
-                    style={{ backgroundColor: themeColors.secondary }}
+                    disabled={!!salvando.zap}
+                    style={{ backgroundColor: themeColors.secondary, opacity: salvando.zap ? 0.6 : 1 }}
                     onClick={async () => {
-                    if(!zapDonaConta.trim()) return alert("Digite o número!");
-                    try { await setDoc(doc(db, "configuracoes_loja", user.uid), { whatsapp: zapDonaConta.trim() }, { merge: true }); alert("WhatsApp salvo!"); }
-                    catch { alert("Erro ao salvar."); }
-                  }} className="text-white text-xs font-black uppercase px-4 rounded-xl shadow hover:opacity-90">Salvar</button>
+                    if (salvando.zap) return;
+                    if(!zapDonaConta.trim()) return showToast("Digite o número!", 'erro');
+                    setSalvando(prev => ({ ...prev, zap: true }));
+                    try { await setDoc(doc(db, "configuracoes_loja", user.uid), { whatsapp: zapDonaConta.trim() }, { merge: true }); showToast("WhatsApp salvo!"); }
+                    catch { showToast("Erro ao salvar.", 'erro'); }
+                    finally { setSalvando(prev => ({ ...prev, zap: false })); }
+                  }} className="text-white text-xs font-black uppercase px-4 rounded-xl shadow hover:opacity-90">{salvando.zap ? '...' : 'Salvar'}</button>
                 </div>
               </div>
             </div>
@@ -3167,9 +3531,10 @@ export default function App() {
               </div>
 
               <button
-                style={{ backgroundColor: themeColors.secondary }}
+                disabled={!!salvando.balcao}
+                style={{ backgroundColor: themeColors.secondary, opacity: salvando.balcao ? 0.6 : 1 }}
                 onClick={lancarVendaBalcaoInterno} className="w-full hover:opacity-90 text-white p-4 rounded-xl text-xs font-black uppercase tracking-wider shadow-lg transition-transform active:scale-95">
-                Lançar Combo no Histórico 🚀
+                {salvando.balcao ? 'Lançando...' : 'Lançar Combo no Histórico 🚀'}
               </button>
             </div>
           </div>
@@ -3183,7 +3548,7 @@ export default function App() {
               </h2>
 
               {novoProdCatalogo.id && (
-                <button onClick={() => setNovoProdCatalogo({ id: '', nome: '', precoVenda: '', urlImagem: '', categorias: [] })} className="text-[10px] bg-slate-100 text-slate-600 px-3 py-1.5 rounded-xl font-bold uppercase tracking-wide mb-4 active:scale-95 transition-all block">Cancelar Modo Edição ❌</button>
+                <button onClick={() => setNovoProdCatalogo({ id: '', nome: '', precoVenda: '', urlImagem: '', categorias: [], materiaisAssociados: [] })} className="text-[10px] bg-slate-100 text-slate-600 px-3 py-1.5 rounded-xl font-bold uppercase tracking-wide mb-4 active:scale-95 transition-all block">Cancelar Modo Edição ❌</button>
               )}
 
               <div className="mb-4 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-3xl p-4 bg-slate-50 relative min-h-[140px] w-full">
@@ -3210,6 +3575,32 @@ export default function App() {
 
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Preço Fixo de Venda (R$)</label>
               <input type="number" placeholder="Ex: 35.00" style={{ color: themeColors.primary }} className="w-full p-4 bg-slate-50 rounded-2xl mb-4 outline-none font-bold border focus:border-purple-400" value={novoProdCatalogo.precoVenda} onChange={e => setNovoProdCatalogo({...novoProdCatalogo, precoVenda: e.target.value})} />
+
+              <div className="mb-5 w-full">
+                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Materiais usados (opcional, pra baixa automática de estoque no Balcão)</label>
+                <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none mb-2 block border" onChange={e => {
+                  const m = materiais.find(item => item.id === e.target.value);
+                  if (m) setNovoProdCatalogo(prev => ({ ...prev, materiaisAssociados: [...(prev.materiaisAssociados || []), { id: m.id, nome: m.nome, qtdUsada: 1 }] }));
+                }} value="">
+                  <option value="">+ Adicionar Material...</option>
+                  {materiais.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
+                </select>
+                <div className="space-y-2 w-full">
+                  {(novoProdCatalogo.materiaisAssociados || []).map((m, i) => (
+                    <div key={i} className="flex justify-between items-center bg-purple-50 p-3 rounded-2xl border border-purple-100 text-purple-700 font-bold text-xs w-full">
+                      <span>{m.nome}</span>
+                      <div className="flex items-center gap-2">
+                        <input type="number" className="w-16 bg-white rounded-lg p-1 text-center" value={m.qtdUsada} onChange={e => {
+                          const nova = [...(novoProdCatalogo.materiaisAssociados || [])];
+                          nova[i] = { ...nova[i], qtdUsada: Number(e.target.value) };
+                          setNovoProdCatalogo(prev => ({ ...prev, materiaisAssociados: nova }));
+                        }} />
+                        <button onClick={() => setNovoProdCatalogo(prev => ({ ...prev, materiaisAssociados: (prev.materiaisAssociados || []).filter((_, idx) => idx !== i) }))}><X size={16}/></button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
 
               <div className="mb-5 w-full">
                 <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Categorias do Produto (Selecione Múltiplas)</label>
@@ -3239,16 +3630,25 @@ export default function App() {
               </div>
 
               <button
-                style={{ backgroundColor: themeColors.primary }}
+                disabled={!!salvando.produto}
+                style={{ backgroundColor: themeColors.primary, opacity: salvando.produto ? 0.6 : 1 }}
                 onClick={async () => {
-                if(!novoProdCatalogo.nome || !novoProdCatalogo.precoVenda) return alert("Preencha o nome e o preço!");
-                const d = { nome: novoProdCatalogo.nome, precoVenda: Number(novoProdCatalogo.precoVenda), urlImagem: novoProdCatalogo.urlImagem || '', categorias: novoProdCatalogo.categorias || [], userId: user.uid };
-                if (novoProdCatalogo.id) await updateDoc(doc(db, "produtos", novoProdCatalogo.id), d);
-                else await addDoc(collection(db, "produtos"), d);
-                setNovoProdCatalogo({ id: '', nome: '', precoVenda: '', urlImagem: '', categorias: [] });
-                alert("Produto salvo no catálogo!");
-              }} className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md" disabled={subindoImagem}>
-                {novoProdCatalogo.id ? 'Salvar Alterações 📝' : 'Salvar no Catálogo 📖'}
+                if (salvando.produto) return;
+                if(!novoProdCatalogo.nome || !novoProdCatalogo.precoVenda) return showToast("Preencha o nome e o preço!", 'erro');
+                setSalvando(prev => ({ ...prev, produto: true }));
+                try {
+                  const d = { nome: novoProdCatalogo.nome, precoVenda: Number(novoProdCatalogo.precoVenda), urlImagem: novoProdCatalogo.urlImagem || '', categorias: novoProdCatalogo.categorias || [], materiaisAssociados: novoProdCatalogo.materiaisAssociados || [], userId: user.uid };
+                  if (novoProdCatalogo.id) await updateDoc(doc(db, "produtos", novoProdCatalogo.id), d);
+                  else await addDoc(collection(db, "produtos"), d);
+                  setNovoProdCatalogo({ id: '', nome: '', precoVenda: '', urlImagem: '', categorias: [], materiaisAssociados: [] });
+                  showToast("Produto salvo no catálogo!");
+                } catch {
+                  showToast("Erro ao salvar produto.", 'erro');
+                } finally {
+                  setSalvando(prev => ({ ...prev, produto: false }));
+                }
+              }} className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md" >
+                {salvando.produto ? 'Salvando...' : (novoProdCatalogo.id ? 'Salvar Alterações 📝' : 'Salvar no Catálogo 📖')}
               </button>
             </div>
 
@@ -3269,10 +3669,32 @@ export default function App() {
                         ))}
                       </div>
                     )}
+                    <button onClick={async () => {
+                      if (historicoPrecoAberto === p.id) { setHistoricoPrecoAberto(null); return; }
+                      try {
+                        const snap = await getDocs(collection(db, "produtos", p.id, "historicoPrecos"));
+                        const dados = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a: any, b: any) => (b.data?.seconds || 0) - (a.data?.seconds || 0));
+                        setHistoricoPrecoDados(dados);
+                        setHistoricoPrecoAberto(p.id);
+                      } catch {
+                        showToast("Erro ao carregar histórico.", 'erro');
+                      }
+                    }} className="text-[10px] text-slate-400 font-bold underline mt-1">Ver histórico de preços</button>
+                    {historicoPrecoAberto === p.id && (
+                      <div className="mt-2 bg-slate-50 rounded-xl p-2 space-y-1">
+                        {historicoPrecoDados.length === 0 && <p className="text-[10px] text-slate-400 italic">Nenhum preço registrado ainda.</p>}
+                        {historicoPrecoDados.map((h: any) => (
+                          <div key={h.id} className="flex justify-between text-[10px] font-semibold text-slate-600">
+                            <span>{h.data?.toDate ? h.data.toDate().toLocaleDateString('pt-BR') : '—'}</span>
+                            <span>R$ {Number(h.preco).toFixed(2)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-1">
                     <button onClick={() => venderItemDiretoDoCatalogo(p)} style={{ backgroundColor: themeColors.secondary }} className="text-white px-3 py-2 rounded-xl text-xs font-black uppercase shadow active:scale-95">Vender 🛍️</button>
-                    <button onClick={() => setNovoProdCatalogo({ id: p.id, nome: p.nome, precoVenda: String(p.precoVenda), urlImagem: p.urlImagem || '', categorias: p.categorias || [] })} className="text-orange-400 hover:bg-orange-50 p-1.5 rounded-xl"><Edit2 size={15}/></button>
+                    <button onClick={() => setNovoProdCatalogo({ id: p.id, nome: p.nome, precoVenda: String(p.precoVenda), urlImagem: p.urlImagem || '', categorias: p.categorias || [], materiaisAssociados: p.materiaisAssociados || [] })} className="text-orange-400 hover:bg-orange-50 p-1.5 rounded-xl"><Edit2 size={15}/></button>
                     <button onClick={() => confirmarExcluir('produto', p.id)} className="text-red-200 p-1.5"><Trash2 size={15}/></button>
                   </div>
                 </div>
@@ -3328,18 +3750,27 @@ export default function App() {
               </div>
 
               <button
-                style={{ backgroundColor: themeColors.secondary }}
+                disabled={!!salvando.fornecedor}
+                style={{ backgroundColor: themeColors.secondary, opacity: salvando.fornecedor ? 0.6 : 1 }}
                 onClick={async () => {
-                if(!novoFornecedor.nome) return alert("Digite o nome do fornecedor!");
-                const d = { nome: novoFornecedor.nome, site: novoFornecedor.site, whatsapp: novoFornecedor.whatsapp, endereco: novoFornecedor.endereco, categorias: novoFornecedor.categorias || [], userId: user.uid };
+                if (salvando.fornecedor) return;
+                if(!novoFornecedor.nome) return showToast("Digite o nome do fornecedor!", 'erro');
+                setSalvando(prev => ({ ...prev, fornecedor: true }));
+                try {
+                  const d = { nome: novoFornecedor.nome, site: novoFornecedor.site, whatsapp: novoFornecedor.whatsapp, endereco: novoFornecedor.endereco, categorias: novoFornecedor.categorias || [], userId: user.uid };
 
-                if (novoFornecedor.id) await updateDoc(doc(db, "fornecedores", novoFornecedor.id), d);
-                else await addDoc(collection(db, "fornecedores"), d);
+                  if (novoFornecedor.id) await updateDoc(doc(db, "fornecedores", novoFornecedor.id), d);
+                  else await addDoc(collection(db, "fornecedores"), d);
 
-                setNovoFornecedor({ id: '', nome: '', site: '', whatsapp: '', endereco: '', categorias: [] });
-                alert("Fornecedor cadastrado com sucesso! 📦🎉");
+                  setNovoFornecedor({ id: '', nome: '', site: '', whatsapp: '', endereco: '', categorias: [] });
+                  showToast("Fornecedor cadastrado com sucesso! 📦🎉");
+                } catch {
+                  showToast("Erro ao salvar fornecedor.", 'erro');
+                } finally {
+                  setSalvando(prev => ({ ...prev, fornecedor: false }));
+                }
               }} className="w-full hover:opacity-90 text-white p-5 rounded-2xl font-black uppercase text-xs shadow-md">
-                {novoFornecedor.id ? 'Atualizar Fornecedor' : 'Salvar Fornecedor'}
+                {salvando.fornecedor ? 'Salvando...' : (novoFornecedor.id ? 'Atualizar Fornecedor' : 'Salvar Fornecedor')}
               </button>
             </div>
 
@@ -3438,12 +3869,10 @@ export default function App() {
                      <div style={{ color: themeColors.secondary }} className="font-black text-xl shrink-0">R$ {p.preco}</div>
                    </div>
 
-                   {/* CORRIGIDO: linha de botões com flex-wrap (nunca corta) e Pendente só mostra
-                       "Iniciar Produção" — Confirmar Venda só aparece quando já está Em Produção */}
                    <div className="flex items-center border-t pt-3 gap-2 w-full flex-wrap">
                       {statusAtual === 'Pendente' && (
                         <>
-                          <button onClick={async () => { await updateDoc(doc(db, "pedidos", p.id), { status: 'Em Produção 🔧', statusKanban: 'a_fazer' }); alert("Pedido movido pro Kanban! 🔧"); }} className="text-purple-600 px-3 py-2 bg-purple-50 rounded-xl text-xs font-bold flex items-center gap-1 active:scale-95 mr-auto">🔧 Iniciar Produção</button>
+                          <button onClick={async () => { await updateDoc(doc(db, "pedidos", p.id), { status: 'Em Produção 🔧', statusKanban: 'a_fazer' }); showToast("Pedido movido pro Kanban! 🔧"); }} className="text-purple-600 px-3 py-2 bg-purple-50 rounded-xl text-xs font-bold flex items-center gap-1 active:scale-95 mr-auto">🔧 Iniciar Produção</button>
                           <button onClick={() => carregarPedidoParaEdicao(p)} style={{ color: themeColors.primary }} className="p-2 bg-purple-50 rounded-xl"><Edit2 size={18}/></button>
                           <button onClick={() => cancelarPedidoSemExcluir(p.id)} title="Cancelar Orçamento" className="text-red-500 p-2 bg-red-50 rounded-xl"><X size={18}/></button>
                         </>
@@ -3465,6 +3894,12 @@ export default function App() {
               <div className="text-center text-slate-400 py-12 text-xs font-bold bg-white rounded-[30px] border shadow-sm">
                 Nenhum pedido nesta categoria no momento. 🎉
               </div>
+            )}
+
+            {temMaisPedidos && pedidosFiltradosPorStatus.length > 0 && (
+              <button onClick={carregarMaisPedidos} disabled={carregandoMais} className="w-full bg-slate-100 text-slate-500 font-bold text-xs uppercase py-3 rounded-2xl mt-2">
+                {carregandoMais ? 'Carregando...' : 'Carregar mais pedidos'}
+              </button>
             )}
           </div>
         )}
@@ -3507,16 +3942,25 @@ export default function App() {
                 </select>
               </div>
               <button
-                style={{ backgroundColor: themeColors.secondary }}
+                disabled={!!salvando.material}
+                style={{ backgroundColor: themeColors.secondary, opacity: salvando.material ? 0.6 : 1 }}
                 onClick={async () => {
-                if(!novoMat.nome) return alert("Digite o nome do insumo!");
-                const d = { nome: novoMat.nome, valor: Number(novoMat.valor), qtd: Number(novoMat.qtd), unidade: novoMat.unidade, qtdAtual: Number(novoMat.qtdAtual || 0), qtdMinima: Number(novoMat.qtdMinima || 0), userId: user.uid };
-                if (novoMat.id) await updateDoc(doc(db, "materiais", novoMat.id), d);
-                else await addDoc(collection(db, "materiais"), d);
-                setNovoMat({ id: '', nome: '', valor: '', qtd: '1', unidade: 'un', qtdAtual: '0', qtdMinima: '0' });
-                alert("Material Salvo!");
+                if (salvando.material) return;
+                if(!novoMat.nome) return showToast("Digite o nome do insumo!", 'erro');
+                setSalvando(prev => ({ ...prev, material: true }));
+                try {
+                  const d = { nome: novoMat.nome, valor: Number(novoMat.valor), qtd: Number(novoMat.qtd), unidade: novoMat.unidade, qtdAtual: Number(novoMat.qtdAtual || 0), qtdMinima: Number(novoMat.qtdMinima || 0), userId: user.uid, atualizadoEm: Timestamp.now() };
+                  if (novoMat.id) await updateDoc(doc(db, "materiais", novoMat.id), d);
+                  else await addDoc(collection(db, "materiais"), d);
+                  setNovoMat({ id: '', nome: '', valor: '', qtd: '1', unidade: 'un', qtdAtual: '0', qtdMinima: '0' });
+                  showToast("Material Salvo!");
+                } catch {
+                  showToast("Erro ao salvar material.", 'erro');
+                } finally {
+                  setSalvando(prev => ({ ...prev, material: false }));
+                }
               }} className="w-full hover:opacity-90 text-white p-5 rounded-2xl font-black uppercase text-xs">
-                {novoMat.id ? 'Atualizar Insumo' : 'Salvar no Armário'}
+                {salvando.material ? 'Salvando...' : (novoMat.id ? 'Atualizar Insumo' : 'Salvar no Armário')}
               </button>
             </div>
 
@@ -3537,12 +3981,19 @@ export default function App() {
             {materiaisFiltrados.map(m => {
               const estaAcabando = Number(m.qtdAtual || 0) <= Number(m.qtdMinima || 0);
               const valorUnitarioCalculado = Number(m.qtd || 1) > 0 ? (Number(m.valor || 0) / Number(m.qtd || 1)).toFixed(2) : "0.00";
+              const diasDesdeAtualizacao = m.atualizadoEm?.toDate
+                ? Math.floor((Date.now() - m.atualizadoEm.toDate().getTime()) / (1000 * 60 * 60 * 24))
+                : null;
+              const desatualizado = diasDesdeAtualizacao !== null && diasDesdeAtualizacao > 30;
               return (
                 <div key={m.id} className="bg-white p-5 rounded-3xl flex justify-between items-center border w-full mb-2 shadow-sm">
                   <div>
                     <p className="font-bold text-slate-800">{estaAcabando ? '🔴' : '🟢'} {m.nome}</p>
                     <p className="text-xs text-slate-400 mt-1">Custo unitário: <span className="font-bold text-slate-600">R$ {valorUnitarioCalculado}</span></p>
                     <p className="text-xs text-slate-500 mt-0.5">Qtd: <span style={{ color: themeColors.primary }} className="font-bold">{m.qtdAtual} {m.unidade}</span></p>
+                    {desatualizado && (
+                      <p className="text-[10px] text-amber-600 font-bold mt-1 bg-amber-50 inline-block px-2 py-0.5 rounded">⚠️ Preço sem atualizar há {diasDesdeAtualizacao} dias</p>
+                    )}
                   </div>
                   <div className="flex items-center gap-1">
                     <button onClick={async () => await updateDoc(doc(db, "materiais", m.id), { qtdAtual: Math.max(0, Number(m.qtdAtual || 0) - 1) })} className="w-8 h-8 bg-slate-100 rounded-xl font-bold">-</button>
@@ -3581,25 +4032,33 @@ export default function App() {
               <textarea placeholder="Rua, Número, Bairro, Cidade, CEP..." className="w-full p-4 bg-slate-50 rounded-2xl mb-6 outline-none border focus:border-purple-400 resize-none h-20 font-medium text-sm" value={novoCli.endereco || ''} onChange={e => setNovoCli({...novoCli, endereco: e.target.value})} />
 
               <button
-                style={{ backgroundColor: themeColors.secondary }}
+                disabled={!!salvando.cliente}
+                style={{ backgroundColor: themeColors.secondary, opacity: salvando.cliente ? 0.6 : 1 }}
                 onClick={async () => {
-                if(!novoCli.nome) return alert("Digite o nome do cliente!");
+                if (salvando.cliente) return;
+                if(!novoCli.nome) return showToast("Digite o nome do cliente!", 'erro');
+                setSalvando(prev => ({ ...prev, cliente: true }));
+                try {
+                  const dadosCliente = {
+                    nome: novoCli.nome,
+                    zap: novoCli.zap,
+                    email: novoCli.email || '',
+                    endereco: novoCli.endereco || '',
+                    cpfCnpj: novoCli.cpfCnpj || '',
+                    userId: user.uid
+                  };
 
-                const dadosCliente = {
-                  nome: novoCli.nome,
-                  zap: novoCli.zap,
-                  email: novoCli.email || '',
-                  endereco: novoCli.endereco || '',
-                  cpfCnpj: novoCli.cpfCnpj || '',
-                  userId: user.uid
-                };
+                  if(novoCli.id) await updateDoc(doc(db, "clientes", novoCli.id), dadosCliente);
+                  else await addDoc(collection(db, "clientes"), dadosCliente);
 
-                if(novoCli.id) await updateDoc(doc(db, "clientes", novoCli.id), dadosCliente);
-                else await addDoc(collection(db, "clientes"), dadosCliente);
-
-                setNovoCli({ id: '', nome: '', zap: '', email: '', endereco: '', cpfCnpj: '' });
-                alert("Cadastro do cliente salvo com sucesso! 🎉");
-              }} className="w-full hover:opacity-90 text-white p-5 rounded-2xl font-black uppercase text-xs">Salvar Cliente</button>
+                  setNovoCli({ id: '', nome: '', zap: '', email: '', endereco: '', cpfCnpj: '' });
+                  showToast("Cadastro do cliente salvo com sucesso! 🎉");
+                } catch {
+                  showToast("Erro ao salvar cliente.", 'erro');
+                } finally {
+                  setSalvando(prev => ({ ...prev, cliente: false }));
+                }
+              }} className="w-full hover:opacity-90 text-white p-5 rounded-2xl font-black uppercase text-xs">{salvando.cliente ? 'Salvando...' : 'Salvar Cliente'}</button>
             </div>
             {clientes.map(c => (
               <div key={c.id} className="bg-white p-5 rounded-3xl flex flex-col gap-2 border shadow-sm font-bold w-full mb-2">
@@ -3613,7 +4072,7 @@ export default function App() {
                   </div>
                   <div className="flex gap-1 shrink-0">
                     <button onClick={() => setNovoCli({ id: c.id, nome: c.nome, zap: c.zap || '', email: c.email || '', endereco: c.endereco || '', cpfCnpj: c.cpfCnpj || '' })} className="text-orange-400 p-2"><Edit2 size={18}/></button>
-                    <button onClick={() => deleteDoc(doc(db, "clientes", c.id))} className="text-red-200 p-2"><Trash2 size={20}/></button>
+                    <button onClick={() => confirmar("Tem certeza de que deseja excluir este cliente?", async () => { await deleteDoc(doc(db, "clientes", c.id)); showToast("Cliente excluído."); })} className="text-red-200 p-2"><Trash2 size={20}/></button>
                   </div>
                 </div>
               </div>
@@ -3659,7 +4118,7 @@ export default function App() {
               <button
                 onClick={() => {
                   const numero = (suporteZapPerfil || zapDonaConta || '').replace(/\D/g, '');
-                  if (!numero) return alert("Cadastre o WhatsApp de suporte no Perfil da Loja primeiro!");
+                  if (!numero) return showToast("Cadastre o WhatsApp de suporte no Perfil da Loja primeiro!", 'erro');
                   window.open(`https://wa.me/55${numero}?text=${encodeURIComponent('Olá! Preciso de ajuda com o PrecificaJá 🙌')}`, '_blank');
                 }}
                 style={{ backgroundColor: themeColors.primary }}
