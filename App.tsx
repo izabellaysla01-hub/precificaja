@@ -101,6 +101,24 @@ const ConfirmModal = ({ modal, onCancel, onConfirm }: { modal: { msg: string } |
   );
 };
 
+const ModalSinal = ({ pedido, valor, setValor, onCancel, onConfirmar }: { pedido: any; valor: string; setValor: (v: string) => void; onCancel: () => void; onConfirmar: () => void }) => {
+  if (!pedido) return null;
+  return (
+    <div className="fixed inset-0 bg-black/50 z-[110] flex items-center justify-center p-6" onClick={onCancel}>
+      <div className="bg-white rounded-3xl p-6 max-w-sm w-full" onClick={e => e.stopPropagation()}>
+        <p className="text-sm font-bold text-slate-700 mb-1">Registrar sinal recebido</p>
+        <p className="text-xs text-slate-400 mb-4">{pedido.nomeProd} — Total: R$ {Number(pedido.preco || 0).toFixed(2)}</p>
+        <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Valor do Sinal (R$)</label>
+        <input type="number" autoFocus className="w-full p-4 bg-slate-50 rounded-2xl mb-4 outline-none font-bold border" value={valor} onChange={e => setValor(e.target.value)} />
+        <div className="flex gap-3">
+          <button onClick={onCancel} className="flex-1 bg-slate-100 text-slate-600 font-bold text-xs uppercase py-3 rounded-xl">Cancelar</button>
+          <button onClick={onConfirmar} className="flex-1 bg-emerald-500 text-white font-bold text-xs uppercase py-3 rounded-xl">Confirmar</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const OnboardingCarrossel = ({ onFinalizar }: { onFinalizar: () => void }) => {
   const [step, setStep] = useState(0);
   const tela = TELAS_ONBOARDING[step];
@@ -315,7 +333,7 @@ export default function App() {
   const [carregandoAssinatura, setCarregandoAssinatura] = useState(false);
   const [assinaturaEnviada, setAssinaturaEnviada] = useState(false);
 
-  const [activeTab, useStateActiveTab] = useState<'inicio' | 'materiais' | 'criar' | 'pedidos' | 'clientes' | 'catalogo' | 'balcao' | 'financeiro' | 'perfil' | 'anotacoes' | 'fornecedores' | 'contratos' | 'atualizacoes' | 'suporte' | 'comissoes'>('inicio');
+  const [activeTab, useStateActiveTab] = useState<'inicio' | 'materiais' | 'criar' | 'pedidos' | 'clientes' | 'catalogo' | 'balcao' | 'financeiro' | 'perfil' | 'anotacoes' | 'fornecedores' | 'contratos' | 'atualizacoes' | 'suporte' | 'comissoes' | 'caixa'>('inicio');
 
   const [subAbaFinanceiro, setSubAbaFinanceiro] = useState<'geral' | 'impressao' | 'equipamentos' | 'historico'>('geral');
 
@@ -343,6 +361,11 @@ export default function App() {
   const [novoCanal, setNovoCanal] = useState({ id: '', nome: '', comissaoPercent: '', taxaFixa: '0' });
   const [custoTesteComissao, setCustoTesteComissao] = useState('0');
   const [precoTesteComissao, setPrecoTesteComissao] = useState('0');
+  const [movimentacoesCaixa, setMovimentacoesCaixa] = useState<any[]>([]);
+  const [novaMovimentacao, setNovaMovimentacao] = useState({ tipo: 'saida', descricao: '', valor: '', materialVinculado: '', qtdComprada: '' });
+  const [filtroTipoCaixa, setFiltroTipoCaixa] = useState<'todos' | 'entrada' | 'saida'>('todos');
+  const [mostrarModalSinal, setMostrarModalSinal] = useState<any>(null);
+  const [valorSinalInput, setValorSinalInput] = useState('');
 
   const [pesquisaMateriais, setPesquisaMateriais] = useState('');
   const [pesquisaFornecedores, setPesquisaFornecedores] = useState('');
@@ -718,6 +741,11 @@ export default function App() {
       const qCanaisVenda = query(collection(db, "canais_venda"), where("userId", "==", user.uid));
       const unsubCanaisVenda = onSnapshot(qCanaisVenda, s => setCanaisVenda(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
+      // Sem orderBy aqui de propósito (mesmo erro que já tivemos nos pedidos):
+      // where + orderBy junto exige índice composto. Ordenamos no JS em vez disso.
+      const qCaixa = query(collection(db, "movimentacoes_caixa"), where("userId", "==", user.uid));
+      const unsubCaixa = onSnapshot(qCaixa, s => setMovimentacoesCaixa(s.docs.map(d => ({ id: d.id, ...d.data() }))));
+
       const qConfigFin = doc(db, "configuracoes_financeiras", user.uid);
       getDoc(qConfigFin).then(snap => {
         if (snap.exists()) {
@@ -761,6 +789,7 @@ export default function App() {
         unsubCatsForn();
         unsubFornecedores();
         unsubCanaisVenda();
+        unsubCaixa();
       };
     }
   }, [user, idLojaPublica]);
@@ -1256,8 +1285,47 @@ export default function App() {
       }
     }
 
-    await updateDoc(doc(db, "pedidos", pedido.id), { status: 'Vendido 💰' });
+    // Lança no caixa só o saldo que ainda faltava (o sinal, se houve, já foi lançado
+    // separadamente quando foi registrado) — assim nunca conta o valor em dobro.
+    const valorSinalJaRecebido = Number(pedido.valorSinal || 0);
+    const valorRestante = Math.max(0, Number(pedido.preco || 0) - valorSinalJaRecebido);
+
+    await updateDoc(doc(db, "pedidos", pedido.id), { status: 'Vendido 💰', statusPagamento: 'pago_total' });
+
+    if (valorRestante > 0) {
+      await registrarMovimentacaoCaixa('entrada', valorRestante, `Venda — ${pedido.nomeProd}${valorSinalJaRecebido > 0 ? ' (saldo restante)' : ''}`, 'venda', pedido.id);
+    }
+
     showToast("Venda confirmada!");
+  };
+
+  // Registra uma entrada ou saída no fluxo de caixa
+  const registrarMovimentacaoCaixa = async (tipo: 'entrada' | 'saida', valor: number, descricao: string, origem: string, pedidoId: string | null = null) => {
+    if (!user) return;
+    try {
+      await addDoc(collection(db, "movimentacoes_caixa"), {
+        tipo, valor, descricao, origem, pedidoId, data: Timestamp.now(), userId: user.uid
+      });
+    } catch {
+      showToast("Erro ao lançar no caixa.", 'erro');
+    }
+  };
+
+  // Sinal recebido: fica salvo no próprio pedido e já lança a entrada no caixa na hora
+  const confirmarRegistroSinal = async () => {
+    if (!mostrarModalSinal) return;
+    const valor = Number(valorSinalInput || 0);
+    if (valor <= 0) return showToast("Digite um valor de sinal válido.", 'erro');
+    if (valor > Number(mostrarModalSinal.preco || 0)) return showToast("O sinal não pode ser maior que o valor total do pedido.", 'erro');
+    try {
+      await updateDoc(doc(db, "pedidos", mostrarModalSinal.id), { valorSinal: valor, statusPagamento: 'sinal_recebido' });
+      await registrarMovimentacaoCaixa('entrada', valor, `Sinal — ${mostrarModalSinal.nomeProd}`, 'sinal', mostrarModalSinal.id);
+      showToast("Sinal registrado! 💰");
+      setMostrarModalSinal(null);
+      setValorSinalInput('');
+    } catch {
+      showToast("Erro ao registrar sinal.", 'erro');
+    }
   };
 
   const cancelarPedidoSemExcluir = async (id: string) => {
@@ -1470,6 +1538,55 @@ export default function App() {
       return st === 'Pendente';
     });
   }, [pedidos, filtroStatusPedido]);
+
+  const saldoCaixa = useMemo(() => {
+    return movimentacoesCaixa.reduce((acc, m) => acc + (m.tipo === 'entrada' ? Number(m.valor || 0) : -Number(m.valor || 0)), 0);
+  }, [movimentacoesCaixa]);
+
+  const movimentacoesCaixaOrdenadas = useMemo(() => {
+    return [...movimentacoesCaixa]
+      .filter(m => filtroTipoCaixa === 'todos' || m.tipo === filtroTipoCaixa)
+      .sort((a, b) => ((b.data?.seconds || 0) - (a.data?.seconds || 0)));
+  }, [movimentacoesCaixa, filtroTipoCaixa]);
+
+  const salvarMovimentacaoCaixa = async () => {
+    if (salvando.caixa) return;
+    if (!novaMovimentacao.descricao || !novaMovimentacao.valor) return showToast("Preencha a descrição e o valor!", 'erro');
+    setSalvando(prev => ({ ...prev, caixa: true }));
+    try {
+      const valorNum = Number(novaMovimentacao.valor);
+      await addDoc(collection(db, "movimentacoes_caixa"), {
+        tipo: novaMovimentacao.tipo,
+        valor: valorNum,
+        descricao: novaMovimentacao.descricao,
+        origem: novaMovimentacao.materialVinculado ? 'material' : 'manual',
+        pedidoId: null,
+        data: Timestamp.now(),
+        userId: user.uid
+      });
+
+      // Se marcou um material e uma quantidade comprada, já atualiza o estoque e o
+      // custo desse material no Armário — assim a compra alimenta os dois lugares de uma vez.
+      if (novaMovimentacao.tipo === 'saida' && novaMovimentacao.materialVinculado && novaMovimentacao.qtdComprada) {
+        const mat = materiais.find(m => m.id === novaMovimentacao.materialVinculado);
+        if (mat) {
+          await updateDoc(doc(db, "materiais", mat.id), {
+            qtdAtual: Number(mat.qtdAtual || 0) + Number(novaMovimentacao.qtdComprada),
+            valor: valorNum,
+            qtd: Number(novaMovimentacao.qtdComprada),
+            atualizadoEm: Timestamp.now()
+          });
+        }
+      }
+
+      setNovaMovimentacao({ tipo: 'saida', descricao: '', valor: '', materialVinculado: '', qtdComprada: '' });
+      showToast("Movimentação registrada! 💸");
+    } catch {
+      showToast("Erro ao registrar movimentação.", 'erro');
+    } finally {
+      setSalvando(prev => ({ ...prev, caixa: false }));
+    }
+  };
 
   const dashboardMetrics = useMemo(() => {
     const agora = new Date();
@@ -2409,6 +2526,13 @@ export default function App() {
         onCancel={() => setModalConfirm(null)}
         onConfirm={() => { modalConfirm?.onConfirm(); setModalConfirm(null); }}
       />
+      <ModalSinal
+        pedido={mostrarModalSinal}
+        valor={valorSinalInput}
+        setValor={setValorSinalInput}
+        onCancel={() => { setMostrarModalSinal(null); setValorSinalInput(''); }}
+        onConfirmar={confirmarRegistroSinal}
+      />
 
       <div className={`fixed inset-0 bg-black/40 z-50 transition-opacity duration-300 ${isMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`} onClick={() => setIsMenuOpen(false)}>
         <div className={`w-72 bg-white h-full shadow-2xl p-6 flex flex-col justify-between transition-transform duration-300 ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'}`} onClick={e => e.stopPropagation()}>
@@ -2432,6 +2556,7 @@ export default function App() {
 
               <button onClick={() => setActiveTab('fornecedores')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'fornecedores' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'fornecedores' ? themeColors.primary : undefined }}><Globe size={16}/> Biblioteca Fornecedores </button>
               <button onClick={() => setActiveTab('comissoes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'comissoes' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'comissoes' ? themeColors.primary : undefined }}><Percent size={16}/> Canais de Venda</button>
+              <button onClick={() => setActiveTab('caixa')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'caixa' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'caixa' ? themeColors.primary : undefined }}><DollarSign size={16}/> Fluxo de Caixa</button>
 
               <button onClick={() => setActiveTab('materiais')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'materiais' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'materiais' ? themeColors.primary : undefined }}><Package size={16}/> Armário / Insumos</button>
               <button onClick={() => setActiveTab('clientes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'clientes' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'clientes' ? themeColors.primary : undefined }}><User size={16}/> Meus Clientes</button>
@@ -4018,6 +4143,87 @@ export default function App() {
           </div>
         )}
 
+        {activeTab === 'caixa' && (
+          <div className="space-y-4 pt-2 w-full animate-fadeIn">
+            <div style={{ backgroundColor: saldoCaixa >= 0 ? themeColors.primary : '#ef4444' }} className="p-6 rounded-[35px] shadow-lg text-white w-full">
+              <p className="text-xs font-bold uppercase tracking-widest text-white/80">Saldo em Caixa</p>
+              <h2 className="text-4xl font-black tracking-tight">R$ {saldoCaixa.toFixed(2)}</h2>
+              <p className="text-[11px] text-white/80 mt-2 opacity-80">💰 Soma de todas as entradas e saídas registradas</p>
+            </div>
+
+            <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
+              <h2 style={{ color: themeColors.primary }} className="font-bold mb-1 flex items-center gap-2 uppercase text-xs tracking-widest"><DollarSign size={18}/> Nova Movimentação</h2>
+              <p className="text-slate-400 text-[11px] mb-4">Vendas confirmadas e sinais recebidos já entram automaticamente aqui. Use este formulário pra lançar gastos (compra de material, aluguel, etc.) ou outras entradas manuais.</p>
+
+              <div className="grid grid-cols-2 gap-1 p-1 bg-slate-100 rounded-xl w-full mb-4">
+                <button type="button" onClick={() => setNovaMovimentacao({...novaMovimentacao, tipo: 'saida'})} style={{ backgroundColor: novaMovimentacao.tipo === 'saida' ? '#ef4444' : 'transparent', color: novaMovimentacao.tipo === 'saida' ? '#ffffff' : '#64748b' }} className="py-2.5 rounded-lg font-bold text-xs uppercase transition-all">Saída</button>
+                <button type="button" onClick={() => setNovaMovimentacao({...novaMovimentacao, tipo: 'entrada'})} style={{ backgroundColor: novaMovimentacao.tipo === 'entrada' ? '#10b981' : 'transparent', color: novaMovimentacao.tipo === 'entrada' ? '#ffffff' : '#64748b' }} className="py-2.5 rounded-lg font-bold text-xs uppercase transition-all">Entrada</button>
+              </div>
+
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Descrição</label>
+              <input placeholder="Ex: Pacote de folha A4, aluguel, frete..." className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm" value={novaMovimentacao.descricao} onChange={e => setNovaMovimentacao({...novaMovimentacao, descricao: e.target.value})} />
+
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Valor (R$)</label>
+              <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none font-bold border focus:border-purple-400" value={novaMovimentacao.valor} onChange={e => setNovaMovimentacao({...novaMovimentacao, valor: e.target.value})} />
+
+              {novaMovimentacao.tipo === 'saida' && (
+                <div className="mb-4 w-full bg-purple-50/50 border border-purple-100 rounded-2xl p-4">
+                  <label className="text-[10px] font-bold text-purple-600 uppercase ml-1 block mb-1">Vincular a um material do Armário (opcional)</label>
+                  <p className="text-[10px] text-slate-400 mb-2">Se for uma compra de insumo, isso já atualiza o estoque e o custo desse material.</p>
+                  <select className="w-full p-3.5 bg-white rounded-xl outline-none mb-2 block border text-xs font-bold" value={novaMovimentacao.materialVinculado} onChange={e => setNovaMovimentacao({...novaMovimentacao, materialVinculado: e.target.value})}>
+                    <option value="">Nenhum — só lançar a saída</option>
+                    {materiais.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
+                  </select>
+                  {novaMovimentacao.materialVinculado && (
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Quantidade Comprada</label>
+                      <input type="number" placeholder="Ex: 500 (folhas), 1 (pacote)..." className="w-full p-3.5 bg-white rounded-xl outline-none border text-xs font-bold" value={novaMovimentacao.qtdComprada} onChange={e => setNovaMovimentacao({...novaMovimentacao, qtdComprada: e.target.value})} />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <button
+                disabled={!!salvando.caixa}
+                style={{ backgroundColor: novaMovimentacao.tipo === 'entrada' ? '#10b981' : '#ef4444', opacity: salvando.caixa ? 0.6 : 1 }}
+                onClick={salvarMovimentacaoCaixa}
+                className="w-full hover:opacity-90 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-md"
+              >
+                {salvando.caixa ? 'Salvando...' : 'Registrar Movimentação'}
+              </button>
+            </div>
+
+            <div className="flex bg-slate-100 p-1.5 rounded-2xl gap-1 w-full border">
+              <button onClick={() => setFiltroTipoCaixa('todos')} style={{ color: filtroTipoCaixa === 'todos' ? themeColors.primary : undefined }} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${filtroTipoCaixa === 'todos' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>Todos</button>
+              <button onClick={() => setFiltroTipoCaixa('entrada')} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${filtroTipoCaixa === 'entrada' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400'}`}>Entradas</button>
+              <button onClick={() => setFiltroTipoCaixa('saida')} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${filtroTipoCaixa === 'saida' ? 'bg-white text-red-500 shadow-sm' : 'text-slate-400'}`}>Saídas</button>
+            </div>
+
+            <div className="space-y-2 w-full">
+              {movimentacoesCaixaOrdenadas.map(m => (
+                <div key={m.id} className="bg-white p-4 rounded-3xl flex justify-between items-center border shadow-sm w-full">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div style={{ backgroundColor: m.tipo === 'entrada' ? '#d1fae5' : '#fee2e2', color: m.tipo === 'entrada' ? '#059669' : '#dc2626' }} className="w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm shrink-0">
+                      {m.tipo === 'entrada' ? '↑' : '↓'}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-bold text-slate-800 text-sm truncate">{m.descricao}</p>
+                      <p className="text-[10px] text-slate-400">{m.data?.toDate ? m.data.toDate().toLocaleDateString('pt-BR') : ''}</p>
+                    </div>
+                  </div>
+                  <span className={`font-black text-sm shrink-0 ml-2 ${m.tipo === 'entrada' ? 'text-emerald-600' : 'text-red-500'}`}>
+                    {m.tipo === 'entrada' ? '+' : '−'} R$ {Number(m.valor || 0).toFixed(2)}
+                  </span>
+                </div>
+              ))}
+
+              {movimentacoesCaixaOrdenadas.length === 0 && (
+                <p className="text-center font-bold text-xs text-slate-400 py-8 italic">Nenhuma movimentação registrada ainda. 💸</p>
+              )}
+            </div>
+          </div>
+        )}
+
         {activeTab === 'pedidos' && (
           <div className="space-y-3 pt-2 w-full">
             <div className="flex justify-between items-center mb-1 w-full">
@@ -4054,6 +4260,9 @@ export default function App() {
                         {p.obsPedido && (
                           <p style={{ color: themeColors.primary }} className="text-[11px] bg-purple-50 p-2 rounded-lg font-medium border border-purple-100 mt-2">🗒️ Notas: {p.obsPedido}</p>
                         )}
+                        {p.statusPagamento === 'sinal_recebido' && (
+                          <p className="text-[10px] text-emerald-600 font-bold bg-emerald-50 inline-block px-2 py-0.5 rounded mt-2">💰 Sinal: R$ {Number(p.valorSinal || 0).toFixed(2)} • Falta: R$ {(Number(p.preco || 0) - Number(p.valorSinal || 0)).toFixed(2)}</p>
+                        )}
                      </div>
                      <div style={{ color: themeColors.secondary }} className="font-black text-xl shrink-0">R$ {p.preco}</div>
                    </div>
@@ -4068,6 +4277,9 @@ export default function App() {
                       )}
                       {statusAtual === 'Em Produção 🔧' && (
                         <button onClick={() => confirmarVendaPedido(p)} className="text-emerald-600 px-3 py-2 bg-emerald-50 rounded-xl text-xs font-bold flex items-center gap-1 active:scale-95 mr-auto"><CheckCircle size={16}/> Confirmar Venda</button>
+                      )}
+                      {(statusAtual === 'Pendente' || statusAtual === 'Em Produção 🔧') && p.statusPagamento !== 'sinal_recebido' && (
+                        <button onClick={() => { setMostrarModalSinal(p); setValorSinalInput(''); }} className="text-amber-600 px-3 py-2 bg-amber-50 rounded-xl text-xs font-bold flex items-center gap-1 active:scale-95">💰 Sinal</button>
                       )}
 
                       <button onClick={() => handleDuplicarOrcamento(p)} title="Duplicar este Orçamento" className="text-blue-500 p-2 bg-blue-50 rounded-xl active:scale-95 transition-transform"><Copy size={18}/></button>
