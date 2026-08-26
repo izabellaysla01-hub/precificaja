@@ -1543,6 +1543,80 @@ export default function App() {
     return movimentacoesCaixa.reduce((acc, m) => acc + (m.tipo === 'entrada' ? Number(m.valor || 0) : -Number(m.valor || 0)), 0);
   }, [movimentacoesCaixa]);
 
+  const saldoMesAtualCaixa = useMemo(() => {
+    const agora = new Date();
+    return movimentacoesCaixa.reduce((acc, m) => {
+      if (!m.data?.toDate) return acc;
+      const d = m.data.toDate();
+      if (d.getMonth() !== agora.getMonth() || d.getFullYear() !== agora.getFullYear()) return acc;
+      return acc + (m.tipo === 'entrada' ? Number(m.valor || 0) : -Number(m.valor || 0));
+    }, 0);
+  }, [movimentacoesCaixa]);
+
+  // Histórico mensal do próprio caixa — entradas, saídas e saldo de cada mês
+  const historicoCaixaMensal = useMemo(() => {
+    const agrupado: { [key: string]: { entradas: number; saidas: number; mesAnoTexto: string; itens: any[] } } = {};
+    const nomesMeses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+    movimentacoesCaixa.forEach(m => {
+      if (!m.data?.toDate) return;
+      const d = m.data.toDate();
+      const mes = d.getMonth() + 1, ano = d.getFullYear();
+      const chave = `${ano}-${String(mes).padStart(2, '0')}`;
+      if (!agrupado[chave]) agrupado[chave] = { entradas: 0, saidas: 0, mesAnoTexto: `${nomesMeses[mes - 1]} / ${ano}`, itens: [] };
+      if (m.tipo === 'entrada') agrupado[chave].entradas += Number(m.valor || 0);
+      else agrupado[chave].saidas += Number(m.valor || 0);
+      agrupado[chave].itens.push(m);
+    });
+    return Object.keys(agrupado).sort((a, b) => b.localeCompare(a)).map(chave => ({ chave, ...agrupado[chave] }));
+  }, [movimentacoesCaixa]);
+
+  // Varre todas as vendas já confirmadas e lança no caixa as que ainda não tem registro —
+  // resolve o caso de vendas feitas antes do fluxo de caixa existir.
+  const sincronizarVendasAntigas = async () => {
+    if (!user || salvando.sync) return;
+    setSalvando(prev => ({ ...prev, sync: true }));
+    try {
+      const qTodosPedidos = query(collection(db, "pedidos"), where("userId", "==", user.uid));
+      const snap = await getDocs(qTodosPedidos);
+      const idsJaLancados = new Set(movimentacoesCaixa.filter(m => m.pedidoId).map(m => m.pedidoId));
+      const vendasSemLancamento = snap.docs
+        .map(d => ({ id: d.id, ...d.data() } as any))
+        .filter(p => (p.status === 'Vendido 💰' || p.status === 'Vendido') && !idsJaLancados.has(p.id));
+
+      if (vendasSemLancamento.length === 0) {
+        showToast("Todas as vendas já estão no caixa! ✨");
+        return;
+      }
+
+      confirmar(`Encontrei ${vendasSemLancamento.length} venda(s) confirmada(s) que ainda não estavam no caixa. Lançar agora?`, async () => {
+        try {
+          for (const p of vendasSemLancamento) {
+            const valorSinalJa = Number(p.valorSinal || 0);
+            const valorFinal = Number(p.preco || 0) - valorSinalJa;
+            if (valorFinal > 0) {
+              await addDoc(collection(db, "movimentacoes_caixa"), {
+                tipo: 'entrada',
+                valor: valorFinal,
+                descricao: `Venda — ${p.nomeProd}`,
+                origem: 'venda',
+                pedidoId: p.id,
+                data: p.dataVenda || Timestamp.now(),
+                userId: user.uid
+              });
+            }
+          }
+          showToast("Vendas antigas sincronizadas com o caixa! 🚀");
+        } catch {
+          showToast("Erro ao sincronizar vendas.", 'erro');
+        }
+      });
+    } catch {
+      showToast("Erro ao buscar vendas antigas.", 'erro');
+    } finally {
+      setSalvando(prev => ({ ...prev, sync: false }));
+    }
+  };
+
   const movimentacoesCaixaOrdenadas = useMemo(() => {
     return [...movimentacoesCaixa]
       .filter(m => filtroTipoCaixa === 'todos' || m.tipo === filtroTipoCaixa)
@@ -2695,6 +2769,14 @@ export default function App() {
               </div>
             </div>
 
+            <div onClick={() => setActiveTab('caixa')} className="bg-white p-5 rounded-[30px] border shadow-sm cursor-pointer active:scale-95 transition-all w-full flex justify-between items-center">
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Saldo em Caixa</p>
+                <p className={`text-2xl font-black mt-0.5 ${saldoCaixa >= 0 ? 'text-slate-800' : 'text-red-500'}`}>R$ {saldoCaixa.toFixed(2)}</p>
+              </div>
+              <div style={{ color: themeColors.primary }} className="w-10 h-10 rounded-2xl bg-purple-50 flex items-center justify-center"><DollarSign size={20}/></div>
+            </div>
+
             <div className="grid grid-cols-2 gap-4 w-full">
               <div onClick={() => setActiveTab('pedidos')} className="bg-white p-5 rounded-[30px] border shadow-sm cursor-pointer active:scale-95 transition-all w-full">
                 <div style={{ color: themeColors.secondary }} className="w-10 h-10 rounded-2xl bg-orange-50 flex items-center justify-center mb-3"><History size={20}/></div>
@@ -3266,7 +3348,6 @@ export default function App() {
               <button onClick={() => setSubAbaFinanceiro('geral')} style={{ color: subAbaFinanceiro === 'geral' ? themeColors.primary : undefined }} className={`flex-1 min-w-[70px] py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${subAbaFinanceiro === 'geral' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>Geral</button>
               <button onClick={() => setSubAbaFinanceiro('impressao')} style={{ color: subAbaFinanceiro === 'impressao' ? themeColors.primary : undefined }} className={`flex-1 min-w-[70px] py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${subAbaFinanceiro === 'impressao' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>Impressão 🖨️</button>
               <button onClick={() => setSubAbaFinanceiro('equipamentos')} style={{ color: subAbaFinanceiro === 'equipamentos' ? themeColors.primary : undefined }} className={`flex-1 min-w-[70px] py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${subAbaFinanceiro === 'equipamentos' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>Máquinas</button>
-              <button onClick={() => setSubAbaFinanceiro('historico')} style={{ color: subAbaFinanceiro === 'historico' ? themeColors.primary : undefined }} className={`flex-1 min-w-[70px] py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${subAbaFinanceiro === 'historico' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>Histórico 📊</button>
             </div>
 
             {subAbaFinanceiro === 'geral' && (
@@ -3505,124 +3586,6 @@ export default function App() {
                       </div>
                     );
                   })}
-                </div>
-              </div>
-            )}
-
-            {subAbaFinanceiro === 'historico' && (
-              <div className="bg-white p-6 rounded-[35px] shadow-md border w-full animate-fadeIn space-y-4">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h2 style={{ color: themeColors.primary }} className="font-bold flex items-center gap-2 uppercase text-xs tracking-widest"><DollarSign size={18}/> Histórico Financeiro Mensal</h2>
-                    <p className="text-slate-400 text-[11px] mt-0.5">Consulte as vendas fechadas de qualquer época do ano:</p>
-                  </div>
-                  <div className="p-2 bg-purple-50 rounded-2xl" style={{ color: themeColors.primary }}>
-                    <TrendingUp size={20} />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-2xl border border-slate-100">
-                  <div>
-                    <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Mês de Referência</label>
-                    <select
-                      className="w-full p-2.5 bg-white rounded-xl text-xs font-bold border outline-none text-slate-700"
-                      value={mesFiltroHistorico}
-                      onChange={e => setMesFiltroHistorico(e.target.value)}
-                    >
-                      <option value="Todos">📅 Todos os Meses</option>
-                      <option value="1">Janeiro</option>
-                      <option value="2">Fevereiro</option>
-                      <option value="3">Março</option>
-                      <option value="4">Abril</option>
-                      <option value="5">Maio</option>
-                      <option value="6">Junho</option>
-                      <option value="7">Julho</option>
-                      <option value="8">Agosto</option>
-                      <option value="9">Setembro</option>
-                      <option value="10">Outubro</option>
-                      <option value="11">Novembro</option>
-                      <option value="12">Dezembro</option>
-                    </select>
-                  </div>
-
- <div>
-                    <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Ano de Referência</label>
-                    <select
-                      className="w-full p-2.5 bg-white rounded-xl text-xs font-bold border outline-none text-slate-700"
-                      value={anoFiltroHistorico}
-                      onChange={e => setAnoFiltroHistorico(e.target.value)}
-                    >
-                      <option value="Todos">🗓️ Todos os Anos</option>
-                      <option value="2026">2026</option>
-                      <option value="2025">2025</option>
-                      <option value="2024">2024</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="space-y-3 pt-2">
-                  {historicoFiltradoPorData.map(item => {
-                    const isExpanded = mesExpandido === item.chave;
-                    return (
-                      <div key={item.chave} className="bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden transition-all">
-                        <div
-                          onClick={() => setMesExpandido(isExpanded ? null : item.chave)}
-                          className="p-4 flex justify-between items-center cursor-pointer hover:bg-slate-100/80 transition-colors select-none"
-                        >
-                          <div>
-                            <p className="font-black text-slate-800 text-sm uppercase tracking-wide flex items-center gap-1.5">
-                              {item.mesAnoTexto}
-                            </p>
-                            <p className="text-[11px] text-slate-400 font-semibold mt-0.5">
-                              {item.qtd} {item.qtd === 1 ? 'venda concluída' : 'vendas concluídas'} • Clique para ver itens 🔍
-                            </p>
-                          </div>
-
-                          <div className="flex items-center gap-3">
-                            <div className="text-right">
-                              <span className="text-[9px] font-black text-slate-400 uppercase block tracking-wider">Faturamento</span>
-                              <span style={{ color: themeColors.primary }} className="font-black text-lg">R$ {item.total.toFixed(2)}</span>
-                            </div>
-                            <div style={{ color: themeColors.primary }} className="p-1 bg-white rounded-xl border">
-                              {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-                            </div>
-                          </div>
-                        </div>
-
-                        {isExpanded && (
-                          <div className="bg-white p-4 border-t border-slate-200 space-y-2.5 animate-fadeIn">
-                            <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Relação de Peças / Combos Vendidos:</p>
-
-                            <div className="space-y-2">
-                              {item.itensVendidos.map((p: any, idx: number) => {
-                                const cli = clientes.find(c => c.id === p.clienteId);
-                                return (
-                                  <div key={idx} className="bg-slate-50 p-3 rounded-xl border flex justify-between items-center text-xs">
-                                    <div className="min-w-0 flex-1 pr-2">
-                                      <p className="font-bold text-slate-800 break-words whitespace-pre-line">{p.nomeProd}</p>
-                                      <p className="text-[10px] text-slate-400 font-semibold mt-0.5">
-                                        👤 {cli?.nome || 'Cliente não informado'} • 🗓️ {p.data}
-                                      </p>
-                                    </div>
-                                    <div className="font-black text-slate-700 text-sm shrink-0">
-                                      R$ {Number(p.preco || 0).toFixed(2)}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-
-                      </div>
-                    );
-                  })}
-
-                  {historicoFiltradoPorData.length === 0 && (
-                    <p className="text-center text-xs font-bold text-slate-400 py-8 italic">
-                      Nenhuma venda finalizada encontrada para este filtro de data. 🎉
-                    </p>
-                  )}
                 </div>
               </div>
             )}
@@ -4146,10 +4109,21 @@ export default function App() {
         {activeTab === 'caixa' && (
           <div className="space-y-4 pt-2 w-full animate-fadeIn">
             <div style={{ backgroundColor: saldoCaixa >= 0 ? themeColors.primary : '#ef4444' }} className="p-6 rounded-[35px] shadow-lg text-white w-full">
-              <p className="text-xs font-bold uppercase tracking-widest text-white/80">Saldo em Caixa</p>
+              <p className="text-xs font-bold uppercase tracking-widest text-white/80">Saldo em Caixa (Total)</p>
               <h2 className="text-4xl font-black tracking-tight">R$ {saldoCaixa.toFixed(2)}</h2>
-              <p className="text-[11px] text-white/80 mt-2 opacity-80">💰 Soma de todas as entradas e saídas registradas</p>
+              <div className="flex justify-between items-center mt-3 pt-3 border-t border-white/20">
+                <p className="text-[11px] text-white/80">💰 Este mês</p>
+                <p className="font-black text-sm">R$ {saldoMesAtualCaixa.toFixed(2)}</p>
+              </div>
             </div>
+
+            <button
+              onClick={sincronizarVendasAntigas}
+              disabled={!!salvando.sync}
+              className="w-full bg-white border border-purple-100 text-purple-600 font-bold text-xs uppercase py-3.5 rounded-2xl shadow-sm flex items-center justify-center gap-2 active:scale-95 transition-all"
+            >
+              <History size={14}/> {salvando.sync ? 'Sincronizando...' : 'Sincronizar vendas antigas com o caixa'}
+            </button>
 
             <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
               <h2 style={{ color: themeColors.primary }} className="font-bold mb-1 flex items-center gap-2 uppercase text-xs tracking-widest"><DollarSign size={18}/> Nova Movimentação</h2>
@@ -4221,6 +4195,122 @@ export default function App() {
                 <p className="text-center font-bold text-xs text-slate-400 py-8 italic">Nenhuma movimentação registrada ainda. 💸</p>
               )}
             </div>
+
+            {historicoCaixaMensal.length > 0 && (
+              <div className="bg-white p-6 rounded-[35px] shadow-md border w-full space-y-3">
+                <h2 style={{ color: themeColors.primary }} className="font-bold mb-1 flex items-center gap-2 uppercase text-xs tracking-widest"><TrendingUp size={18}/> Histórico Mensal do Caixa</h2>
+                <p className="text-slate-400 text-[11px] mb-2">Entradas, saídas e saldo de cada mês.</p>
+
+                {historicoCaixaMensal.map(item => {
+                  const isExpanded = mesExpandido === `caixa_${item.chave}`;
+                  const saldoMes = item.entradas - item.saidas;
+                  return (
+                    <div key={item.chave} className="bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden transition-all">
+                      <div onClick={() => setMesExpandido(isExpanded ? null : `caixa_${item.chave}`)} className="p-4 flex justify-between items-center cursor-pointer hover:bg-slate-100/80 transition-colors select-none">
+                        <div>
+                          <p className="font-black text-slate-800 text-sm uppercase tracking-wide">{item.mesAnoTexto}</p>
+                          <p className="text-[11px] text-slate-400 font-semibold mt-0.5">↑ R$ {item.entradas.toFixed(2)} • ↓ R$ {item.saidas.toFixed(2)}</p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="text-right">
+                            <span className="text-[9px] font-black text-slate-400 uppercase block tracking-wider">Saldo do Mês</span>
+                            <span className={`font-black text-lg ${saldoMes >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>R$ {saldoMes.toFixed(2)}</span>
+                          </div>
+                          <div style={{ color: themeColors.primary }} className="p-1 bg-white rounded-xl border">
+                            {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                          </div>
+                        </div>
+                      </div>
+                      {isExpanded && (
+                        <div className="bg-white p-4 border-t border-slate-200 space-y-2 animate-fadeIn">
+                          {item.itens.sort((a: any, b: any) => (b.data?.seconds || 0) - (a.data?.seconds || 0)).map((m: any) => (
+                            <div key={m.id} className="flex justify-between items-center text-xs bg-slate-50 p-2.5 rounded-xl border">
+                              <span className="font-bold text-slate-700 truncate pr-2">{m.descricao}</span>
+                              <span className={`font-black shrink-0 ${m.tipo === 'entrada' ? 'text-emerald-600' : 'text-red-500'}`}>{m.tipo === 'entrada' ? '+' : '−'} R$ {Number(m.valor || 0).toFixed(2)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {historicoFiltradoPorData.length > 0 && (
+              <div className="bg-white p-6 rounded-[35px] shadow-md border w-full space-y-4">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h2 style={{ color: themeColors.primary }} className="font-bold flex items-center gap-2 uppercase text-xs tracking-widest"><History size={18}/> Histórico de Vendas por Mês</h2>
+                    <p className="text-slate-400 text-[11px] mt-0.5">Detalhe de cada peça/combo vendido, por mês:</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                  <div>
+                    <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Mês de Referência</label>
+                    <select className="w-full p-2.5 bg-white rounded-xl text-xs font-bold border outline-none text-slate-700" value={mesFiltroHistorico} onChange={e => setMesFiltroHistorico(e.target.value)}>
+                      <option value="Todos">📅 Todos os Meses</option>
+                      <option value="1">Janeiro</option><option value="2">Fevereiro</option><option value="3">Março</option>
+                      <option value="4">Abril</option><option value="5">Maio</option><option value="6">Junho</option>
+                      <option value="7">Julho</option><option value="8">Agosto</option><option value="9">Setembro</option>
+                      <option value="10">Outubro</option><option value="11">Novembro</option><option value="12">Dezembro</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Ano de Referência</label>
+                    <select className="w-full p-2.5 bg-white rounded-xl text-xs font-bold border outline-none text-slate-700" value={anoFiltroHistorico} onChange={e => setAnoFiltroHistorico(e.target.value)}>
+                      <option value="Todos">🗓️ Todos os Anos</option>
+                      <option value="2026">2026</option><option value="2025">2025</option><option value="2024">2024</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="space-y-3 pt-2">
+                  {historicoFiltradoPorData.map(item => {
+                    const isExpanded = mesExpandido === item.chave;
+                    return (
+                      <div key={item.chave} className="bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden transition-all">
+                        <div onClick={() => setMesExpandido(isExpanded ? null : item.chave)} className="p-4 flex justify-between items-center cursor-pointer hover:bg-slate-100/80 transition-colors select-none">
+                          <div>
+                            <p className="font-black text-slate-800 text-sm uppercase tracking-wide">{item.mesAnoTexto}</p>
+                            <p className="text-[11px] text-slate-400 font-semibold mt-0.5">{item.qtd} {item.qtd === 1 ? 'venda concluída' : 'vendas concluídas'} • Clique para ver itens 🔍</p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="text-right">
+                              <span className="text-[9px] font-black text-slate-400 uppercase block tracking-wider">Faturamento</span>
+                              <span style={{ color: themeColors.primary }} className="font-black text-lg">R$ {item.total.toFixed(2)}</span>
+                            </div>
+                            <div style={{ color: themeColors.primary }} className="p-1 bg-white rounded-xl border">
+                              {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                            </div>
+                          </div>
+                        </div>
+                        {isExpanded && (
+                          <div className="bg-white p-4 border-t border-slate-200 space-y-2.5 animate-fadeIn">
+                            <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Relação de Peças / Combos Vendidos:</p>
+                            <div className="space-y-2">
+                              {item.itensVendidos.map((p: any, idx: number) => {
+                                const cli = clientes.find(c => c.id === p.clienteId);
+                                return (
+                                  <div key={idx} className="bg-slate-50 p-3 rounded-xl border flex justify-between items-center text-xs">
+                                    <div className="min-w-0 flex-1 pr-2">
+                                      <p className="font-bold text-slate-800 break-words whitespace-pre-line">{p.nomeProd}</p>
+                                      <p className="text-[10px] text-slate-400 font-semibold mt-0.5">👤 {cli?.nome || 'Cliente não informado'} • 🗓️ {p.data}</p>
+                                    </div>
+                                    <div className="font-black text-slate-700 text-sm shrink-0">R$ {Number(p.preco || 0).toFixed(2)}</div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
