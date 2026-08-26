@@ -101,13 +101,13 @@ const ConfirmModal = ({ modal, onCancel, onConfirm }: { modal: { msg: string } |
   );
 };
 
-const ModalSinal = ({ pedido, valor, setValor, onCancel, onConfirmar }: { pedido: any; valor: string; setValor: (v: string) => void; onCancel: () => void; onConfirmar: () => void }) => {
-  if (!pedido) return null;
+const ModalSinal = ({ item, valor, setValor, onCancel, onConfirmar }: { item: any; valor: string; setValor: (v: string) => void; onCancel: () => void; onConfirmar: () => void }) => {
+  if (!item) return null;
   return (
     <div className="fixed inset-0 bg-black/50 z-[110] flex items-center justify-center p-6" onClick={onCancel}>
       <div className="bg-white rounded-3xl p-6 max-w-sm w-full" onClick={e => e.stopPropagation()}>
         <p className="text-sm font-bold text-slate-700 mb-1">Registrar sinal recebido</p>
-        <p className="text-xs text-slate-400 mb-4">{pedido.nomeProd} — Total: R$ {Number(pedido.preco || 0).toFixed(2)}</p>
+        <p className="text-xs text-slate-400 mb-4">{item.titulo} — Total: R$ {Number(item.total || 0).toFixed(2)}</p>
         <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Valor do Sinal (R$)</label>
         <input type="number" autoFocus className="w-full p-4 bg-slate-50 rounded-2xl mb-4 outline-none font-bold border" value={valor} onChange={e => setValor(e.target.value)} />
         <div className="flex gap-3">
@@ -1330,15 +1330,32 @@ export default function App() {
     if (!mostrarModalSinal) return;
     const valor = Number(valorSinalInput || 0);
     if (valor <= 0) return showToast("Digite um valor de sinal válido.", 'erro');
-    if (valor > Number(mostrarModalSinal.preco || 0)) return showToast("O sinal não pode ser maior que o valor total do pedido.", 'erro');
+    if (valor > Number(mostrarModalSinal.total || 0)) return showToast("O sinal não pode ser maior que o valor total.", 'erro');
+    const colecao = mostrarModalSinal.tipo === 'contrato' ? 'contratos' : 'pedidos';
     try {
-      await updateDoc(doc(db, "pedidos", mostrarModalSinal.id), { valorSinal: valor, statusPagamento: 'sinal_recebido' });
-      await registrarMovimentacaoCaixa('entrada', valor, `Sinal — ${mostrarModalSinal.nomeProd}`, 'sinal', mostrarModalSinal.id);
+      await updateDoc(doc(db, colecao, mostrarModalSinal.id), { valorSinal: valor, statusPagamento: 'sinal_recebido' });
+      await registrarMovimentacaoCaixa('entrada', valor, `Sinal — ${mostrarModalSinal.titulo}`, 'sinal', mostrarModalSinal.id);
       showToast("Sinal registrado! 💰");
       setMostrarModalSinal(null);
       setValorSinalInput('');
     } catch {
       showToast("Erro ao registrar sinal.", 'erro');
+    }
+  };
+
+  // Confirma o recebimento total de um contrato — lança no caixa só o saldo que
+  // ainda faltava (o sinal, se houve, já foi lançado separadamente antes)
+  const confirmarRecebimentoContrato = async (contrato: any) => {
+    const valorSinalJa = Number(contrato.valorSinal || 0);
+    const valorRestante = Math.max(0, Number(contrato.valorTotal || 0) - valorSinalJa);
+    try {
+      await updateDoc(doc(db, "contratos", contrato.id), { statusPagamento: 'pago_total' });
+      if (valorRestante > 0) {
+        await registrarMovimentacaoCaixa('entrada', valorRestante, `Contrato — ${contrato.tipoEvento || 'Serviço'}${valorSinalJa > 0 ? ' (saldo restante)' : ''}`, 'contrato', contrato.id);
+      }
+      showToast("Recebimento confirmado! 💰");
+    } catch {
+      showToast("Erro ao confirmar recebimento.", 'erro');
     }
   };
 
@@ -2604,8 +2621,36 @@ export default function App() {
     </div>
   );
 
+  const menuNavButtons = (
+    <>
+      <button onClick={() => setActiveTab('inicio')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'inicio' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'inicio' ? themeColors.primary : undefined }}><Home size={16}/> Início</button>
+      <button onClick={() => setActiveTab('criar')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'criar' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'criar' ? themeColors.primary : undefined }}><Plus size={16}/> Orçar</button>
+      <button onClick={() => setActiveTab('contratos')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'contratos' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'contratos' ? themeColors.primary : undefined }}><FileText size={16}/> Contratos</button>
+
+      <button onClick={() => setActiveTab('perfil')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'perfil' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'perfil' ? themeColors.primary : undefined }}><Settings size={16}/> Perfil da Loja</button>
+      <button onClick={() => setActiveTab('anotacoes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'anotacoes' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'anotacoes' ? themeColors.primary : undefined }}><Calendar size={16}/> Agenda / Tarefas </button>
+
+      <button onClick={() => { setActiveTab('financeiro'); setSubAbaFinanceiro('geral'); }} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'financeiro' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'financeiro' ? themeColors.primary : undefined }}><Calculator size={16}/> Configurações de Custos</button>
+      <button onClick={() => setActiveTab('pedidos')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'pedidos' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'pedidos' ? themeColors.primary : undefined }}><History size={16}/> Histórico de Orçamentos</button>
+      <button onClick={() => setActiveTab('balcao')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'balcao' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'balcao' ? themeColors.primary : undefined }}><ShoppingCart size={16}/> Balcão de Vendas Rápido</button>
+      <button onClick={() => setActiveTab('catalogo')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'catalogo' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'catalogo' ? themeColors.primary : undefined }}><BookOpen size={16}/> Meu Catálogo Visual</button>
+
+      <button onClick={() => setActiveTab('fornecedores')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'fornecedores' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'fornecedores' ? themeColors.primary : undefined }}><Globe size={16}/> Biblioteca Fornecedores </button>
+      <button onClick={() => setActiveTab('comissoes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'comissoes' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'comissoes' ? themeColors.primary : undefined }}><Percent size={16}/> Canais de Venda</button>
+      <button onClick={() => setActiveTab('caixa')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'caixa' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'caixa' ? themeColors.primary : undefined }}><DollarSign size={16}/> Fluxo de Caixa</button>
+
+      <button onClick={() => setActiveTab('materiais')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'materiais' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'materiais' ? themeColors.primary : undefined }}><Package size={16}/> Armário / Insumos</button>
+      <button onClick={() => setActiveTab('clientes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'clientes' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'clientes' ? themeColors.primary : undefined }}><User size={16}/> Meus Clientes</button>
+
+      <div className="border-t pt-2 mt-1">
+        <button onClick={() => setActiveTab('atualizacoes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'atualizacoes' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'atualizacoes' ? themeColors.primary : undefined }}><Megaphone size={16}/> Atualizações</button>
+        <button onClick={() => setActiveTab('suporte')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'suporte' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'suporte' ? themeColors.primary : undefined }}><LifeBuoy size={16}/> Suporte</button>
+      </div>
+    </>
+  );
+
   return (
-    <div className="min-h-screen bg-slate-50 pb-32 font-sans text-slate-700 w-full relative overflow-x-hidden">
+    <div className="min-h-screen bg-slate-50 pb-32 lg:pb-0 font-sans text-slate-700 w-full relative overflow-x-hidden lg:flex">
 
       {mostrarOnboarding && <OnboardingCarrossel onFinalizar={finalizarOnboarding} />}
       <Toast toast={toast} />
@@ -2615,14 +2660,15 @@ export default function App() {
         onConfirm={() => { modalConfirm?.onConfirm(); setModalConfirm(null); }}
       />
       <ModalSinal
-        pedido={mostrarModalSinal}
+        item={mostrarModalSinal}
         valor={valorSinalInput}
         setValor={setValorSinalInput}
         onCancel={() => { setMostrarModalSinal(null); setValorSinalInput(''); }}
         onConfirmar={confirmarRegistroSinal}
       />
 
-      <div className={`fixed inset-0 bg-black/40 z-50 transition-opacity duration-300 ${isMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`} onClick={() => setIsMenuOpen(false)}>
+      {/* Menu do celular: some quando a tela é grande (desktop usa a barra lateral fixa abaixo) */}
+      <div className={`fixed inset-0 bg-black/40 z-50 lg:hidden transition-opacity duration-300 ${isMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`} onClick={() => setIsMenuOpen(false)}>
         <div className={`w-72 bg-white h-full shadow-2xl p-6 flex flex-col justify-between transition-transform duration-300 ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'}`} onClick={e => e.stopPropagation()}>
           <div className="space-y-6 overflow-y-auto max-h-[85vh] scrollbar-none">
             <div className="flex justify-between items-center border-b pb-4">
@@ -2630,44 +2676,34 @@ export default function App() {
               <button onClick={() => setIsMenuOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={22}/></button>
             </div>
             <nav className="flex flex-col gap-1">
-              <button onClick={() => setActiveTab('inicio')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'inicio' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'inicio' ? themeColors.primary : undefined }}><Home size={16}/> Início</button>
-              <button onClick={() => setActiveTab('criar')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'criar' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'criar' ? themeColors.primary : undefined }}><Plus size={16}/> Orçar</button>
-              <button onClick={() => setActiveTab('contratos')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'contratos' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'contratos' ? themeColors.primary : undefined }}><FileText size={16}/> Contratos</button>
-
-              <button onClick={() => setActiveTab('perfil')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'perfil' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'perfil' ? themeColors.primary : undefined }}><Settings size={16}/> Perfil da Loja</button>
-              <button onClick={() => setActiveTab('anotacoes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'anotacoes' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'anotacoes' ? themeColors.primary : undefined }}><Calendar size={16}/> Agenda / Tarefas </button>
-
-              <button onClick={() => { setActiveTab('financeiro'); setSubAbaFinanceiro('geral'); }} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'financeiro' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'financeiro' ? themeColors.primary : undefined }}><Calculator size={16}/> Configurações de Custos</button>
-              <button onClick={() => setActiveTab('pedidos')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'pedidos' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'pedidos' ? themeColors.primary : undefined }}><History size={16}/> Histórico de Orçamentos</button>
-              <button onClick={() => setActiveTab('balcao')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'balcao' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'balcao' ? themeColors.primary : undefined }}><ShoppingCart size={16}/> Balcão de Vendas Rápido</button>
-              <button onClick={() => setActiveTab('catalogo')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'catalogo' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'catalogo' ? themeColors.primary : undefined }}><BookOpen size={16}/> Meu Catálogo Visual</button>
-
-              <button onClick={() => setActiveTab('fornecedores')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'fornecedores' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'fornecedores' ? themeColors.primary : undefined }}><Globe size={16}/> Biblioteca Fornecedores </button>
-              <button onClick={() => setActiveTab('comissoes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'comissoes' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'comissoes' ? themeColors.primary : undefined }}><Percent size={16}/> Canais de Venda</button>
-              <button onClick={() => setActiveTab('caixa')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'caixa' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'caixa' ? themeColors.primary : undefined }}><DollarSign size={16}/> Fluxo de Caixa</button>
-
-              <button onClick={() => setActiveTab('materiais')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'materiais' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'materiais' ? themeColors.primary : undefined }}><Package size={16}/> Armário / Insumos</button>
-              <button onClick={() => setActiveTab('clientes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'clientes' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'clientes' ? themeColors.primary : undefined }}><User size={16}/> Meus Clientes</button>
-
-              <div className="border-t pt-2 mt-1">
-                <button onClick={() => setActiveTab('atualizacoes')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'atualizacoes' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'atualizacoes' ? themeColors.primary : undefined }}><Megaphone size={16}/> Atualizações</button>
-                <button onClick={() => setActiveTab('suporte')} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold text-xs ${activeTab === 'suporte' ? 'bg-purple-50' : 'text-slate-600 hover:bg-slate-50'}`} style={{ color: activeTab === 'suporte' ? themeColors.primary : undefined }}><LifeBuoy size={16}/> Suporte</button>
-              </div>
+              {menuNavButtons}
             </nav>
           </div>
           <button onClick={() => signOut(auth)} className="w-full text-red-500 bg-red-50 p-4 rounded-xl text-xs font-black uppercase flex items-center justify-center gap-1.5"><LogOut size={16}/> Sair</button>
         </div>
       </div>
 
-      <header className="bg-white p-4 flex justify-between items-center shadow-sm sticky top-0 z-40 w-full">
-        <button onClick={() => setIsMenuOpen(true)} className="p-2 text-slate-700 hover:text-purple-700 transition-colors">
-          <Menu size={24} />
-        </button>
-        <div style={{ color: themeColors.primary }} className="font-black text-lg flex items-center gap-2"><Calculator size={22}/> PrecificaJá</div>
-        <div className="w-10"></div>
-      </header>
+      {/* Barra lateral fixa — só aparece em telas grandes (desktop). No celular, some e usa o menu de cima. */}
+      <aside className="hidden lg:flex lg:flex-col lg:w-72 lg:shrink-0 lg:h-screen lg:sticky lg:top-0 bg-white border-r border-slate-100 lg:p-6 lg:justify-between">
+        <div className="space-y-6 overflow-y-auto">
+          <div style={{ color: themeColors.primary }} className="font-black text-lg flex items-center gap-2 pb-4 border-b"><Calculator size={22}/> PrecificaJá</div>
+          <nav className="flex flex-col gap-1">
+            {menuNavButtons}
+          </nav>
+        </div>
+        <button onClick={() => signOut(auth)} className="w-full text-red-500 bg-red-50 p-4 rounded-xl text-xs font-black uppercase flex items-center justify-center gap-1.5 mt-6"><LogOut size={16}/> Sair</button>
+      </aside>
 
-      <div className="p-4 max-w-xl mx-auto w-full">
+      <div className="flex-1 min-w-0">
+        <header className="bg-white p-4 flex justify-between items-center shadow-sm sticky top-0 z-40 w-full lg:hidden">
+          <button onClick={() => setIsMenuOpen(true)} className="p-2 text-slate-700 hover:text-purple-700 transition-colors">
+            <Menu size={24} />
+          </button>
+          <div style={{ color: themeColors.primary }} className="font-black text-lg flex items-center gap-2"><Calculator size={22}/> PrecificaJá</div>
+          <div className="w-10"></div>
+        </header>
+
+        <div className="p-4 lg:p-8 max-w-xl lg:max-w-6xl mx-auto w-full">
         {activeTab === 'inicio' && (
           <div className="space-y-5 pt-2 w-full">
             <div style={{ backgroundColor: themeColors.primary }} className="p-6 rounded-[35px] shadow-lg text-white w-full">
@@ -3193,6 +3229,12 @@ export default function App() {
                         ) : (
                           <span className="inline-block mt-2 text-[9px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded font-black uppercase">⏳ Aguardando assinatura</span>
                         )}
+                        {c.statusPagamento === 'pago_total' && (
+                          <span className="inline-block mt-2 ml-1 text-[9px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded font-black uppercase">💰 Pago Total</span>
+                        )}
+                        {c.statusPagamento === 'sinal_recebido' && (
+                          <p className="text-[10px] text-emerald-600 font-bold bg-emerald-50 inline-block px-2 py-0.5 rounded mt-2">💰 Sinal: R$ {Number(c.valorSinal || 0).toFixed(2)} • Falta: R$ {(Number(c.valorTotal || 0) - Number(c.valorSinal || 0)).toFixed(2)}</p>
+                        )}
                       </div>
                       <div style={{ color: themeColors.primary }} className="font-black text-lg">
                         R$ {Number(c.valorTotal || 0).toFixed(2)}
@@ -3200,6 +3242,12 @@ export default function App() {
                     </div>
 
                     <div className="flex justify-end gap-1 border-t pt-3 w-full flex-wrap">
+                      {c.id && c.statusPagamento !== 'pago_total' && c.statusPagamento !== 'sinal_recebido' && (
+                        <button onClick={() => { setMostrarModalSinal({ id: c.id, tipo: 'contrato', titulo: c.tipoEvento || 'Contrato', total: c.valorTotal }); setValorSinalInput(''); }} className="text-amber-600 px-3 py-2 bg-amber-50 rounded-xl text-xs font-bold flex items-center gap-1 active:scale-95 mr-auto">💰 Sinal</button>
+                      )}
+                      {c.id && c.statusPagamento !== 'pago_total' && (
+                        <button onClick={() => confirmarRecebimentoContrato(c)} className="text-emerald-600 px-3 py-2 bg-emerald-50 rounded-xl text-xs font-bold flex items-center gap-1 active:scale-95 mr-auto"><CheckCircle size={16}/> Recebimento Total</button>
+                      )}
                       <button onClick={() => setNovoContrato({ id: c.id || '', clienteId: c.clienteId, tipoEvento: c.tipoEvento || '', dataEvento: c.dataEvento || '', localEvento: c.localEvento || '', valorTotal: c.valorTotal || '', clausulas: c.clausulas || novoContrato.clausulas })} style={{ color: themeColors.primary }} className="p-2 bg-purple-50 rounded-xl"><Edit2 size={16}/></button>
 
                       <button onClick={() => setNovoContrato({ id: '', clienteId: c.clienteId, tipoEvento: `${c.tipoEvento} (Cópia)`, dataEvento: c.dataEvento || '', localEvento: c.localEvento || '', valorTotal: c.valorTotal || '', clausulas: c.clausulas || novoContrato.clausulas })} title="Duplicar Contrato" className="p-2 bg-blue-50 text-blue-600 rounded-xl"><Copy size={16}/></button>
@@ -4389,7 +4437,7 @@ export default function App() {
                         <button onClick={() => confirmarVendaPedido(p)} className="text-emerald-600 px-3 py-2 bg-emerald-50 rounded-xl text-xs font-bold flex items-center gap-1 active:scale-95 mr-auto"><CheckCircle size={16}/> Confirmar Venda</button>
                       )}
                       {(statusAtual === 'Pendente' || statusAtual === 'Em Produção 🔧') && p.statusPagamento !== 'sinal_recebido' && (
-                        <button onClick={() => { setMostrarModalSinal(p); setValorSinalInput(''); }} className="text-amber-600 px-3 py-2 bg-amber-50 rounded-xl text-xs font-bold flex items-center gap-1 active:scale-95">💰 Sinal</button>
+                        <button onClick={() => { setMostrarModalSinal({ id: p.id, tipo: 'pedido', titulo: p.nomeProd, total: p.preco }); setValorSinalInput(''); }} className="text-amber-600 px-3 py-2 bg-amber-50 rounded-xl text-xs font-bold flex items-center gap-1 active:scale-95">💰 Sinal</button>
                       )}
 
                       <button onClick={() => handleDuplicarOrcamento(p)} title="Duplicar este Orçamento" className="text-blue-500 p-2 bg-blue-50 rounded-xl active:scale-95 transition-transform"><Copy size={18}/></button>
@@ -4648,9 +4696,10 @@ export default function App() {
             </div>
           </div>
         )}
+        </div>
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 flex justify-center p-4 z-30 bg-transparent pointer-events-none">
+      <div className="fixed bottom-0 left-0 right-0 flex justify-center p-4 z-30 bg-transparent pointer-events-none lg:hidden">
         <div className="bg-white shadow-[0_-10px_30px_rgba(0,0,0,0.06)] rounded-[28px] flex justify-around items-center px-4 h-16 w-full max-w-xl pointer-events-auto border">
           <button onClick={() => setActiveTab('inicio')} style={{ color: activeTab === 'inicio' ? themeColors.secondary : undefined }} className={`flex flex-col items-center justify-center flex-1 h-full transition-all active:scale-95 ${activeTab !== 'inicio' ? 'text-slate-300' : ''}`}>
             <Home size={22} className={activeTab === 'inicio' ? 'stroke-[2.5]' : 'stroke-[2]'} />
