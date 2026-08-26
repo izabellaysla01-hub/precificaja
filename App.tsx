@@ -1311,6 +1311,20 @@ export default function App() {
     }
   };
 
+  const excluirMovimentacaoCaixa = (m: any) => {
+    const avisoVinculo = m.pedidoId
+      ? ' Essa movimentação veio de um pedido — excluir aqui NÃO desfaz o status do pedido, só remove o lançamento do caixa.'
+      : '';
+    confirmar(`Excluir esta movimentação (${m.descricao})?${avisoVinculo}`, async () => {
+      try {
+        await deleteDoc(doc(db, "movimentacoes_caixa", m.id));
+        showToast("Movimentação excluída.");
+      } catch {
+        showToast("Erro ao excluir movimentação.", 'erro');
+      }
+    });
+  };
+
   // Sinal recebido: fica salvo no próprio pedido e já lança a entrada no caixa na hora
   const confirmarRegistroSinal = async () => {
     if (!mostrarModalSinal) return;
@@ -4185,9 +4199,12 @@ export default function App() {
                       <p className="text-[10px] text-slate-400">{m.data?.toDate ? m.data.toDate().toLocaleDateString('pt-BR') : ''}</p>
                     </div>
                   </div>
-                  <span className={`font-black text-sm shrink-0 ml-2 ${m.tipo === 'entrada' ? 'text-emerald-600' : 'text-red-500'}`}>
-                    {m.tipo === 'entrada' ? '+' : '−'} R$ {Number(m.valor || 0).toFixed(2)}
-                  </span>
+                  <div className="flex items-center gap-2 shrink-0 ml-2">
+                    <span className={`font-black text-sm ${m.tipo === 'entrada' ? 'text-emerald-600' : 'text-red-500'}`}>
+                      {m.tipo === 'entrada' ? '+' : '−'} R$ {Number(m.valor || 0).toFixed(2)}
+                    </span>
+                    <button onClick={() => excluirMovimentacaoCaixa(m)} className="text-red-200 hover:text-red-500 p-1 transition-colors"><Trash2 size={16}/></button>
+                  </div>
                 </div>
               ))}
 
@@ -4226,7 +4243,10 @@ export default function App() {
                           {item.itens.sort((a: any, b: any) => (b.data?.seconds || 0) - (a.data?.seconds || 0)).map((m: any) => (
                             <div key={m.id} className="flex justify-between items-center text-xs bg-slate-50 p-2.5 rounded-xl border">
                               <span className="font-bold text-slate-700 truncate pr-2">{m.descricao}</span>
-                              <span className={`font-black shrink-0 ${m.tipo === 'entrada' ? 'text-emerald-600' : 'text-red-500'}`}>{m.tipo === 'entrada' ? '+' : '−'} R$ {Number(m.valor || 0).toFixed(2)}</span>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className={`font-black ${m.tipo === 'entrada' ? 'text-emerald-600' : 'text-red-500'}`}>{m.tipo === 'entrada' ? '+' : '−'} R$ {Number(m.valor || 0).toFixed(2)}</span>
+                                <button onClick={() => excluirMovimentacaoCaixa(m)} className="text-red-200 hover:text-red-500"><Trash2 size={14}/></button>
+                              </div>
                             </div>
                           ))}
                         </div>
