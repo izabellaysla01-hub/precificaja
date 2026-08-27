@@ -318,7 +318,17 @@ export default function App() {
   const [idLojaPublica, setIdLojaPublica] = useState<string | null>(null);
   const [produtosPublicos, setProdutosPublicos] = useState<any[]>([]);
   const [carregandoPublico, setCarregandoPublico] = useState(false);
-  const [carrinho, setCarrinho] = useState<{ [key: string]: number }>({});
+  const [carrinhoPublico, setCarrinhoPublico] = useState<{ itemId: string; produtoId: string; nome: string; precoUnitario: number; detalhe: string; qtd: number }[]>([]);
+  const [produtoDetalheAberto, setProdutoDetalheAberto] = useState<any>(null);
+  const [imagemAtivaDetalhe, setImagemAtivaDetalhe] = useState(0);
+  const [variacoesEscolhidas, setVariacoesEscolhidas] = useState<{ [grupoId: string]: string }>({});
+  const [personalizacaoTexto, setPersonalizacaoTexto] = useState('');
+  const [qtdDetalhe, setQtdDetalhe] = useState(1);
+  const [telefoneComprador, setTelefoneComprador] = useState('');
+  const [modalidadeEntrega, setModalidadeEntrega] = useState<'entrega' | 'retirada'>('entrega');
+  const [enderecoComprador, setEnderecoComprador] = useState('');
+  const [formaPagamentoComprador, setFormaPagamentoComprador] = useState<'pix' | 'dinheiro_sinal' | 'cartao_credito' | 'cartao_debito'>('pix');
+  const [observacoesComprador, setObservacoesComprador] = useState('');
   const [nomeComprador, setNomeComprador] = useState('');
   const [zapDaLojaPublica, setZapDaLojaPublica] = useState('');
 
@@ -417,7 +427,8 @@ export default function App() {
   const [novoCli, setNovoCli] = useState({ id: '', nome: '', zap: '', email: '', endereco: '', cpfCnpj: '' });
   const [novaAnotacao, setNovaAnotacao] = useState({ id: '', titulo: '', conteudo: '', dataPrazo: new Date().toISOString().split('T')[0], prioridade: 'media' });
 
-  const [novoProdCatalogo, setNovoProdCatalogo] = useState<{id: string, nome: string, precoVenda: string, urlImagem: string, categorias: string[], materiaisAssociados: {id: string, nome: string, qtdUsada: number}[]}>({ id: '', nome: '', precoVenda: '', urlImagem: '', categorias: [], materiaisAssociados: [] });
+  const [novoProdCatalogo, setNovoProdCatalogo] = useState<{id: string, nome: string, precoVenda: string, urlImagem: string, categorias: string[], materiaisAssociados: {id: string, nome: string, qtdUsada: number}[], imagens: string[], descricao: string, variacoes: {id: string, nome: string, opcoes: {id: string, label: string, precoAdicional: string}[]}[], personalizavel: boolean, personalizacaoPlaceholder: string}>({ id: '', nome: '', precoVenda: '', urlImagem: '', categorias: [], materiaisAssociados: [], imagens: [], descricao: '', variacoes: [], personalizavel: false, personalizacaoPlaceholder: 'Ex: nome, cor, tema, data da entrega...' });
+  const [novoGrupoVariacaoNome, setNovoGrupoVariacaoNome] = useState('');
   const [inputNovaCategoriaProd, setInputNovaCategoriaProd] = useState('');
   const [mostrarInputNovaCatProd, setMostrarInputNovaCatProd] = useState(false);
 
@@ -1004,18 +1015,23 @@ export default function App() {
     window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
   };
 
-  const dispararPdfAutomaticoCliente = (nomeCliente: string, itens: any[], total: number) => {
+  const dispararPdfAutomaticoCliente = (nomeCliente: string, itens: any[], total: number, dadosExtras: { telefone?: string; modalidade?: string; endereco?: string; formaPagamento?: string; observacoes?: string } = {}) => {
     const elemento = document.createElement('div');
     const dataEmissao = new Date().toLocaleDateString('pt-BR');
 
     const linesHtml = itens.map(p => `
       <tr style="border-bottom: 1px solid #f1f5f9; font-size: 14px; page-break-inside: avoid; break-inside: avoid;">
-        <td style="padding: 15px 5px; font-weight: bold; color: #1e293b; text-align: left;">${p.nome}</td>
+        <td style="padding: 15px 5px; font-weight: bold; color: #1e293b; text-align: left;">
+          ${p.nome}
+          ${p.detalhe ? `<div style="font-size: 11px; color: #64748b; font-weight: normal; margin-top: 2px;">${p.detalhe}</div>` : ''}
+        </td>
         <td style="padding: 15px 5px; text-align: center; color: #475569;">${p.qtd}</td>
         <td style="padding: 15px 5px; text-align: right; color: #475569;">R$ ${Number(p.precoVenda).toFixed(2)}</td>
         <td style="padding: 15px 5px; text-align: right; font-weight: bold; color: #1e293b;">R$ ${(Number(p.precoVenda) * p.qtd).toFixed(2)}</td>
       </tr>
     `).join('');
+
+    const nomesFormaPagamento: any = { pix: 'Pix', dinheiro_sinal: 'Dinheiro (sinal 50% + 50% na entrega)', cartao_credito: 'Cartão de Crédito', cartao_debito: 'Cartão de Débito' };
 
     elemento.innerHTML = `
       <div style="padding: 35px; font-family: sans-serif; color: #334155; max-width: 750px; margin: 0 auto;">
@@ -1033,6 +1049,9 @@ export default function App() {
         <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Identificação do Comprador</div>
         <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 25px; border: 1px solid #f1f5f9;">
           <p style="margin: 0; font-size: 14px;"><strong>Cliente Final:</strong> ${nomeCliente}</p>
+          ${dadosExtras.telefone ? `<p style="margin: 6px 0 0 0; font-size: 13px;"><strong>WhatsApp:</strong> ${dadosExtras.telefone}</p>` : ''}
+          ${dadosExtras.modalidade ? `<p style="margin: 6px 0 0 0; font-size: 13px;"><strong>Modalidade:</strong> ${dadosExtras.modalidade}</p>` : ''}
+          ${dadosExtras.endereco ? `<p style="margin: 6px 0 0 0; font-size: 13px;"><strong>Endereço de Entrega:</strong> ${dadosExtras.endereco}</p>` : ''}
         </div>
 
         <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Relação de Itens Escolhidos</div>
@@ -1058,9 +1077,9 @@ export default function App() {
         </div>
 
         <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px; page-break-inside: avoid; break-inside: avoid;">Forma de Pagamento</div>
-        <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; border: 1px solid #f1f5f9; font-size: 13px; display: flex; justify-content: space-between; margin-bottom: 15px; page-break-inside: avoid; break-inside: avoid;">
-          <div><strong>Forma de pagamento:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">PIX / CARTÃO</div></div>
-          <div><strong>Condições de pagamento:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">A combinar direto no WhatsApp</div></div>
+        <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; border: 1px solid #f1f5f9; font-size: 13px; margin-bottom: 15px; page-break-inside: avoid; break-inside: avoid;">
+          <div><strong>Forma de pagamento escolhida:</strong><div style="margin-top: 4px; color: #475569; font-weight: bold;">${nomesFormaPagamento[dadosExtras.formaPagamento || 'pix'] || 'A combinar'}</div></div>
+          ${dadosExtras.observacoes ? `<div style="margin-top: 10px;"><strong>Observações:</strong><div style="margin-top: 4px; color: #475569;">${dadosExtras.observacoes}</div></div>` : ''}
         </div>
       </div>
     `;
@@ -1069,33 +1088,86 @@ export default function App() {
     if ((window as any).html2pdf) { (window as any).html2pdf().from(elemento).set(opcoes).save(); }
   };
 
+  const adicionarAoCarrinhoPublico = (produto: any, precoUnitario: number, detalhe: string, qtd: number) => {
+    setCarrinhoPublico(prev => [...prev, { itemId: `item_${Date.now()}`, produtoId: produto.id, nome: produto.nome, precoUnitario, detalhe, qtd }]);
+  };
+
+  const removerDoCarrinhoPublico = (itemId: string) => {
+    setCarrinhoPublico(prev => prev.filter(i => i.itemId !== itemId));
+  };
+
+  const abrirDetalheProduto = (p: any) => {
+    setProdutoDetalheAberto(p);
+    setImagemAtivaDetalhe(0);
+    setVariacoesEscolhidas({});
+    setPersonalizacaoTexto('');
+    setQtdDetalhe(1);
+  };
+
+  const confirmarAdicaoDetalhe = () => {
+    if (!produtoDetalheAberto) return;
+    const grupos = produtoDetalheAberto.variacoes || [];
+    for (const g of grupos) {
+      if (!variacoesEscolhidas[g.id]) return showToast(`Escolha uma opção em "${g.nome}"`, 'erro');
+    }
+    let precoUnit = Number(produtoDetalheAberto.precoVenda || 0);
+    const partesDetalhe: string[] = [];
+    grupos.forEach((g: any) => {
+      const opcaoId = variacoesEscolhidas[g.id];
+      const opcao = g.opcoes.find((o: any) => o.id === opcaoId);
+      if (opcao) {
+        precoUnit += Number(opcao.precoAdicional || 0);
+        partesDetalhe.push(`${g.nome}: ${opcao.label}`);
+      }
+    });
+    if (personalizacaoTexto.trim()) partesDetalhe.push(`Personalização: ${personalizacaoTexto.trim()}`);
+    adicionarAoCarrinhoPublico(produtoDetalheAberto, precoUnit, partesDetalhe.join(' • '), qtdDetalhe);
+    setProdutoDetalheAberto(null);
+    showToast("Adicionado ao carrinho! 🛍️");
+  };
+
   const finalizarPedidoPublicoWhatsapp = () => {
-    if (!nomeComprador.trim()) return alert("Por favor, digite seu nome antes de enviar!");
-    const itensSelecionados = produtosPublicosFiltrados.filter(p => carrinho[p.id] > 0);
-    if (itensSelecionados.length === 0) return alert("Seu carrinho está vazio!");
+    if (!nomeComprador.trim()) return showToast("Digite seu nome antes de enviar!", 'erro');
+    if (!telefoneComprador.trim()) return showToast("Digite seu telefone/WhatsApp antes de enviar!", 'erro');
+    if (modalidadeEntrega === 'entrega' && !enderecoComprador.trim()) return showToast("Digite o endereço de entrega!", 'erro');
+    if (carrinhoPublico.length === 0) return showToast("Seu carrinho está vazio!", 'erro');
+
+    const totalGeral = carrinhoPublico.reduce((acc, i) => acc + i.precoUnitario * i.qtd, 0);
+
+    const nomesModalidade: any = { entrega: 'Entrega', retirada: 'Retirada no local' };
+    const nomesFormaPagamento: any = { pix: 'Pix', dinheiro_sinal: 'Dinheiro (sinal de 50% + 50% na entrega)', cartao_credito: 'Cartão de Crédito', cartao_debito: 'Cartão de Débito' };
 
     let textPedido = `*NOVO PEDIDO VIA CATÁLOGO DE VENDAS*%0A`;
     textPedido += `---%0A`;
-    textPedido += `*Cliente:* ${nomeComprador.trim()}%0A%0A`;
-    textPedido += `*Itens do Pedido:*%0A`;
+    textPedido += `*Cliente:* ${nomeComprador.trim()}%0A`;
+    textPedido += `*WhatsApp:* ${telefoneComprador.trim()}%0A`;
+    textPedido += `*Modalidade:* ${nomesModalidade[modalidadeEntrega]}%0A`;
+    if (modalidadeEntrega === 'entrega') textPedido += `*Endereço:* ${enderecoComprador.trim()}%0A`;
+    textPedido += `%0A*Itens do Pedido:*%0A`;
 
-    let totalGeral = 0;
-    const listaParaPdf: any[] = [];
-
-    itensSelecionados.forEach(p => {
-      const qtd = carrinho[p.id];
-      const sub = Number(p.precoVenda) * qtd;
-      totalGeral += sub;
-      textPedido += `• ${qtd}x _${p.nome}_ — R$ ${sub.toFixed(2)}%0A`;
-      listaParaPdf.push({ nome: p.nome, qtd: qtd, precoVenda: p.precoVenda });
+    carrinhoPublico.forEach(i => {
+      const sub = i.precoUnitario * i.qtd;
+      textPedido += `• ${i.qtd}x _${i.nome}_${i.detalhe ? ` (${i.detalhe})` : ''} — R$ ${sub.toFixed(2)}%0A`;
     });
 
     textPedido += `---%0A`;
     textPedido += `*VALOR TOTAL:* R$ ${totalGeral.toFixed(2)}%0A`;
+    textPedido += `*Forma de Pagamento:* ${nomesFormaPagamento[formaPagamentoComprador]}%0A`;
+    if (formaPagamentoComprador === 'dinheiro_sinal') {
+      textPedido += `_(Sinal de R$ ${(totalGeral / 2).toFixed(2)} + R$ ${(totalGeral / 2).toFixed(2)} na finalização)_%0A`;
+    }
+    if (observacoesComprador.trim()) textPedido += `*Observações:* ${observacoesComprador.trim()}%0A`;
     textPedido += `---%0A`;
     textPedido += `Aguardo a conversa para acertar os detalhes! 🙌`;
 
-    dispararPdfAutomaticoCliente(nomeComprador.trim(), listaParaPdf, totalGeral);
+    const listaParaPdf = carrinhoPublico.map(i => ({ nome: i.nome, qtd: i.qtd, precoVenda: i.precoUnitario, detalhe: i.detalhe }));
+    dispararPdfAutomaticoCliente(nomeComprador.trim(), listaParaPdf, totalGeral, {
+      telefone: telefoneComprador.trim(),
+      modalidade: nomesModalidade[modalidadeEntrega],
+      endereco: modalidadeEntrega === 'entrega' ? enderecoComprador.trim() : '',
+      formaPagamento: formaPagamentoComprador,
+      observacoes: observacoesComprador.trim()
+    });
 
     const numeroLimpo = zapDaLojaPublica.replace(/\D/g, '');
     if (numeroLimpo) { window.open(`https://wa.me/55${numeroLimpo}?text=${textPedido}`, '_blank'); }
@@ -1379,10 +1451,70 @@ export default function App() {
       const imagemRef = ref(storage, `produtos/${nomeArquivo}`);
       await uploadBytes(imagemRef, file);
       const urlDisponivel = await getDownloadURL(imagemRef);
-      setNovoProdCatalogo(prev => ({ ...prev, urlImagem: urlDisponivel }));
+      setNovoProdCatalogo(prev => ({ ...prev, urlImagem: urlDisponivel, imagens: prev.imagens.length > 0 ? prev.imagens : [urlDisponivel] }));
       showToast("Foto carregada com sucesso! 📸");
     } catch (error) { showToast("Erro ao subir a foto!", 'erro'); }
     finally { setSubindoImagem(false); }
+  };
+
+  // Galeria: permite várias fotos por produto (a primeira vira a foto de capa automaticamente)
+  const handleUploadImagemGaleria = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    if (novoProdCatalogo.imagens.length >= 6) return showToast("Máximo de 6 fotos por produto.", 'erro');
+    setSubindoImagem(true);
+    try {
+      const nomeArquivo = `${user.uid}_${Date.now()}_${file.name}`;
+      const imagemRef = ref(storage, `produtos/${nomeArquivo}`);
+      await uploadBytes(imagemRef, file);
+      const urlDisponivel = await getDownloadURL(imagemRef);
+      setNovoProdCatalogo(prev => {
+        const novasImagens = [...prev.imagens, urlDisponivel];
+        return { ...prev, imagens: novasImagens, urlImagem: prev.urlImagem || novasImagens[0] };
+      });
+      showToast("Foto adicionada à galeria! 📸");
+    } catch (error) { showToast("Erro ao subir a foto!", 'erro'); }
+    finally { setSubindoImagem(false); }
+  };
+
+  const removerImagemGaleria = (idx: number) => {
+    setNovoProdCatalogo(prev => {
+      const novasImagens = prev.imagens.filter((_, i) => i !== idx);
+      return { ...prev, imagens: novasImagens, urlImagem: novasImagens[0] || '' };
+    });
+  };
+
+  // Variações: grupos de opções que somam ao preço base (ex: "Encadernação" -> Wire-o / Espiral +R$10 / Disco +R$49)
+  const adicionarGrupoVariacao = () => {
+    if (!novoGrupoVariacaoNome.trim()) return;
+    const novoGrupo = { id: `grupo_${Date.now()}`, nome: novoGrupoVariacaoNome.trim(), opcoes: [] as {id: string, label: string, precoAdicional: string}[] };
+    setNovoProdCatalogo(prev => ({ ...prev, variacoes: [...prev.variacoes, novoGrupo] }));
+    setNovoGrupoVariacaoNome('');
+  };
+
+  const removerGrupoVariacao = (grupoId: string) => {
+    setNovoProdCatalogo(prev => ({ ...prev, variacoes: prev.variacoes.filter(g => g.id !== grupoId) }));
+  };
+
+  const adicionarOpcaoVariacao = (grupoId: string) => {
+    setNovoProdCatalogo(prev => ({
+      ...prev,
+      variacoes: prev.variacoes.map(g => g.id === grupoId ? { ...g, opcoes: [...g.opcoes, { id: `opcao_${Date.now()}`, label: '', precoAdicional: '0' }] } : g)
+    }));
+  };
+
+  const removerOpcaoVariacao = (grupoId: string, opcaoId: string) => {
+    setNovoProdCatalogo(prev => ({
+      ...prev,
+      variacoes: prev.variacoes.map(g => g.id === grupoId ? { ...g, opcoes: g.opcoes.filter(o => o.id !== opcaoId) } : g)
+    }));
+  };
+
+  const atualizarOpcaoVariacao = (grupoId: string, opcaoId: string, campo: 'label' | 'precoAdicional', valor: string) => {
+    setNovoProdCatalogo(prev => ({
+      ...prev,
+      variacoes: prev.variacoes.map(g => g.id === grupoId ? { ...g, opcoes: g.opcoes.map(o => o.id === opcaoId ? { ...o, [campo]: valor } : o) } : g)
+    }));
   };
 
   const handleUploadLogo = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -2150,10 +2282,13 @@ export default function App() {
 
   if (idLojaPublica) {
     if (carregandoPublico) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando Vitrine... 🛍️</div>;
-    const totalCarrinho = Object.keys(carrinho).reduce((acc, id) => {
-      const prod = produtosPublicos.find(p => p.id === id);
-      return acc + (prod ? Number(prod.precoVenda) * carrinho[id] : 0);
-    }, 0);
+    const totalCarrinhoPublico = carrinhoPublico.reduce((acc, i) => acc + i.precoUnitario * i.qtd, 0);
+    const passos = [
+      { n: '01', t: 'Escolha os itens', d: 'Navegue pelo catálogo e adicione o que quiser ao carrinho.' },
+      { n: '02', t: 'Revise o pedido', d: 'Confira os itens, quantidades e o total antes de enviar.' },
+      { n: '03', t: 'Envie pelo WhatsApp', d: 'Toque em enviar e o pedido vai direto para a loja.' },
+      { n: '04', t: 'Combine entrega e pagamento', d: 'A loja confirma o pedido, o endereço e a forma de pagamento.' },
+    ];
 
     return (
       <div className="min-h-screen bg-slate-50 pb-40 font-sans text-slate-700 w-full relative">
@@ -2179,27 +2314,24 @@ export default function App() {
         </header>
 
         <main className="p-4 max-w-xl mx-auto space-y-6">
-          <div className="bg-white p-5 rounded-[30px] border shadow-sm">
-            <label className="text-[10px] font-black uppercase text-purple-600 ml-1">Seu Nome Completo</label>
-            <input placeholder="Digite seu nome para o pedido..." className="w-full p-4 bg-slate-50 rounded-2xl mt-1 outline-none font-bold border border-transparent focus:border-purple-400" value={nomeComprador} onChange={e => setNomeComprador(e.target.value)} />
-          </div>
-
           <div className="grid grid-cols-1 gap-4">
             {produtosPublicosFiltrados.map(p => {
-              const qtdNoCarinho = carrinho[p.id] || 0;
+              const temImagem = p.urlImagem || (p.imagens && p.imagens[0]);
+              const temVariacoes = p.variacoes && p.variacoes.length > 0;
               return (
                 <div key={p.id} className="bg-white p-4 rounded-[35px] border shadow-sm flex gap-4 items-center">
-                  <div className="w-24 h-24 rounded-2xl bg-slate-100 overflow-hidden flex items-center justify-center text-slate-300 shrink-0">
-                    {p.urlImagem ? <img src={p.urlImagem} alt={p.nome} className="w-full h-full object-cover" /> : <ImageIcon size={30} />}
+                  <div onClick={() => abrirDetalheProduto(p)} className="w-24 h-24 rounded-2xl bg-slate-100 overflow-hidden flex items-center justify-center text-slate-300 shrink-0 cursor-pointer">
+                    {temImagem ? <img src={temImagem} alt={p.nome} className="w-full h-full object-cover" /> : <ImageIcon size={30} />}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-black text-slate-800 text-base truncate">{p.nome}</p>
-                    <p className="text-purple-700 font-black text-lg mt-1">R$ {Number(p.precoVenda).toFixed(2)}</p>
-                    <div className="flex items-center gap-2 mt-2">
-                      <button onClick={() => setCarrinho({ ...carrinho, [p.id]: Math.max(0, qtdNoCarinho - 1) })} className="w-8 h-8 bg-slate-100 rounded-xl font-black text-slate-600">-</button>
-                      <span className="font-bold text-sm w-6 text-center">{qtdNoCarinho}</span>
-                      <button onClick={() => setCarrinho({ ...carrinho, [p.id]: qtdNoCarinho + 1 })} className="w-8 h-8 bg-purple-100 rounded-xl font-black text-purple-700">+</button>
-                    </div>
+                    <p onClick={() => abrirDetalheProduto(p)} className="font-black text-slate-800 text-base truncate cursor-pointer">{p.nome}</p>
+                    <p className="text-purple-700 font-black text-lg mt-1">
+                      {temVariacoes ? 'A partir de ' : ''}R$ {Number(p.precoVenda).toFixed(2)}
+                    </p>
+                    {p.descricao && <p className="text-slate-400 text-[11px] mt-0.5 line-clamp-1">{p.descricao}</p>}
+                    <button onClick={() => abrirDetalheProduto(p)} style={{ backgroundColor: temVariacoes || p.personalizavel ? '#7c3aed' : undefined }} className={`mt-2 px-4 py-2 rounded-xl text-xs font-black uppercase active:scale-95 transition-all ${temVariacoes || p.personalizavel ? 'text-white' : 'bg-purple-50 text-purple-700'}`}>
+                      {temVariacoes || p.personalizavel ? 'Escolha as opções' : 'Adicionar ao carrinho'}
+                    </button>
                   </div>
                 </div>
               );
@@ -2209,13 +2341,173 @@ export default function App() {
               <p className="text-center font-bold text-xs text-slate-400 py-12">Nenhum produto em destaque nesta categoria no momento. 🙌</p>
             )}
           </div>
+
+          {carrinhoPublico.length > 0 && (
+            <div className="bg-white p-5 rounded-[30px] border shadow-sm space-y-3">
+              <h3 className="font-black text-slate-800 text-sm uppercase tracking-wide flex items-center gap-2"><ShoppingCart size={16}/> Seu Carrinho ({carrinhoPublico.length})</h3>
+              {carrinhoPublico.map(i => (
+                <div key={i.itemId} className="flex justify-between items-center bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                  <div className="min-w-0 flex-1 pr-2">
+                    <p className="font-bold text-slate-800 text-sm truncate">{i.qtd}x {i.nome}</p>
+                    {i.detalhe && <p className="text-[10px] text-slate-400 truncate">{i.detalhe}</p>}
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="font-black text-purple-700 text-sm">R$ {(i.precoUnitario * i.qtd).toFixed(2)}</span>
+                    <button onClick={() => removerDoCarrinhoPublico(i.itemId)} className="text-red-300"><Trash2 size={16}/></button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="bg-white p-5 rounded-[30px] border shadow-sm space-y-4">
+            <h3 className="font-black text-slate-800 text-sm uppercase tracking-wide">Seus Dados</h3>
+            <p className="text-slate-400 text-[11px] -mt-2">Precisamos disso para confirmar o pedido.</p>
+
+            <div>
+              <label className="text-[10px] font-black uppercase text-purple-600 ml-1">Nome Completo</label>
+              <input placeholder="Digite seu nome..." className="w-full p-4 bg-slate-50 rounded-2xl mt-1 outline-none font-bold border border-transparent focus:border-purple-400" value={nomeComprador} onChange={e => setNomeComprador(e.target.value)} />
+            </div>
+
+            <div>
+              <label className="text-[10px] font-black uppercase text-purple-600 ml-1">Telefone / WhatsApp</label>
+              <input placeholder="(11) 99999-9999" className="w-full p-4 bg-slate-50 rounded-2xl mt-1 outline-none font-bold border border-transparent focus:border-purple-400" value={telefoneComprador} onChange={e => setTelefoneComprador(e.target.value)} />
+            </div>
+
+            <div>
+              <label className="text-[10px] font-black uppercase text-purple-600 ml-1 block mb-1">Modalidade</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button onClick={() => setModalidadeEntrega('entrega')} style={{ borderColor: modalidadeEntrega === 'entrega' ? '#7c3aed' : undefined, color: modalidadeEntrega === 'entrega' ? '#7c3aed' : undefined }} className={`py-3 rounded-xl text-xs font-black uppercase border-2 ${modalidadeEntrega === 'entrega' ? 'bg-purple-50' : 'bg-slate-50 border-transparent text-slate-500'}`}>Entrega</button>
+                <button onClick={() => setModalidadeEntrega('retirada')} style={{ borderColor: modalidadeEntrega === 'retirada' ? '#7c3aed' : undefined, color: modalidadeEntrega === 'retirada' ? '#7c3aed' : undefined }} className={`py-3 rounded-xl text-xs font-black uppercase border-2 ${modalidadeEntrega === 'retirada' ? 'bg-purple-50' : 'bg-slate-50 border-transparent text-slate-500'}`}>Retirada no Local</button>
+              </div>
+            </div>
+
+            {modalidadeEntrega === 'entrega' && (
+              <div>
+                <label className="text-[10px] font-black uppercase text-purple-600 ml-1">Endereço de Entrega</label>
+                <textarea placeholder="Rua, número, bairro, referência..." className="w-full p-4 bg-slate-50 rounded-2xl mt-1 outline-none font-medium text-sm border border-transparent focus:border-purple-400 resize-none h-16" value={enderecoComprador} onChange={e => setEnderecoComprador(e.target.value)} />
+              </div>
+            )}
+
+            <div>
+              <label className="text-[10px] font-black uppercase text-purple-600 ml-1 block mb-1">Forma de Pagamento</label>
+              <div className="space-y-2">
+                {[
+                  { v: 'pix', l: 'Pix', s: 'Aprovação imediata' },
+                  { v: 'dinheiro_sinal', l: 'Dinheiro', s: 'Sinal de 50% de entrada + 50% na finalização' },
+                  { v: 'cartao_credito', l: 'Cartão de Crédito', s: 'Combinado com a loja' },
+                  { v: 'cartao_debito', l: 'Cartão de Débito', s: 'Combinado com a loja' },
+                ].map(op => (
+                  <button key={op.v} onClick={() => setFormaPagamentoComprador(op.v as any)} style={{ borderColor: formaPagamentoComprador === op.v ? '#7c3aed' : undefined }} className={`w-full text-left p-3 rounded-2xl border-2 ${formaPagamentoComprador === op.v ? 'bg-purple-50 border-purple-600' : 'bg-slate-50 border-transparent'}`}>
+                    <p className="font-bold text-sm text-slate-800">{op.l}</p>
+                    <p className="text-[10px] text-slate-400">{op.s}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[10px] font-black uppercase text-purple-600 ml-1">Observações (opcional)</label>
+              <textarea placeholder="Cor, tamanho, personalização, observações..." className="w-full p-4 bg-slate-50 rounded-2xl mt-1 outline-none font-medium text-sm border border-transparent focus:border-purple-400 resize-none h-16" value={observacoesComprador} onChange={e => setObservacoesComprador(e.target.value)} />
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-[30px] border shadow-sm">
+            <p className="text-center text-[10px] font-black uppercase text-purple-500 tracking-widest mb-1">— Passo a Passo —</p>
+            <h3 className="text-center font-black text-slate-800 text-lg mb-1">Como funciona</h3>
+            <p className="text-center text-slate-400 text-xs mb-5">Pedir é simples e rápido. Em poucos toques você finaliza direto no WhatsApp.</p>
+            <div className="space-y-3">
+              {passos.map(passo => (
+                <div key={passo.n} className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
+                  <span className="text-[10px] font-black uppercase text-purple-400 tracking-widest">Passo {passo.n}</span>
+                  <p className="font-bold text-slate-800 text-sm mt-1">{passo.t}</p>
+                  <p className="text-slate-500 text-xs mt-0.5">{passo.d}</p>
+                </div>
+              ))}
+            </div>
+          </div>
         </main>
 
-        {totalCarrinho > 0 && (
+        {produtoDetalheAberto && (() => {
+          const p = produtoDetalheAberto;
+          const imagens = (p.imagens && p.imagens.length > 0) ? p.imagens : (p.urlImagem ? [p.urlImagem] : []);
+          let precoComVariacoes = Number(p.precoVenda || 0);
+          (p.variacoes || []).forEach((g: any) => {
+            const opcaoId = variacoesEscolhidas[g.id];
+            const opcao = g.opcoes.find((o: any) => o.id === opcaoId);
+            if (opcao) precoComVariacoes += Number(opcao.precoAdicional || 0);
+          });
+          return (
+            <div className="fixed inset-0 bg-black/50 z-[110] flex items-end sm:items-center justify-center" onClick={() => setProdutoDetalheAberto(null)}>
+              <div className="bg-white rounded-t-[35px] sm:rounded-[35px] w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                <div className="relative">
+                  <div className="w-full h-64 bg-slate-100 flex items-center justify-center overflow-hidden">
+                    {imagens.length > 0 ? <img src={imagens[imagemAtivaDetalhe]} className="w-full h-full object-cover" /> : <ImageIcon size={40} className="text-slate-300" />}
+                  </div>
+                  <button onClick={() => setProdutoDetalheAberto(null)} className="absolute top-3 right-3 bg-white/90 rounded-full p-2 shadow"><X size={18}/></button>
+                </div>
+                {imagens.length > 1 && (
+                  <div className="flex gap-2 p-3 overflow-x-auto">
+                    {imagens.map((img: string, idx: number) => (
+                      <button key={idx} onClick={() => setImagemAtivaDetalhe(idx)} className={`w-14 h-14 rounded-xl overflow-hidden shrink-0 border-2 ${imagemAtivaDetalhe === idx ? 'border-purple-600' : 'border-transparent'}`}>
+                        <img src={img} className="w-full h-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <div className="p-5 space-y-4">
+                  <div>
+                    <h2 className="font-black text-slate-800 text-xl">{p.nome}</h2>
+                    <p className="text-purple-700 font-black text-2xl mt-1">R$ {precoComVariacoes.toFixed(2)}</p>
+                  </div>
+
+                  {p.descricao && <p className="text-slate-500 text-sm leading-relaxed">{p.descricao}</p>}
+
+                  {(p.variacoes || []).map((g: any) => (
+                    <div key={g.id}>
+                      <p className="text-[10px] font-black uppercase text-slate-400 ml-1 mb-2">{g.nome}</p>
+                      <div className="flex flex-wrap gap-2">
+                        {g.opcoes.map((o: any) => {
+                          const selecionado = variacoesEscolhidas[g.id] === o.id;
+                          return (
+                            <button key={o.id} onClick={() => setVariacoesEscolhidas(prev => ({ ...prev, [g.id]: o.id }))} style={{ backgroundColor: selecionado ? '#7c3aed' : undefined, borderColor: selecionado ? '#7c3aed' : undefined }} className={`px-4 py-2.5 rounded-full text-xs font-bold border-2 ${selecionado ? 'text-white' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>
+                              {o.label}{Number(o.precoAdicional || 0) > 0 ? ` +R$ ${Number(o.precoAdicional).toFixed(2)}` : ''}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+
+                  {p.personalizavel && (
+                    <div>
+                      <p className="text-[10px] font-black uppercase text-slate-400 ml-1 mb-1">Personalize seu Pedido</p>
+                      <textarea placeholder={p.personalizacaoPlaceholder || 'Ex: nome, cor, tema...'} maxLength={300} className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-sm font-medium border resize-none h-20" value={personalizacaoTexto} onChange={e => setPersonalizacaoTexto(e.target.value)} />
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3 bg-slate-50 rounded-2xl px-3 py-2 border">
+                      <button onClick={() => setQtdDetalhe(q => Math.max(1, q - 1))} className="font-black text-slate-500 w-6">-</button>
+                      <span className="font-bold w-6 text-center">{qtdDetalhe}</span>
+                      <button onClick={() => setQtdDetalhe(q => q + 1)} className="font-black text-purple-600 w-6">+</button>
+                    </div>
+                    <button onClick={confirmarAdicaoDetalhe} className="flex-1 bg-purple-600 text-white font-black text-xs uppercase py-3.5 rounded-2xl active:scale-95 transition-all">
+                      Adicionar ao Carrinho
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {totalCarrinhoPublico > 0 && (
           <div className="fixed bottom-0 left-0 right-0 bg-white p-4 border-t shadow-2xl flex flex-col items-center gap-3 z-50">
             <div className="text-center">
               <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Total do seu Pedido</span>
-              <div className="text-2xl font-black text-orange-500">R$ {totalCarrinho.toFixed(2)}</div>
+              <div className="text-2xl font-black text-orange-500">R$ {totalCarrinhoPublico.toFixed(2)}</div>
             </div>
             <button onClick={finalizarPedidoPublicoWhatsapp} className="w-full max-w-md bg-emerald-500 hover:bg-emerald-600 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-lg flex items-center justify-center gap-2 tracking-wider">
               <MessageCircle size={18}/> Encomendar no WhatsApp
@@ -3882,24 +4174,23 @@ export default function App() {
               </h2>
 
               {novoProdCatalogo.id && (
-                <button onClick={() => setNovoProdCatalogo({ id: '', nome: '', precoVenda: '', urlImagem: '', categorias: [], materiaisAssociados: [] })} className="text-[10px] bg-slate-100 text-slate-600 px-3 py-1.5 rounded-xl font-bold uppercase tracking-wide mb-4 active:scale-95 transition-all block">Cancelar Modo Edição ❌</button>
+                <button onClick={() => setNovoProdCatalogo({ id: '', nome: '', precoVenda: '', urlImagem: '', categorias: [], materiaisAssociados: [], imagens: [], descricao: '', variacoes: [], personalizavel: false, personalizacaoPlaceholder: 'Ex: nome, cor, tema, data da entrega...' })} className="text-[10px] bg-slate-100 text-slate-600 px-3 py-1.5 rounded-xl font-bold uppercase tracking-wide mb-4 active:scale-95 transition-all block">Cancelar Modo Edição ❌</button>
               )}
 
-              <div className="mb-4 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-3xl p-4 bg-slate-50 relative min-h-[140px] w-full">
-                {novoProdCatalogo.urlImagem ? (
-                  <div className="relative w-full h-32 rounded-2xl overflow-hidden">
-                    <img src={novoProdCatalogo.urlImagem} alt="Preview" className="w-full h-full object-cover" />
-                    <button onClick={() => setNovoProdCatalogo(p => ({...p, urlImagem: ''}))} className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full"><X size={14}/></button>
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Galeria de Fotos (até 6)</label>
+              <div className="flex gap-2 flex-wrap mb-5 w-full">
+                {novoProdCatalogo.imagens.map((img, idx) => (
+                  <div key={idx} className="relative w-20 h-20 rounded-2xl overflow-hidden border">
+                    <img src={img} className="w-full h-full object-cover" />
+                    {idx === 0 && <span className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[8px] font-black text-center py-0.5">CAPA</span>}
+                    <button onClick={() => removerImagemGaleria(idx)} className="absolute top-0.5 right-0.5 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[9px]"><X size={10}/></button>
                   </div>
-                ) : (
-                  <label className="cursor-pointer flex flex-col items-center gap-2 text-slate-400 hover:text-purple-600 transition-colors w-full h-full flex justify-center">
-                    <div style={{ color: themeColors.primary }} className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center shadow-sm">
-                      <Camera size={22} />
-                    </div>
-                    <span className="text-xs font-bold uppercase tracking-wide text-[10px]">
-                      {subindoImagem ? 'Subindo Foto...' : '📸 Adicionar Foto do Produto'}
-                    </span>
-                    <input type="file" accept="image/*" className="hidden" onChange={handleUploadImagem} disabled={subindoImagem} />
+                ))}
+                {novoProdCatalogo.imagens.length < 6 && (
+                  <label className="cursor-pointer w-20 h-20 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 flex flex-col items-center justify-center text-slate-400 hover:text-purple-600 transition-colors">
+                    <Camera size={18} />
+                    <span className="text-[8px] font-bold uppercase mt-1">{subindoImagem ? '...' : '+ Foto'}</span>
+                    <input type="file" accept="image/*" className="hidden" onChange={handleUploadImagemGaleria} disabled={subindoImagem} />
                   </label>
                 )}
               </div>
@@ -3907,8 +4198,50 @@ export default function App() {
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Nome do Produto</label>
               <input placeholder="Ex: Caneca Alça Coração" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none font-medium text-sm border focus:border-purple-400" value={novoProdCatalogo.nome} onChange={e => setNovoProdCatalogo({...novoProdCatalogo, nome: e.target.value})} />
 
-              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Preço Fixo de Venda (R$)</label>
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Preço Base de Venda (R$)</label>
               <input type="number" placeholder="Ex: 35.00" style={{ color: themeColors.primary }} className="w-full p-4 bg-slate-50 rounded-2xl mb-4 outline-none font-bold border focus:border-purple-400" value={novoProdCatalogo.precoVenda} onChange={e => setNovoProdCatalogo({...novoProdCatalogo, precoVenda: e.target.value})} />
+
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Descrição do Produto (opcional)</label>
+              <textarea placeholder="Especificações, tamanho, material, prazo de produção..." className="w-full p-4 bg-slate-50 rounded-2xl mb-4 outline-none text-xs font-medium border focus:border-purple-400 resize-none h-20" value={novoProdCatalogo.descricao} onChange={e => setNovoProdCatalogo({...novoProdCatalogo, descricao: e.target.value})} />
+
+              <div className="mb-5 w-full bg-purple-50/50 border border-purple-100 rounded-2xl p-4">
+                <label className="text-[10px] font-bold text-purple-600 uppercase ml-1 block mb-1">Variações do Produto (opcional)</label>
+                <p className="text-[10px] text-slate-400 mb-3">Ex: "Encadernação" com opções Wire-o / Espiral / Disco +R$49. O cliente escolhe uma opção de cada grupo na vitrine.</p>
+
+                {novoProdCatalogo.variacoes.map(grupo => (
+                  <div key={grupo.id} className="bg-white rounded-2xl p-3 border mb-2">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="font-black text-xs text-slate-700 uppercase">{grupo.nome}</span>
+                      <button onClick={() => removerGrupoVariacao(grupo.id)} className="text-red-400"><Trash2 size={14}/></button>
+                    </div>
+                    <div className="space-y-1.5">
+                      {grupo.opcoes.map(opcao => (
+                        <div key={opcao.id} className="flex gap-1.5 items-center">
+                          <input placeholder="Ex: Wire-o" className="flex-1 p-2 bg-slate-50 rounded-lg text-xs font-medium outline-none border" value={opcao.label} onChange={e => atualizarOpcaoVariacao(grupo.id, opcao.id, 'label', e.target.value)} />
+                          <input type="number" placeholder="+R$0" className="w-20 p-2 bg-slate-50 rounded-lg text-xs font-bold outline-none border text-center" value={opcao.precoAdicional} onChange={e => atualizarOpcaoVariacao(grupo.id, opcao.id, 'precoAdicional', e.target.value)} />
+                          <button onClick={() => removerOpcaoVariacao(grupo.id, opcao.id)} className="text-red-300"><X size={14}/></button>
+                        </div>
+                      ))}
+                    </div>
+                    <button type="button" onClick={() => adicionarOpcaoVariacao(grupo.id)} className="text-[10px] font-black uppercase text-purple-600 underline mt-2">+ Adicionar opção</button>
+                  </div>
+                ))}
+
+                <div className="flex gap-2 mt-2">
+                  <input placeholder="Nome do grupo (ex: Encadernação)" className="flex-1 p-2.5 bg-white rounded-xl text-xs font-bold outline-none border" value={novoGrupoVariacaoNome} onChange={e => setNovoGrupoVariacaoNome(e.target.value)} />
+                  <button type="button" onClick={adicionarGrupoVariacao} style={{ backgroundColor: themeColors.primary }} className="text-white px-4 rounded-xl text-xs font-black">+ Grupo</button>
+                </div>
+              </div>
+
+              <div className="mb-5 w-full bg-slate-50 border rounded-2xl p-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={novoProdCatalogo.personalizavel} onChange={e => setNovoProdCatalogo({...novoProdCatalogo, personalizavel: e.target.checked})} className="w-4 h-4" />
+                  <span className="text-xs font-bold text-slate-700">Permitir personalização (campo de texto livre pro cliente)</span>
+                </label>
+                {novoProdCatalogo.personalizavel && (
+                  <input placeholder="Texto de exemplo do campo (ex: nome, cor, tema...)" className="w-full p-3 bg-white rounded-xl mt-2 outline-none text-xs font-medium border" value={novoProdCatalogo.personalizacaoPlaceholder} onChange={e => setNovoProdCatalogo({...novoProdCatalogo, personalizacaoPlaceholder: e.target.value})} />
+                )}
+              </div>
 
               <div className="mb-5 w-full">
                 <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Materiais usados (opcional, pra baixa automática de estoque no Balcão)</label>
@@ -3977,10 +4310,22 @@ export default function App() {
                 if(!novoProdCatalogo.nome || !novoProdCatalogo.precoVenda) return showToast("Preencha o nome e o preço!", 'erro');
                 setSalvando(prev => ({ ...prev, produto: true }));
                 try {
-                  const d = { nome: novoProdCatalogo.nome, precoVenda: Number(novoProdCatalogo.precoVenda), urlImagem: novoProdCatalogo.urlImagem || '', categorias: novoProdCatalogo.categorias || [], materiaisAssociados: novoProdCatalogo.materiaisAssociados || [], userId: user.uid };
+                  const d = {
+                    nome: novoProdCatalogo.nome,
+                    precoVenda: Number(novoProdCatalogo.precoVenda),
+                    urlImagem: novoProdCatalogo.urlImagem || '',
+                    imagens: novoProdCatalogo.imagens || [],
+                    descricao: novoProdCatalogo.descricao || '',
+                    variacoes: (novoProdCatalogo.variacoes || []).map(g => ({ ...g, opcoes: g.opcoes.map(o => ({ ...o, precoAdicional: Number(o.precoAdicional || 0) })) })),
+                    personalizavel: !!novoProdCatalogo.personalizavel,
+                    personalizacaoPlaceholder: novoProdCatalogo.personalizacaoPlaceholder || '',
+                    categorias: novoProdCatalogo.categorias || [],
+                    materiaisAssociados: novoProdCatalogo.materiaisAssociados || [],
+                    userId: user.uid
+                  };
                   if (novoProdCatalogo.id) await updateDoc(doc(db, "produtos", novoProdCatalogo.id), d);
                   else await addDoc(collection(db, "produtos"), d);
-                  setNovoProdCatalogo({ id: '', nome: '', precoVenda: '', urlImagem: '', categorias: [], materiaisAssociados: [] });
+                  setNovoProdCatalogo({ id: '', nome: '', precoVenda: '', urlImagem: '', categorias: [], materiaisAssociados: [], imagens: [], descricao: '', variacoes: [], personalizavel: false, personalizacaoPlaceholder: 'Ex: nome, cor, tema, data da entrega...' });
                   showToast("Produto salvo no catálogo!");
                 } catch {
                   showToast("Erro ao salvar produto.", 'erro');
@@ -4034,7 +4379,7 @@ export default function App() {
                   </div>
                   <div className="flex items-center gap-1">
                     <button onClick={() => venderItemDiretoDoCatalogo(p)} style={{ backgroundColor: themeColors.secondary }} className="text-white px-3 py-2 rounded-xl text-xs font-black uppercase shadow active:scale-95">Vender 🛍️</button>
-                    <button onClick={() => setNovoProdCatalogo({ id: p.id, nome: p.nome, precoVenda: String(p.precoVenda), urlImagem: p.urlImagem || '', categorias: p.categorias || [], materiaisAssociados: p.materiaisAssociados || [] })} className="text-orange-400 hover:bg-orange-50 p-1.5 rounded-xl"><Edit2 size={15}/></button>
+                    <button onClick={() => setNovoProdCatalogo({ id: p.id, nome: p.nome, precoVenda: String(p.precoVenda), urlImagem: p.urlImagem || '', categorias: p.categorias || [], materiaisAssociados: p.materiaisAssociados || [], imagens: p.imagens || (p.urlImagem ? [p.urlImagem] : []), descricao: p.descricao || '', variacoes: (p.variacoes || []).map((g: any) => ({ ...g, opcoes: g.opcoes.map((o: any) => ({ ...o, precoAdicional: String(o.precoAdicional || 0) })) })), personalizavel: !!p.personalizavel, personalizacaoPlaceholder: p.personalizacaoPlaceholder || 'Ex: nome, cor, tema, data da entrega...' })} className="text-orange-400 hover:bg-orange-50 p-1.5 rounded-xl"><Edit2 size={15}/></button>
                     <button onClick={() => confirmarExcluir('produto', p.id)} className="text-red-200 p-1.5"><Trash2 size={15}/></button>
                   </div>
                 </div>
