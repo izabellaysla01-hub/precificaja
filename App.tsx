@@ -371,6 +371,9 @@ export default function App() {
   const [pesquisaFornecedores, setPesquisaFornecedores] = useState('');
   const [filtroFornSelecionado, setFiltroFornSelecionado] = useState('Todos');
   const [pesquisaContratos, setPesquisaContratos] = useState('');
+  const [subAbaContratos, setSubAbaContratos] = useState<'ativos' | 'historico'>('ativos');
+  const [mesFiltroContratosHist, setMesFiltroContratosHist] = useState<string>('Todos');
+  const [anoFiltroContratosHist, setAnoFiltroContratosHist] = useState<string>('Todos');
   const [pesquisaMatsCalculadora, setPesquisaMatsCalculadora] = useState('');
 
   const [pedidoEditandoId, setPedidoEditandoId] = useState<string | null>(null);
@@ -1349,11 +1352,12 @@ export default function App() {
     const valorSinalJa = Number(contrato.valorSinal || 0);
     const valorRestante = Math.max(0, Number(contrato.valorTotal || 0) - valorSinalJa);
     try {
-      await updateDoc(doc(db, "contratos", contrato.id), { statusPagamento: 'pago_total' });
+      await updateDoc(doc(db, "contratos", contrato.id), { statusPagamento: 'pago_total', pagamentoConfirmadoEm: Timestamp.now() });
       if (valorRestante > 0) {
         await registrarMovimentacaoCaixa('entrada', valorRestante, `Contrato — ${contrato.tipoEvento || 'Serviço'}${valorSinalJa > 0 ? ' (saldo restante)' : ''}`, 'contrato', contrato.id);
       }
       showToast("Recebimento confirmado! 💰");
+      setSubAbaContratos('historico');
     } catch {
       showToast("Erro ao confirmar recebimento.", 'erro');
     }
@@ -1559,6 +1563,47 @@ export default function App() {
       return nomeCli.includes(termo) || tipoEvento.includes(termo);
     });
   }, [contratos, clientes, pesquisaContratos]);
+
+  const contratosAtivos = useMemo(() => {
+    return contratosFiltrados.filter(c => c.statusPagamento !== 'pago_total');
+  }, [contratosFiltrados]);
+
+  // Histórico de contratos: agrupado por mês/ano do recebimento total (ou data de emissão, se mais antigo)
+  const historicoContratosMensal = useMemo(() => {
+    const agrupado: { [key: string]: { total: number; qtd: number; mesAnoTexto: string; itens: any[] } } = {};
+    const nomesMeses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+    contratosFiltrados.filter(c => c.statusPagamento === 'pago_total').forEach(c => {
+      let mes: number | null = null;
+      let ano: number | null = null;
+      if (c.pagamentoConfirmadoEm?.toDate) {
+        const d = c.pagamentoConfirmadoEm.toDate();
+        mes = d.getMonth() + 1; ano = d.getFullYear();
+      } else if (c.dataEmissao) {
+        const partes = c.dataEmissao.split('/');
+        if (partes.length === 3) { mes = Number(partes[1]); ano = Number(partes[2]); }
+      }
+      if (!mes || !ano) return;
+      const chave = `${ano}-${String(mes).padStart(2, '0')}`;
+      const nomeMesTexto = `${nomesMeses[mes - 1]} / ${ano}`;
+      if (!agrupado[chave]) agrupado[chave] = { total: 0, qtd: 0, mesAnoTexto: nomeMesTexto, itens: [] };
+      agrupado[chave].total += Number(c.valorTotal || 0);
+      agrupado[chave].qtd += 1;
+      agrupado[chave].itens.push(c);
+    });
+
+    return Object.keys(agrupado).sort((a, b) => b.localeCompare(a)).map(chave => ({ chave, ...agrupado[chave] }));
+  }, [contratosFiltrados]);
+
+  const historicoContratosFiltradoPorData = useMemo(() => {
+    if (mesFiltroContratosHist === 'Todos' && anoFiltroContratosHist === 'Todos') return historicoContratosMensal;
+    return historicoContratosMensal.filter(item => {
+      const [ano, mes] = item.chave.split('-');
+      const matchMes = mesFiltroContratosHist === 'Todos' || Number(mes) === Number(mesFiltroContratosHist);
+      const matchAno = anoFiltroContratosHist === 'Todos' || Number(ano) === Number(anoFiltroContratosHist);
+      return matchMes && matchAno;
+    });
+  }, [historicoContratosMensal, mesFiltroContratosHist, anoFiltroContratosHist]);
 
   const pedidosFiltradosPorStatus = useMemo(() => {
     return pedidos.filter(p => {
@@ -3201,23 +3246,28 @@ export default function App() {
               </button>
             </div>
 
-            <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider ml-2">Seus Contratos Emitidos</h3>
-
-            <div className="relative w-full">
-              <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Pesquisar por cliente ou tipo de evento..."
-                value={pesquisaContratos}
-                onChange={e => setPesquisaContratos(e.target.value)}
-                className="w-full p-4 pl-11 bg-white rounded-2xl border border-slate-200 outline-none text-sm font-medium focus:border-purple-500 transition-colors shadow-sm"
-              />
+            <div className="flex bg-slate-100 p-1.5 rounded-2xl gap-1 w-full border">
+              <button onClick={() => setSubAbaContratos('ativos')} style={{ color: subAbaContratos === 'ativos' ? themeColors.primary : undefined }} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${subAbaContratos === 'ativos' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>📄 Ativos</button>
+              <button onClick={() => setSubAbaContratos('historico')} style={{ color: subAbaContratos === 'historico' ? themeColors.primary : undefined }} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${subAbaContratos === 'historico' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>📜 Histórico</button>
             </div>
 
-            <div className="space-y-3 w-full">
-              {contratosFiltrados.map((c, idx) => {
-                const cli = clientes.find(item => item.id === c.clienteId);
-                return (
+            {subAbaContratos === 'ativos' && (
+              <div className="space-y-3 w-full animate-fadeIn">
+                <div className="relative w-full">
+                  <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Pesquisar por cliente ou tipo de evento..."
+                    value={pesquisaContratos}
+                    onChange={e => setPesquisaContratos(e.target.value)}
+                    className="w-full p-4 pl-11 bg-white rounded-2xl border border-slate-200 outline-none text-sm font-medium focus:border-purple-500 transition-colors shadow-sm"
+                  />
+                </div>
+
+                <div className="space-y-3 w-full">
+                  {contratosAtivos.map((c, idx) => {
+                    const cli = clientes.find(item => item.id === c.clienteId);
+                    return (
                   <div key={c.id || idx} className="bg-white p-5 rounded-[30px] border shadow-sm flex flex-col gap-3 w-full">
                     <div className="flex justify-between items-start w-full">
                       <div>
@@ -3266,12 +3316,86 @@ export default function App() {
                 );
               })}
 
-              {contratosFiltrados.length === 0 && (
+              {contratosAtivos.length === 0 && (
                 <p className="text-center font-bold text-xs text-slate-400 py-8 italic">
-                  {contratos.length === 0 ? 'Nenhum contrato gerado ainda. 📄' : 'Nenhum contrato encontrado com essa busca. 🔍'}
+                  {contratos.length === 0 ? 'Nenhum contrato gerado ainda. 📄' : 'Nenhum contrato ativo encontrado. 🔍'}
                 </p>
               )}
-            </div>
+                </div>
+              </div>
+            )}
+
+            {subAbaContratos === 'historico' && (
+              <div className="space-y-4 w-full animate-fadeIn">
+                <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                  <div>
+                    <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Mês de Referência</label>
+                    <select className="w-full p-2.5 bg-white rounded-xl text-xs font-bold border outline-none text-slate-700" value={mesFiltroContratosHist} onChange={e => setMesFiltroContratosHist(e.target.value)}>
+                      <option value="Todos">📅 Todos os Meses</option>
+                      <option value="1">Janeiro</option><option value="2">Fevereiro</option><option value="3">Março</option>
+                      <option value="4">Abril</option><option value="5">Maio</option><option value="6">Junho</option>
+                      <option value="7">Julho</option><option value="8">Agosto</option><option value="9">Setembro</option>
+                      <option value="10">Outubro</option><option value="11">Novembro</option><option value="12">Dezembro</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Ano de Referência</label>
+                    <select className="w-full p-2.5 bg-white rounded-xl text-xs font-bold border outline-none text-slate-700" value={anoFiltroContratosHist} onChange={e => setAnoFiltroContratosHist(e.target.value)}>
+                      <option value="Todos">🗓️ Todos os Anos</option>
+                      <option value="2026">2026</option><option value="2025">2025</option><option value="2024">2024</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {historicoContratosFiltradoPorData.map(item => {
+                    const isExpanded = mesExpandido === `contrato_${item.chave}`;
+                    return (
+                      <div key={item.chave} className="bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden transition-all">
+                        <div onClick={() => setMesExpandido(isExpanded ? null : `contrato_${item.chave}`)} className="p-4 flex justify-between items-center cursor-pointer hover:bg-slate-100/80 transition-colors select-none">
+                          <div>
+                            <p className="font-black text-slate-800 text-sm uppercase tracking-wide">{item.mesAnoTexto}</p>
+                            <p className="text-[11px] text-slate-400 font-semibold mt-0.5">{item.qtd} {item.qtd === 1 ? 'contrato recebido' : 'contratos recebidos'} • Clique para ver 🔍</p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="text-right">
+                              <span className="text-[9px] font-black text-slate-400 uppercase block tracking-wider">Total Recebido</span>
+                              <span style={{ color: themeColors.primary }} className="font-black text-lg">R$ {item.total.toFixed(2)}</span>
+                            </div>
+                            <div style={{ color: themeColors.primary }} className="p-1 bg-white rounded-xl border">
+                              {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                            </div>
+                          </div>
+                        </div>
+                        {isExpanded && (
+                          <div className="bg-white p-4 border-t border-slate-200 space-y-2.5 animate-fadeIn">
+                            {item.itens.map((c: any) => {
+                              const cli = clientes.find(cl => cl.id === c.clienteId);
+                              return (
+                                <div key={c.id} className="bg-slate-50 p-3 rounded-xl border flex justify-between items-center text-xs">
+                                  <div className="min-w-0 flex-1 pr-2">
+                                    <p className="font-bold text-slate-800">{cli?.nome || 'Cliente não informado'}</p>
+                                    <p className="text-[10px] text-slate-400 font-semibold mt-0.5">{c.tipoEvento || 'Serviço'} • {c.dataEvento || 'Sem data'}</p>
+                                  </div>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    <span className="font-black text-slate-700">R$ {Number(c.valorTotal || 0).toFixed(2)}</span>
+                                    <button onClick={() => gerarPDFContrato(c)} style={{ color: themeColors.secondary }}><Printer size={16}/></button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {historicoContratosFiltradoPorData.length === 0 && (
+                    <p className="text-center font-bold text-xs text-slate-400 py-8 italic">Nenhum contrato com recebimento total confirmado ainda. 📜</p>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
