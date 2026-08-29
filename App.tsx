@@ -1166,6 +1166,19 @@ export default function App() {
     setCarrinhoPublico(prev => prev.filter(i => i.itemId !== itemId));
   };
 
+  // Menor preço possível do produto: preço base + a opção mais barata de cada grupo de variação.
+  // Nunca deixa aparecer R$0,00 pro comprador, mesmo se o preço base do produto for 0.
+  const calcularPrecoMinimo = (p: any) => {
+    let preco = Number(p.precoVenda || 0);
+    (p.variacoes || []).forEach((g: any) => {
+      if (g.opcoes && g.opcoes.length > 0) {
+        const menorAdicional = Math.min(...g.opcoes.map((o: any) => Number(o.precoAdicional || 0)));
+        preco += menorAdicional;
+      }
+    });
+    return preco;
+  };
+
   const abrirDetalheProduto = (p: any) => {
     setProdutoDetalheAberto(p);
     setImagemAtivaDetalhe(0);
@@ -2468,6 +2481,7 @@ export default function App() {
             {produtosPublicosFiltrados.map(p => {
               const temImagem = p.urlImagem || (p.imagens && p.imagens[0]);
               const temVariacoes = p.variacoes && p.variacoes.length > 0;
+              const precoExibicao = calcularPrecoMinimo(p);
               return (
                 <div key={p.id} className="bg-white rounded-[26px] border shadow-sm overflow-hidden flex flex-col">
                   <div onClick={() => abrirDetalheProduto(p)} className="w-full aspect-square bg-slate-100 overflow-hidden flex items-center justify-center text-slate-300 cursor-pointer">
@@ -2476,7 +2490,7 @@ export default function App() {
                   <div className="p-3 flex flex-col flex-1">
                     <p onClick={() => abrirDetalheProduto(p)} className="font-bold text-slate-800 text-xs leading-tight line-clamp-2 cursor-pointer min-h-[2rem]">{p.nome}</p>
                     <p className="text-purple-700 font-black text-sm mt-1">
-                      {temVariacoes ? 'A partir de ' : ''}R$ {Number(p.precoVenda).toFixed(2)}
+                      {temVariacoes ? 'A partir de ' : ''}R$ {precoExibicao.toFixed(2)}
                     </p>
                     <button onClick={() => abrirDetalheProduto(p)} style={{ backgroundColor: temVariacoes || p.personalizavel ? themeColors.primary : undefined }} className={`mt-2 py-2 rounded-xl text-[10px] font-black uppercase active:scale-95 transition-all ${temVariacoes || p.personalizavel ? 'text-white' : 'bg-purple-50 text-purple-700'}`}>
                       {temVariacoes || p.personalizavel ? 'Escolher opções' : 'Adicionar'}
@@ -2514,9 +2528,15 @@ export default function App() {
           let precoComVariacoes = Number(p.precoVenda || 0);
           (p.variacoes || []).forEach((g: any) => {
             const opcaoId = variacoesEscolhidas[g.id];
-            const opcao = g.opcoes.find((o: any) => o.id === opcaoId);
-            if (opcao) precoComVariacoes += Number(opcao.precoAdicional || 0);
+            const opcao = opcaoId ? g.opcoes.find((o: any) => o.id === opcaoId) : null;
+            if (opcao) {
+              precoComVariacoes += Number(opcao.precoAdicional || 0);
+            } else if (g.opcoes && g.opcoes.length > 0) {
+              // Ainda não escolheu essa variação — usa a opção mais barata como prévia, nunca 0 escondido
+              precoComVariacoes += Math.min(...g.opcoes.map((o: any) => Number(o.precoAdicional || 0)));
+            }
           });
+          const todasVariacoesEscolhidas = (p.variacoes || []).every((g: any) => !!variacoesEscolhidas[g.id]);
           return (
             <div className="fixed inset-0 bg-black/50 z-[110] flex items-end sm:items-center justify-center" onClick={() => setProdutoDetalheAberto(null)}>
               <div className="bg-white rounded-t-[35px] sm:rounded-[35px] w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
@@ -2539,7 +2559,7 @@ export default function App() {
                 <div className="p-5 space-y-4">
                   <div>
                     <h2 className="font-black text-slate-800 text-xl">{p.nome}</h2>
-                    <p className="text-purple-700 font-black text-2xl mt-1">R$ {precoComVariacoes.toFixed(2)}</p>
+                    <p className="text-purple-700 font-black text-2xl mt-1">{!todasVariacoesEscolhidas && (p.variacoes || []).length > 0 ? 'A partir de ' : ''}R$ {precoComVariacoes.toFixed(2)}</p>
                   </div>
 
                   {p.descricao && <p className="text-slate-500 text-sm leading-relaxed">{p.descricao}</p>}
@@ -4441,7 +4461,8 @@ export default function App() {
               <input placeholder="Ex: Caneca Alça Coração" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none font-medium text-sm border focus:border-purple-400" value={novoProdCatalogo.nome} onChange={e => setNovoProdCatalogo({...novoProdCatalogo, nome: e.target.value})} />
 
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Preço Base de Venda (R$)</label>
-              <input type="number" placeholder="Ex: 35.00" style={{ color: themeColors.primary }} className="w-full p-4 bg-slate-50 rounded-2xl mb-4 outline-none font-bold border focus:border-purple-400" value={novoProdCatalogo.precoVenda} onChange={e => setNovoProdCatalogo({...novoProdCatalogo, precoVenda: e.target.value})} />
+              <input type="number" placeholder="Ex: 35.00" style={{ color: themeColors.primary }} className="w-full p-4 bg-slate-50 rounded-2xl mb-1 outline-none font-bold border focus:border-purple-400" value={novoProdCatalogo.precoVenda} onChange={e => setNovoProdCatalogo({...novoProdCatalogo, precoVenda: e.target.value})} />
+              <p className="text-[10px] text-slate-400 mb-4 ml-1">O preço de cada variação (mais abaixo) <strong>soma</strong> com este valor. Se as opções já forem o preço final de cada uma (ex: Unidade R$2 / Kit R$18), deixe este campo em <strong>0</strong> — o app nunca mostra R$0,00 pro comprador, ele já calcula e exibe "a partir de" o menor valor disponível.</p>
 
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Descrição do Produto (opcional)</label>
               <textarea placeholder="Especificações, tamanho, material, prazo de produção..." className="w-full p-4 bg-slate-50 rounded-2xl mb-4 outline-none text-xs font-medium border focus:border-purple-400 resize-none h-20" value={novoProdCatalogo.descricao} onChange={e => setNovoProdCatalogo({...novoProdCatalogo, descricao: e.target.value})} />
