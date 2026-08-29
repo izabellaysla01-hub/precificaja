@@ -35,6 +35,20 @@ const TELAS_ONBOARDING = [
 
 const CHANGELOG_APP = [
   {
+    data: '28/08/2026',
+    titulo: 'Fluxo de caixa, canais de venda e vitrine renovada',
+    itens: [
+      'Nova aba Fluxo de Caixa: entradas e saídas, compra de material vinculada ao estoque, histórico mensal e sincronização de vendas antigas',
+      'Nova aba Canais de Venda: cadastre a comissão de Shopee, Mercado Livre etc. e simule o lucro líquido antes de vender',
+      'Sinal / pagamento parcial em Pedidos e Contratos: registre o sinal na hora e, ao confirmar o recebimento total, só o saldo restante entra no caixa',
+      'Nova sub-aba Histórico dentro de Contratos, com filtro por mês/ano — contratos com recebimento total confirmado vão pra lá automaticamente',
+      'Layout de desktop: menu lateral fixo e mais espaço de tela em telas grandes',
+      'Catálogo: produtos agora podem ter galeria de fotos, descrição, variações que somam ao preço (ex: tipo de encadernação) e campo de personalização',
+      'Vitrine pública renovada: banner e logo da loja, busca, grade de produtos, carrinho flutuante, checkout em etapas (pedido → dados → pagamento) e tela de "Pedido enviado"',
+      'Link personalizado da vitrine (ex: ?loja=minha-loja), configurável no Perfil da Loja'
+    ]
+  },
+  {
     data: '24/08/2026',
     titulo: 'Estabilidade, agilidade e controle financeiro',
     itens: [
@@ -451,6 +465,14 @@ export default function App() {
   const [dadosBancariosPerfil, setDadosBancariosPerfil] = useState('');
   const [logoLojaPerfil, setLogoLojaPerfil] = useState('');
   const [subindoLogo, setSubindoLogo] = useState(false);
+  const [bannerLojaUrl, setBannerLojaUrl] = useState('');
+  const [subindoBanner, setSubindoBanner] = useState(false);
+  const [slugLojaPerfil, setSlugLojaPerfil] = useState('');
+  const [inputSlugLoja, setInputSlugLoja] = useState('');
+  const [buscaVitrine, setBuscaVitrine] = useState('');
+  const [mostrarCheckoutPublico, setMostrarCheckoutPublico] = useState(false);
+  const [etapaCheckout, setEtapaCheckout] = useState<'carrinho' | 'dados' | 'pagamento'>('carrinho');
+  const [pedidoPublicoEnviado, setPedidoPublicoEnviado] = useState(false);
   const [suporteZapPerfil, setSuporteZapPerfil] = useState('');
 
   const [novoContrato, setNovoContrato] = useState({
@@ -592,27 +614,42 @@ export default function App() {
     }
 
     if (lojaId) {
-      setIdLojaPublica(lojaId);
       setCarregandoPublico(true);
 
-      getDoc(doc(db, "configuracoes_loja", lojaId)).then(docSnap => {
-        if(docSnap.exists()) {
-          const data = docSnap.data();
-          setZapDaLojaPublica(data.whatsapp || '');
-          if (data.themeColors) setThemeColors(data.themeColors);
-        }
-      });
+      // Resolve link personalizado (slug) -> uid real do dono da loja.
+      // getDoc de um documento específico (não é "list"), então funciona com a regra
+      // pública já existente sem precisar abrir permissão de listagem.
+      (async () => {
+        let uidResolvido = lojaId;
+        try {
+          const slugSnap = await getDoc(doc(db, "slugs_loja", lojaId));
+          if (slugSnap.exists()) uidResolvido = (slugSnap.data() as any).userId;
+        } catch {}
 
-      const qCats = query(collection(db, "categorias_produtos"), where("userId", "==", lojaId));
-      getDocs(qCats).then(snapshot => {
-        setCategoriasProd(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
-      });
+        setIdLojaPublica(uidResolvido);
 
-      const q = query(collection(db, "produtos"), where("userId", "==", lojaId));
-      getDocs(q).then(snapshot => {
-        setProdutosPublicos(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
-        setCarregandoPublico(false);
-      }).catch(() => setCarregandoPublico(false));
+        getDoc(doc(db, "configuracoes_loja", uidResolvido)).then(docSnap => {
+          if (docSnap.exists()) {
+            const data = docSnap.data() as any;
+            setZapDaLojaPublica(data.whatsapp || '');
+            setNomeLojaPerfil(data.nomeLoja || '');
+            setLogoLojaPerfil(data.logoUrl || '');
+            setBannerLojaUrl(data.bannerUrl || '');
+            if (data.themeColors) setThemeColors(data.themeColors);
+          }
+        });
+
+        const qCats = query(collection(db, "categorias_produtos"), where("userId", "==", uidResolvido));
+        getDocs(qCats).then(snapshot => {
+          setCategoriasProd(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+        });
+
+        const q = query(collection(db, "produtos"), where("userId", "==", uidResolvido));
+        getDocs(q).then(snapshot => {
+          setProdutosPublicos(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+          setCarregandoPublico(false);
+        }).catch(() => setCarregandoPublico(false));
+      })();
     }
 
     return onAuthStateChanged(auth, u => {
@@ -633,6 +670,9 @@ export default function App() {
             setEstadoPerfil(data.estado || '');
             setDadosBancariosPerfil(data.dadosBancarios || '');
             setLogoLojaPerfil(data.logoUrl || '');
+            setBannerLojaUrl(data.bannerUrl || '');
+            setSlugLojaPerfil(data.slug || '');
+            setInputSlugLoja(data.slug || '');
             setAssinaturaLojaUrl(data.assinaturaUrl || '');
             setSuporteZapPerfil(data.suporteZap || data.whatsapp || '');
             if (data.themeColors) setThemeColors(data.themeColors);
@@ -810,8 +850,38 @@ export default function App() {
 
   const linkDoCatalogoDestaCliente = useMemo(() => {
     if (!user) return '';
-    return `${window.location.origin}${window.location.pathname}?loja=${user.uid}`;
-  }, [user]);
+    const identificador = slugLojaPerfil || user.uid;
+    return `${window.location.origin}${window.location.pathname}?loja=${identificador}`;
+  }, [user, slugLojaPerfil]);
+
+  // Salva um link personalizado (ex: ?loja=minha-loja em vez do código aleatório).
+  // Guarda numa coleção separada slugs_loja/{slug} -> {userId}, e checa se já não
+  // está em uso por outra pessoa antes de salvar.
+  const salvarSlugLoja = async () => {
+    if (!user || salvando.slug) return;
+    const novoSlug = inputSlugLoja.trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+    if (!novoSlug) return showToast("Digite um link válido (só letras, números e traço).", 'erro');
+    setSalvando(prev => ({ ...prev, slug: true }));
+    try {
+      const slugDoc = await getDoc(doc(db, "slugs_loja", novoSlug));
+      if (slugDoc.exists() && (slugDoc.data() as any).userId !== user.uid) {
+        showToast("Esse link já está em uso por outra loja. Escolha outro.", 'erro');
+        return;
+      }
+      if (slugLojaPerfil && slugLojaPerfil !== novoSlug) {
+        try { await deleteDoc(doc(db, "slugs_loja", slugLojaPerfil)); } catch {}
+      }
+      await setDoc(doc(db, "slugs_loja", novoSlug), { userId: user.uid });
+      await setDoc(doc(db, "configuracoes_loja", user.uid), { slug: novoSlug }, { merge: true });
+      setSlugLojaPerfil(novoSlug);
+      setInputSlugLoja(novoSlug);
+      showToast("Link personalizado salvo! 🔗");
+    } catch {
+      showToast("Erro ao salvar o link.", 'erro');
+    } finally {
+      setSalvando(prev => ({ ...prev, slug: false }));
+    }
+  };
 
   const copiarLinkCatalogo = () => {
     navigator.clipboard.writeText(linkDoCatalogoDestaCliente);
@@ -1172,6 +1242,10 @@ export default function App() {
     const numeroLimpo = zapDaLojaPublica.replace(/\D/g, '');
     if (numeroLimpo) { window.open(`https://wa.me/55${numeroLimpo}?text=${textPedido}`, '_blank'); }
     else { window.open(`https://wa.me/?text=${textPedido}`, '_blank'); }
+
+    setMostrarCheckoutPublico(false);
+    setPedidoPublicoEnviado(true);
+    setCarrinhoPublico([]);
   };
 
   const lancarVendaBalcaoInterno = async () => {
@@ -1532,6 +1606,21 @@ export default function App() {
     }
   };
 
+  const handleUploadBanner = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    setSubindoBanner(true);
+    try {
+      const dataUrl = await comprimirImagem(file, 900);
+      setBannerLojaUrl(dataUrl);
+      showToast("Banner carregado! Salve o perfil para aplicar. 🖼️");
+    } catch (error) {
+      showToast("Erro ao subir o banner!", 'erro');
+    } finally {
+      setSubindoBanner(false);
+    }
+  };
+
   const limparCalculadora = () => {
     setNomeProd(''); setDetalhamentoPed(''); setQtdPed('1'); setMatsNoPed([]); setVHora('9'); setTGasto('60');
     setCustos({ embalagem: '0', impressao: custoPorPaginaCalculado.toFixed(2), energia: '0', outros: '0' });
@@ -1673,9 +1762,11 @@ export default function App() {
   }, [materiais, pesquisaMatsCalculadora]);
 
   const produtosPublicosFiltrados = useMemo(() => {
-    if (filtroVitrineSelecionado === 'Todos') return produtosPublicos;
-    return produtosPublicos.filter(p => p.categorias && p.categorias.includes(filtroVitrineSelecionado));
-  }, [produtosPublicos, filtroVitrineSelecionado]);
+    let lista = produtosPublicos;
+    if (filtroVitrineSelecionado !== 'Todos') lista = lista.filter(p => p.categorias && p.categorias.includes(filtroVitrineSelecionado));
+    if (buscaVitrine.trim()) lista = lista.filter(p => p.nome?.toLowerCase().includes(buscaVitrine.toLowerCase()));
+    return lista;
+  }, [produtosPublicos, filtroVitrineSelecionado, buscaVitrine]);
 
   const proveedoresFiltrados = useMemo(() => {
     return fornecedores.filter(f => {
@@ -2283,54 +2374,112 @@ export default function App() {
   if (idLojaPublica) {
     if (carregandoPublico) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando Vitrine... 🛍️</div>;
     const totalCarrinhoPublico = carrinhoPublico.reduce((acc, i) => acc + i.precoUnitario * i.qtd, 0);
+    const qtdTotalCarrinho = carrinhoPublico.reduce((acc, i) => acc + i.qtd, 0);
     const passos = [
       { n: '01', t: 'Escolha os itens', d: 'Navegue pelo catálogo e adicione o que quiser ao carrinho.' },
       { n: '02', t: 'Revise o pedido', d: 'Confira os itens, quantidades e o total antes de enviar.' },
-      { n: '03', t: 'Envie pelo WhatsApp', d: 'Toque em enviar e o pedido vai direto para a loja.' },
-      { n: '04', t: 'Combine entrega e pagamento', d: 'A loja confirma o pedido, o endereço e a forma de pagamento.' },
+      { n: '03', t: 'Preencha seus dados', d: 'Nome, WhatsApp, modalidade e forma de pagamento.' },
+      { n: '04', t: 'Feche o pedido', d: 'O pedido vai direto pro WhatsApp da loja.' },
     ];
+    const nomesModalidadeTexto: any = { entrega: 'Entrega', retirada: 'Retirada no local' };
+
+    if (pedidoPublicoEnviado) {
+      return (
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 text-center">
+          <div className="bg-white p-8 rounded-[40px] shadow-xl max-w-sm w-full">
+            <div className="w-16 h-16 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-4">
+              <CheckCircle size={32} className="text-emerald-500" />
+            </div>
+            <h2 className="font-black text-slate-800 text-xl mb-1">Pedido enviado! ✅</h2>
+            <p className="text-slate-500 text-sm mb-6">Seu pedido foi aberto no WhatsApp da loja. Assim que confirmarem, você recebe os próximos passos por lá.</p>
+            <button onClick={() => setPedidoPublicoEnviado(false)} style={{ backgroundColor: themeColors.primary }} className="w-full text-white font-black text-xs uppercase py-3.5 rounded-2xl">
+              Voltar pra Vitrine
+            </button>
+          </div>
+        </div>
+      );
+    }
 
     return (
-      <div className="min-h-screen bg-slate-50 pb-40 font-sans text-slate-700 w-full relative">
-        <header className="bg-white p-4 flex justify-between items-center shadow-sm border-b sticky top-0 z-50">
-          <div className="relative">
-            <button onClick={() => setIsMenuFiltroVitrineOpen(!isMenuFiltroVitrineOpen)} className="p-2 text-slate-700 hover:text-purple-700 transition-colors flex items-center gap-1 bg-slate-100 rounded-xl text-xs font-bold">
-              <Menu size={18} /> Filtrar
+      <div className="min-h-screen bg-slate-50 pb-16 font-sans text-slate-700 w-full relative">
+        <header className="bg-white shadow-sm border-b sticky top-0 z-40">
+          <div className="flex justify-between items-center p-4">
+            <div className="relative">
+              <button onClick={() => setIsMenuFiltroVitrineOpen(!isMenuFiltroVitrineOpen)} className="p-2 text-slate-700 hover:text-purple-700 transition-colors flex items-center gap-1 bg-slate-100 rounded-xl text-xs font-bold">
+                <Menu size={18} /> Filtrar
+              </button>
+              {isMenuFiltroVitrineOpen && (
+                <div className="absolute left-0 mt-2 w-56 bg-white border border-slate-100 rounded-2xl shadow-xl py-2 z-50 animate-fadeIn">
+                  <button onClick={() => { setFiltroVitrineSelecionado('Todos'); setIsMenuFiltroVitrineOpen(false); }} className={`w-full text-left px-4 py-2 text-xs font-bold ${filtroVitrineSelecionado === 'Todos' ? 'bg-purple-50 text-purple-700' : 'text-slate-600'}`}>✨ Todos os Produtos</button>
+                  {categoriasProd.map(cat => (
+                    <button key={cat.id} onClick={() => { setFiltroVitrineSelecionado(cat.nome); setIsMenuFiltroVitrineOpen(false); }} className={`w-full text-left px-4 py-2 text-xs font-bold ${filtroVitrineSelecionado === cat.nome ? 'bg-purple-50 text-purple-700' : 'text-slate-600'}`}>{cat.nome}</button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <h1 className="text-sm font-black text-purple-700 truncate max-w-[45%]">{nomeLojaPerfil || 'Vitrine'}</h1>
+            <button onClick={() => { setMostrarCheckoutPublico(true); setEtapaCheckout('carrinho'); }} className="relative p-2 bg-slate-100 rounded-xl text-slate-700">
+              <ShoppingCart size={18}/>
+              {qtdTotalCarrinho > 0 && (
+                <span style={{ backgroundColor: themeColors.secondary }} className="absolute -top-1.5 -right-1.5 text-white text-[9px] font-black w-5 h-5 rounded-full flex items-center justify-center">{qtdTotalCarrinho}</span>
+              )}
             </button>
-            {isMenuFiltroVitrineOpen && (
-              <div className="absolute left-0 mt-2 w-56 bg-white border border-slate-100 rounded-2xl shadow-xl py-2 z-50 animate-fadeIn">
-                <button onClick={() => { setFiltroVitrineSelecionado('Todos'); setIsMenuFiltroVitrineOpen(false); }} className={`w-full text-left px-4 py-2 text-xs font-bold ${filtroVitrineSelecionado === 'Todos' ? 'bg-purple-50 text-purple-700' : 'text-slate-600'}`}>✨ Todos os Produtos</button>
-                {categoriasProd.map(cat => (
-                  <button key={cat.id} onClick={() => { setFiltroVitrineSelecionado(cat.nome); setIsMenuFiltroVitrineOpen(false); }} className={`w-full text-left px-4 py-2 text-xs font-bold ${filtroVitrineSelecionado === cat.nome ? 'bg-purple-50 text-purple-700' : 'text-slate-600'}`}>{cat.nome}</button>
-                ))}
-              </div>
-            )}
           </div>
-          <div className="text-center">
-            <h1 className="text-base font-black text-purple-700">Vitrine de Destaques 🎉</h1>
-            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Filtro: {filtroVitrineSelecionado}</p>
-          </div>
-          <div className="w-14"></div>
+
+          {bannerLojaUrl && (
+            <div className="w-full h-32 sm:h-44 overflow-hidden">
+              <img src={bannerLojaUrl} className="w-full h-full object-cover" />
+            </div>
+          )}
+
+          {logoLojaPerfil && (
+            <div className={`max-w-xl mx-auto px-4 flex items-center gap-3 ${bannerLojaUrl ? '-mt-8 relative z-10 pb-3' : 'pb-3 pt-1'}`}>
+              <img src={logoLojaPerfil} className="w-16 h-16 rounded-2xl border-4 border-white bg-white object-contain shadow-lg shrink-0" />
+              <p className="text-[10px] text-slate-400 font-bold uppercase pb-1">Filtro: {filtroVitrineSelecionado}</p>
+            </div>
+          )}
         </header>
 
+        {/* Carrinho flutuante — some quando o checkout já está aberto */}
+        {qtdTotalCarrinho > 0 && !mostrarCheckoutPublico && (
+          <button
+            onClick={() => { setMostrarCheckoutPublico(true); setEtapaCheckout('carrinho'); }}
+            style={{ backgroundColor: themeColors.primary }}
+            className="fixed bottom-5 right-4 z-40 text-white rounded-full shadow-xl px-5 py-3.5 flex items-center gap-2 active:scale-95 transition-all"
+          >
+            <ShoppingCart size={18}/>
+            <span className="font-black text-xs">{qtdTotalCarrinho} · R$ {totalCarrinhoPublico.toFixed(2)}</span>
+          </button>
+        )}
+
         <main className="p-4 max-w-xl mx-auto space-y-6">
-          <div className="grid grid-cols-1 gap-4">
+          <div className="relative w-full">
+            <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Buscar produto..."
+              value={buscaVitrine}
+              onChange={e => setBuscaVitrine(e.target.value)}
+              className="w-full p-3.5 pl-11 bg-white rounded-2xl border border-slate-200 outline-none text-sm font-medium focus:border-purple-500 transition-colors shadow-sm"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
             {produtosPublicosFiltrados.map(p => {
               const temImagem = p.urlImagem || (p.imagens && p.imagens[0]);
               const temVariacoes = p.variacoes && p.variacoes.length > 0;
               return (
-                <div key={p.id} className="bg-white p-4 rounded-[35px] border shadow-sm flex gap-4 items-center">
-                  <div onClick={() => abrirDetalheProduto(p)} className="w-24 h-24 rounded-2xl bg-slate-100 overflow-hidden flex items-center justify-center text-slate-300 shrink-0 cursor-pointer">
-                    {temImagem ? <img src={temImagem} alt={p.nome} className="w-full h-full object-cover" /> : <ImageIcon size={30} />}
+                <div key={p.id} className="bg-white rounded-[26px] border shadow-sm overflow-hidden flex flex-col">
+                  <div onClick={() => abrirDetalheProduto(p)} className="w-full aspect-square bg-slate-100 overflow-hidden flex items-center justify-center text-slate-300 cursor-pointer">
+                    {temImagem ? <img src={temImagem} alt={p.nome} className="w-full h-full object-cover" /> : <ImageIcon size={28} />}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p onClick={() => abrirDetalheProduto(p)} className="font-black text-slate-800 text-base truncate cursor-pointer">{p.nome}</p>
-                    <p className="text-purple-700 font-black text-lg mt-1">
+                  <div className="p-3 flex flex-col flex-1">
+                    <p onClick={() => abrirDetalheProduto(p)} className="font-bold text-slate-800 text-xs leading-tight line-clamp-2 cursor-pointer min-h-[2rem]">{p.nome}</p>
+                    <p className="text-purple-700 font-black text-sm mt-1">
                       {temVariacoes ? 'A partir de ' : ''}R$ {Number(p.precoVenda).toFixed(2)}
                     </p>
-                    {p.descricao && <p className="text-slate-400 text-[11px] mt-0.5 line-clamp-1">{p.descricao}</p>}
-                    <button onClick={() => abrirDetalheProduto(p)} style={{ backgroundColor: temVariacoes || p.personalizavel ? '#7c3aed' : undefined }} className={`mt-2 px-4 py-2 rounded-xl text-xs font-black uppercase active:scale-95 transition-all ${temVariacoes || p.personalizavel ? 'text-white' : 'bg-purple-50 text-purple-700'}`}>
-                      {temVariacoes || p.personalizavel ? 'Escolha as opções' : 'Adicionar ao carrinho'}
+                    <button onClick={() => abrirDetalheProduto(p)} style={{ backgroundColor: temVariacoes || p.personalizavel ? themeColors.primary : undefined }} className={`mt-2 py-2 rounded-xl text-[10px] font-black uppercase active:scale-95 transition-all ${temVariacoes || p.personalizavel ? 'text-white' : 'bg-purple-50 text-purple-700'}`}>
+                      {temVariacoes || p.personalizavel ? 'Escolher opções' : 'Adicionar'}
                     </button>
                   </div>
                 </div>
@@ -2338,78 +2487,8 @@ export default function App() {
             })}
 
             {produtosPublicosFiltrados.length === 0 && (
-              <p className="text-center font-bold text-xs text-slate-400 py-12">Nenhum produto em destaque nesta categoria no momento. 🙌</p>
+              <p className="col-span-2 text-center font-bold text-xs text-slate-400 py-12">Nenhum produto encontrado. 🙌</p>
             )}
-          </div>
-
-          {carrinhoPublico.length > 0 && (
-            <div className="bg-white p-5 rounded-[30px] border shadow-sm space-y-3">
-              <h3 className="font-black text-slate-800 text-sm uppercase tracking-wide flex items-center gap-2"><ShoppingCart size={16}/> Seu Carrinho ({carrinhoPublico.length})</h3>
-              {carrinhoPublico.map(i => (
-                <div key={i.itemId} className="flex justify-between items-center bg-slate-50 p-3 rounded-2xl border border-slate-100">
-                  <div className="min-w-0 flex-1 pr-2">
-                    <p className="font-bold text-slate-800 text-sm truncate">{i.qtd}x {i.nome}</p>
-                    {i.detalhe && <p className="text-[10px] text-slate-400 truncate">{i.detalhe}</p>}
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="font-black text-purple-700 text-sm">R$ {(i.precoUnitario * i.qtd).toFixed(2)}</span>
-                    <button onClick={() => removerDoCarrinhoPublico(i.itemId)} className="text-red-300"><Trash2 size={16}/></button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div className="bg-white p-5 rounded-[30px] border shadow-sm space-y-4">
-            <h3 className="font-black text-slate-800 text-sm uppercase tracking-wide">Seus Dados</h3>
-            <p className="text-slate-400 text-[11px] -mt-2">Precisamos disso para confirmar o pedido.</p>
-
-            <div>
-              <label className="text-[10px] font-black uppercase text-purple-600 ml-1">Nome Completo</label>
-              <input placeholder="Digite seu nome..." className="w-full p-4 bg-slate-50 rounded-2xl mt-1 outline-none font-bold border border-transparent focus:border-purple-400" value={nomeComprador} onChange={e => setNomeComprador(e.target.value)} />
-            </div>
-
-            <div>
-              <label className="text-[10px] font-black uppercase text-purple-600 ml-1">Telefone / WhatsApp</label>
-              <input placeholder="(11) 99999-9999" className="w-full p-4 bg-slate-50 rounded-2xl mt-1 outline-none font-bold border border-transparent focus:border-purple-400" value={telefoneComprador} onChange={e => setTelefoneComprador(e.target.value)} />
-            </div>
-
-            <div>
-              <label className="text-[10px] font-black uppercase text-purple-600 ml-1 block mb-1">Modalidade</label>
-              <div className="grid grid-cols-2 gap-2">
-                <button onClick={() => setModalidadeEntrega('entrega')} style={{ borderColor: modalidadeEntrega === 'entrega' ? '#7c3aed' : undefined, color: modalidadeEntrega === 'entrega' ? '#7c3aed' : undefined }} className={`py-3 rounded-xl text-xs font-black uppercase border-2 ${modalidadeEntrega === 'entrega' ? 'bg-purple-50' : 'bg-slate-50 border-transparent text-slate-500'}`}>Entrega</button>
-                <button onClick={() => setModalidadeEntrega('retirada')} style={{ borderColor: modalidadeEntrega === 'retirada' ? '#7c3aed' : undefined, color: modalidadeEntrega === 'retirada' ? '#7c3aed' : undefined }} className={`py-3 rounded-xl text-xs font-black uppercase border-2 ${modalidadeEntrega === 'retirada' ? 'bg-purple-50' : 'bg-slate-50 border-transparent text-slate-500'}`}>Retirada no Local</button>
-              </div>
-            </div>
-
-            {modalidadeEntrega === 'entrega' && (
-              <div>
-                <label className="text-[10px] font-black uppercase text-purple-600 ml-1">Endereço de Entrega</label>
-                <textarea placeholder="Rua, número, bairro, referência..." className="w-full p-4 bg-slate-50 rounded-2xl mt-1 outline-none font-medium text-sm border border-transparent focus:border-purple-400 resize-none h-16" value={enderecoComprador} onChange={e => setEnderecoComprador(e.target.value)} />
-              </div>
-            )}
-
-            <div>
-              <label className="text-[10px] font-black uppercase text-purple-600 ml-1 block mb-1">Forma de Pagamento</label>
-              <div className="space-y-2">
-                {[
-                  { v: 'pix', l: 'Pix', s: 'Aprovação imediata' },
-                  { v: 'dinheiro_sinal', l: 'Dinheiro', s: 'Sinal de 50% de entrada + 50% na finalização' },
-                  { v: 'cartao_credito', l: 'Cartão de Crédito', s: 'Combinado com a loja' },
-                  { v: 'cartao_debito', l: 'Cartão de Débito', s: 'Combinado com a loja' },
-                ].map(op => (
-                  <button key={op.v} onClick={() => setFormaPagamentoComprador(op.v as any)} style={{ borderColor: formaPagamentoComprador === op.v ? '#7c3aed' : undefined }} className={`w-full text-left p-3 rounded-2xl border-2 ${formaPagamentoComprador === op.v ? 'bg-purple-50 border-purple-600' : 'bg-slate-50 border-transparent'}`}>
-                    <p className="font-bold text-sm text-slate-800">{op.l}</p>
-                    <p className="text-[10px] text-slate-400">{op.s}</p>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <label className="text-[10px] font-black uppercase text-purple-600 ml-1">Observações (opcional)</label>
-              <textarea placeholder="Cor, tamanho, personalização, observações..." className="w-full p-4 bg-slate-50 rounded-2xl mt-1 outline-none font-medium text-sm border border-transparent focus:border-purple-400 resize-none h-16" value={observacoesComprador} onChange={e => setObservacoesComprador(e.target.value)} />
-            </div>
           </div>
 
           <div className="bg-white p-6 rounded-[30px] border shadow-sm">
@@ -2428,6 +2507,7 @@ export default function App() {
           </div>
         </main>
 
+        {/* Modal de detalhes do produto (fotos, variações, personalização) */}
         {produtoDetalheAberto && (() => {
           const p = produtoDetalheAberto;
           const imagens = (p.imagens && p.imagens.length > 0) ? p.imagens : (p.urlImagem ? [p.urlImagem] : []);
@@ -2447,9 +2527,9 @@ export default function App() {
                   <button onClick={() => setProdutoDetalheAberto(null)} className="absolute top-3 right-3 bg-white/90 rounded-full p-2 shadow"><X size={18}/></button>
                 </div>
                 {imagens.length > 1 && (
-                  <div className="flex gap-2 p-3 overflow-x-auto">
+                  <div className="grid grid-cols-4 gap-2 p-3">
                     {imagens.map((img: string, idx: number) => (
-                      <button key={idx} onClick={() => setImagemAtivaDetalhe(idx)} className={`w-14 h-14 rounded-xl overflow-hidden shrink-0 border-2 ${imagemAtivaDetalhe === idx ? 'border-purple-600' : 'border-transparent'}`}>
+                      <button key={idx} onClick={() => setImagemAtivaDetalhe(idx)} className={`aspect-square rounded-xl overflow-hidden border-2 ${imagemAtivaDetalhe === idx ? 'border-purple-600' : 'border-transparent'}`}>
                         <img src={img} className="w-full h-full object-cover" />
                       </button>
                     ))}
@@ -2471,7 +2551,7 @@ export default function App() {
                         {g.opcoes.map((o: any) => {
                           const selecionado = variacoesEscolhidas[g.id] === o.id;
                           return (
-                            <button key={o.id} onClick={() => setVariacoesEscolhidas(prev => ({ ...prev, [g.id]: o.id }))} style={{ backgroundColor: selecionado ? '#7c3aed' : undefined, borderColor: selecionado ? '#7c3aed' : undefined }} className={`px-4 py-2.5 rounded-full text-xs font-bold border-2 ${selecionado ? 'text-white' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>
+                            <button key={o.id} onClick={() => setVariacoesEscolhidas(prev => ({ ...prev, [g.id]: o.id }))} style={{ backgroundColor: selecionado ? themeColors.primary : undefined, borderColor: selecionado ? themeColors.primary : undefined }} className={`px-4 py-2.5 rounded-full text-xs font-bold border-2 ${selecionado ? 'text-white' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>
                               {o.label}{Number(o.precoAdicional || 0) > 0 ? ` +R$ ${Number(o.precoAdicional).toFixed(2)}` : ''}
                             </button>
                           );
@@ -2493,7 +2573,7 @@ export default function App() {
                       <span className="font-bold w-6 text-center">{qtdDetalhe}</span>
                       <button onClick={() => setQtdDetalhe(q => q + 1)} className="font-black text-purple-600 w-6">+</button>
                     </div>
-                    <button onClick={confirmarAdicaoDetalhe} className="flex-1 bg-purple-600 text-white font-black text-xs uppercase py-3.5 rounded-2xl active:scale-95 transition-all">
+                    <button onClick={confirmarAdicaoDetalhe} style={{ backgroundColor: themeColors.primary }} className="flex-1 text-white font-black text-xs uppercase py-3.5 rounded-2xl active:scale-95 transition-all">
                       Adicionar ao Carrinho
                     </button>
                   </div>
@@ -2503,15 +2583,141 @@ export default function App() {
           );
         })()}
 
-        {totalCarrinhoPublico > 0 && (
-          <div className="fixed bottom-0 left-0 right-0 bg-white p-4 border-t shadow-2xl flex flex-col items-center gap-3 z-50">
-            <div className="text-center">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Total do seu Pedido</span>
-              <div className="text-2xl font-black text-orange-500">R$ {totalCarrinhoPublico.toFixed(2)}</div>
+        {/* Checkout em etapas: Carrinho -> Seus Dados -> Pagamento -> WhatsApp */}
+        {mostrarCheckoutPublico && (
+          <div className="fixed inset-0 bg-white z-[120] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b p-4 flex items-center justify-between z-10">
+              <button onClick={() => setMostrarCheckoutPublico(false)} className="text-slate-400"><X size={22}/></button>
+              <h2 className="font-black text-slate-800 text-sm uppercase">Fechar Pedido</h2>
+              <div className="w-6"></div>
             </div>
-            <button onClick={finalizarPedidoPublicoWhatsapp} className="w-full max-w-md bg-emerald-500 hover:bg-emerald-600 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-lg flex items-center justify-center gap-2 tracking-wider">
-              <MessageCircle size={18}/> Encomendar no WhatsApp
-            </button>
+
+            <div className="flex justify-center gap-8 py-5">
+              {[{ k: 'carrinho', l: 'Pedido', n: 1 }, { k: 'dados', l: 'Seus Dados', n: 2 }, { k: 'pagamento', l: 'Pagamento', n: 3 }].map(passo => (
+                <div key={passo.k} className="flex flex-col items-center gap-1">
+                  <div style={{ borderColor: etapaCheckout === passo.k ? themeColors.primary : '#e2e8f0', color: etapaCheckout === passo.k ? themeColors.primary : '#94a3b8' }} className="w-9 h-9 rounded-full border-2 flex items-center justify-center font-black text-sm">{passo.n}</div>
+                  <span className="text-[9px] font-black uppercase text-slate-400">{passo.l}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="max-w-md mx-auto px-5 pb-32">
+              {etapaCheckout === 'carrinho' && (
+                <div className="space-y-3">
+                  <h3 className="font-black text-slate-800 text-base mb-2">Revise seu pedido</h3>
+                  {carrinhoPublico.map(i => (
+                    <div key={i.itemId} className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                      <div className="flex justify-between items-start">
+                        <div className="min-w-0 flex-1 pr-2">
+                          <p className="font-bold text-slate-800 text-sm">{i.nome}</p>
+                          {i.detalhe && <p className="text-[10px] text-slate-400 mt-0.5">{i.detalhe}</p>}
+                        </div>
+                        <button onClick={() => removerDoCarrinhoPublico(i.itemId)} className="text-red-300 shrink-0"><Trash2 size={16}/></button>
+                      </div>
+                      <div className="flex justify-between items-center mt-2">
+                        <div className="flex items-center gap-2 bg-white rounded-xl px-2 py-1 border">
+                          <button onClick={() => setCarrinhoPublico(prev => prev.map(it => it.itemId === i.itemId ? { ...it, qtd: Math.max(1, it.qtd - 1) } : it))} className="font-black text-slate-500 w-5">-</button>
+                          <span className="font-bold text-xs w-5 text-center">{i.qtd}</span>
+                          <button onClick={() => setCarrinhoPublico(prev => prev.map(it => it.itemId === i.itemId ? { ...it, qtd: it.qtd + 1 } : it))} className="font-black text-purple-600 w-5">+</button>
+                        </div>
+                        <span className="font-black text-purple-700 text-sm">R$ {(i.precoUnitario * i.qtd).toFixed(2)}</span>
+                      </div>
+                    </div>
+                  ))}
+                  {carrinhoPublico.length === 0 && <p className="text-center text-xs text-slate-400 py-8">Seu carrinho está vazio.</p>}
+
+                  <div className="flex justify-between items-center pt-3 border-t">
+                    <span className="text-xs font-bold text-slate-400 uppercase">Subtotal</span>
+                    <span className="font-black text-lg text-slate-800">R$ {totalCarrinhoPublico.toFixed(2)}</span>
+                  </div>
+                </div>
+              )}
+
+              {etapaCheckout === 'dados' && (
+                <div className="space-y-4">
+                  <h3 className="font-black text-slate-800 text-base mb-2">Seus dados</h3>
+                  <p className="text-slate-400 text-xs -mt-3">Precisamos disso para confirmar o pedido.</p>
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-purple-600 ml-1">Nome Completo</label>
+                    <input placeholder="Digite seu nome..." className="w-full p-4 bg-slate-50 rounded-2xl mt-1 outline-none font-bold border border-transparent focus:border-purple-400" value={nomeComprador} onChange={e => setNomeComprador(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-purple-600 ml-1">Telefone / WhatsApp</label>
+                    <input placeholder="(11) 99999-9999" className="w-full p-4 bg-slate-50 rounded-2xl mt-1 outline-none font-bold border border-transparent focus:border-purple-400" value={telefoneComprador} onChange={e => setTelefoneComprador(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-purple-600 ml-1 block mb-1">Modalidade</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button onClick={() => setModalidadeEntrega('entrega')} style={{ borderColor: modalidadeEntrega === 'entrega' ? themeColors.primary : undefined, color: modalidadeEntrega === 'entrega' ? themeColors.primary : undefined }} className={`py-3 rounded-xl text-xs font-black uppercase border-2 ${modalidadeEntrega === 'entrega' ? 'bg-purple-50' : 'bg-slate-50 border-transparent text-slate-500'}`}>Entrega</button>
+                      <button onClick={() => setModalidadeEntrega('retirada')} style={{ borderColor: modalidadeEntrega === 'retirada' ? themeColors.primary : undefined, color: modalidadeEntrega === 'retirada' ? themeColors.primary : undefined }} className={`py-3 rounded-xl text-xs font-black uppercase border-2 ${modalidadeEntrega === 'retirada' ? 'bg-purple-50' : 'bg-slate-50 border-transparent text-slate-500'}`}>Retirada no Local</button>
+                    </div>
+                  </div>
+                  {modalidadeEntrega === 'entrega' && (
+                    <div>
+                      <label className="text-[10px] font-black uppercase text-purple-600 ml-1">Endereço de Entrega</label>
+                      <textarea placeholder="Rua, número, bairro, referência..." className="w-full p-4 bg-slate-50 rounded-2xl mt-1 outline-none font-medium text-sm border border-transparent focus:border-purple-400 resize-none h-16" value={enderecoComprador} onChange={e => setEnderecoComprador(e.target.value)} />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {etapaCheckout === 'pagamento' && (
+                <div className="space-y-4">
+                  <h3 className="font-black text-slate-800 text-base mb-2">Forma de pagamento</h3>
+                  <div className="space-y-2">
+                    {[
+                      { v: 'pix', l: 'Pix', s: 'Aprovação imediata' },
+                      { v: 'dinheiro_sinal', l: 'Dinheiro', s: 'Sinal de 50% de entrada + 50% na finalização' },
+                      { v: 'cartao_credito', l: 'Cartão de Crédito', s: 'Combinado com a loja' },
+                      { v: 'cartao_debito', l: 'Cartão de Débito', s: 'Combinado com a loja' },
+                    ].map(op => (
+                      <button key={op.v} onClick={() => setFormaPagamentoComprador(op.v as any)} style={{ borderColor: formaPagamentoComprador === op.v ? themeColors.primary : undefined }} className={`w-full text-left p-3 rounded-2xl border-2 ${formaPagamentoComprador === op.v ? 'bg-purple-50 border-purple-600' : 'bg-slate-50 border-transparent'}`}>
+                        <p className="font-bold text-sm text-slate-800">{op.l}</p>
+                        <p className="text-[10px] text-slate-400">{op.s}</p>
+                      </button>
+                    ))}
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-purple-600 ml-1">Observações (opcional)</label>
+                    <textarea placeholder="Cor, tamanho, observações..." className="w-full p-4 bg-slate-50 rounded-2xl mt-1 outline-none font-medium text-sm border border-transparent focus:border-purple-400 resize-none h-16" value={observacoesComprador} onChange={e => setObservacoesComprador(e.target.value)} />
+                  </div>
+
+                  <div className="bg-slate-50 rounded-2xl p-4 border">
+                    <div className="flex justify-between text-xs text-slate-500 mb-1"><span>{qtdTotalCarrinho} itens</span><span>R$ {totalCarrinhoPublico.toFixed(2)}</span></div>
+                    <div className="flex justify-between font-black text-slate-800"><span>Total</span><span>R$ {totalCarrinhoPublico.toFixed(2)}</span></div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="fixed bottom-0 left-0 right-0 bg-white border-t p-4 flex gap-3 max-w-md mx-auto">
+              {etapaCheckout !== 'carrinho' && (
+                <button onClick={() => setEtapaCheckout(etapaCheckout === 'pagamento' ? 'dados' : 'carrinho')} className="flex-1 bg-slate-100 text-slate-600 font-black text-xs uppercase py-4 rounded-2xl flex items-center justify-center gap-1"><ChevronDown className="rotate-90" size={14}/> Voltar</button>
+              )}
+              {etapaCheckout !== 'pagamento' ? (
+                <button
+                  onClick={() => {
+                    if (etapaCheckout === 'carrinho') {
+                      if (carrinhoPublico.length === 0) return showToast("Adicione ao menos um item!", 'erro');
+                      setEtapaCheckout('dados');
+                    } else if (etapaCheckout === 'dados') {
+                      if (!nomeComprador.trim()) return showToast("Digite seu nome!", 'erro');
+                      if (!telefoneComprador.trim()) return showToast("Digite seu telefone!", 'erro');
+                      if (modalidadeEntrega === 'entrega' && !enderecoComprador.trim()) return showToast("Digite o endereço de entrega!", 'erro');
+                      setEtapaCheckout('pagamento');
+                    }
+                  }}
+                  style={{ backgroundColor: themeColors.primary }}
+                  className="flex-1 text-white font-black text-xs uppercase py-4 rounded-2xl"
+                >
+                  Continuar
+                </button>
+              ) : (
+                <button onClick={finalizarPedidoPublicoWhatsapp} className="flex-1 bg-emerald-500 text-white font-black text-xs uppercase py-4 rounded-2xl flex items-center justify-center gap-2">
+                  <MessageCircle size={16}/> Fechar Pedido
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -3220,6 +3426,41 @@ export default function App() {
                 )}
               </div>
 
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Banner / Capa da Vitrine (imagem larga)</label>
+              <div className="mb-5 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-3xl p-4 bg-slate-50 relative min-h-[110px] w-full">
+                {bannerLojaUrl ? (
+                  <div className="relative w-full h-28 rounded-2xl overflow-hidden">
+                    <img src={bannerLojaUrl} alt="Banner da Loja" className="w-full h-full object-cover" />
+                    <button onClick={() => setBannerLojaUrl('')} className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600 transition-colors"><X size={14}/></button>
+                  </div>
+                ) : (
+                  <label className="cursor-pointer flex flex-col items-center gap-2 text-slate-400 hover:text-purple-600 transition-colors w-full h-full justify-center py-3">
+                    <div style={{ color: themeColors.primary }} className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center shadow-sm">
+                      <ImageIcon size={18} />
+                    </div>
+                    <span className="text-xs font-bold uppercase tracking-wide text-[10px]">
+                      {subindoBanner ? 'Enviando Imagem...' : '🖼️ Enviar Banner da Vitrine'}
+                    </span>
+                    <input type="file" accept="image/*" className="hidden" onChange={handleUploadBanner} disabled={subindoBanner} />
+                  </label>
+                )}
+              </div>
+
+              <div className="mb-6 w-full bg-purple-50/50 border border-purple-100 rounded-2xl p-4">
+                <label className="text-[10px] font-bold text-purple-600 uppercase ml-1 block mb-1">Link Personalizado da Vitrine</label>
+                <p className="text-[10px] text-slate-400 mb-2">Troque o código aleatório por um link mais fácil de compartilhar.</p>
+                <div className="flex gap-2">
+                  <div className="flex-1 flex items-center bg-white rounded-xl border overflow-hidden">
+                    <span className="text-[10px] text-slate-400 pl-3 shrink-0">?loja=</span>
+                    <input placeholder="minha-loja" className="w-full p-3 outline-none text-xs font-bold" value={inputSlugLoja} onChange={e => setInputSlugLoja(e.target.value)} />
+                  </div>
+                  <button disabled={!!salvando.slug} onClick={salvarSlugLoja} style={{ backgroundColor: themeColors.primary, opacity: salvando.slug ? 0.6 : 1 }} className="text-white text-xs font-black uppercase px-4 rounded-xl shrink-0">{salvando.slug ? '...' : 'Salvar'}</button>
+                </div>
+                {slugLojaPerfil && (
+                  <p className="text-[10px] text-emerald-600 font-bold mt-2 break-all">🔗 {window.location.origin}{window.location.pathname}?loja={slugLojaPerfil}</p>
+                )}
+              </div>
+
               <div className="mb-5 w-full">
                 <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">✍️ Assinatura da Empresa</label>
                 <p className="text-slate-400 text-[10px] mb-2">Desenhe uma vez e ela entra automática em todos os seus contratos.</p>
@@ -3398,6 +3639,7 @@ export default function App() {
                     estado: estadoPerfil.trim(),
                     dadosBancarios: dadosBancariosPerfil.trim(),
                     logoUrl: logoLojaPerfil,
+                    bannerUrl: bannerLojaUrl,
                     suporteZap: suporteZapPerfil.trim(),
                     themeColors: themeColors
                   }, { merge: true });
