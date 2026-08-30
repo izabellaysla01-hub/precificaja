@@ -468,6 +468,7 @@ export default function App() {
   const [bannerLojaUrl, setBannerLojaUrl] = useState('');
   const [subindoBanner, setSubindoBanner] = useState(false);
   const [slugLojaPerfil, setSlugLojaPerfil] = useState('');
+  const [taglineLoja, setTaglineLoja] = useState('');
   const [inputSlugLoja, setInputSlugLoja] = useState('');
   const [buscaVitrine, setBuscaVitrine] = useState('');
   const [mostrarCheckoutPublico, setMostrarCheckoutPublico] = useState(false);
@@ -635,6 +636,7 @@ export default function App() {
             setNomeLojaPerfil(data.nomeLoja || '');
             setLogoLojaPerfil(data.logoUrl || '');
             setBannerLojaUrl(data.bannerUrl || '');
+            setTaglineLoja(data.tagline || '');
             if (data.themeColors) setThemeColors(data.themeColors);
           }
         });
@@ -673,6 +675,7 @@ export default function App() {
             setBannerLojaUrl(data.bannerUrl || '');
             setSlugLojaPerfil(data.slug || '');
             setInputSlugLoja(data.slug || '');
+            setTaglineLoja(data.tagline || '');
             setAssinaturaLojaUrl(data.assinaturaUrl || '');
             setSuporteZapPerfil(data.suporteZap || data.whatsapp || '');
             if (data.themeColors) setThemeColors(data.themeColors);
@@ -1242,15 +1245,6 @@ export default function App() {
     if (observacoesComprador.trim()) textPedido += `*Observações:* ${observacoesComprador.trim()}%0A`;
     textPedido += `---%0A`;
     textPedido += `Aguardo a conversa para acertar os detalhes! 🙌`;
-
-    const listaParaPdf = carrinhoPublico.map(i => ({ nome: i.nome, qtd: i.qtd, precoVenda: i.precoUnitario, detalhe: i.detalhe }));
-    dispararPdfAutomaticoCliente(nomeComprador.trim(), listaParaPdf, totalGeral, {
-      telefone: telefoneComprador.trim(),
-      modalidade: nomesModalidade[modalidadeEntrega],
-      endereco: modalidadeEntrega === 'entrega' ? enderecoComprador.trim() : '',
-      formaPagamento: formaPagamentoComprador,
-      observacoes: observacoesComprador.trim()
-    });
 
     const numeroLimpo = zapDaLojaPublica.replace(/\D/g, '');
     if (numeroLimpo) { window.open(`https://wa.me/55${numeroLimpo}?text=${textPedido}`, '_blank'); }
@@ -2438,20 +2432,36 @@ export default function App() {
               )}
             </button>
           </div>
-
-          {bannerLojaUrl && (
-            <div className="w-full h-32 sm:h-44 overflow-hidden">
-              <img src={bannerLojaUrl} className="w-full h-full object-cover" />
-            </div>
-          )}
-
-          {logoLojaPerfil && (
-            <div className={`max-w-xl mx-auto px-4 flex items-center gap-3 ${bannerLojaUrl ? '-mt-8 relative z-10 pb-3' : 'pb-3 pt-1'}`}>
-              <img src={logoLojaPerfil} className="w-16 h-16 rounded-2xl border-4 border-white bg-white object-contain shadow-lg shrink-0" />
-              <p className="text-[10px] text-slate-400 font-bold uppercase pb-1">Filtro: {filtroVitrineSelecionado}</p>
-            </div>
-          )}
         </header>
+
+        {/* Banner grande estilo "capa" — imagem ocupa a largura toda, com logo/nome/frase por cima */}
+        {bannerLojaUrl ? (
+          <div className="relative w-full h-64 sm:h-80 overflow-hidden">
+            <img src={bannerLojaUrl} className="w-full h-full object-cover" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent" />
+            <div className="absolute bottom-0 left-0 right-0 p-5 flex items-end gap-3 max-w-xl mx-auto">
+              {logoLojaPerfil && (
+                <img src={logoLojaPerfil} className="w-14 h-14 rounded-2xl border-2 border-white bg-white object-contain shadow-lg shrink-0" />
+              )}
+              <div className="min-w-0 flex-1">
+                {taglineLoja && (
+                  <span style={{ backgroundColor: themeColors.secondary }} className="inline-block text-white text-[9px] font-black uppercase px-2.5 py-1 rounded-full mb-1.5">{taglineLoja}</span>
+                )}
+                <h2 className="text-white font-black text-xl drop-shadow-md truncate">{nomeLojaPerfil || 'Vitrine'}</h2>
+              </div>
+            </div>
+          </div>
+        ) : (logoLojaPerfil || taglineLoja) && (
+          <div className="max-w-xl mx-auto px-4 pt-4 pb-1 flex items-center gap-3">
+            {logoLojaPerfil && <img src={logoLojaPerfil} className="w-14 h-14 rounded-2xl border bg-white object-contain shadow-sm shrink-0" />}
+            <div className="min-w-0">
+              {taglineLoja && (
+                <span style={{ backgroundColor: themeColors.secondary }} className="inline-block text-white text-[9px] font-black uppercase px-2.5 py-1 rounded-full mb-1">{taglineLoja}</span>
+              )}
+              <h2 className="font-black text-lg text-slate-800 truncate">{nomeLojaPerfil || 'Vitrine'}</h2>
+            </div>
+          </div>
+        )}
 
         {/* Carrinho flutuante — some quando o checkout já está aberto */}
         {qtdTotalCarrinho > 0 && !mostrarCheckoutPublico && (
@@ -3466,6 +3476,12 @@ export default function App() {
                 )}
               </div>
 
+              <div className="mb-5 w-full">
+                <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Frase de Efeito da Vitrine (opcional)</label>
+                <input placeholder="Ex: Peça em poucos cliques pelo WhatsApp" className="w-full p-4 bg-slate-50 rounded-2xl mt-1 outline-none font-medium text-sm border focus:border-purple-400" value={taglineLoja} onChange={e => setTaglineLoja(e.target.value)} maxLength={80} />
+                <p className="text-[10px] text-slate-400 mt-1">Aparece por cima do banner, junto com o nome da loja.</p>
+              </div>
+
               <div className="mb-6 w-full bg-purple-50/50 border border-purple-100 rounded-2xl p-4">
                 <label className="text-[10px] font-bold text-purple-600 uppercase ml-1 block mb-1">Link Personalizado da Vitrine</label>
                 <p className="text-[10px] text-slate-400 mb-2">Troque o código aleatório por um link mais fácil de compartilhar.</p>
@@ -3660,6 +3676,7 @@ export default function App() {
                     dadosBancarios: dadosBancariosPerfil.trim(),
                     logoUrl: logoLojaPerfil,
                     bannerUrl: bannerLojaUrl,
+                    tagline: taglineLoja.trim(),
                     suporteZap: suporteZapPerfil.trim(),
                     themeColors: themeColors
                   }, { merge: true });
