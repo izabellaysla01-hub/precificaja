@@ -386,7 +386,10 @@ export default function App() {
   const [custoTesteComissao, setCustoTesteComissao] = useState('0');
   const [precoTesteComissao, setPrecoTesteComissao] = useState('0');
   const [movimentacoesCaixa, setMovimentacoesCaixa] = useState<any[]>([]);
-  const [novaMovimentacao, setNovaMovimentacao] = useState({ tipo: 'saida', descricao: '', valor: '', materialVinculado: '', qtdComprada: '' });
+  const [novaMovimentacao, setNovaMovimentacao] = useState({ tipo: 'saida', descricao: '', valor: '', materialVinculado: '', qtdComprada: '', categoria: 'reposicao_material' });
+  const [subAbaCaixa, setSubAbaCaixa] = useState<'movimentacoes' | 'relatorio'>('movimentacoes');
+  const [mesFiltroRelatorio, setMesFiltroRelatorio] = useState<string>(String(new Date().getMonth() + 1));
+  const [anoFiltroRelatorio, setAnoFiltroRelatorio] = useState<string>(String(new Date().getFullYear()));
   const [filtroTipoCaixa, setFiltroTipoCaixa] = useState<'todos' | 'entrada' | 'saida'>('todos');
   const [mostrarModalSinal, setMostrarModalSinal] = useState<any>(null);
   const [valorSinalInput, setValorSinalInput] = useState('');
@@ -1449,19 +1452,46 @@ export default function App() {
     await updateDoc(doc(db, "pedidos", pedido.id), { status: 'Vendido 💰', statusPagamento: 'pago_total' });
 
     if (valorRestante > 0) {
-      await registrarMovimentacaoCaixa('entrada', valorRestante, `Venda — ${pedido.nomeProd}${valorSinalJaRecebido > 0 ? ' (saldo restante)' : ''}`, 'venda', pedido.id);
+      let breakdown = null;
+      if (pedido.breakdownMaterial !== undefined) {
+        const precoTotal = Number(pedido.preco || 0);
+        const ratio = precoTotal > 0 ? valorRestante / precoTotal : 0;
+        breakdown = {
+          material: Number(pedido.breakdownMaterial || 0) * ratio,
+          maoObra: Number(pedido.breakdownMaoObra || 0) * ratio,
+          outros: Number(pedido.breakdownOutros || 0) * ratio,
+          lucro: Number(pedido.breakdownLucro || 0) * ratio,
+        };
+      }
+      await registrarMovimentacaoCaixa('entrada', valorRestante, `Venda — ${pedido.nomeProd}${valorSinalJaRecebido > 0 ? ' (saldo restante)' : ''}`, 'venda', pedido.id, breakdown);
     }
 
     showToast("Venda confirmada!");
   };
 
-  // Registra uma entrada ou saída no fluxo de caixa
-  const registrarMovimentacaoCaixa = async (tipo: 'entrada' | 'saida', valor: number, descricao: string, origem: string, pedidoId: string | null = null) => {
+  // Registra uma entrada ou saída no fluxo de caixa.
+  // breakdown (só pra entradas de venda com cálculo pela calculadora): material/mão de obra/outros/lucro em R$.
+  // categoriaSaida (só pra saídas): pra alimentar o relatório por categoria.
+  const registrarMovimentacaoCaixa = async (
+    tipo: 'entrada' | 'saida',
+    valor: number,
+    descricao: string,
+    origem: string,
+    pedidoId: string | null = null,
+    breakdown: { material: number; maoObra: number; outros: number; lucro: number } | null = null,
+    categoriaSaida: string | null = null
+  ) => {
     if (!user) return;
     try {
-      await addDoc(collection(db, "movimentacoes_caixa"), {
-        tipo, valor, descricao, origem, pedidoId, data: Timestamp.now(), userId: user.uid
-      });
+      const dados: any = { tipo, valor, descricao, origem, pedidoId, data: Timestamp.now(), userId: user.uid };
+      if (breakdown) {
+        dados.breakdownMaterial = breakdown.material;
+        dados.breakdownMaoObra = breakdown.maoObra;
+        dados.breakdownOutros = breakdown.outros;
+        dados.breakdownLucro = breakdown.lucro;
+      }
+      if (categoriaSaida) dados.categoriaSaida = categoriaSaida;
+      await addDoc(collection(db, "movimentacoes_caixa"), dados);
     } catch {
       showToast("Erro ao lançar no caixa.", 'erro');
     }
@@ -1490,7 +1520,24 @@ export default function App() {
     const colecao = mostrarModalSinal.tipo === 'contrato' ? 'contratos' : 'pedidos';
     try {
       await updateDoc(doc(db, colecao, mostrarModalSinal.id), { valorSinal: valor, statusPagamento: 'sinal_recebido' });
-      await registrarMovimentacaoCaixa('entrada', valor, `Sinal — ${mostrarModalSinal.titulo}`, 'sinal', mostrarModalSinal.id);
+
+      // Se for pedido com cálculo detalhado, rateia o breakdown proporcional ao valor do sinal
+      let breakdown = null;
+      if (mostrarModalSinal.tipo === 'pedido') {
+        const pedidoOriginal = pedidos.find(p => p.id === mostrarModalSinal.id);
+        if (pedidoOriginal && pedidoOriginal.breakdownMaterial !== undefined) {
+          const precoTotal = Number(pedidoOriginal.preco || 0);
+          const ratio = precoTotal > 0 ? valor / precoTotal : 0;
+          breakdown = {
+            material: Number(pedidoOriginal.breakdownMaterial || 0) * ratio,
+            maoObra: Number(pedidoOriginal.breakdownMaoObra || 0) * ratio,
+            outros: Number(pedidoOriginal.breakdownOutros || 0) * ratio,
+            lucro: Number(pedidoOriginal.breakdownLucro || 0) * ratio,
+          };
+        }
+      }
+
+      await registrarMovimentacaoCaixa('entrada', valor, `Sinal — ${mostrarModalSinal.titulo}`, 'sinal', mostrarModalSinal.id, breakdown);
       showToast("Sinal registrado! 💰");
       setMostrarModalSinal(null);
       setValorSinalInput('');
@@ -1859,6 +1906,19 @@ export default function App() {
     }, 0);
   }, [movimentacoesCaixa]);
 
+  // Faturamento do Mês Atual (dashboard Início) — soma só as ENTRADAS do caixa no mês corrente.
+  // Usa o caixa (não os pedidos direto) porque assim já inclui sinal de pedido, sinal de
+  // contrato e recebimento total de contrato — tudo que efetivamente entrou de dinheiro.
+  const faturamentoMesAtualCaixa = useMemo(() => {
+    const agora = new Date();
+    return movimentacoesCaixa.reduce((acc, m) => {
+      if (m.tipo !== 'entrada' || !m.data?.toDate) return acc;
+      const d = m.data.toDate();
+      if (d.getMonth() !== agora.getMonth() || d.getFullYear() !== agora.getFullYear()) return acc;
+      return acc + Number(m.valor || 0);
+    }, 0);
+  }, [movimentacoesCaixa]);
+
   // Histórico mensal do próprio caixa — entradas, saídas e saldo de cada mês
   const historicoCaixaMensal = useMemo(() => {
     const agrupado: { [key: string]: { entradas: number; saidas: number; mesAnoTexto: string; itens: any[] } } = {};
@@ -1875,6 +1935,38 @@ export default function App() {
     });
     return Object.keys(agrupado).sort((a, b) => b.localeCompare(a)).map(chave => ({ chave, ...agrupado[chave] }));
   }, [movimentacoesCaixa]);
+
+  // Relatório: soma entradas (por breakdown material/mão de obra/lucro) e saídas (por categoria)
+  // do período filtrado. Entradas sem breakdown salvo (sinal, balcão, manual) caem em "Não detalhado".
+  const relatorioCaixa = useMemo(() => {
+    const movsPeriodo = movimentacoesCaixa.filter(m => {
+      if (!m.data?.toDate) return false;
+      const d = m.data.toDate();
+      const matchMes = mesFiltroRelatorio === 'Todos' || (d.getMonth() + 1) === Number(mesFiltroRelatorio);
+      const matchAno = anoFiltroRelatorio === 'Todos' || d.getFullYear() === Number(anoFiltroRelatorio);
+      return matchMes && matchAno;
+    });
+
+    const entradas = movsPeriodo.filter(m => m.tipo === 'entrada');
+    const saidas = movsPeriodo.filter(m => m.tipo === 'saida');
+
+    const receitaTotal = entradas.reduce((a, m) => a + Number(m.valor || 0), 0);
+    const material = entradas.reduce((a, m) => a + Number(m.breakdownMaterial || 0), 0);
+    const maoObra = entradas.reduce((a, m) => a + Number(m.breakdownMaoObra || 0), 0);
+    const outrosCusto = entradas.reduce((a, m) => a + Number(m.breakdownOutros || 0), 0);
+    const lucroGerado = entradas.reduce((a, m) => a + Number(m.breakdownLucro || 0), 0);
+    const naoDetalhado = Math.max(0, receitaTotal - material - maoObra - outrosCusto - lucroGerado);
+
+    const saidasPorCategoria: { [k: string]: number } = {};
+    saidas.forEach(m => {
+      const cat = m.categoriaSaida || 'outro';
+      saidasPorCategoria[cat] = (saidasPorCategoria[cat] || 0) + Number(m.valor || 0);
+    });
+    const totalSaidas = saidas.reduce((a, m) => a + Number(m.valor || 0), 0);
+    const lucroRetirado = saidasPorCategoria['retirada_lucro'] || 0;
+
+    return { receitaTotal, material, maoObra, outrosCusto, lucroGerado, naoDetalhado, totalSaidas, saidasPorCategoria, lucroRetirado };
+  }, [movimentacoesCaixa, mesFiltroRelatorio, anoFiltroRelatorio]);
 
   // Varre todas as vendas já confirmadas e lança no caixa as que ainda não tem registro —
   // resolve o caso de vendas feitas antes do fluxo de caixa existir.
@@ -1929,13 +2021,21 @@ export default function App() {
       .sort((a, b) => ((b.data?.seconds || 0) - (a.data?.seconds || 0)));
   }, [movimentacoesCaixa, filtroTipoCaixa]);
 
+  const CATEGORIAS_SAIDA = [
+    { v: 'reposicao_material', l: 'Reposição de Material' },
+    { v: 'retirada_lucro', l: 'Retirada de Lucro (Pró-labore)' },
+    { v: 'mao_de_obra', l: 'Mão de obra / Terceiros' },
+    { v: 'despesa_fixa', l: 'Despesa Fixa' },
+    { v: 'outro', l: 'Outro' },
+  ];
+
   const salvarMovimentacaoCaixa = async () => {
     if (salvando.caixa) return;
     if (!novaMovimentacao.descricao || !novaMovimentacao.valor) return showToast("Preencha a descrição e o valor!", 'erro');
     setSalvando(prev => ({ ...prev, caixa: true }));
     try {
       const valorNum = Number(novaMovimentacao.valor);
-      await addDoc(collection(db, "movimentacoes_caixa"), {
+      const dadosMov: any = {
         tipo: novaMovimentacao.tipo,
         valor: valorNum,
         descricao: novaMovimentacao.descricao,
@@ -1943,7 +2043,9 @@ export default function App() {
         pedidoId: null,
         data: Timestamp.now(),
         userId: user.uid
-      });
+      };
+      if (novaMovimentacao.tipo === 'saida') dadosMov.categoriaSaida = novaMovimentacao.categoria || 'outro';
+      await addDoc(collection(db, "movimentacoes_caixa"), dadosMov);
 
       // Se marcou um material e uma quantidade comprada, já atualiza o estoque e o
       // custo desse material no Armário — assim a compra alimenta os dois lugares de uma vez.
@@ -1959,7 +2061,7 @@ export default function App() {
         }
       }
 
-      setNovaMovimentacao({ tipo: 'saida', descricao: '', valor: '', materialVinculado: '', qtdComprada: '' });
+      setNovaMovimentacao({ tipo: 'saida', descricao: '', valor: '', materialVinculado: '', qtdComprada: '', categoria: 'reposicao_material' });
       showToast("Movimentação registrada! 💸");
     } catch {
       showToast("Erro ao registrar movimentação.", 'erro');
@@ -2126,6 +2228,41 @@ export default function App() {
   useEffect(() => {
     setPrecoFinalDigitado(resumenFinanceiro.final);
   }, [resumenFinanceiro.final]);
+
+  // Breakdown do pedido (material / mão de obra / outros custos / lucro) em valores TOTAIS,
+  // batendo exatamente com o preço final digitado — se a pessoa cobrar mais ou menos que o
+  // sugerido, a diferença toda vai pro lucro (pra cima ou pra baixo), sem inventar número.
+  // Só existe quando o orçamento foi feito pela calculadora (não em item de catálogo/precoManual).
+  const calcularBreakdownPedido = () => {
+    if (precoManual !== null) return null;
+    const qtdNum = Math.max(1, Number(qtdPed) || 1);
+    const multiplicador = modoCalculo === 'peca' ? qtdNum : 1;
+
+    const totalMaterialUnit = matsNoPed.reduce((acc, m) => acc + ((Number(m.valor || 0) / Number(m.qtd || 1)) * Number(m.qtdUsada || 0)), 0);
+    const totalMaoObraUnit = (Number(vHora || 0) / 60) * Number(tGasto || 0);
+    const totalExtrasUnit = Number(custos.embalagem || 0) + Number(custos.impressao || 0) + Number(custos.energia || 0) + Number(custos.outros || 0);
+
+    let totalDeprecUnit = 0;
+    const dias = Number(financasFixo.diasTrabalho || 20);
+    const horas = Number(financasFixo.horasDia || 8);
+    const totalHorasMes = dias * horas || 160;
+    const tempoEmHoras = Number(tGasto || 0) / 60;
+    equipamentosSelecionados.forEach(idEquip => {
+      const eq = equipamentos.find(e => e.id === idEquip);
+      if (eq) {
+        const custoHoraEquip = (Number(eq.valorPago || 0) / (Number(eq.durabilidadeAnos || 2) * 12)) / totalHorasMes;
+        totalDeprecUnit += custoHoraEquip * tempoEmHoras;
+      }
+    });
+
+    const materialTotal = totalMaterialUnit * multiplicador;
+    const maoObraTotal = totalMaoObraUnit * multiplicador;
+    const outrosTotal = (totalExtrasUnit + totalDeprecUnit) * multiplicador;
+    const precoFinal = Number(precoFinalDigitado || 0);
+    const lucroTotal = precoFinal - materialTotal - maoObraTotal - outrosTotal;
+
+    return { material: materialTotal, maoObra: maoObraTotal, outros: outrosTotal, lucro: lucroTotal };
+  };
 
   const enviarZap = (p: any) => {
     const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
@@ -3028,8 +3165,9 @@ export default function App() {
              if(!nomeProd) return showToast("Digite o nome do produto!", 'erro');
 
              const precoFinalSalvar = Number(precoFinalDigitado || 0).toFixed(2);
+             const breakdown = calcularBreakdownPedido();
 
-             const dadosPedido = {
+             const dadosPedido: any = {
                nomeProd,
                detalhamentoPed,
                preco: precoFinalSalvar,
@@ -3048,6 +3186,12 @@ export default function App() {
                modoCalculo,
                materiaisUsados: precoManual ? [] : matsNoPed.map(m => ({ id: m.id, nome: m.nome, qtdUsada: Number(m.qtdUsada || 1) }))
              };
+             if (breakdown) {
+               dadosPedido.breakdownMaterial = breakdown.material;
+               dadosPedido.breakdownMaoObra = breakdown.maoObra;
+               dadosPedido.breakdownOutros = breakdown.outros;
+               dadosPedido.breakdownLucro = breakdown.lucro;
+             }
 
              setSalvando(prev => ({ ...prev, orcamento: true }));
              try {
@@ -3284,7 +3428,7 @@ export default function App() {
                 <p className="text-xs font-bold uppercase tracking-widest text-white/80">Faturamento do Mês Atual</p>
                 <span className="text-[9px] bg-white/20 px-2 py-0.5 rounded-full font-bold uppercase">Zera no dia 1º</span>
               </div>
-              <h2 className="text-4xl font-black tracking-tight">R$ {dashboardMetrics.faturamento}</h2>
+              <h2 className="text-4xl font-black tracking-tight">R$ {faturamentoMesAtualCaixa.toFixed(2)}</h2>
               <p className="text-[11px] text-white/80 mt-2 opacity-80">📈 Vendas concluídas no mês corrente</p>
             </div>
 
@@ -4936,6 +5080,111 @@ export default function App() {
               <History size={14}/> {salvando.sync ? 'Sincronizando...' : 'Sincronizar vendas antigas com o caixa'}
             </button>
 
+            <div className="flex bg-slate-100 p-1.5 rounded-2xl gap-1 w-full border">
+              <button onClick={() => setSubAbaCaixa('movimentacoes')} style={{ color: subAbaCaixa === 'movimentacoes' ? themeColors.primary : undefined }} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${subAbaCaixa === 'movimentacoes' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>💸 Movimentações</button>
+              <button onClick={() => setSubAbaCaixa('relatorio')} style={{ color: subAbaCaixa === 'relatorio' ? themeColors.primary : undefined }} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${subAbaCaixa === 'relatorio' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>📊 Relatório</button>
+            </div>
+
+            {subAbaCaixa === 'relatorio' && (
+              <div className="space-y-4 w-full animate-fadeIn">
+                <div className="grid grid-cols-2 gap-3 bg-white p-3 rounded-2xl border shadow-sm">
+                  <div>
+                    <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Mês</label>
+                    <select className="w-full p-2.5 bg-slate-50 rounded-xl text-xs font-bold border outline-none text-slate-700" value={mesFiltroRelatorio} onChange={e => setMesFiltroRelatorio(e.target.value)}>
+                      <option value="Todos">📅 Todos os Meses</option>
+                      <option value="1">Janeiro</option><option value="2">Fevereiro</option><option value="3">Março</option>
+                      <option value="4">Abril</option><option value="5">Maio</option><option value="6">Junho</option>
+                      <option value="7">Julho</option><option value="8">Agosto</option><option value="9">Setembro</option>
+                      <option value="10">Outubro</option><option value="11">Novembro</option><option value="12">Dezembro</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Ano</label>
+                    <select className="w-full p-2.5 bg-slate-50 rounded-xl text-xs font-bold border outline-none text-slate-700" value={anoFiltroRelatorio} onChange={e => setAnoFiltroRelatorio(e.target.value)}>
+                      <option value="Todos">🗓️ Todos os Anos</option>
+                      <option value="2026">2026</option><option value="2025">2025</option><option value="2024">2024</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
+                  <h2 style={{ color: themeColors.primary }} className="font-bold mb-4 flex items-center gap-2 uppercase text-xs tracking-widest"><TrendingUp size={18}/> Receita do Período</h2>
+                  <div className="flex justify-between items-baseline mb-4">
+                    <span className="text-xs font-bold text-slate-400 uppercase">Receita Total</span>
+                    <span className="font-black text-2xl text-slate-800">R$ {relatorioCaixa.receitaTotal.toFixed(2)}</span>
+                  </div>
+                  <div className="space-y-2.5 border-t pt-3">
+                    {[
+                      { l: 'Material', v: relatorioCaixa.material, c: '#f59e0b' },
+                      { l: 'Mão de Obra', v: relatorioCaixa.maoObra, c: '#3b82f6' },
+                      { l: 'Outros Custos', v: relatorioCaixa.outrosCusto, c: '#94a3b8' },
+                      { l: 'Lucro Gerado', v: relatorioCaixa.lucroGerado, c: '#10b981' },
+                      { l: 'Não Detalhado (sinal/balcão/manual)', v: relatorioCaixa.naoDetalhado, c: '#cbd5e1' },
+                    ].filter(item => item.v > 0.004).map(item => {
+                      const pct = relatorioCaixa.receitaTotal > 0 ? (item.v / relatorioCaixa.receitaTotal) * 100 : 0;
+                      return (
+                        <div key={item.l}>
+                          <div className="flex justify-between text-xs mb-1">
+                            <span className="font-bold text-slate-600">{item.l}</span>
+                            <span className="font-black text-slate-800">R$ {item.v.toFixed(2)} <span className="text-slate-400 font-normal">({pct.toFixed(0)}%)</span></span>
+                          </div>
+                          <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                            <div style={{ width: `${pct}%`, backgroundColor: item.c }} className="h-full rounded-full" />
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {relatorioCaixa.receitaTotal === 0 && <p className="text-center text-xs text-slate-400 italic py-4">Nenhuma entrada nesse período.</p>}
+                  </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
+                  <h2 style={{ color: themeColors.primary }} className="font-bold mb-4 flex items-center gap-2 uppercase text-xs tracking-widest"><DollarSign size={18}/> Saídas por Categoria</h2>
+                  <div className="flex justify-between items-baseline mb-4">
+                    <span className="text-xs font-bold text-slate-400 uppercase">Total de Saídas</span>
+                    <span className="font-black text-2xl text-red-500">R$ {relatorioCaixa.totalSaidas.toFixed(2)}</span>
+                  </div>
+                  <div className="space-y-2">
+                    {CATEGORIAS_SAIDA.map(cat => {
+                      const valor = relatorioCaixa.saidasPorCategoria[cat.v] || 0;
+                      if (valor <= 0) return null;
+                      return (
+                        <div key={cat.v} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border">
+                          <span className="text-xs font-bold text-slate-600">{cat.l}</span>
+                          <span className="font-black text-sm text-slate-800">R$ {valor.toFixed(2)}</span>
+                        </div>
+                      );
+                    })}
+                    {relatorioCaixa.totalSaidas === 0 && <p className="text-center text-xs text-slate-400 italic py-4">Nenhuma saída nesse período.</p>}
+                  </div>
+                </div>
+
+                {relatorioCaixa.lucroGerado > 0 && (
+                  <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
+                    <h2 style={{ color: themeColors.primary }} className="font-bold mb-4 flex items-center gap-2 uppercase text-xs tracking-widest">💰 Lucro Gerado x Retirado</h2>
+                    <div className="grid grid-cols-2 gap-3 mb-3">
+                      <div className="bg-emerald-50 rounded-2xl p-4 text-center">
+                        <p className="text-[9px] font-black uppercase text-emerald-600">Gerado</p>
+                        <p className="font-black text-lg text-emerald-700">R$ {relatorioCaixa.lucroGerado.toFixed(2)}</p>
+                      </div>
+                      <div className="bg-amber-50 rounded-2xl p-4 text-center">
+                        <p className="text-[9px] font-black uppercase text-amber-600">Retirado</p>
+                        <p className="font-black text-lg text-amber-700">R$ {relatorioCaixa.lucroRetirado.toFixed(2)}</p>
+                      </div>
+                    </div>
+                    <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden mb-2">
+                      <div style={{ width: `${Math.min(100, (relatorioCaixa.lucroRetirado / relatorioCaixa.lucroGerado) * 100)}%`, backgroundColor: themeColors.secondary }} className="h-full rounded-full" />
+                    </div>
+                    <p className="text-center text-xs text-slate-500">
+                      Ainda tem <strong style={{ color: themeColors.primary }}>R$ {Math.max(0, relatorioCaixa.lucroGerado - relatorioCaixa.lucroRetirado).toFixed(2)}</strong> de lucro pra retirar
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {subAbaCaixa === 'movimentacoes' && (
+              <>
             <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
               <h2 style={{ color: themeColors.primary }} className="font-bold mb-1 flex items-center gap-2 uppercase text-xs tracking-widest"><DollarSign size={18}/> Nova Movimentação</h2>
               <p className="text-slate-400 text-[11px] mb-4">Vendas confirmadas e sinais recebidos já entram automaticamente aqui. Use este formulário pra lançar gastos (compra de material, aluguel, etc.) ou outras entradas manuais.</p>
@@ -4950,6 +5199,15 @@ export default function App() {
 
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Valor (R$)</label>
               <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none font-bold border focus:border-purple-400" value={novaMovimentacao.valor} onChange={e => setNovaMovimentacao({...novaMovimentacao, valor: e.target.value})} />
+
+              {novaMovimentacao.tipo === 'saida' && (
+                <div className="mb-3 w-full">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Categoria da Saída</label>
+                  <select className="w-full p-3.5 bg-slate-50 rounded-2xl outline-none border text-xs font-bold" value={novaMovimentacao.categoria} onChange={e => setNovaMovimentacao({...novaMovimentacao, categoria: e.target.value})}>
+                    {CATEGORIAS_SAIDA.map(c => <option key={c.v} value={c.v}>{c.l}</option>)}
+                  </select>
+                </div>
+              )}
 
               {novaMovimentacao.tipo === 'saida' && (
                 <div className="mb-4 w-full bg-purple-50/50 border border-purple-100 rounded-2xl p-4">
@@ -5127,6 +5385,8 @@ export default function App() {
                   })}
                 </div>
               </div>
+            )}
+              </>
             )}
           </div>
         )}
