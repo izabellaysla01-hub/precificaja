@@ -35,6 +35,16 @@ const TELAS_ONBOARDING = [
 
 const CHANGELOG_APP = [
   {
+    data: '27/09/2026',
+    titulo: 'Status "Entregue" e detalhamento do Fluxo de Caixa',
+    itens: [
+      'Novo status "Entregue 📦" nos pedidos, separado de "Vendido" — entregar o produto não confirma mais o pagamento automaticamente',
+      'Nova sub-aba "Entregues" no Histórico de Pedidos, entre Produção e Vendidos',
+      'No Kanban e no Histórico, o botão de "Confirmar Venda" virou "Marcar Entregue"; o pagamento é confirmado depois, num passo separado',
+      'Fluxo de Caixa: cada lançamento agora pode ser expandido pra mostrar o pedido de origem e o lucro daquele lançamento (material, mão de obra, outros custos e lucro)'
+    ]
+  },
+  {
     data: '28/08/2026',
     titulo: 'Fluxo de caixa, canais de venda e vitrine renovada',
     itens: [
@@ -391,6 +401,7 @@ export default function App() {
   const [mesFiltroRelatorio, setMesFiltroRelatorio] = useState<string>(String(new Date().getMonth() + 1));
   const [anoFiltroRelatorio, setAnoFiltroRelatorio] = useState<string>(String(new Date().getFullYear()));
   const [filtroTipoCaixa, setFiltroTipoCaixa] = useState<'todos' | 'entrada' | 'saida'>('todos');
+  const [movExpandidaId, setMovExpandidaId] = useState<string | null>(null);
   const [mostrarModalSinal, setMostrarModalSinal] = useState<any>(null);
   const [valorSinalInput, setValorSinalInput] = useState('');
 
@@ -406,7 +417,7 @@ export default function App() {
   const [pedidoEditandoId, setPedidoEditandoId] = useState<string | null>(null);
   const [mostrarSeletorCatalogo, setMostrarSeletorCatalogo] = useState(false);
 
-  const [filtroStatusPedido, setFiltroStatusPedido] = useState<'Pendente' | 'Produção' | 'Vendido' | 'Cancelado'>('Pendente');
+  const [filtroStatusPedido, setFiltroStatusPedido] = useState<'Pendente' | 'Produção' | 'Entregue' | 'Vendido' | 'Cancelado'>('Pendente');
   const [isDuplicando, setIsDuplicando] = useState(false);
 
   const [diaSelecionadoAgenda, setDiaSelecionadoAgenda] = useState<string>(new Date().toISOString().split('T')[0]);
@@ -1570,6 +1581,13 @@ export default function App() {
     });
   };
 
+  // Marca o pedido como Entregue — separado de "Vendido", que só acontece quando o
+  // pagamento é de fato confirmado. Não mexe em estoque nem no caixa.
+  const marcarPedidoEntregue = async (id: string) => {
+    await updateDoc(doc(db, "pedidos", id), { status: 'Entregue 📦' });
+    showToast("Pedido marcado como entregue! 📦 (pagamento ainda não confirmado)");
+  };
+
   const handleUploadImagem = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
@@ -1612,7 +1630,7 @@ export default function App() {
     });
   };
 
-  // Variações: grupos de opções que somam ao preço base (ex: "Encadernação" -> Wire-o / Espiral +R$10 / Disco +R$49)
+  // Variações: grupos de opções que somam ao preço base (ex: "Encadernação" -> Wire-o / Espiral / Disco +R$49)
   const adicionarGrupoVariacao = () => {
     if (!novoGrupoVariacaoNome.trim()) return;
     const novoGrupo = { id: `grupo_${Date.now()}`, nome: novoGrupoVariacaoNome.trim(), opcoes: [] as {id: string, label: string, precoAdicional: string}[] };
@@ -1887,6 +1905,7 @@ export default function App() {
       const st = p.status || 'Pendente';
       if (filtroStatusPedido === 'Vendido') return st.includes('Vendido');
       if (filtroStatusPedido === 'Cancelado') return st.includes('Cancelado');
+      if (filtroStatusPedido === 'Entregue') return st.includes('Entregue');
       if (filtroStatusPedido === 'Produção') return st.includes('Produção');
       return st === 'Pendente';
     });
@@ -4222,7 +4241,7 @@ export default function App() {
                                 {idx < colunasKanban.length - 1 ? (
                                   <button onClick={() => moverStatusKanban(item.id, item.tipo, colunasKanban[idx + 1].id)} style={{ backgroundColor: coluna.cor }} className="text-[9px] font-black uppercase text-white px-2 py-1 rounded-lg ml-auto">Avançar ▶</button>
                                 ) : item.tipo === 'pedido' ? (
-                                  <button onClick={() => { const p = pedidos.find(x => x.id === item.id); if (p) confirmarVendaPedido(p); }} className="text-[9px] font-black uppercase bg-emerald-500 text-white px-2 py-1 rounded-lg ml-auto">✅ Confirmar Venda</button>
+                                  <button onClick={() => marcarPedidoEntregue(item.id)} className="text-[9px] font-black uppercase bg-blue-500 text-white px-2 py-1 rounded-lg ml-auto">📦 Marcar Entregue</button>
                                 ) : (
                                   <button onClick={() => confirmarExcluir('anotacao', item.id)} className="text-[9px] font-black uppercase text-red-400 px-2 py-1 rounded-lg ml-auto">Remover</button>
                                 )}
@@ -5243,25 +5262,57 @@ export default function App() {
             </div>
 
             <div className="space-y-2 w-full">
-              {movimentacoesCaixaOrdenadas.map(m => (
-                <div key={m.id} className="bg-white p-4 rounded-3xl flex justify-between items-center border shadow-sm w-full">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div style={{ backgroundColor: m.tipo === 'entrada' ? '#d1fae5' : '#fee2e2', color: m.tipo === 'entrada' ? '#059669' : '#dc2626' }} className="w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm shrink-0">
-                      {m.tipo === 'entrada' ? '↑' : '↓'}
+              {movimentacoesCaixaOrdenadas.map(m => {
+                const temDetalhe = !!m.pedidoId || m.breakdownLucro !== undefined;
+                const pedidoVinculado = m.pedidoId ? pedidos.find(p => p.id === m.pedidoId) : null;
+                const clienteDoPedido = pedidoVinculado ? clientes.find(c => c.id === pedidoVinculado.clienteId) : null;
+                const isExpandida = movExpandidaId === m.id;
+                return (
+                <div key={m.id} className="bg-white rounded-3xl border shadow-sm w-full overflow-hidden">
+                  <div
+                    onClick={() => temDetalhe && setMovExpandidaId(isExpandida ? null : m.id)}
+                    className={`p-4 flex justify-between items-center w-full ${temDetalhe ? 'cursor-pointer active:bg-slate-50' : ''}`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div style={{ backgroundColor: m.tipo === 'entrada' ? '#d1fae5' : '#fee2e2', color: m.tipo === 'entrada' ? '#059669' : '#dc2626' }} className="w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm shrink-0">
+                        {m.tipo === 'entrada' ? '↑' : '↓'}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-bold text-slate-800 text-sm truncate">{m.descricao}</p>
+                        <p className="text-[10px] text-slate-400">{m.data?.toDate ? m.data.toDate().toLocaleDateString('pt-BR') : ''}{clienteDoPedido?.nome ? ` • ${clienteDoPedido.nome}` : ''}</p>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <p className="font-bold text-slate-800 text-sm truncate">{m.descricao}</p>
-                      <p className="text-[10px] text-slate-400">{m.data?.toDate ? m.data.toDate().toLocaleDateString('pt-BR') : ''}</p>
+                    <div className="flex items-center gap-2 shrink-0 ml-2">
+                      <span className={`font-black text-sm ${m.tipo === 'entrada' ? 'text-emerald-600' : 'text-red-500'}`}>
+                        {m.tipo === 'entrada' ? '+' : '−'} R$ {Number(m.valor || 0).toFixed(2)}
+                      </span>
+                      {temDetalhe && (isExpandida ? <ChevronUp size={16} className="text-slate-400"/> : <ChevronDown size={16} className="text-slate-400"/>)}
+                      <button onClick={(e) => { e.stopPropagation(); excluirMovimentacaoCaixa(m); }} className="text-red-200 hover:text-red-500 p-1 transition-colors"><Trash2 size={16}/></button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0 ml-2">
-                    <span className={`font-black text-sm ${m.tipo === 'entrada' ? 'text-emerald-600' : 'text-red-500'}`}>
-                      {m.tipo === 'entrada' ? '+' : '−'} R$ {Number(m.valor || 0).toFixed(2)}
-                    </span>
-                    <button onClick={() => excluirMovimentacaoCaixa(m)} className="text-red-200 hover:text-red-500 p-1 transition-colors"><Trash2 size={16}/></button>
-                  </div>
+
+                  {isExpandida && temDetalhe && (
+                    <div className="bg-slate-50 border-t p-4 text-xs space-y-2 animate-fadeIn">
+                      {pedidoVinculado && (
+                        <p className="font-bold text-slate-700">📦 Pedido: {pedidoVinculado.nomeProd}</p>
+                      )}
+                      {m.breakdownLucro !== undefined ? (
+                        <div className="space-y-1.5">
+                          <div className="flex justify-between text-slate-500"><span>Material:</span><span className="font-bold">R$ {Number(m.breakdownMaterial || 0).toFixed(2)}</span></div>
+                          <div className="flex justify-between text-slate-500"><span>Mão de Obra:</span><span className="font-bold">R$ {Number(m.breakdownMaoObra || 0).toFixed(2)}</span></div>
+                          <div className="flex justify-between text-slate-500"><span>Outros Custos:</span><span className="font-bold">R$ {Number(m.breakdownOutros || 0).toFixed(2)}</span></div>
+                          <div className="flex justify-between font-black border-t pt-1.5" style={{ color: Number(m.breakdownLucro) >= 0 ? '#059669' : '#dc2626' }}>
+                            <span>Lucro deste lançamento:</span><span>R$ {Number(m.breakdownLucro || 0).toFixed(2)}</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-slate-400 italic">Este lançamento não tem detalhamento de custo/lucro (veio de venda de balcão, item de catálogo ou lançamento manual).</p>
+                      )}
+                    </div>
+                  )}
                 </div>
-              ))}
+                );
+              })}
 
               {movimentacoesCaixaOrdenadas.length === 0 && (
                 <p className="text-center font-bold text-xs text-slate-400 py-8 italic">Nenhuma movimentação registrada ainda. 💸</p>
@@ -5397,11 +5448,12 @@ export default function App() {
               <h2 style={{ color: themeColors.primary }} className="font-bold flex items-center gap-2"><History size={20}/> Histórico da Loja</h2>
             </div>
 
-            <div className="flex bg-slate-100 p-1.5 rounded-2xl gap-1 w-full mb-4 border">
-              <button onClick={() => setFiltroStatusPedido('Pendente')} style={{ color: filtroStatusPedido === 'Pendente' ? themeColors.primary : undefined }} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${filtroStatusPedido === 'Pendente' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>Pendentes </button>
-              <button onClick={() => setFiltroStatusPedido('Produção')} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${filtroStatusPedido === 'Produção' ? 'bg-white text-purple-600 shadow-sm' : 'text-slate-400'}`}>Produção </button>
-              <button onClick={() => setFiltroStatusPedido('Vendido')} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${filtroStatusPedido === 'Vendido' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400'}`}>Vendidos </button>
-              <button onClick={() => setFiltroStatusPedido('Cancelado')} className={`flex-1 py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${filtroStatusPedido === 'Cancelado' ? 'bg-white text-red-500 shadow-sm' : 'text-slate-400'}`}>Cancelados </button>
+            <div className="flex bg-slate-100 p-1.5 rounded-2xl gap-1 w-full mb-4 border overflow-x-auto">
+              <button onClick={() => setFiltroStatusPedido('Pendente')} style={{ color: filtroStatusPedido === 'Pendente' ? themeColors.primary : undefined }} className={`flex-1 min-w-[70px] py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${filtroStatusPedido === 'Pendente' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>Pendentes </button>
+              <button onClick={() => setFiltroStatusPedido('Produção')} className={`flex-1 min-w-[70px] py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${filtroStatusPedido === 'Produção' ? 'bg-white text-purple-600 shadow-sm' : 'text-slate-400'}`}>Produção </button>
+              <button onClick={() => setFiltroStatusPedido('Entregue')} className={`flex-1 min-w-[70px] py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${filtroStatusPedido === 'Entregue' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'}`}>Entregues 📦</button>
+              <button onClick={() => setFiltroStatusPedido('Vendido')} className={`flex-1 min-w-[70px] py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${filtroStatusPedido === 'Vendido' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400'}`}>Vendidos </button>
+              <button onClick={() => setFiltroStatusPedido('Cancelado')} className={`flex-1 min-w-[70px] py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${filtroStatusPedido === 'Cancelado' ? 'bg-white text-red-500 shadow-sm' : 'text-slate-400'}`}>Cancelados </button>
             </div>
 
             {pedidosFiltradosPorStatus.map(p => {
@@ -5412,7 +5464,7 @@ export default function App() {
                    <div className="flex justify-between items-center w-full">
                      <div>
                         <p style={{ color: themeColors.primary }} className="font-black text-[10px] uppercase mb-1">
-                          {cli?.nome || 'Sem Cliente'} {p.data ? `— ${p.data}` : ''} — <span className={statusAtual.includes('Vendido') ? "text-emerald-500" : statusAtual.includes('Cancelado') ? "text-red-400" : statusAtual.includes('Produção') ? "text-purple-500" : "text-orange-400"}>{statusAtual}</span>
+                          {cli?.nome || 'Sem Cliente'} {p.data ? `— ${p.data}` : ''} — <span className={statusAtual.includes('Vendido') ? "text-emerald-500" : statusAtual.includes('Cancelado') ? "text-red-400" : statusAtual.includes('Entregue') ? "text-blue-500" : statusAtual.includes('Produção') ? "text-purple-500" : "text-orange-400"}>{statusAtual}</span>
                         </p>
                         <div className="font-bold text-slate-700 text-sm whitespace-pre-line">{p.nomeProd} <span className="text-xs text-slate-400 font-normal">({p.qtdPed || 1} un)</span></div>
 
@@ -5443,9 +5495,12 @@ export default function App() {
                         </>
                       )}
                       {statusAtual === 'Em Produção 🔧' && (
-                        <button onClick={() => confirmarVendaPedido(p)} className="text-emerald-600 px-3 py-2 bg-emerald-50 rounded-xl text-xs font-bold flex items-center gap-1 active:scale-95 mr-auto"><CheckCircle size={16}/> Confirmar Venda</button>
+                        <button onClick={() => marcarPedidoEntregue(p.id)} className="text-blue-600 px-3 py-2 bg-blue-50 rounded-xl text-xs font-bold flex items-center gap-1 active:scale-95 mr-auto">📦 Marcar Entregue</button>
                       )}
-                      {(statusAtual === 'Pendente' || statusAtual === 'Em Produção 🔧') && p.statusPagamento !== 'sinal_recebido' && (
+                      {statusAtual === 'Entregue 📦' && (
+                        <button onClick={() => confirmarVendaPedido(p)} className="text-emerald-600 px-3 py-2 bg-emerald-50 rounded-xl text-xs font-bold flex items-center gap-1 active:scale-95 mr-auto"><CheckCircle size={16}/> Confirmar Venda / Pagamento</button>
+                      )}
+                      {(statusAtual === 'Pendente' || statusAtual === 'Em Produção 🔧' || statusAtual === 'Entregue 📦') && p.statusPagamento !== 'sinal_recebido' && (
                         <button onClick={() => { setMostrarModalSinal({ id: p.id, tipo: 'pedido', titulo: p.nomeProd, total: p.preco }); setValorSinalInput(''); }} className="text-amber-600 px-3 py-2 bg-amber-50 rounded-xl text-xs font-bold flex items-center gap-1 active:scale-95">💰 Sinal</button>
                       )}
 
