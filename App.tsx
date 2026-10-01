@@ -3885,7 +3885,7 @@ export default function App() {
                   </select>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Tipo de Evento / Serviço</label>
                     <input placeholder="Ex: Aniversário / Sublimação" className="w-full p-4 bg-slate-50 rounded-2xl font-bold text-slate-800 outline-none border focus:border-purple-400" value={novoContrato.tipoEvento} onChange={e => setNovoContrato({...novoContrato, tipoEvento: e.target.value})} />
@@ -3896,8 +3896,8 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="col-span-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="sm:col-span-2">
                     <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Local do Evento</label>
                     <input placeholder="Ex: Salão de Festas / Endereço" className="w-full p-4 bg-slate-50 rounded-2xl font-bold text-slate-800 outline-none border focus:border-purple-400" value={novoContrato.localEvento} onChange={e => setNovoContrato({...novoContrato, localEvento: e.target.value})} />
                   </div>
@@ -5448,12 +5448,12 @@ export default function App() {
               <h2 style={{ color: themeColors.primary }} className="font-bold flex items-center gap-2"><History size={20}/> Histórico da Loja</h2>
             </div>
 
-            <div className="flex bg-slate-100 p-1.5 rounded-2xl gap-1 w-full mb-4 border overflow-x-auto">
-              <button onClick={() => setFiltroStatusPedido('Pendente')} style={{ color: filtroStatusPedido === 'Pendente' ? themeColors.primary : undefined }} className={`flex-1 min-w-[70px] py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${filtroStatusPedido === 'Pendente' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>Pendentes </button>
-              <button onClick={() => setFiltroStatusPedido('Produção')} className={`flex-1 min-w-[70px] py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${filtroStatusPedido === 'Produção' ? 'bg-white text-purple-600 shadow-sm' : 'text-slate-400'}`}>Produção </button>
-              <button onClick={() => setFiltroStatusPedido('Entregue')} className={`flex-1 min-w-[70px] py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${filtroStatusPedido === 'Entregue' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'}`}>Entregues </button>
-              <button onClick={() => setFiltroStatusPedido('Vendido')} className={`flex-1 min-w-[70px] py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${filtroStatusPedido === 'Vendido' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400'}`}>Vendidos </button>
-              <button onClick={() => setFiltroStatusPedido('Cancelado')} className={`flex-1 min-w-[70px] py-2 text-center text-xs font-black uppercase rounded-xl transition-all ${filtroStatusPedido === 'Cancelado' ? 'bg-white text-red-500 shadow-sm' : 'text-slate-400'}`}>Cancelados </button>
+            <div className="flex bg-slate-100 p-1.5 rounded-2xl gap-1 w-full mb-4 border overflow-x-auto scrollbar-none">
+              <button onClick={() => setFiltroStatusPedido('Pendente')} style={{ color: filtroStatusPedido === 'Pendente' ? themeColors.primary : undefined }} className={`shrink-0 px-4 py-2 text-center text-xs font-black uppercase rounded-xl transition-all whitespace-nowrap ${filtroStatusPedido === 'Pendente' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>Pendentes</button>
+              <button onClick={() => setFiltroStatusPedido('Produção')} className={`shrink-0 px-4 py-2 text-center text-xs font-black uppercase rounded-xl transition-all whitespace-nowrap ${filtroStatusPedido === 'Produção' ? 'bg-white text-purple-600 shadow-sm' : 'text-slate-400'}`}>Produção</button>
+              <button onClick={() => setFiltroStatusPedido('Entregue')} className={`shrink-0 px-4 py-2 text-center text-xs font-black uppercase rounded-xl transition-all whitespace-nowrap ${filtroStatusPedido === 'Entregue' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'}`}>Entregues 📦</button>
+              <button onClick={() => setFiltroStatusPedido('Vendido')} className={`shrink-0 px-4 py-2 text-center text-xs font-black uppercase rounded-xl transition-all whitespace-nowrap ${filtroStatusPedido === 'Vendido' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400'}`}>Vendidos</button>
+              <button onClick={() => setFiltroStatusPedido('Cancelado')} className={`shrink-0 px-4 py-2 text-center text-xs font-black uppercase rounded-xl transition-all whitespace-nowrap ${filtroStatusPedido === 'Cancelado' ? 'bg-white text-red-500 shadow-sm' : 'text-slate-400'}`}>Cancelados</button>
             </div>
 
             {pedidosFiltradosPorStatus.map(p => {
