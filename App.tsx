@@ -35,6 +35,15 @@ const TELAS_ONBOARDING = [
 
 const CHANGELOG_APP = [
   {
+    data: '04/10/2026',
+    titulo: 'Ajustes de layout no celular e validade do orçamento',
+    itens: [
+      'Barra de filtros do Histórico de Pedidos e campos do formulário de Contrato ajustados pra não ficar espremidos em telas de celular',
+      'Validade do orçamento no PDF agora é calculada a partir da data de emissão do orçamento (fixa) — gerar o PDF de novo não empurra mais a validade pra frente',
+      'Nova configuração em Perfil da Loja: "Validade do Orçamento no PDF (dias)" — cada loja escolhe quantos dias quer (padrão 2)'
+    ]
+  },
+  {
     data: '27/09/2026',
     titulo: 'Status "Entregue" e detalhamento do Fluxo de Caixa',
     itens: [
@@ -489,6 +498,7 @@ export default function App() {
   const [etapaCheckout, setEtapaCheckout] = useState<'carrinho' | 'dados' | 'pagamento'>('carrinho');
   const [pedidoPublicoEnviado, setPedidoPublicoEnviado] = useState(false);
   const [suporteZapPerfil, setSuporteZapPerfil] = useState('');
+  const [diasValidadeOrcamentoPerfil, setDiasValidadeOrcamentoPerfil] = useState(2);
 
   const [novoContrato, setNovoContrato] = useState({
     id: '',
@@ -685,6 +695,7 @@ export default function App() {
             setCidadePerfil(data.cidade || '');
             setEstadoPerfil(data.estado || '');
             setDadosBancariosPerfil(data.dadosBancarios || '');
+            setDiasValidadeOrcamentoPerfil(data.diasValidadeOrcamento != null ? Number(data.diasValidadeOrcamento) : 2);
             setLogoLojaPerfil(data.logoUrl || '');
             setBannerLojaUrl(data.bannerUrl || '');
             setSlugLojaPerfil(data.slug || '');
@@ -2296,8 +2307,19 @@ export default function App() {
     const cli = clientes.find(c => c.id === idDoCliente);
 
     const dataEmissao = p.data || new Date().toLocaleDateString('pt-BR');
-    const hoje = new Date(); hoje.setDate(hoje.getDate() + 7);
-    const dataValidade = hoje.toLocaleDateString('pt-BR');
+    // Validade sempre calculada a partir da DATA DE EMISSÃO do orçamento (fixa),
+    // nunca a partir de "hoje" — assim gerar o PDF de novo depois não empurra a validade pra frente.
+    // Número de dias configurável em Perfil da Loja (padrão 2 caso a loja não tenha configurado ainda).
+    const DIAS_VALIDADE_ORCAMENTO = Number(diasValidadeOrcamentoPerfil) > 0 ? Number(diasValidadeOrcamentoPerfil) : 2;
+    let dataBaseValidade = new Date();
+    const partesDataEmissao = dataEmissao.split('/');
+    if (partesDataEmissao.length === 3) {
+      const [diaEm, mesEm, anoEm] = partesDataEmissao.map(Number);
+      const dataConvertida = new Date(anoEm, mesEm - 1, diaEm);
+      if (!isNaN(dataConvertida.getTime())) dataBaseValidade = dataConvertida;
+    }
+    dataBaseValidade.setDate(dataBaseValidade.getDate() + DIAS_VALIDADE_ORCAMENTO);
+    const dataValidade = dataBaseValidade.toLocaleDateString('pt-BR');
     const dataPrazo = p.prazo ? new Date(p.prazo + 'T00:00:00').toLocaleDateString('pt-BR') : 'A combinar';
     const totalNum = Number(p.preco || 0);
 
@@ -2387,7 +2409,7 @@ export default function App() {
         <div style="background-color: ${themeColors.primary}; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px;">Informações Básicas e Prazos</div>
         <div style="display: flex; justify-content: space-between; background-color: #f8fafc; padding: 15px; border-radius: 16px; margin-bottom: 25px; border: 1px solid #f1f5f9; font-size: 13px;">
           <div><strong>Data de Emissão:</strong><div style="margin-top: 4px; color: #64748b; font-weight: bold;">${dataEmissao}</div></div>
-          <div><strong>Validade do Orçamento:</strong><div style="margin-top: 4px; color: #ef4444; font-weight: bold;">${dataValidade} (7 dias)</div></div>
+          <div><strong>Validade do Orçamento:</strong><div style="margin-top: 4px; color: #ef4444; font-weight: bold;">${dataValidade} (${DIAS_VALIDADE_ORCAMENTO} dias)</div></div>
           <div><strong>Prazo de Entrega:</strong><div style="margin-top: 4px; color: ${themeColors.primary}; font-weight: bold;">${dataPrazo}</div></div>
         </div>
 
@@ -3733,6 +3755,12 @@ export default function App() {
                   <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">WhatsApp de Suporte (aparece na aba Suporte)</label>
                   <input placeholder="Ex: 21999999999" className="w-full p-4 bg-slate-50 rounded-2xl font-bold text-slate-800 outline-none border focus:border-purple-400" value={suporteZapPerfil} onChange={e => setSuporteZapPerfil(e.target.value)} />
                 </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Validade do Orçamento no PDF (dias a partir da emissão)</label>
+                  <input type="number" min={1} max={90} placeholder="2" className="w-full p-4 bg-slate-50 rounded-2xl font-bold text-slate-800 outline-none border focus:border-purple-400" value={diasValidadeOrcamentoPerfil} onChange={e => setDiasValidadeOrcamentoPerfil(e.target.value === '' ? 0 : Number(e.target.value))} />
+                  <p className="text-slate-400 text-[10px] mt-1 ml-1">Quantos dias depois da emissão o orçamento em PDF continua valendo. Ex: 2 = válido por 2 dias.</p>
+                </div>
               </div>
 
               <div className="border-t pt-6 mb-6">
@@ -3837,6 +3865,7 @@ export default function App() {
                     cidade: cidadePerfil.trim(),
                     estado: estadoPerfil.trim(),
                     dadosBancarios: dadosBancariosPerfil.trim(),
+                    diasValidadeOrcamento: Number(diasValidadeOrcamentoPerfil) > 0 ? Number(diasValidadeOrcamentoPerfil) : 2,
                     logoUrl: logoLojaPerfil,
                     bannerUrl: bannerLojaUrl,
                     tagline: taglineLoja.trim(),
@@ -5451,7 +5480,7 @@ export default function App() {
             <div className="flex bg-slate-100 p-1.5 rounded-2xl gap-1 w-full mb-4 border overflow-x-auto scrollbar-none">
               <button onClick={() => setFiltroStatusPedido('Pendente')} style={{ color: filtroStatusPedido === 'Pendente' ? themeColors.primary : undefined }} className={`shrink-0 px-4 py-2 text-center text-xs font-black uppercase rounded-xl transition-all whitespace-nowrap ${filtroStatusPedido === 'Pendente' ? 'bg-white shadow-sm' : 'text-slate-400'}`}>Pendentes</button>
               <button onClick={() => setFiltroStatusPedido('Produção')} className={`shrink-0 px-4 py-2 text-center text-xs font-black uppercase rounded-xl transition-all whitespace-nowrap ${filtroStatusPedido === 'Produção' ? 'bg-white text-purple-600 shadow-sm' : 'text-slate-400'}`}>Produção</button>
-              <button onClick={() => setFiltroStatusPedido('Entregue')} className={`shrink-0 px-4 py-2 text-center text-xs font-black uppercase rounded-xl transition-all whitespace-nowrap ${filtroStatusPedido === 'Entregue' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'}`}>Entregues </button>
+              <button onClick={() => setFiltroStatusPedido('Entregue')} className={`shrink-0 px-4 py-2 text-center text-xs font-black uppercase rounded-xl transition-all whitespace-nowrap ${filtroStatusPedido === 'Entregue' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'}`}>Entregues 📦</button>
               <button onClick={() => setFiltroStatusPedido('Vendido')} className={`shrink-0 px-4 py-2 text-center text-xs font-black uppercase rounded-xl transition-all whitespace-nowrap ${filtroStatusPedido === 'Vendido' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400'}`}>Vendidos</button>
               <button onClick={() => setFiltroStatusPedido('Cancelado')} className={`shrink-0 px-4 py-2 text-center text-xs font-black uppercase rounded-xl transition-all whitespace-nowrap ${filtroStatusPedido === 'Cancelado' ? 'bg-white text-red-500 shadow-sm' : 'text-slate-400'}`}>Cancelados</button>
             </div>
