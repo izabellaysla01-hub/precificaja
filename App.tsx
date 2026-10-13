@@ -35,6 +35,13 @@ const TELAS_ONBOARDING = [
 
 const CHANGELOG_APP = [
   {
+    data: '13/10/2026',
+    titulo: 'Armário em ordem alfabética',
+    itens: [
+      'Os materiais do Armário agora aparecem em ordem alfabética (A–Z) — na lista do Armário e também nos seletores de material da calculadora, dos produtos e das compras'
+    ]
+  },
+  {
     data: '04/10/2026',
     titulo: 'Ajustes de layout no celular e validade do orçamento',
     itens: [
@@ -775,7 +782,12 @@ export default function App() {
   useEffect(() => {
     if (user && !idLojaPublica) {
       const qMaterials = query(collection(db, "materiais"), where("userId", "==", user.uid));
-      const unsubMaterials = onSnapshot(qMaterials, s => setMaterials(s.docs.map(d => ({ id: d.id, ...d.data() }))));
+      const unsubMaterials = onSnapshot(qMaterials, s => setMaterials(
+        s.docs
+          .map(d => ({ id: d.id, ...d.data() } as any))
+          // Ordem alfabética (pt-BR, ignora maiúsculas/acentos e ordena números naturalmente: "Fita 2" antes de "Fita 10")
+          .sort((a, b) => String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR', { sensitivity: 'base', numeric: true }))
+      ));
 
       const qClientes = query(collection(db, "clientes"), where("userId", "==", user.uid));
       const unsubClientes = onSnapshot(qClientes, s => setClientes(s.docs.map(d => ({ id: d.id, ...d.data() }))));
