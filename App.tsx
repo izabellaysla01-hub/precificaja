@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { initializeApp } from "firebase/app";
 import { getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
-import { getFirestore, collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc, getDocs, setDoc, getDoc, Timestamp, limit, startAfter, orderBy } from "firebase/firestore";
+import { getFirestore, collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc, getDocs, setDoc, getDoc, Timestamp, limit, startAfter, orderBy, runTransaction, serverTimestamp } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Plus, Trash2, Calculator, Package, ShoppingCart, History, LogOut, X, User, MessageCircle, Edit2, Clock, DollarSign, Percent, Tag, Calendar, Printer, CheckCircle, Home, BookOpen, Camera, ImageIcon, Copy, Share2, Menu, Search, Settings, CheckSquare, Square, Filter, MapPin, Globe, Palette, TrendingUp, ChevronDown, ChevronUp, FileText, Megaphone, LifeBuoy } from 'lucide-react';
 
@@ -34,6 +34,32 @@ const TELAS_ONBOARDING = [
 ];
 
 const CHANGELOG_APP = [
+  {
+    data: '29/10/2026',
+    titulo: 'Valor dos materiais na calculadora',
+    itens: [
+      'Na calculadora, cada material adicionado agora mostra o custo unitário pequeno embaixo do nome e, ao lado da quantidade, quanto aquela quantidade custa'
+    ]
+  },
+  {
+    data: '29/10/2026',
+    titulo: 'Data do pagamento ao confirmar venda',
+    itens: [
+      'Ao confirmar o pagamento de um pedido, o recebimento total de um contrato ou um sinal, você escolhe a data em que o cliente pagou (já vem preenchida com hoje)',
+      'O valor entra no Fluxo de Caixa no mês dessa data — esqueceu de confirmar no mês passado? Escolha o dia em que caiu e ele vai pro mês certo'
+    ]
+  },
+  {
+    data: '22/10/2026',
+    titulo: 'Aprovação online do orçamento e número fixo',
+    itens: [
+      'O PDF do orçamento agora tem o botão \"Aprovar este orçamento\": o cliente abre uma página, confere os valores e toca em \"De acordo\"',
+      'No Histórico de Pedidos aparece o selo \"✅ Aprovado pelo cliente\" com dia e hora, e você recebe um aviso na tela se o app estiver aberto',
+      'A aprovação só vale dentro da validade do orçamento; depois disso a página avisa que expirou',
+      'Se você mudar o valor depois de aprovado, o orçamento volta a pedir aprovação',
+      'Cada pedido tem agora o seu número de orçamento (ORC-0001, ORC-0002...), fixo — gerar o PDF de novo não troca mais o número'
+    ]
+  },
   {
     data: '13/10/2026',
     titulo: 'Armário em ordem alfabética',
@@ -141,7 +167,40 @@ const ConfirmModal = ({ modal, onCancel, onConfirm }: { modal: { msg: string } |
   );
 };
 
-const ModalSinal = ({ item, valor, setValor, onCancel, onConfirmar }: { item: any; valor: string; setValor: (v: string) => void; onCancel: () => void; onConfirmar: () => void }) => {
+// Data de hoje no formato do <input type="date"> (yyyy-mm-dd), no fuso do aparelho
+const dataDeHojeISO = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+// Converte a data escolhida em Timestamp. Hoje = agora (mantém a ordem dos lançamentos do dia);
+// dia passado = meio-dia daquele dia (evita virar o dia por causa de fuso horário).
+const dataEscolhidaParaTimestamp = (iso: string): Timestamp => {
+  if (!iso || iso === dataDeHojeISO()) return Timestamp.now();
+  const [a, m, d] = iso.split('-').map(Number);
+  return Timestamp.fromDate(new Date(a, m - 1, d, 12, 0, 0));
+};
+
+const ModalDataPagamento = ({ aberto, titulo, valorTexto, data, setData, onCancel, onConfirmar }: { aberto: boolean; titulo: string; valorTexto: string; data: string; setData: (v: string) => void; onCancel: () => void; onConfirmar: () => void }) => {
+  if (!aberto) return null;
+  return (
+    <div className="fixed inset-0 bg-black/50 z-[110] flex items-center justify-center p-6" onClick={onCancel}>
+      <div className="bg-white rounded-3xl p-6 max-w-sm w-full" onClick={e => e.stopPropagation()}>
+        <p className="text-sm font-bold text-slate-700 mb-1">Confirmar pagamento</p>
+        <p className="text-xs text-slate-400 mb-4 whitespace-pre-line">{titulo}{valorTexto ? ` — ${valorTexto}` : ''}</p>
+        <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Data em que o cliente pagou</label>
+        <input type="date" max={dataDeHojeISO()} className="w-full p-4 bg-slate-50 rounded-2xl mb-1 outline-none font-bold border" value={data} onChange={e => setData(e.target.value)} />
+        <p className="text-[10px] text-slate-400 mb-4 ml-1">Esqueceu de confirmar no mês passado? Escolha a data em que o pagamento caiu — o valor entra no caixa do mês dessa data.</p>
+        <div className="flex gap-3">
+          <button onClick={onCancel} className="flex-1 bg-slate-100 text-slate-600 font-bold text-xs uppercase py-3 rounded-xl">Cancelar</button>
+          <button onClick={onConfirmar} className="flex-1 bg-emerald-500 text-white font-bold text-xs uppercase py-3 rounded-xl">Confirmar</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ModalSinal = ({ item, valor, setValor, data, setData, onCancel, onConfirmar }: { item: any; valor: string; setValor: (v: string) => void; data: string; setData: (v: string) => void; onCancel: () => void; onConfirmar: () => void }) => {
   if (!item) return null;
   return (
     <div className="fixed inset-0 bg-black/50 z-[110] flex items-center justify-center p-6" onClick={onCancel}>
@@ -149,7 +208,10 @@ const ModalSinal = ({ item, valor, setValor, onCancel, onConfirmar }: { item: an
         <p className="text-sm font-bold text-slate-700 mb-1">Registrar sinal recebido</p>
         <p className="text-xs text-slate-400 mb-4">{item.titulo} — Total: R$ {Number(item.total || 0).toFixed(2)}</p>
         <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Valor do Sinal (R$)</label>
-        <input type="number" autoFocus className="w-full p-4 bg-slate-50 rounded-2xl mb-4 outline-none font-bold border" value={valor} onChange={e => setValor(e.target.value)} />
+        <input type="number" autoFocus className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none font-bold border" value={valor} onChange={e => setValor(e.target.value)} />
+        <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Data em que recebeu</label>
+        <input type="date" max={dataDeHojeISO()} className="w-full p-4 bg-slate-50 rounded-2xl mb-1 outline-none font-bold border" value={data} onChange={e => setData(e.target.value)} />
+        <p className="text-[10px] text-slate-400 mb-4 ml-1">O valor entra no caixa do mês dessa data.</p>
         <div className="flex gap-3">
           <button onClick={onCancel} className="flex-1 bg-slate-100 text-slate-600 font-bold text-xs uppercase py-3 rounded-xl">Cancelar</button>
           <button onClick={onConfirmar} className="flex-1 bg-emerald-500 text-white font-bold text-xs uppercase py-3 rounded-xl">Confirmar</button>
@@ -378,6 +440,13 @@ export default function App() {
   const [assinaturaLojaUrl, setAssinaturaLojaUrl] = useState('');
   const [mostrarPadAssinaturaLoja, setMostrarPadAssinaturaLoja] = useState(false);
   const [idContratoParaAssinar, setIdContratoParaAssinar] = useState<string | null>(null);
+  // Aprovação online do orçamento (página pública ?aprovar=ID) e aprovações vistas pelo dono
+  const [idPedidoParaAprovar, setIdPedidoParaAprovar] = useState<string | null>(null);
+  const [aprovacaoPublica, setAprovacaoPublica] = useState<any>(null);
+  const [carregandoAprovacao, setCarregandoAprovacao] = useState(false);
+  const [aprovando, setAprovando] = useState(false);
+  const [nomeAprovador, setNomeAprovador] = useState('');
+  const [aprovacoes, setAprovacoes] = useState<Record<string, any>>({});
   const [contratoParaAssinar, setContratoParaAssinar] = useState<any>(null);
   const [clienteDoContratoAssinar, setClienteDoContratoAssinar] = useState<any>(null);
   const [carregandoAssinatura, setCarregandoAssinatura] = useState(false);
@@ -419,6 +488,9 @@ export default function App() {
   const [filtroTipoCaixa, setFiltroTipoCaixa] = useState<'todos' | 'entrada' | 'saida'>('todos');
   const [movExpandidaId, setMovExpandidaId] = useState<string | null>(null);
   const [mostrarModalSinal, setMostrarModalSinal] = useState<any>(null);
+  const [dataSinalInput, setDataSinalInput] = useState('');
+  const [confirmandoPagamento, setConfirmandoPagamento] = useState<{ tipo: 'pedido' | 'contrato'; item: any } | null>(null);
+  const [dataPagamentoInput, setDataPagamentoInput] = useState('');
   const [valorSinalInput, setValorSinalInput] = useState('');
 
   const [pesquisaMateriais, setPesquisaMateriais] = useState('');
@@ -612,6 +684,18 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     const lojaId = params.get('loja');
     const contratoId = params.get('assinar');
+    const aprovarId = params.get('aprovar');
+
+    if (aprovarId) {
+      setIdPedidoParaAprovar(aprovarId);
+      setCarregandoAprovacao(true);
+      setLoading(false);
+      getDoc(doc(db, "aprovacoes", aprovarId)).then(snap => {
+        if (snap.exists()) setAprovacaoPublica({ id: snap.id, ...snap.data() });
+        setCarregandoAprovacao(false);
+      }).catch(() => setCarregandoAprovacao(false));
+      return;
+    }
 
     if (contratoId) {
       setIdContratoParaAssinar(contratoId);
@@ -871,7 +955,27 @@ export default function App() {
       const qEquipamentos = query(collection(db, "equipamentos"), where("userId", "==", user.uid));
       const unsubEquipamentos = onSnapshot(qEquipamentos, s => setEquipamentos(s.docs.map(d => ({ id: d.id, ...d.data() }))));
 
+      // Aprovações online dos orçamentos (o cliente aprova numa página pública; aqui o dono vê o resultado).
+      // O doc tem o mesmo ID do pedido. Avisa com um toast quando uma aprovação nova chega com o app aberto.
+      let primeiraCargaAprovacoes = true;
+      const qAprovacoes = query(collection(db, "aprovacoes"), where("userId", "==", user.uid));
+      const unsubAprovacoes = onSnapshot(qAprovacoes, s => {
+        const mapa: Record<string, any> = {};
+        s.docs.forEach(d => { mapa[d.id] = { id: d.id, ...d.data() }; });
+        setAprovacoes(mapa);
+        if (!primeiraCargaAprovacoes) {
+          s.docChanges().forEach(ch => {
+            const dd = ch.doc.data() as any;
+            if (ch.type === 'modified' && dd.aprovadoEm && !ch.doc.metadata.hasPendingWrites) {
+              showToast(`🎉 ${dd.aprovadoNome || dd.clienteNome || 'O cliente'} aprovou o orçamento ${dd.numero || ''}!`);
+            }
+          });
+        }
+        primeiraCargaAprovacoes = false;
+      }, () => {});
+
       return () => {
+        unsubAprovacoes();
         unsubMaterials();
         unsubClientes();
         unsubProdutos();
@@ -1422,7 +1526,7 @@ export default function App() {
     });
   };
 
-  const confirmarVendaPedido = async (pedido: any) => {
+  const confirmarVendaPedido = async (pedido: any, dataPagamento: Timestamp | null = null) => {
     // 1. materiaisUsados (orçamento feito na calculadora) — baixa por ID, como já era
     if (pedido.materiaisUsados && pedido.materiaisUsados.length > 0) {
       for (const m of pedido.materiaisUsados) {
@@ -1497,7 +1601,7 @@ export default function App() {
           lucro: Number(pedido.breakdownLucro || 0) * ratio,
         };
       }
-      await registrarMovimentacaoCaixa('entrada', valorRestante, `Venda — ${pedido.nomeProd}${valorSinalJaRecebido > 0 ? ' (saldo restante)' : ''}`, 'venda', pedido.id, breakdown);
+      await registrarMovimentacaoCaixa('entrada', valorRestante, `Venda — ${pedido.nomeProd}${valorSinalJaRecebido > 0 ? ' (saldo restante)' : ''}`, 'venda', pedido.id, breakdown, null, dataPagamento);
     }
 
     showToast("Venda confirmada!");
@@ -1513,11 +1617,12 @@ export default function App() {
     origem: string,
     pedidoId: string | null = null,
     breakdown: { material: number; maoObra: number; outros: number; lucro: number } | null = null,
-    categoriaSaida: string | null = null
+    categoriaSaida: string | null = null,
+    dataMov: Timestamp | null = null
   ) => {
     if (!user) return;
     try {
-      const dados: any = { tipo, valor, descricao, origem, pedidoId, data: Timestamp.now(), userId: user.uid };
+      const dados: any = { tipo, valor, descricao, origem, pedidoId, data: dataMov || Timestamp.now(), userId: user.uid };
       if (breakdown) {
         dados.breakdownMaterial = breakdown.material;
         dados.breakdownMaoObra = breakdown.maoObra;
@@ -1551,6 +1656,7 @@ export default function App() {
     const valor = Number(valorSinalInput || 0);
     if (valor <= 0) return showToast("Digite um valor de sinal válido.", 'erro');
     if (valor > Number(mostrarModalSinal.total || 0)) return showToast("O sinal não pode ser maior que o valor total.", 'erro');
+    if (dataSinalInput && dataSinalInput > dataDeHojeISO()) return showToast("A data do sinal não pode ser no futuro.", 'erro');
     const colecao = mostrarModalSinal.tipo === 'contrato' ? 'contratos' : 'pedidos';
     try {
       await updateDoc(doc(db, colecao, mostrarModalSinal.id), { valorSinal: valor, statusPagamento: 'sinal_recebido' });
@@ -1571,7 +1677,7 @@ export default function App() {
         }
       }
 
-      await registrarMovimentacaoCaixa('entrada', valor, `Sinal — ${mostrarModalSinal.titulo}`, 'sinal', mostrarModalSinal.id, breakdown);
+      await registrarMovimentacaoCaixa('entrada', valor, `Sinal — ${mostrarModalSinal.titulo}`, 'sinal', mostrarModalSinal.id, breakdown, null, dataEscolhidaParaTimestamp(dataSinalInput));
       showToast("Sinal registrado! 💰");
       setMostrarModalSinal(null);
       setValorSinalInput('');
@@ -1582,19 +1688,30 @@ export default function App() {
 
   // Confirma o recebimento total de um contrato — lança no caixa só o saldo que
   // ainda faltava (o sinal, se houve, já foi lançado separadamente antes)
-  const confirmarRecebimentoContrato = async (contrato: any) => {
+  const confirmarRecebimentoContrato = async (contrato: any, dataPagamento: Timestamp | null = null) => {
     const valorSinalJa = Number(contrato.valorSinal || 0);
     const valorRestante = Math.max(0, Number(contrato.valorTotal || 0) - valorSinalJa);
+    const dataFinal = dataPagamento || Timestamp.now();
     try {
-      await updateDoc(doc(db, "contratos", contrato.id), { statusPagamento: 'pago_total', pagamentoConfirmadoEm: Timestamp.now() });
+      await updateDoc(doc(db, "contratos", contrato.id), { statusPagamento: 'pago_total', pagamentoConfirmadoEm: dataFinal });
       if (valorRestante > 0) {
-        await registrarMovimentacaoCaixa('entrada', valorRestante, `Contrato — ${contrato.tipoEvento || 'Serviço'}${valorSinalJa > 0 ? ' (saldo restante)' : ''}`, 'contrato', contrato.id);
+        await registrarMovimentacaoCaixa('entrada', valorRestante, `Contrato — ${contrato.tipoEvento || 'Serviço'}${valorSinalJa > 0 ? ' (saldo restante)' : ''}`, 'contrato', contrato.id, null, null, dataFinal);
       }
       showToast("Recebimento confirmado! 💰");
       setSubAbaContratos('historico');
     } catch {
       showToast("Erro ao confirmar recebimento.", 'erro');
     }
+  };
+
+  const executarConfirmacaoPagamento = async () => {
+    if (!confirmandoPagamento) return;
+    if (dataPagamentoInput && dataPagamentoInput > dataDeHojeISO()) return showToast("A data do pagamento não pode ser no futuro.", 'erro');
+    const { tipo, item } = confirmandoPagamento;
+    const ts = dataEscolhidaParaTimestamp(dataPagamentoInput);
+    setConfirmandoPagamento(null);
+    if (tipo === 'pedido') await confirmarVendaPedido(item, ts);
+    else await confirmarRecebimentoContrato(item, ts);
   };
 
   const cancelarPedidoSemExcluir = async (id: string) => {
@@ -2314,7 +2431,44 @@ export default function App() {
     window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
   };
 
-  const gerarPDF = (p: any) => {
+  const formatarNumeroOrcamento = (n: any) => (n ? `ORC-${String(n).padStart(4, '0')}` : '');
+
+  // Número do orçamento: sequencial por loja (ORC-0001, 0002...), gravado no pedido na primeira vez que o PDF
+  // é gerado e FIXO daí em diante. Usa transação pra dois cliques/dispositivos nunca pegarem o mesmo número.
+  const garantirNumeroOrcamento = async (pedidoId: string, numeroAtual?: number | null): Promise<number | null> => {
+    if (numeroAtual) return numeroAtual;
+    if (!user || !pedidoId) return null;
+    const cfgRef = doc(db, "configuracoes_loja", user.uid);
+    const pedRef = doc(db, "pedidos", pedidoId);
+    return await runTransaction(db, async (tx) => {
+      const pedSnap = await tx.get(pedRef);
+      const jaTem = pedSnap.exists() ? (pedSnap.data() as any).numeroOrcamento : null;
+      if (jaTem) return Number(jaTem);
+      const cfgSnap = await tx.get(cfgRef);
+      const proximo = Number(cfgSnap.exists() ? (cfgSnap.data() as any).ultimoNumeroOrcamento || 0 : 0) + 1;
+      tx.set(cfgRef, { ultimoNumeroOrcamento: proximo }, { merge: true });
+      tx.update(pedRef, { numeroOrcamento: proximo });
+      return proximo;
+    });
+  };
+
+  // Cliente (página pública) clica em "De acordo". As regras do Firestore só deixam gravar estes dois campos,
+  // uma única vez, e só até o fim da validade.
+  const aprovarOrcamentoPublico = async () => {
+    if (!idPedidoParaAprovar || aprovando) return;
+    setAprovando(true);
+    try {
+      const nome = nomeAprovador.trim().slice(0, 80);
+      await updateDoc(doc(db, "aprovacoes", idPedidoParaAprovar), { aprovadoEm: serverTimestamp(), aprovadoNome: nome });
+      setAprovacaoPublica((prev: any) => ({ ...prev, aprovadoEm: Timestamp.now(), aprovadoNome: nome }));
+    } catch {
+      alert("Não foi possível registrar a aprovação. O orçamento pode ter expirado ou já foi aprovado. Fale com a loja pelo WhatsApp. 🙏");
+    } finally {
+      setAprovando(false);
+    }
+  };
+
+  const gerarPDF = async (p: any) => {
     const idDoCliente = p.clienteId || p.clienteSel || '';
     const cli = clientes.find(c => c.id === idDoCliente);
 
@@ -2334,6 +2488,54 @@ export default function App() {
     const dataValidade = dataBaseValidade.toLocaleDateString('pt-BR');
     const dataPrazo = p.prazo ? new Date(p.prazo + 'T00:00:00').toLocaleDateString('pt-BR') : 'A combinar';
     const totalNum = Number(p.preco || 0);
+
+    // Número fixo do orçamento (um por pedido)
+    let numeroOrc: number | null = p.numeroOrcamento || null;
+    if (p.id && user) {
+      try { numeroOrc = await garantirNumeroOrcamento(p.id, p.numeroOrcamento); } catch {}
+    }
+    const numeroOrcTexto = formatarNumeroOrcamento(numeroOrc);
+
+    // Link de aprovação online: grava uma cópia pública (só o que já aparece no PDF — sem custos/lucro)
+    let linkAprovacao = '';
+    if (p.id && user) {
+      try {
+        const fimDaValidade = new Date(dataBaseValidade);
+        fimDaValidade.setHours(23, 59, 59, 999);
+        const itensResumo = (Array.isArray(p.itensCombo) && p.itensCombo.length > 0)
+          ? p.itensCombo.map((i: any) => ({ nome: String(i.nome || ''), qtd: Number(i.qtd || 1), unit: Number(i.precoVenda || 0) }))
+          : [{ nome: String(p.nomeProd || 'Produto'), qtd: Number(p.qtdPed || 1), unit: totalNum / (Number(p.qtdPed || 1) || 1) }];
+        const aprovRef = doc(db, "aprovacoes", p.id);
+        const aprovExistente = await getDoc(aprovRef);
+        const existente = aprovExistente.exists() ? (aprovExistente.data() as any) : null;
+        const mesmoConteudo = !!existente && Math.abs(Number(existente.total || 0) - totalNum) < 0.005 && JSON.stringify(existente.itens || []) === JSON.stringify(itensResumo);
+        // Já aprovado e nada mudou: mantém o registro. Se o orçamento mudou depois de aprovado, pede nova aprovação.
+        if (!(existente?.aprovadoEm && mesmoConteudo)) {
+          await setDoc(aprovRef, {
+            userId: user.uid,
+            pedidoId: p.id,
+            numero: numeroOrcTexto,
+            loja: nomeLojaPerfil || 'PrecificaJá',
+            logoUrl: /^https?:/.test(logoLojaPerfil || '') ? logoLojaPerfil : '',
+            cor: themeColors.primary,
+            clienteNome: cli?.nome || '',
+            itens: itensResumo,
+            detalhes: (!p.itensCombo || p.itensCombo.length === 0) ? String(p.detalhamentoPed || '') : '',
+            total: totalNum,
+            obs: String(p.obsPedido || ''),
+            prazo: dataPrazo,
+            dataEmissao,
+            dataValidade,
+            validoAte: Timestamp.fromDate(fimDaValidade),
+            aprovadoEm: null,
+            aprovadoNome: ''
+          });
+        }
+        linkAprovacao = `${window.location.origin}${window.location.pathname}?aprovar=${p.id}`;
+      } catch {
+        showToast("PDF gerado sem o botão de aprovação (não consegui registrar o link). Veja se as regras do Firebase foram atualizadas.", 'aviso');
+      }
+    }
 
     let htmlLinhasTabela = '';
 
@@ -2399,9 +2601,9 @@ export default function App() {
           <div style="text-align: right; flex-grow: 1;">
             <h1 style="color: ${themeColors.primary}; margin: 0; font-size: 24px; font-weight: 900; line-height: 1.1;">${cabecalhoNomeHtml}</h1>
             <p style="color: #94a3b8; font-size: 11px; text-transform: uppercase; margin: 4px 0 0 0; font-weight: bold;">Documento de Orçamento Comercial</p>
-            <div style="display: inline-block; margin-top: 6px; background-color: #f8fafc; padding: 4px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
-              <span style="font-size: 11px; font-weight: bold; color: #475569;">ORÇAMENTO REF: ORC-${Math.floor(1000 + Math.random() * 9000)}</span>
-            </div>
+            ${numeroOrcTexto ? `<div style="display: inline-block; margin-top: 6px; background-color: #f8fafc; padding: 4px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+              <span style="font-size: 11px; font-weight: bold; color: #475569;">ORÇAMENTO REF: ${numeroOrcTexto}</span>
+            </div>` : ''}
           </div>
         </div>
 
@@ -2461,13 +2663,21 @@ export default function App() {
         </div>
         ` : ''}
 
+        ${linkAprovacao ? `
+        <div style="text-align: center; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 18px 15px; margin-top: 25px; page-break-inside: avoid; break-inside: avoid;">
+          <div style="font-size: 12px; color: #475569; margin-bottom: 10px; font-weight: bold;">Gostou do orçamento? Aprove online em um toque (válido até ${dataValidade}):</div>
+          <a href="${linkAprovacao}" style="display: inline-block; background-color: ${themeColors.primary}; color: #ffffff; padding: 13px 30px; border-radius: 12px; font-size: 14px; font-weight: 900; text-decoration: none; text-transform: uppercase; letter-spacing: 0.5px;">&#10004; Aprovar este orçamento</a>
+          <div style="font-size: 9px; color: #94a3b8; margin-top: 10px; word-break: break-all;">Ou copie este link no navegador: ${linkAprovacao}</div>
+        </div>
+        ` : ''}
+
         <div style="text-align: center; font-size: 11px; color: #94a3b8; margin-top: 40px; border-top: 1px dashed #e2e8f0; padding-top: 15px; page-break-inside: avoid; break-inside: avoid;">
           Obrigado pela preferência! Caso tenha dúvidas, entre em contato pelo nosso WhatsApp.
         </div>
       </div>
     `;
 
-    const opcoes = { margin: [10, 10, 10, 10], filename: `Pedido_${p.id || 'Venda'}.pdf`, html2canvas: { scale: 2, useCORS: true, scrollY: 0 }, jsPDF: { format: 'a4', orientation: 'portrait' }, pagebreak: { mode: ['avoid-all', 'css'] } };
+    const opcoes = { margin: [10, 10, 10, 10], filename: `${numeroOrcTexto || 'Pedido_' + (p.id || 'Venda')}.pdf`, html2canvas: { scale: 2, useCORS: true, scrollY: 0 }, jsPDF: { format: 'a4', orientation: 'portrait' }, pagebreak: { mode: ['avoid-all', 'css'] }, enableLinks: true };
     (window as any).html2pdf().from(elemento).set(opcoes).save();
   };
 
@@ -2479,6 +2689,105 @@ export default function App() {
   };
 
   if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando o PrecificaJá... 🚀</div>;
+
+  if (idPedidoParaAprovar) {
+    if (carregandoAprovacao) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando orçamento... 📄</div>;
+
+    if (!aprovacaoPublica) {
+      return (
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 text-center">
+          <p className="font-bold text-slate-400 text-sm">Orçamento não encontrado. Peça um novo link para quem te enviou. 🙏</p>
+        </div>
+      );
+    }
+
+    const ap = aprovacaoPublica;
+    const corAp = ap.cor || themeColors.primary;
+    const jaAprovado = !!ap.aprovadoEm;
+    const expirado = !jaAprovado && ap.validoAte?.toDate ? ap.validoAte.toDate().getTime() < Date.now() : false;
+    const quandoAprovou = ap.aprovadoEm?.toDate ? ap.aprovadoEm.toDate() : null;
+
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="bg-white p-6 rounded-[35px] shadow-xl w-full max-w-md border border-slate-100">
+          {ap.logoUrl && <img src={ap.logoUrl} alt="" className="max-h-14 max-w-[160px] object-contain mx-auto mb-3" />}
+          <h1 style={{ color: corAp }} className="text-xl font-black text-center mb-1">{ap.loja || 'Orçamento'}</h1>
+          <p className="text-slate-400 text-[11px] text-center mb-5 uppercase font-bold tracking-widest">Orçamento {ap.numero || ''}</p>
+
+          <div className="bg-slate-50 rounded-2xl p-4 mb-4 text-xs space-y-1.5 border">
+            {ap.clienteNome && <p><strong>Cliente:</strong> {ap.clienteNome}</p>}
+            <p><strong>Emissão:</strong> {ap.dataEmissao}</p>
+            <p><strong>Válido até:</strong> <span className="font-bold text-red-500">{ap.dataValidade}</span></p>
+            <p><strong>Prazo de entrega:</strong> {ap.prazo || 'A combinar'}</p>
+          </div>
+
+          <div className="border rounded-2xl overflow-hidden mb-4">
+            {(ap.itens || []).map((it: any, idx: number) => (
+              <div key={idx} className="flex justify-between gap-3 p-3 text-xs border-b last:border-b-0">
+                <div className="min-w-0">
+                  <p className="font-bold text-slate-800 whitespace-pre-line break-words">{it.nome}</p>
+                  <p className="text-slate-400">{it.qtd} un × R$ {Number(it.unit || 0).toFixed(2)}</p>
+                </div>
+                <p className="font-black text-slate-700 shrink-0">R$ {(Number(it.qtd || 1) * Number(it.unit || 0)).toFixed(2)}</p>
+              </div>
+            ))}
+            <div style={{ backgroundColor: corAp }} className="flex justify-between items-center p-3 text-white">
+              <span className="text-[10px] font-black uppercase tracking-wider">Total do pedido</span>
+              <span className="font-black text-lg">R$ {Number(ap.total || 0).toFixed(2)}</span>
+            </div>
+          </div>
+
+          {ap.detalhes && (
+            <div className="bg-slate-50 border rounded-2xl p-3 mb-4 text-[11px] text-slate-600 whitespace-pre-line">
+              <p className="font-black uppercase text-[10px] mb-1" style={{ color: corAp }}>Itens incluídos</p>
+              {ap.detalhes}
+            </div>
+          )}
+
+          {ap.obs && (
+            <div className="bg-purple-50 border border-purple-100 rounded-2xl p-3 mb-4 text-[11px] text-purple-800 whitespace-pre-line">
+              <p className="font-black uppercase text-[10px] mb-1">Observações</p>
+              {ap.obs}
+            </div>
+          )}
+
+          {jaAprovado ? (
+            <div className="text-center py-5">
+              <CheckCircle size={48} className="mx-auto text-emerald-500 mb-3" />
+              <p className="font-bold text-slate-700 text-sm">Orçamento aprovado! 🎉</p>
+              {quandoAprovou && <p className="text-slate-400 text-xs mt-1">Registrado em {quandoAprovou.toLocaleDateString('pt-BR')} às {quandoAprovou.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}{ap.aprovadoNome ? ` por ${ap.aprovadoNome}` : ''}.</p>}
+              <p className="text-slate-400 text-xs mt-2">A loja já foi avisada. Pode fechar esta página. 🙌</p>
+            </div>
+          ) : expirado ? (
+            <div className="text-center py-5 bg-red-50 rounded-2xl border border-red-100">
+              <p className="font-bold text-red-500 text-sm">Este orçamento expirou em {ap.dataValidade}.</p>
+              <p className="text-slate-500 text-xs mt-1 px-4">Fale com a loja pelo WhatsApp para receber um orçamento atualizado.</p>
+            </div>
+          ) : (
+            <>
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Seu nome (opcional)</label>
+              <input
+                value={nomeAprovador}
+                onChange={e => setNomeAprovador(e.target.value)}
+                maxLength={80}
+                placeholder="Ex: Maria Silva"
+                className="w-full p-4 bg-slate-50 rounded-2xl mb-3 outline-none border focus:border-purple-400 font-medium text-sm"
+              />
+              <button
+                onClick={aprovarOrcamentoPublico}
+                disabled={aprovando}
+                style={{ backgroundColor: corAp, opacity: aprovando ? 0.6 : 1 }}
+                className="w-full text-white font-black text-sm uppercase py-4 rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-all"
+              >
+                <CheckCircle size={18}/> {aprovando ? 'Registrando...' : 'De acordo, aprovar orçamento'}
+              </button>
+              <p className="text-[10px] text-slate-400 text-center mt-3">Ao aprovar, a loja é avisada e segue com o seu pedido.</p>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   if (idContratoParaAssinar) {
     if (carregandoAssinatura) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-bold text-purple-700">Carregando contrato... ✍️</div>;
@@ -3076,12 +3385,24 @@ export default function App() {
              <div className="space-y-2 w-full">
                 {matsNoPed.map((m, i) => (
                   <div key={i} className="flex justify-between items-center bg-purple-50 p-3 rounded-2xl border border-purple-100 text-purple-700 font-bold text-xs w-full">
-                    <span>{m.nome}</span>
-                    <div className="flex items-center gap-2">
-                      <input type="number" className="w-16 bg-white rounded-lg p-1 text-center" value={m.qtdUsada} onChange={e => { const nova = [...matsNoPed]; nova[i].qtdUsada = e.target.value; setMatsNoPed(nova); }} />
-                      <span className="text-[10px] text-purple-500">{m.unidade || 'un'}</span>
-                      <button onClick={() => setMatsNoPed(matsNoPed.filter((_, idx) => idx !== i))}><X size={16}/></button>
-                    </div>
+                    {(() => {
+                      const custoUnit = Number(m.qtd || 1) > 0 ? Number(m.valor || 0) / Number(m.qtd || 1) : 0;
+                      const custoLinha = custoUnit * Number(m.qtdUsada || 0);
+                      return (
+                        <>
+                          <div className="min-w-0 pr-2">
+                            <span className="block break-words">{m.nome}</span>
+                            <span className="block text-[10px] font-medium text-purple-400">R$ {custoUnit.toFixed(custoUnit < 0.1 ? 3 : 2)} / {m.unidade || 'un'}</span>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <input type="number" className="w-16 bg-white rounded-lg p-1 text-center" value={m.qtdUsada} onChange={e => { const nova = [...matsNoPed]; nova[i].qtdUsada = e.target.value; setMatsNoPed(nova); }} />
+                            <span className="text-[10px] text-purple-500">{m.unidade || 'un'}</span>
+                            <span className="text-[10px] font-medium text-purple-400 w-14 text-right">= R$ {custoLinha.toFixed(2)}</span>
+                            <button onClick={() => setMatsNoPed(matsNoPed.filter((_, idx) => idx !== i))}><X size={16}/></button>
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
                 ))}
              </div>
@@ -3248,8 +3569,14 @@ export default function App() {
 
              setSalvando(prev => ({ ...prev, orcamento: true }));
              try {
+               let idPedidoSalvo: string = pedidoEditandoId || '';
                if (pedidoEditandoId) await updateDoc(doc(db, "pedidos", pedidoEditandoId), dadosPedido);
-               else await addDoc(collection(db, "pedidos"), { ...dadosPedido, data: new Date().toLocaleDateString('pt-BR'), dataVenda: Timestamp.now(), status: 'Pendente', userId: user.uid });
+               else {
+                 const refNovoPedido = await addDoc(collection(db, "pedidos"), { ...dadosPedido, data: new Date().toLocaleDateString('pt-BR'), dataVenda: Timestamp.now(), status: 'Pendente', userId: user.uid });
+                 idPedidoSalvo = refNovoPedido.id;
+               }
+               // Se estiver editando, mantém a data de emissão e o número que o pedido já tinha
+               const pedidoJaSalvo = pedidoEditandoId ? pedidos.find((x: any) => x.id === pedidoEditandoId) : null;
 
                if (precoManual !== null && produtoCatalogoSelecionadoId) {
                  try {
@@ -3260,7 +3587,7 @@ export default function App() {
                  } catch {}
                }
 
-               gerarPDF({nomeProd, detalhamentoPed, preco: precoFinalSalvar, clienteId: clienteSel, prazo, qtdPed, obsPedido: docObsPedido});
+               gerarPDF({id: idPedidoSalvo, data: pedidoJaSalvo?.data, numeroOrcamento: pedidoJaSalvo?.numeroOrcamento, nomeProd, detalhamentoPed, preco: precoFinalSalvar, clienteId: clienteSel, prazo, qtdPed, obsPedido: docObsPedido});
 
                limparCalculadora();
                setActiveTab('pedidos');
@@ -3433,8 +3760,24 @@ export default function App() {
         item={mostrarModalSinal}
         valor={valorSinalInput}
         setValor={setValorSinalInput}
+        data={dataSinalInput}
+        setData={setDataSinalInput}
         onCancel={() => { setMostrarModalSinal(null); setValorSinalInput(''); }}
         onConfirmar={confirmarRegistroSinal}
+      />
+      <ModalDataPagamento
+        aberto={!!confirmandoPagamento}
+        titulo={confirmandoPagamento ? (confirmandoPagamento.tipo === 'pedido' ? String(confirmandoPagamento.item.nomeProd || 'Pedido') : String(confirmandoPagamento.item.tipoEvento || 'Contrato')) : ''}
+        valorTexto={confirmandoPagamento ? (() => {
+          const it = confirmandoPagamento.item;
+          const total = Number(confirmandoPagamento.tipo === 'pedido' ? it.preco : it.valorTotal) || 0;
+          const restante = Math.max(0, total - Number(it.valorSinal || 0));
+          return Number(it.valorSinal || 0) > 0 ? `Falta receber: R$ ${restante.toFixed(2)}` : `R$ ${total.toFixed(2)}`;
+        })() : ''}
+        data={dataPagamentoInput}
+        setData={setDataPagamentoInput}
+        onCancel={() => setConfirmandoPagamento(null)}
+        onConfirmar={executarConfirmacaoPagamento}
       />
 
       {/* Menu do celular: some quando a tela é grande (desktop usa a barra lateral fixa abaixo) */}
@@ -4068,10 +4411,10 @@ export default function App() {
 
                     <div className="flex justify-end gap-1 border-t pt-3 w-full flex-wrap">
                       {c.id && c.statusPagamento !== 'pago_total' && c.statusPagamento !== 'sinal_recebido' && (
-                        <button onClick={() => { setMostrarModalSinal({ id: c.id, tipo: 'contrato', titulo: c.tipoEvento || 'Contrato', total: c.valorTotal }); setValorSinalInput(''); }} className="text-amber-600 px-3 py-2 bg-amber-50 rounded-xl text-xs font-bold flex items-center gap-1 active:scale-95 mr-auto">💰 Sinal</button>
+                        <button onClick={() => { setMostrarModalSinal({ id: c.id, tipo: 'contrato', titulo: c.tipoEvento || 'Contrato', total: c.valorTotal }); setValorSinalInput(''); setDataSinalInput(dataDeHojeISO()); }} className="text-amber-600 px-3 py-2 bg-amber-50 rounded-xl text-xs font-bold flex items-center gap-1 active:scale-95 mr-auto">💰 Sinal</button>
                       )}
                       {c.id && c.statusPagamento !== 'pago_total' && (
-                        <button onClick={() => confirmarRecebimentoContrato(c)} className="text-emerald-600 px-3 py-2 bg-emerald-50 rounded-xl text-xs font-bold flex items-center gap-1 active:scale-95 mr-auto"><CheckCircle size={16}/> Recebimento Total</button>
+                        <button onClick={() => { setConfirmandoPagamento({ tipo: 'contrato', item: c }); setDataPagamentoInput(dataDeHojeISO()); }} className="text-emerald-600 px-3 py-2 bg-emerald-50 rounded-xl text-xs font-bold flex items-center gap-1 active:scale-95 mr-auto"><CheckCircle size={16}/> Recebimento Total</button>
                       )}
                       <button onClick={() => setNovoContrato({ id: c.id || '', clienteId: c.clienteId, tipoEvento: c.tipoEvento || '', dataEvento: c.dataEvento || '', localEvento: c.localEvento || '', valorTotal: c.valorTotal || '', clausulas: c.clausulas || novoContrato.clausulas })} style={{ color: themeColors.primary }} className="p-2 bg-purple-50 rounded-xl"><Edit2 size={16}/></button>
 
@@ -5505,7 +5848,7 @@ export default function App() {
                    <div className="flex justify-between items-center w-full">
                      <div>
                         <p style={{ color: themeColors.primary }} className="font-black text-[10px] uppercase mb-1">
-                          {cli?.nome || 'Sem Cliente'} {p.data ? `— ${p.data}` : ''} — <span className={statusAtual.includes('Vendido') ? "text-emerald-500" : statusAtual.includes('Cancelado') ? "text-red-400" : statusAtual.includes('Entregue') ? "text-blue-500" : statusAtual.includes('Produção') ? "text-purple-500" : "text-orange-400"}>{statusAtual}</span>
+                          {cli?.nome || 'Sem Cliente'} {p.data ? `— ${p.data}` : ''}{p.numeroOrcamento ? ` — ${formatarNumeroOrcamento(p.numeroOrcamento)}` : ''} — <span className={statusAtual.includes('Vendido') ? "text-emerald-500" : statusAtual.includes('Cancelado') ? "text-red-400" : statusAtual.includes('Entregue') ? "text-blue-500" : statusAtual.includes('Produção') ? "text-purple-500" : "text-orange-400"}>{statusAtual}</span>
                         </p>
                         <div className="font-bold text-slate-700 text-sm whitespace-pre-line">{p.nomeProd} <span className="text-xs text-slate-400 font-normal">({p.qtdPed || 1} un)</span></div>
 
@@ -5523,6 +5866,14 @@ export default function App() {
                         {p.statusPagamento === 'sinal_recebido' && (
                           <p className="text-[10px] text-emerald-600 font-bold bg-emerald-50 inline-block px-2 py-0.5 rounded mt-2">💰 Sinal: R$ {Number(p.valorSinal || 0).toFixed(2)} • Falta: R$ {(Number(p.preco || 0) - Number(p.valorSinal || 0)).toFixed(2)}</p>
                         )}
+                        {aprovacoes[p.id]?.aprovadoEm?.toDate && (() => {
+                          const dtAp = aprovacoes[p.id].aprovadoEm.toDate();
+                          return (
+                            <p className="text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-100 inline-block px-2 py-0.5 rounded mt-2">
+                              ✅ Aprovado pelo cliente{aprovacoes[p.id].aprovadoNome ? ` (${aprovacoes[p.id].aprovadoNome})` : ''} em {dtAp.toLocaleDateString('pt-BR')} às {dtAp.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          );
+                        })()}
                      </div>
                      <div style={{ color: themeColors.secondary }} className="font-black text-xl shrink-0">R$ {p.preco}</div>
                    </div>
@@ -5539,10 +5890,10 @@ export default function App() {
                         <button onClick={() => marcarPedidoEntregue(p.id)} className="text-blue-600 px-3 py-2 bg-blue-50 rounded-xl text-xs font-bold flex items-center gap-1 active:scale-95 mr-auto">📦 Marcar Entregue</button>
                       )}
                       {statusAtual === 'Entregue 📦' && (
-                        <button onClick={() => confirmarVendaPedido(p)} className="text-emerald-600 px-3 py-2 bg-emerald-50 rounded-xl text-xs font-bold flex items-center gap-1 active:scale-95 mr-auto"><CheckCircle size={16}/> Confirmar Venda / Pagamento</button>
+                        <button onClick={() => { setConfirmandoPagamento({ tipo: 'pedido', item: p }); setDataPagamentoInput(dataDeHojeISO()); }} className="text-emerald-600 px-3 py-2 bg-emerald-50 rounded-xl text-xs font-bold flex items-center gap-1 active:scale-95 mr-auto"><CheckCircle size={16}/> Confirmar Venda / Pagamento</button>
                       )}
                       {(statusAtual === 'Pendente' || statusAtual === 'Em Produção 🔧' || statusAtual === 'Entregue 📦') && p.statusPagamento !== 'sinal_recebido' && (
-                        <button onClick={() => { setMostrarModalSinal({ id: p.id, tipo: 'pedido', titulo: p.nomeProd, total: p.preco }); setValorSinalInput(''); }} className="text-amber-600 px-3 py-2 bg-amber-50 rounded-xl text-xs font-bold flex items-center gap-1 active:scale-95">💰 Sinal</button>
+                        <button onClick={() => { setMostrarModalSinal({ id: p.id, tipo: 'pedido', titulo: p.nomeProd, total: p.preco }); setValorSinalInput(''); setDataSinalInput(dataDeHojeISO()); }} className="text-amber-600 px-3 py-2 bg-amber-50 rounded-xl text-xs font-bold flex items-center gap-1 active:scale-95">💰 Sinal</button>
                       )}
 
                       <button onClick={() => handleDuplicarOrcamento(p)} title="Duplicar este Orçamento" className="text-blue-500 p-2 bg-blue-50 rounded-xl active:scale-95 transition-transform"><Copy size={18}/></button>
