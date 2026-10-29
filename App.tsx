@@ -36,6 +36,13 @@ const TELAS_ONBOARDING = [
 const CHANGELOG_APP = [
   {
     data: '29/10/2026',
+    titulo: 'Preço por peça na calculadora',
+    itens: [
+      'Quando o orçamento tem mais de uma peça (lote), a calculadora agora mostra o preço por peça embaixo do Preço Sugerido e do Preço Final Cobrado — atualiza na hora que você muda o valor, sem precisar gerar o PDF'
+    ]
+  },
+  {
+    data: '29/10/2026',
     titulo: 'Valor dos materiais na calculadora',
     itens: [
       'Na calculadora, cada material adicionado agora mostra o custo unitário pequeno embaixo do nome e, ao lado da quantidade, quanto aquela quantidade custa'
@@ -3511,6 +3518,11 @@ export default function App() {
           <div className="text-left">
             <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">Preço Sugerido</span>
             <span className="text-base font-bold text-slate-400">R$ {resumenFinanceiro.final}</span>
+            {(() => {
+              const qtdUn = Math.max(1, Number(qtdPed) || 1);
+              if (qtdUn <= 1) return null;
+              return <span className="block text-[10px] font-semibold text-slate-400 mt-0.5">R$ {(Number(resumenFinanceiro.final || 0) / qtdUn).toFixed(2)} por peça</span>;
+            })()}
           </div>
 
   <div className="text-right flex flex-col items-end">
@@ -3527,6 +3539,15 @@ export default function App() {
                 onChange={e => setPrecoFinalDigitado(e.target.value)}
               />
             </div>
+            {(() => {
+              const qtdUn = Math.max(1, Number(qtdPed) || 1);
+              if (qtdUn <= 1) return null;
+              return (
+                <span style={{ color: themeColors.secondary }} className="text-[11px] font-black mt-1.5 mr-1">
+                  = R$ {(Number(precoFinalDigitado || 0) / qtdUn).toFixed(2)} por peça <span className="font-semibold opacity-70">({qtdUn} un)</span>
+                </span>
+              );
+            })()}
           </div>
         </div>
 
