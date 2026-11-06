@@ -35,6 +35,37 @@ const TELAS_ONBOARDING = [
 
 const CHANGELOG_APP = [
   {
+    data: '06/11/2026',
+    titulo: 'Grupos de variação como alternativas no catálogo',
+    itens: [
+      'No cadastro do produto, quando há 2 ou mais grupos de variação, aparece a opção \"Os grupos são alternativas\": o cliente escolhe uma opção de UM grupo só (ex: Frente ou Frente e Verso)',
+      'Nesse modo o \"A partir de\" mostra só a opção mais barata entre todos os grupos, em vez de somar o menor de cada um'
+    ]
+  },
+  {
+    data: '06/11/2026',
+    titulo: 'Páginas a imprimir no orçamento',
+    itens: [
+      'Na calculadora, em Custos Extras, agora tem o campo \"Páginas a imprimir\": você digita a quantidade e o app multiplica pelo custo por página e preenche o campo IMPRES. sozinho',
+      'A quantidade de páginas fica salva no pedido (ao editar ou duplicar ela volta preenchida)'
+    ]
+  },
+  {
+    data: '05/11/2026',
+    titulo: 'Mensagem pronta no WhatsApp com link de aprovação',
+    itens: [
+      'O botão de WhatsApp do Histórico agora abre a conversa com uma mensagem completa: número do orçamento, produto, valor, prazo, validade e o link pro cliente aprovar com um toque',
+      'O número do orçamento e o link são os mesmos do PDF (nada muda se você gerar o PDF de novo)'
+    ]
+  },
+  {
+    data: '30/10/2026',
+    titulo: 'Pesquisa no Meu Catálogo Visual',
+    itens: [
+      'Nova barra de pesquisa no topo do Meu Catálogo Visual: procura pelo nome ou pela categoria (sem diferença de acento ou maiúscula) e já mostra os resultados, sem precisar rolar a tela'
+    ]
+  },
+  {
     data: '29/10/2026',
     titulo: 'Preço por peça na calculadora',
     itens: [
@@ -531,6 +562,7 @@ export default function App() {
   const [vHora, setVHora] = useState('9');
   const [tGasto, setTGasto] = useState('60');
   const [custos, setCustos] = useState({ embalagem: '0', impressao: '0', energia: '0', outros: '0' });
+  const [paginasImpressao, setPaginasImpressao] = useState('1');
   const [equipamentosSelecionados, setEquipamentosSelecionados] = useState<string[]>([]);
   const [lucro, setLucro] = useState('100');
   const [desconto, setDesconto] = useState('0');
@@ -550,7 +582,7 @@ export default function App() {
   const [novoCli, setNovoCli] = useState({ id: '', nome: '', zap: '', email: '', endereco: '', cpfCnpj: '' });
   const [novaAnotacao, setNovaAnotacao] = useState({ id: '', titulo: '', conteudo: '', dataPrazo: new Date().toISOString().split('T')[0], prioridade: 'media' });
 
-  const [novoProdCatalogo, setNovoProdCatalogo] = useState<{id: string, nome: string, precoVenda: string, urlImagem: string, categorias: string[], materiaisAssociados: {id: string, nome: string, qtdUsada: number}[], imagens: string[], descricao: string, variacoes: {id: string, nome: string, opcoes: {id: string, label: string, precoAdicional: string}[]}[], personalizavel: boolean, personalizacaoPlaceholder: string}>({ id: '', nome: '', precoVenda: '', urlImagem: '', categorias: [], materiaisAssociados: [], imagens: [], descricao: '', variacoes: [], personalizavel: false, personalizacaoPlaceholder: 'Ex: nome, cor, tema, data da entrega...' });
+  const [novoProdCatalogo, setNovoProdCatalogo] = useState<{id: string, nome: string, precoVenda: string, urlImagem: string, categorias: string[], materiaisAssociados: {id: string, nome: string, qtdUsada: number}[], imagens: string[], descricao: string, variacoes: {id: string, nome: string, opcoes: {id: string, label: string, precoAdicional: string}[]}[], variacoesExclusivas?: boolean, personalizavel: boolean, personalizacaoPlaceholder: string}>({ id: '', nome: '', precoVenda: '', urlImagem: '', categorias: [], materiaisAssociados: [], imagens: [], descricao: '', variacoes: [], personalizavel: false, personalizacaoPlaceholder: 'Ex: nome, cor, tema, data da entrega...' });
   const [novoGrupoVariacaoNome, setNovoGrupoVariacaoNome] = useState('');
   const [inputNovaCategoriaProd, setInputNovaCategoriaProd] = useState('');
   const [mostrarInputNovaCatProd, setMostrarInputNovaCatProd] = useState(false);
@@ -617,6 +649,7 @@ export default function App() {
   const [prazoBalcao, setPrazoBalcao] = useState('');
 
   const [historicoPrecoAberto, setHistoricoPrecoAberto] = useState<string | null>(null);
+  const [pesquisaCatalogo, setPesquisaCatalogo] = useState('');
   const [historicoPrecoDados, setHistoricoPrecoDados] = useState<any[]>([]);
 
   const setActiveTab = (tab: any) => {
@@ -1321,13 +1354,13 @@ export default function App() {
   // Nunca deixa aparecer R$0,00 pro comprador, mesmo se o preço base do produto for 0.
   const calcularPrecoMinimo = (p: any) => {
     let preco = Number(p.precoVenda || 0);
-    (p.variacoes || []).forEach((g: any) => {
-      if (g.opcoes && g.opcoes.length > 0) {
-        const menorAdicional = Math.min(...g.opcoes.map((o: any) => Number(o.precoAdicional || 0)));
-        preco += menorAdicional;
-      }
-    });
-    return preco;
+    const menoresPorGrupo = (p.variacoes || [])
+      .filter((g: any) => g.opcoes && g.opcoes.length > 0)
+      .map((g: any) => Math.min(...g.opcoes.map((o: any) => Number(o.precoAdicional || 0))));
+    if (menoresPorGrupo.length === 0) return preco;
+    // Grupos alternativos: o cliente escolhe só um grupo, então o mínimo é o menor entre todos. Senão, soma o menor de cada grupo.
+    if (p.variacoesExclusivas) return preco + Math.min(...menoresPorGrupo);
+    return preco + menoresPorGrupo.reduce((a: number, b: number) => a + b, 0);
   };
 
   const abrirDetalheProduto = (p: any) => {
@@ -1341,8 +1374,12 @@ export default function App() {
   const confirmarAdicaoDetalhe = () => {
     if (!produtoDetalheAberto) return;
     const grupos = produtoDetalheAberto.variacoes || [];
-    for (const g of grupos) {
-      if (!variacoesEscolhidas[g.id]) return showToast(`Escolha uma opção em "${g.nome}"`, 'erro');
+    if (produtoDetalheAberto.variacoesExclusivas && grupos.length > 0) {
+      if (!grupos.some((g: any) => !!variacoesEscolhidas[g.id])) return showToast("Escolha uma das opções", 'erro');
+    } else {
+      for (const g of grupos) {
+        if (!variacoesEscolhidas[g.id]) return showToast(`Escolha uma opção em "${g.nome}"`, 'erro');
+      }
     }
     let precoUnit = Number(produtoDetalheAberto.precoVenda || 0);
     const partesDetalhe: string[] = [];
@@ -1843,6 +1880,7 @@ export default function App() {
   const limparCalculadora = () => {
     setNomeProd(''); setDetalhamentoPed(''); setQtdPed('1'); setMatsNoPed([]); setVHora('9'); setTGasto('60');
     setCustos({ embalagem: '0', impressao: custoPorPaginaCalculado.toFixed(2), energia: '0', outros: '0' });
+    setPaginasImpressao('1');
     setEquipamentosSelecionados([]);
     setLucro('100'); setDesconto('0'); setPrazo(''); setClienteSel('');
     setPedidoEditandoId(null); setPrecoManual(null); setProdutoCatalogoSelecionadoId(null); setDocObsPedido('');
@@ -1856,6 +1894,7 @@ export default function App() {
     setIsDuplicando(false);
     setPedidoEditandoId(p.id); setNomeProd(p.nomeProd || ''); setDetalhamentoPed(p.detalhamentoPed || ''); setQtdPed(p.qtdPed || '1'); setVHora(p.vHora || '9'); setTGasto(p.tGasto || '60');
     setCustos(p.custos || { embalagem: '0', impressao: '0', energia: '0', outros: '0' });
+    setPaginasImpressao(p.paginasImpressao != null ? String(p.paginasImpressao) : (custoPorPaginaCalculado > 0 ? String(+(Number(p.custos?.impressao || 0) / custoPorPaginaCalculado).toFixed(2)) : '1'));
     setLucro(p.lucro || '100'); setDesconto(p.desconto || '0'); setPrazo(p.prazo || ''); setClienteSel(p.clienteId || '');
     setPrecoManual(p.precoManual || null); setDocObsPedido(p.obsPedido || '');
     setEquipamentosSelecionados(p.equipamentosSelecionados || []);
@@ -1882,6 +1921,7 @@ export default function App() {
     setVHora(p.vHora || '9');
     setTGasto(p.tGasto || '60');
     setCustos(p.custos || { embalagem: '0', impressao: '0', energia: '0', outros: '0' });
+    setPaginasImpressao(p.paginasImpressao != null ? String(p.paginasImpressao) : (custoPorPaginaCalculado > 0 ? String(+(Number(p.custos?.impressao || 0) / custoPorPaginaCalculado).toFixed(2)) : '1'));
     setLucro(p.lucro || '100');
     setDesconto(p.desconto || '0');
     setPrazo(p.prazo || '');
@@ -1973,6 +2013,17 @@ export default function App() {
       m.nome?.toLowerCase().includes(pesquisaMateriais.toLowerCase())
     );
   }, [materiais, pesquisaMateriais]);
+
+  // Busca do "Meu Catálogo Visual": ignora acentos e maiúsculas; procura no nome e nas categorias do produto
+  const produtosCatalogoFiltrados = useMemo(() => {
+    const normalizar = (t: any) => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const termo = normalizar(pesquisaCatalogo).trim();
+    if (!termo) return produtos;
+    return produtos.filter(p =>
+      normalizar(p.nome).includes(termo) ||
+      (Array.isArray(p.categorias) && p.categorias.some((c: string) => normalizar(c).includes(termo)))
+    );
+  }, [produtos, pesquisaCatalogo]);
 
   const materiaisFiltradosCalculadora = useMemo(() => {
     return materiais.filter(m =>
@@ -2430,12 +2481,42 @@ export default function App() {
     return { material: materialTotal, maoObra: maoObraTotal, outros: outrosTotal, lucro: lucroTotal };
   };
 
-  const enviarZap = (p: any) => {
-    const cli = clientes.find(c => c.id === (p.clienteId || p.clienteSel));
-    const dataP = p.prazo ? new Date(p.prazo).toLocaleDateString('pt-BR') : 'A combinar';
-    const msg = `*RESUMO ORÇAMENTO*%0A---%0A*Cliente:* ${cli?.nome || 'Cliente'}%0A*Produto:* %0A${p.nomeProd}%0A*Qtd:* ${p.qtdPed || 1} un%0A*Prazo:* ${dataP}%0A*VALOR TOTAL:* R$ ${p.preco}%0A---%0AObrigado!`;
+  // Abre o WhatsApp do cliente com a mensagem pronta: resumo do orçamento + link pra aprovar com um toque.
+  // (O WhatsApp não aceita anexo automático por link — o PDF você anexa na conversa; a mensagem já explica.)
+  const enviarZap = async (p: any) => {
+    const dados = await prepararDadosOrcamento(p);
+    const { cli, dataValidade, dataPrazo, totalNum, numeroOrcTexto, linkAprovacao } = dados;
+    const primeiroNome = String(cli?.nome || '').trim().split(' ')[0];
+    const loja = nomeLojaPerfil || 'nossa loja';
+    const qtd = Number(p.qtdPed || 1);
+
+    const linhas = [
+      `Olá${primeiroNome ? `, ${primeiroNome}` : ''}! 😊`,
+      '',
+      `Segue o seu orçamento${numeroOrcTexto ? ` *${numeroOrcTexto}*` : ''} da *${loja}*:`,
+      '',
+      `*Produto:* ${p.nomeProd}`,
+      `*Quantidade:* ${qtd} un`,
+      `*Valor total:* R$ ${totalNum.toFixed(2)}`,
+      `*Prazo de entrega:* ${dataPrazo}`,
+      `*Válido até:* ${dataValidade}`,
+      '',
+      'Estou te enviando também o PDF com todos os detalhes. 📄',
+      ''
+    ];
+    if (linkAprovacao) {
+      linhas.push(
+        '✅ *Para aprovar é só clicar no link abaixo e tocar em "De acordo":*',
+        linkAprovacao,
+        ''
+      );
+    } else {
+      linhas.push('Se estiver tudo certo, é só me responder aqui confirmando! ✅', '');
+    }
+    linhas.push('Qualquer dúvida, é só me chamar. Obrigada! 💜');
+
     const fone = cli?.zap ? cli.zap.replace(/\D/g, '') : '';
-    window.open(`https://wa.me/55${fone}?text=${msg}`, '_blank');
+    window.open(`https://wa.me/55${fone}?text=${encodeURIComponent(linhas.join('\n'))}`, '_blank');
   };
 
   const formatarNumeroOrcamento = (n: any) => (n ? `ORC-${String(n).padStart(4, '0')}` : '');
@@ -2475,7 +2556,8 @@ export default function App() {
     }
   };
 
-  const gerarPDF = async (p: any) => {
+  // Calcula tudo que o orçamento precisa (validade fixa, número fixo, link de aprovação) — usado pelo PDF e pela mensagem do WhatsApp
+  const prepararDadosOrcamento = async (p: any) => {
     const idDoCliente = p.clienteId || p.clienteSel || '';
     const cli = clientes.find(c => c.id === idDoCliente);
 
@@ -2540,9 +2622,15 @@ export default function App() {
         }
         linkAprovacao = `${window.location.origin}${window.location.pathname}?aprovar=${p.id}`;
       } catch {
-        showToast("PDF gerado sem o botão de aprovação (não consegui registrar o link). Veja se as regras do Firebase foram atualizadas.", 'aviso');
+        showToast("Não consegui registrar o link de aprovação do orçamento. Veja se as regras do Firebase foram atualizadas.", 'aviso');
       }
     }
+
+    return { cli, dataEmissao, DIAS_VALIDADE_ORCAMENTO, dataValidade, dataPrazo, totalNum, numeroOrcTexto, linkAprovacao };
+  };
+
+  const gerarPDF = async (p: any) => {
+    const { cli, dataEmissao, DIAS_VALIDADE_ORCAMENTO, dataValidade, dataPrazo, totalNum, numeroOrcTexto, linkAprovacao } = await prepararDadosOrcamento(p);
 
     let htmlLinhasTabela = '';
 
@@ -3041,18 +3129,28 @@ export default function App() {
         {produtoDetalheAberto && (() => {
           const p = produtoDetalheAberto;
           const imagens = (p.imagens && p.imagens.length > 0) ? p.imagens : (p.urlImagem ? [p.urlImagem] : []);
+          const exclusivas = !!p.variacoesExclusivas && (p.variacoes || []).length > 1;
           let precoComVariacoes = Number(p.precoVenda || 0);
-          (p.variacoes || []).forEach((g: any) => {
-            const opcaoId = variacoesEscolhidas[g.id];
-            const opcao = opcaoId ? g.opcoes.find((o: any) => o.id === opcaoId) : null;
-            if (opcao) {
-              precoComVariacoes += Number(opcao.precoAdicional || 0);
-            } else if (g.opcoes && g.opcoes.length > 0) {
-              // Ainda não escolheu essa variação — usa a opção mais barata como prévia, nunca 0 escondido
-              precoComVariacoes += Math.min(...g.opcoes.map((o: any) => Number(o.precoAdicional || 0)));
-            }
-          });
-          const todasVariacoesEscolhidas = (p.variacoes || []).every((g: any) => !!variacoesEscolhidas[g.id]);
+          if (exclusivas) {
+            // Alternativas: vale só a opção escolhida (de um único grupo); sem escolha, mostra o menor preço possível
+            const grupoEscolhido = (p.variacoes || []).find((g: any) => !!variacoesEscolhidas[g.id]);
+            const opcaoEscolhida = grupoEscolhido ? grupoEscolhido.opcoes.find((o: any) => o.id === variacoesEscolhidas[grupoEscolhido.id]) : null;
+            precoComVariacoes = opcaoEscolhida ? Number(p.precoVenda || 0) + Number(opcaoEscolhida.precoAdicional || 0) : calcularPrecoMinimo(p);
+          } else {
+            (p.variacoes || []).forEach((g: any) => {
+              const opcaoId = variacoesEscolhidas[g.id];
+              const opcao = opcaoId ? g.opcoes.find((o: any) => o.id === opcaoId) : null;
+              if (opcao) {
+                precoComVariacoes += Number(opcao.precoAdicional || 0);
+              } else if (g.opcoes && g.opcoes.length > 0) {
+                // Ainda não escolheu essa variação — usa a opção mais barata como prévia, nunca 0 escondido
+                precoComVariacoes += Math.min(...g.opcoes.map((o: any) => Number(o.precoAdicional || 0)));
+              }
+            });
+          }
+          const todasVariacoesEscolhidas = exclusivas
+            ? (p.variacoes || []).some((g: any) => !!variacoesEscolhidas[g.id])
+            : (p.variacoes || []).every((g: any) => !!variacoesEscolhidas[g.id]);
           return (
             <div className="fixed inset-0 bg-black/50 z-[110] flex items-end sm:items-center justify-center" onClick={() => setProdutoDetalheAberto(null)}>
               <div className="bg-white rounded-t-[35px] sm:rounded-[35px] w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
@@ -3080,6 +3178,7 @@ export default function App() {
 
                   {p.descricao && <p className="text-slate-500 text-sm leading-relaxed">{p.descricao}</p>}
 
+                  {exclusivas && <p className="text-[11px] font-bold text-slate-400 ml-1 -mb-2">Escolha uma das opções abaixo:</p>}
                   {(p.variacoes || []).map((g: any) => (
                     <div key={g.id}>
                       <p className="text-[10px] font-black uppercase text-slate-400 ml-1 mb-2">{g.nome}</p>
@@ -3087,7 +3186,7 @@ export default function App() {
                         {g.opcoes.map((o: any) => {
                           const selecionado = variacoesEscolhidas[g.id] === o.id;
                           return (
-                            <button key={o.id} onClick={() => setVariacoesEscolhidas(prev => ({ ...prev, [g.id]: o.id }))} style={{ backgroundColor: selecionado ? themeColors.primary : undefined, borderColor: selecionado ? themeColors.primary : undefined }} className={`px-4 py-2.5 rounded-full text-xs font-bold border-2 ${selecionado ? 'text-white' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>
+                            <button key={o.id} onClick={() => setVariacoesEscolhidas(prev => exclusivas ? { [g.id]: o.id } : ({ ...prev, [g.id]: o.id }))} style={{ backgroundColor: selecionado ? themeColors.primary : undefined, borderColor: selecionado ? themeColors.primary : undefined }} className={`px-4 py-2.5 rounded-full text-xs font-bold border-2 ${selecionado ? 'text-white' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>
                               {o.label}{Number(o.precoAdicional || 0) > 0 ? ` +R$ ${Number(o.precoAdicional).toFixed(2)}` : ''}
                             </button>
                           );
@@ -3449,10 +3548,35 @@ export default function App() {
               {[{id:'embalagem',label:'EMBAL.'},{id:'impressao',label:'IMPRES.'},{id:'energia',label:'LUZ'},{id:'outros',label:'OUTROS'}].map(c=>(
                 <div key={c.id} className="flex flex-col items-center bg-slate-50 p-2 rounded-xl w-full border">
                   <span className="text-[8px] font-black text-slate-400 mb-1">{c.label}</span>
-                  <input type="number" step="0.01" className="w-full bg-transparent text-center text-xs outline-none font-bold text-slate-700" value={(custos as any)[c.id]} onChange={e => setCustos({...custos, [c.id]: e.target.value})} />
+                  <input type="number" step="0.01" className="w-full bg-transparent text-center text-xs outline-none font-bold text-slate-700" value={(custos as any)[c.id]} onChange={e => {
+                    const v = e.target.value;
+                    setCustos({...custos, [c.id]: v});
+                    // Se digitar o valor da impressão direto, mantém o campo de páginas coerente
+                    if (c.id === 'impressao' && v !== '' && custoPorPaginaCalculado > 0) setPaginasImpressao(String(+(Number(v) / custoPorPaginaCalculado).toFixed(2)));
+                  }} />
                 </div>
               ))}
             </div>
+            {custoPorPaginaCalculado > 0 && (
+              <div className="flex items-center gap-2 mt-2 bg-purple-50 border border-purple-100 rounded-xl px-3 py-2 w-full">
+                <span className="text-[10px] font-black uppercase text-purple-700 shrink-0">🖨️ {modoCalculo === 'peca' ? 'Páginas por peça' : 'Páginas a imprimir'}</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  inputMode="decimal"
+                  className="w-16 bg-white rounded-lg p-1.5 text-center text-xs font-bold outline-none border border-purple-100 focus:border-purple-400"
+                  value={paginasImpressao}
+                  onChange={e => {
+                    const v = e.target.value;
+                    setPaginasImpressao(v);
+                    if (v !== '' && Number(v) >= 0) setCustos(prev => ({ ...prev, impressao: (custoPorPaginaCalculado * Number(v)).toFixed(2) }));
+                  }}
+                />
+                <span className="text-[10px] text-slate-500 shrink-0">× R$ {custoPorPaginaCalculado.toFixed(2)}</span>
+                <span style={{ color: themeColors.primary }} className="text-[11px] font-black ml-auto shrink-0">= R$ {Number(custos.impressao || 0).toFixed(2)}</span>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4 mb-4 w-full">
@@ -3572,6 +3696,7 @@ export default function App() {
                vHora,
                tGasto,
                custos,
+               paginasImpressao: Number(paginasImpressao) || 0,
                lucro,
                desconto,
                userId: user.uid,
@@ -4834,7 +4959,7 @@ export default function App() {
                       custoPorPaginaCalculado: custoPorPaginaCalculado.toFixed(4)
                     }, { merge: true });
 
-                    setCustos(prev => ({ ...prev, impressao: custoPorPaginaCalculado.toFixed(2) }));
+                    setCustos(prev => ({ ...prev, impressao: (custoPorPaginaCalculado * (Number(paginasImpressao) || 1)).toFixed(2) }));
                     showToast("Subcategoria de Impressão gravada! Taxa vinculada com sucesso à calculadora de orçamento. 🚀");
                   } catch {
                     showToast("Erro ao salvar dados de impressão.", 'erro');
@@ -5015,6 +5140,21 @@ export default function App() {
 
         {activeTab === 'catalogo' && (
           <div className="space-y-4 pt-2 w-full">
+            <div className="relative w-full">
+              <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Pesquisar no catálogo (nome ou categoria)..."
+                value={pesquisaCatalogo}
+                onChange={e => setPesquisaCatalogo(e.target.value)}
+                className="w-full p-4 pl-11 pr-11 bg-white rounded-2xl border border-slate-200 outline-none text-sm font-medium focus:border-purple-500 transition-colors shadow-sm"
+              />
+              {pesquisaCatalogo && (
+                <button onClick={() => setPesquisaCatalogo('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 p-1" aria-label="Limpar pesquisa"><X size={16}/></button>
+              )}
+            </div>
+
+            {(!pesquisaCatalogo.trim() || !!novoProdCatalogo.id) && (
             <div className="bg-white p-6 rounded-[35px] shadow-md border w-full">
               <h2 style={{ color: themeColors.primary }} className="font-bold mb-4 flex items-center gap-2 uppercase text-xs tracking-widest">
                 <BookOpen size={18}/> {novoProdCatalogo.id ? '✏️ Editando Item do Catálogo' : 'Novo Item de Venda Fixa'}
@@ -5054,7 +5194,22 @@ export default function App() {
 
               <div className="mb-5 w-full bg-purple-50/50 border border-purple-100 rounded-2xl p-4">
                 <label className="text-[10px] font-bold text-purple-600 uppercase ml-1 block mb-1">Variações do Produto (opcional)</label>
-                <p className="text-[10px] text-slate-400 mb-3">Ex: "Encadernação" com opções Wire-o / Espiral / Disco +R$49. O cliente escolhe uma opção de cada grupo na vitrine.</p>
+                <p className="text-[10px] text-slate-400 mb-3">Ex: "Encadernação" com opções Wire-o / Espiral / Disco +R$49. Por padrão o cliente escolhe uma opção de cada grupo na vitrine.</p>
+
+                {novoProdCatalogo.variacoes.length > 1 && (
+                  <label className="flex items-start gap-2 bg-white border border-purple-200 rounded-2xl p-3 mb-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 w-4 h-4 shrink-0"
+                      checked={!!novoProdCatalogo.variacoesExclusivas}
+                      onChange={e => setNovoProdCatalogo(prev => ({ ...prev, variacoesExclusivas: e.target.checked }))}
+                    />
+                    <span className="text-[11px] font-bold text-slate-700 leading-snug">
+                      Os grupos são alternativas (o cliente escolhe uma opção de UM grupo só)
+                      <span className="block font-medium text-slate-400 text-[10px] mt-0.5">Ex: "Frente" ou "Frente e Verso". O "A partir de" passa a mostrar só a opção mais barata entre todos os grupos.</span>
+                    </span>
+                  </label>
+                )}
 
                 {novoProdCatalogo.variacoes.map(grupo => (
                   <div key={grupo.id} className="bg-white rounded-2xl p-3 border mb-2">
@@ -5165,6 +5320,7 @@ export default function App() {
                     imagens: novoProdCatalogo.imagens || [],
                     descricao: novoProdCatalogo.descricao || '',
                     variacoes: (novoProdCatalogo.variacoes || []).map(g => ({ ...g, opcoes: g.opcoes.map(o => ({ ...o, precoAdicional: Number(o.precoAdicional || 0) })) })),
+                    variacoesExclusivas: !!novoProdCatalogo.variacoesExclusivas && (novoProdCatalogo.variacoes || []).length > 1,
                     personalizavel: !!novoProdCatalogo.personalizavel,
                     personalizacaoPlaceholder: novoProdCatalogo.personalizacaoPlaceholder || '',
                     categorias: novoProdCatalogo.categorias || [],
@@ -5184,10 +5340,16 @@ export default function App() {
                 {salvando.produto ? 'Salvando...' : (novoProdCatalogo.id ? 'Salvar Alterações 📝' : 'Salvar no Catálogo 📖')}
               </button>
             </div>
+            )}
 
-            <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider ml-2">Seu Catálogo Visual</h3>
+            <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider ml-2">
+              Seu Catálogo Visual{pesquisaCatalogo.trim() ? ` (${produtosCatalogoFiltrados.length} de ${produtos.length})` : ''}
+            </h3>
+            {pesquisaCatalogo.trim() && produtosCatalogoFiltrados.length === 0 && (
+              <p className="text-center text-xs text-slate-400 py-6 bg-white rounded-[30px] border">Nenhum produto encontrado com esse nome ou categoria.</p>
+            )}
             <div className="grid grid-cols-1 gap-3 w-full">
-              {produtos.map(p => (
+              {produtosCatalogoFiltrados.map(p => (
                 <div key={p.id} className="bg-white p-4 rounded-[30px] flex gap-4 items-center border border-slate-100 shadow-sm w-full">
                   <div className="w-16 h-16 rounded-2xl bg-slate-100 overflow-hidden flex items-center justify-center text-slate-300 shrink-0">
                     {p.urlImagem ? <img src={p.urlImagem} alt={p.nome} className="w-full h-full object-cover" /> : <ImageIcon size={24} />}
@@ -5227,7 +5389,7 @@ export default function App() {
                   </div>
                   <div className="flex items-center gap-1">
                     <button onClick={() => venderItemDiretoDoCatalogo(p)} style={{ backgroundColor: themeColors.secondary }} className="text-white px-3 py-2 rounded-xl text-xs font-black uppercase shadow active:scale-95">Vender 🛍️</button>
-                    <button onClick={() => setNovoProdCatalogo({ id: p.id, nome: p.nome, precoVenda: String(p.precoVenda), urlImagem: p.urlImagem || '', categorias: p.categorias || [], materiaisAssociados: p.materiaisAssociados || [], imagens: p.imagens || (p.urlImagem ? [p.urlImagem] : []), descricao: p.descricao || '', variacoes: (p.variacoes || []).map((g: any) => ({ ...g, opcoes: g.opcoes.map((o: any) => ({ ...o, precoAdicional: String(o.precoAdicional || 0) })) })), personalizavel: !!p.personalizavel, personalizacaoPlaceholder: p.personalizacaoPlaceholder || 'Ex: nome, cor, tema, data da entrega...' })} className="text-orange-400 hover:bg-orange-50 p-1.5 rounded-xl"><Edit2 size={15}/></button>
+                    <button onClick={() => setNovoProdCatalogo({ id: p.id, nome: p.nome, precoVenda: String(p.precoVenda), urlImagem: p.urlImagem || '', categorias: p.categorias || [], materiaisAssociados: p.materiaisAssociados || [], imagens: p.imagens || (p.urlImagem ? [p.urlImagem] : []), descricao: p.descricao || '', variacoes: (p.variacoes || []).map((g: any) => ({ ...g, opcoes: g.opcoes.map((o: any) => ({ ...o, precoAdicional: String(o.precoAdicional || 0) })) })), variacoesExclusivas: !!p.variacoesExclusivas, personalizavel: !!p.personalizavel, personalizacaoPlaceholder: p.personalizacaoPlaceholder || 'Ex: nome, cor, tema, data da entrega...' })} className="text-orange-400 hover:bg-orange-50 p-1.5 rounded-xl"><Edit2 size={15}/></button>
                     <button onClick={() => confirmarExcluir('produto', p.id)} className="text-red-200 p-1.5"><Trash2 size={15}/></button>
                   </div>
                 </div>
@@ -5919,7 +6081,7 @@ export default function App() {
 
                       <button onClick={() => handleDuplicarOrcamento(p)} title="Duplicar este Orçamento" className="text-blue-500 p-2 bg-blue-50 rounded-xl active:scale-95 transition-transform"><Copy size={18}/></button>
                       <button onClick={() => gerarPDF(p)} style={{ color: themeColors.secondary }} className="p-2 bg-orange-50 rounded-xl active:scale-95 transition-all"><Printer size={18}/></button>
-                      <button onClick={() => enviarZap({nomeProd: p.nomeProd, preco: p.preco, clienteId: p.clienteId, prazo: p.prazo, qtdPed: p.qtdPed})} className="text-emerald-500 p-2 bg-emerald-50 rounded-xl"><MessageCircle size={18}/></button>
+                      <button onClick={() => enviarZap(p)} className="text-emerald-500 p-2 bg-emerald-50 rounded-xl"><MessageCircle size={18}/></button>
                       <button onClick={() => confirmarExcluir('pedido', p.id)} className="text-red-200 p-2"><Trash2 size={18}/></button>
                    </div>
                  </div>
